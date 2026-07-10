@@ -99,6 +99,27 @@ export function installAuthRoutes(app) {
     res.json({ ...pair, user: publicUser(entry) });
   });
 
+  // Auto-cadastro: o usuario cria a propria conta (e-mail + senha). Nasce PENDENTE e SEM
+  // papel — nenhum acesso ate o Gestor aprovar e conceder o papel certo (regra de seguranca
+  // do plano: o app nunca concede acesso sozinho). Auto-login para o usuario ver o status.
+  app.post('/auth/register', async (req, res) => {
+    if (!dbGuard(req, res) || !throttle(req, res)) return;
+    const { name, email, password } = req.body || {};
+    const emailOk = typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    if (!emailOk) return res.status(400).json({ error: 'informe um e-mail válido' });
+    if (!password || String(password).length < 8) return res.status(400).json({ error: 'a senha deve ter ao menos 8 caracteres' });
+    const exists = await query('SELECT 1 FROM users WHERE lower(email) = lower($1)', [email.trim()]);
+    if (exists.rows.length) return res.status(409).json({ error: 'já existe uma conta com este e-mail. Tente entrar.' });
+    const { rows } = await query(
+      `INSERT INTO users (email, name, password_hash, approval_status) VALUES ($1, $2, $3, 'pending_approval') RETURNING id`,
+      [email.trim(), (name || '').trim() || email.trim(), hashPassword(password)]);
+    const userId = rows[0].id;
+    await appendAudit({ actorUserId: userId, actorRole: 'anonymous', ip: req.ip, eventType: 'auth.user.registered', entityType: 'user', entityId: userId, payload: { self_service: true } });
+    const pair = await issuePair(userId, req.get('user-agent'));
+    const entry = await resolveUser(userId);
+    res.status(201).json({ ...pair, user: publicUser(entry) });
+  });
+
   app.post('/auth/sso/exchange', async (req, res) => {
     if (!dbGuard(req, res) || !throttle(req, res)) return;
     const { accessToken } = req.body || {};

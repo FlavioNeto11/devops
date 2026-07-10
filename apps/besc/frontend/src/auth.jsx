@@ -51,6 +51,14 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // Auto-cadastro: cria a conta (pendente, sem papel) e ja loga. O Gestor concede o acesso depois.
+  const register = useCallback(async (name, email, password) => {
+    const data = await api.auth.register(name, email, password);
+    setTokens(data.accessToken, data.refreshToken);
+    setUser(data.user || null);
+    return data.user;
+  }, []);
+
   // Login SSO (Keycloak realm besc, PKCE): busca a config pública e redireciona.
   const loginSso = useCallback(async () => {
     const cfg = await api.auth.config();
@@ -87,9 +95,12 @@ export function AuthProvider({ children }) {
   const isManager = !!(user && Array.isArray(user.roles)
     && (user.roles.includes('manager') || user.roles.includes('admin')));
 
+  // usuário logado sem nenhum papel = conta recém-criada aguardando o Gestor conceder acesso
+  const isPending = !!(user && (!Array.isArray(user.roles) || user.roles.length === 0));
+
   const value = useMemo(
-    () => ({ user, loading, login, loginSso, completeSsoCallback, logout, hasPerm, isManager }),
-    [user, loading, login, loginSso, completeSsoCallback, logout, hasPerm, isManager],
+    () => ({ user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending }),
+    [user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending],
   );
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

@@ -119,7 +119,94 @@ export default function Entrar() {
         </div>
       </div>
       <p className="auth-foot">
-        Sem acesso? Fale com o gestor da plataforma. <Link to="/">Voltar ao início</Link>
+        Ainda não tem conta? <Link to="/cadastro">Criar conta</Link> · <Link to="/">Voltar ao início</Link>
+      </p>
+    </div>
+  );
+}
+
+// ---- /cadastro — auto-cadastro (e-mail + senha). A conta nasce PENDENTE, sem acesso,
+// até o gestor conceder o papel certo. ----
+export function Cadastro() {
+  const { user, loading, register } = useAuth();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+
+  if (loading) return <Loading label="Verificando sessão…" />;
+  if (user && !done) return <Navigate to="/" replace />;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) { setError('Informe seu nome.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Informe um e-mail válido.'); return; }
+    if (password.length < 8) { setError('A senha deve ter ao menos 8 caracteres.'); return; }
+    if (password !== confirm) { setError('As senhas não conferem.'); return; }
+    setBusy(true); setError(null);
+    try {
+      await register(name.trim(), email.trim(), password);
+      setDone(true);
+    } catch (err) {
+      const m = (err && err.message) || '';
+      setError(/409|já existe|existe uma conta/i.test(m)
+        ? 'Já existe uma conta com este e-mail. Tente entrar.'
+        : friendlyError(err, 'Não foi possível criar a conta. Tente novamente.'));
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-head">
+          <div className="ah-ic ah-ok"><Icon name="check" size={24} /></div>
+          <h1>Conta criada!</h1>
+          <p>Sua conta foi criada e está <strong>aguardando liberação</strong>. O gestor da plataforma vai conceder o acesso adequado ao seu perfil. Enquanto isso, você pode navegar pelo conteúdo público.</p>
+        </div>
+        <div className="auth-actions" style={{ justifyContent: 'center' }}>
+          <Link to="/" className="btn primary">Ir para o início <Icon name="chevronRight" size={14} /></Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-head">
+        <div className="ah-ic"><Icon name="user" size={24} /></div>
+        <h1>Criar conta no Portal BESC</h1>
+        <p>Crie seu acesso com e-mail e senha. A conta começa <strong>sem permissões</strong> — o gestor concede o acesso ao seu perfil depois de conferir seu cadastro.</p>
+      </div>
+      <div className="card auth-card">
+        <div className="card-body">
+          <Banner kind="err">{error}</Banner>
+          <form onSubmit={submit}>
+            <Field label="Nome completo">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" autoComplete="name" autoFocus />
+            </Field>
+            <Field label="E-mail">
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@exemplo.com.br" autoComplete="email" />
+            </Field>
+            <Field label="Senha" hint="Mínimo de 8 caracteres.">
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crie uma senha" autoComplete="new-password" />
+            </Field>
+            <Field label="Confirmar senha">
+              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
+            </Field>
+            <div className="auth-actions">
+              <button type="submit" className="btn primary" disabled={busy}>
+                {busy ? 'Criando…' : <>Criar conta <Icon name="check" size={14} /></>}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <p className="auth-foot">
+        Já tem conta? <Link to="/entrar">Entrar</Link> · <Link to="/">Voltar ao início</Link>
       </p>
     </div>
   );

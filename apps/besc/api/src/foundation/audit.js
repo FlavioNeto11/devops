@@ -11,7 +11,7 @@ const hashIp = (ip) => (ip ? createHash('sha256').update(String(ip) + '|' + conf
 // Taxonomia fechada (subset da Fase 0 — docs/evolution/07-trilha-auditoria.md §4).
 export const EVENT_TYPES = new Set([
   'auth.login.succeeded', 'auth.login.denied', 'auth.sso.succeeded', 'auth.sso.denied',
-  'auth.session.refreshed', 'auth.session.revoked',
+  'auth.session.refreshed', 'auth.session.revoked', 'auth.user.registered',
   'auth.invitation.created', 'auth.invitation.accepted',
   'rbac.role.created', 'rbac.role.deleted', 'rbac.permissions.changed',
   'rbac.role.granted', 'rbac.role.revoked', 'rbac.user.updated',

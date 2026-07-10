@@ -72,21 +72,39 @@ table.data td, .stat .v, .cs-metric .m-v, .facet-count, .cb-count, .count-bar { 
 
 /* ---- shell ---- */
 .topbar { background: linear-gradient(165deg, #14707f 0%, var(--accent) 55%, var(--accent-ink) 100%); color: #fff; height: var(--topbar-h); min-height: var(--topbar-h); flex-shrink: 0; position: sticky; top: 0; z-index: 30; box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 2px 10px rgba(10,40,55,.18); }
-.topbar-inner { max-width: 1200px; margin: 0 auto; height: 100%; padding: 0 22px; display: flex; align-items: center; gap: 18px; }
-.brand { display: flex; align-items: center; gap: 11px; }
-.brand a { color: #fff; display: flex; align-items: center; gap: 11px; }
+.topbar-inner { max-width: 1400px; margin: 0 auto; height: 100%; padding: 0 18px; display: flex; align-items: center; gap: 12px; }
+/* marca: nunca encolhe nem quebra o texto (era a causa da sobreposicao) */
+.brand { display: flex; align-items: center; flex-shrink: 0; }
+.brand a { color: #fff; display: flex; align-items: center; gap: 10px; }
 .brand a:hover { text-decoration: none; }
-.brand-mark { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(255,255,255,.26); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-.brand-text { display: flex; flex-direction: column; line-height: 1.12; }
-.brand-text b { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; }
-.brand-text small { font-weight: 500; opacity: .8; font-size: 11.5px; }
-.topbar .spacer { flex: 1; }
-.topbar nav { display: flex; gap: 2px; align-items: center; }
-.topbar nav a { position: relative; color: rgba(255,255,255,.82); font-weight: 600; font-size: 13.5px; padding: 8px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 7px; transition: background .14s ease, color .14s ease; }
-.topbar nav a svg { opacity: .9; }
-.topbar nav a:hover { color: #fff; text-decoration: none; background: rgba(255,255,255,.12); }
-.topbar nav a.active { color: #fff; background: rgba(255,255,255,.16); }
-.topbar nav a.active::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.9); }
+.brand-mark { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(255,255,255,.26); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.brand-text { display: flex; flex-direction: column; line-height: 1.1; white-space: nowrap; }
+.brand-text b { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.brand-text small { font-weight: 500; opacity: .78; font-size: 11px; white-space: nowrap; }
+
+/* nav: ocupa o espaco restante; os links rolam horizontalmente se faltar largura, sem
+   nunca empurrar a marca ou o menu do usuario para fora. */
+.topnav { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.nav-scroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; -webkit-overflow-scrolling: touch; }
+.nav-scroll::-webkit-scrollbar { display: none; }
+.topnav > a, .nav-scroll a, .nav-dd > summary { position: relative; color: rgba(255,255,255,.84); font-weight: 600; font-size: 12.5px; padding: 7px 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0; transition: background .14s ease, color .14s ease; }
+.nav-scroll a svg, .nav-dd > summary svg { opacity: .9; }
+.nav-scroll a:hover, .nav-dd > summary:hover { color: #fff; text-decoration: none; background: rgba(255,255,255,.12); }
+.nav-scroll a.active { color: #fff; background: rgba(255,255,255,.16); }
+.nav-scroll a.active::after { content: ""; position: absolute; left: 11px; right: 11px; bottom: 2px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.9); }
+.nav-entrar { color: rgba(255,255,255,.9) !important; border: 1px solid rgba(255,255,255,.3); font-weight: 600; font-size: 13px; padding: 7px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
+.nav-entrar:hover { background: rgba(255,255,255,.16); text-decoration: none; }
+
+/* dropdowns da nav (Gestão, Recursos) — details/summary nativos */
+.nav-dd { position: relative; flex-shrink: 0; }
+.nav-dd > summary { list-style: none; cursor: pointer; }
+.nav-dd > summary::-webkit-details-marker { display: none; }
+.nav-dd[open] > summary { color: #fff; background: rgba(255,255,255,.16); }
+.nav-dd-pop { position: absolute; right: 0; top: calc(100% + 8px); min-width: 210px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 6px; z-index: 40; display: flex; flex-direction: column; gap: 2px; }
+.nav-dd-link { color: var(--ink) !important; background: none; font-weight: 600; font-size: 13px; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.nav-dd-link svg { opacity: .7; }
+.nav-dd-link:hover { background: var(--surface-2); text-decoration: none; }
+.nav-dd-link.active { color: var(--accent-ink) !important; background: var(--accent-soft); }
 
 .legal-strip { background: #faf5e6; border-bottom: 1px solid #eadfc0; color: #715f31; font-size: 12px; padding: 7px 22px; text-align: center; flex-shrink: 0; letter-spacing: .005em; }
 .container { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 30px 22px 60px; }
@@ -298,8 +316,8 @@ fieldset legend svg { color: var(--accent); }
 /* ===== PORTAL / BASE DE CONHECIMENTO ===== */
 
 /* nav: separador antes dos utilitarios; scroll no mobile */
-.topbar nav .nav-sep { width: 1px; align-self: center; height: 20px; background: rgba(255,255,255,.22); margin: 0 4px; }
-@media (max-width: 1024px) { .topbar nav { overflow-x: auto; scrollbar-width: none; } .topbar nav::-webkit-scrollbar { display: none; } }
+/* em telas estreitas, esconde o subtítulo da marca para dar espaço à nav */
+@media (max-width: 720px) { .brand-text small { display: none; } .topbar-inner { gap: 10px; padding: 0 14px; } }
 
 /* markdown */
 .md-body { line-height: 1.65; max-width: 74ch; }
@@ -429,8 +447,11 @@ video.viewer-frame { min-height: auto; max-height: 70vh; background: #000; }
 .auth-foot { text-align: center; font-size: 12px; color: var(--faint); margin-top: 14px; }
 
 /* menu do usuário na topbar (details/summary — teclado/SR nativos) */
-.user-menu { position: relative; margin-left: 4px; }
-.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,.9); font-weight: 600; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.1); transition: background .14s ease, color .14s ease; white-space: nowrap; }
+.user-menu { position: relative; flex-shrink: 0; }
+.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; color: rgba(255,255,255,.9); font-weight: 600; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.1); transition: background .14s ease, color .14s ease; white-space: nowrap; }
+.um-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber, #e0a63a); box-shadow: 0 0 0 2px rgba(255,255,255,.35); flex-shrink: 0; }
+.um-pending { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: var(--muted); line-height: 1.4; background: #fbf3e0; border: 1px solid #ecd9ad; border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.um-pending svg { flex-shrink: 0; margin-top: 1px; color: #b07d1e; }
 .user-menu summary::-webkit-details-marker { display: none; }
 .user-menu summary:hover, .user-menu[open] summary { background: rgba(255,255,255,.2); color: #fff; }
 .user-menu summary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -471,9 +492,5 @@ video.viewer-frame { min-height: auto; max-height: 70vh; background: #000; }
 .demo-watermark .dw-ic { flex-shrink: 0; display: inline-flex; align-items: center; }
 .demo-watermark strong { font-weight: 750; }
 
-/* Menu suspenso "Administração" na topbar (reusa .user-menu / .um-pop) */
-.topbar nav .nav-admin .um-pop { right: auto; left: 0; min-width: 190px; display: flex; flex-direction: column; gap: 2px; }
-.topbar nav .nav-admin .um-pop a.nav-admin-link { color: var(--ink); background: none; font-weight: 600; padding: 8px 10px; border-radius: 8px; }
-.topbar nav .nav-admin .um-pop a.nav-admin-link:hover { color: var(--ink); background: var(--surface-2); }
-.topbar nav .nav-admin .um-pop a.nav-admin-link.active { color: var(--accent-ink); background: var(--accent-soft); }
-.topbar nav .nav-admin .um-pop a.nav-admin-link.active::after { display: none; }
+/* variante de sucesso do ícone da tela de auth (cadastro concluído) */
+.auth-head .ah-ic.ah-ok { background: linear-gradient(180deg, #dff3e4, #c9ecd4); color: #1f7a43; box-shadow: inset 0 0 0 1px #b7e0c3; }
