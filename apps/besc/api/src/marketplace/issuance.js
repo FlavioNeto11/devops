@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { query, tx } from '../db.js';
 import { appendAudit } from '../foundation/audit.js';
 import { getLedger } from '../ledger/port.js';
+import { chargeFirstTransferFee } from './revenue.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
 const docHash = (o) => createHash('sha256').update(JSON.stringify(o || {})).digest('hex');
@@ -24,16 +25,15 @@ async function ensureUserWallet(client, userId) {
   return ins.rows[0].id;
 }
 
-// saldo disponivel da treasury num titulo = posicao - (contratado ativo/suspenso)
+// saldo disponivel da treasury = posicao REAL da treasury (os tokens contratados ja
+// foram movidos para a carteira do holder via token_movement/wallet_position).
 async function treasuryAvailable(client, titleId) {
   const treasury = await ensureTreasury(client);
   const pos = await client.query(
     `SELECT COALESCE(SUM(wp.quantity),0) AS q FROM wallet_position wp
      JOIN token_batch b ON b.id = wp.batch_id WHERE b.title_id = $1 AND wp.wallet_id = $2`,
     [titleId, treasury]);
-  const contracted = await client.query(
-    `SELECT COALESCE(SUM(quantity),0) AS q FROM token_contract WHERE title_id = $1 AND status IN ('active','suspended')`, [titleId]);
-  return { treasury, available: Number(pos.rows[0].q) - Number(contracted.rows[0].q) };
+  return { treasury, available: Number(pos.rows[0].q) };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,10 +129,16 @@ export async function contractTokens(titleId, { quantity, purpose = 'purchase', 
       `INSERT INTO token_movement (batch_id, from_wallet, to_wallet, quantity, reason, contract_id, actor_user_id)
        VALUES ($1,$2,$3,$4,'transfer',$5,$6)`,
       [batchId, treasury, holderWallet, qty, contract.id, actor.userId]);
-    return { status: 201, body: contract };
+    // I1: fee SO na saida da treasury (1a transferencia = distribuicao primaria).
+    // Roda na MESMA transacao; unique parcial garante 1 fee por contrato.
+    const fee = await chargeFirstTransferFee(client, { contract, actor });
+    return { status: 201, body: { ...contract, first_transfer_fee: fee ? fee.amount.toFixed(2) : null } };
   });
   if (out.status === 201) {
     await appendAudit({ actorUserId: actor.userId, actorRole: actor.role, ip: actor.ip, eventType: 'token.transfer.confirmed', entityType: 'token_contract', entityId: out.body.id, payload: { titleId, quantity: qty, unitFaceValueFrozen: out.body.unit_face_value_frozen, total: out.body.total_face_value, transferKind: 'first' } });
+    if (out.body.first_transfer_fee != null) {
+      await appendAudit({ actorUserId: actor.userId, actorRole: actor.role, ip: actor.ip, eventType: 'market.fee.charged', entityType: 'token_contract', entityId: out.body.id, payload: { amount: out.body.first_transfer_fee, kind: 'first_transfer' } });
+    }
   }
   return out;
 }

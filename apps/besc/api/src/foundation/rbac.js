@@ -28,6 +28,10 @@ export const PERMISSION_CATALOG = [
   { key: 'contracts:read', label: 'Ver a própria carteira e contratos', category: 'investidor', sensitive: false },
   { key: 'contracts:contract', label: 'Contratar tokens', category: 'investidor', sensitive: false },
   { key: 'leases:lease', label: 'Alugar títulos', category: 'investidor', sensitive: false },
+  // receita + gate (Fase 4)
+  { key: 'fees:read', label: 'Ver faturas e relatórios financeiros', category: 'financeiro', sensitive: false },
+  { key: 'fees:write', label: 'Gerir tarifas, aluguéis, custos e baixas', category: 'financeiro', sensitive: true },
+  { key: 'gate:manage', label: 'Gerir o gate regulatório (go-live)', category: 'financeiro', sensitive: true },
 ];
 
 // Seeds dos papeis minimos (linhas; insert-if-missing — o admin pode recombinar depois).
@@ -43,6 +47,7 @@ const ROLE_SEEDS = [
       ['audit:read', 'all'], ['audit:export', 'all'],
       ['titles:read', 'all'], ['titles:create', 'all'], ['valuations:write', 'all'], ['params:write', 'all'],
       ['tokens:issue', 'all'], ['legal_status:transition', 'all'], ['legal_status:read', 'all'],
+      ['fees:read', 'all'], ['fees:write', 'all'], ['gate:manage', 'all'],
     ],
   },
   { key: 'admin', label: 'Administrador da plataforma', perms: [['*', 'all']] },

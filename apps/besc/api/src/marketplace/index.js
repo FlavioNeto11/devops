@@ -11,6 +11,8 @@ import {
 } from './titles.js';
 import { issueBatch, contractTokens, substituteContract, writeOffContract, listContracts } from './issuance.js';
 import { installPortals } from './portals.js';
+import { markInvoicePaid, createLease, closeCompetence, addCost, trialBalance, revenueVsCost, listInvoices, listLeases } from './revenue.js';
+import { gateStatus, setGateItem, grantGoLive, revokeGoLive } from './gate.js';
 
 export function bootMarketplace() {
   setLedgerAdapter(new SimulatedLedgerAdapter((text, params) => query(text, params)));
@@ -56,4 +58,20 @@ export function installMarketplace(app) {
 
   // portais por perfil (investidor/auditor/gestor-grants) — Fase 2
   installPortals(app);
+
+  // ---- receita (Fase 4): faturas, aluguel, custos, relatorios ----
+  app.get('/invoices', authorize('fees:read'), async (req, res) => res.json(await listInvoices({ status: req.query.status })));
+  app.post('/invoices/:id/pay', authorize('fees:write'), async (req, res) => send(res, await markInvoicePaid(req.params.id, req.body || {}, actorOf(req))));
+  app.get('/leases', authorize('fees:read'), async (req, res) => res.json(await listLeases()));
+  app.post('/contracts/:id/leases', authorize('fees:write'), async (req, res) => send(res, await createLease(req.params.id, req.body || {}, actorOf(req))));
+  app.post('/leases/:id/close-competence', authorize('fees:write'), async (req, res) => send(res, await closeCompetence(req.params.id, req.body || {}, actorOf(req))));
+  app.post('/costs', authorize('fees:write'), async (req, res) => send(res, await addCost(req.body || {}, actorOf(req))));
+  app.get('/reports/trial-balance', authorize('fees:read'), async (req, res) => res.json(await trialBalance()));
+  app.get('/reports/revenue-vs-cost', authorize('fees:read'), async (req, res) => res.json(await revenueVsCost({ from: req.query.from, to: req.query.to })));
+
+  // ---- gate regulatorio (Fase 4): trava go-live em codigo ----
+  app.get('/gate', authorize('fees:read'), async (req, res) => res.json(await gateStatus()));
+  app.put('/gate/items/:key', authorize('gate:manage'), async (req, res) => send(res, await setGateItem(req.params.key, req.body || {}, actorOf(req))));
+  app.post('/gate/grant', authorize('gate:manage'), async (req, res) => send(res, await grantGoLive(actorOf(req))));
+  app.post('/gate/revoke', authorize('gate:manage'), async (req, res) => send(res, await revokeGoLive(actorOf(req), (req.body || {}).reason)));
 }

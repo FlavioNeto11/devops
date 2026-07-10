@@ -237,4 +237,25 @@ export const api = {
     grant: (titleId, b) => req('POST', `/titles/${titleId}/grants`, b),      // {userEmail, purpose?}
     revokeGrant: (titleId, userId) => req('DELETE', `/titles/${titleId}/grants/${userId}`),
   },
+
+  // --- financeiro do Gestor (Fase 4): faturas, aluguéis, custos, relatórios contábeis
+  //     (docs/evolution/06-modelo-receita.md) e gate regulatório bloqueante
+  //     (docs/evolution/10-gate-regulatorio.md). Leitura = fees:read; escrita = fees:write;
+  //     gate = gate:manage. Faturas nascem do fee de 1ª transferência e do aluguel; o gate
+  //     controla o go-live (recusa em código enquanto false). ---
+  finance: {
+    invoices: (status) => req('GET', '/invoices' + qs({ status })),          // [{...invoice}]
+    payInvoice: (id, b) => req('POST', `/invoices/${id}/pay`, b || {}),       // {evidenceRef?}
+    leases: () => req('GET', '/leases'),                                      // [{...lease, title_label, accruals}]
+    createLease: (contractId, b) => req('POST', `/contracts/${contractId}/leases`, b), // lastro→aluguel
+    closeCompetence: (leaseId, b) => req('POST', `/leases/${leaseId}/close-competence`, b), // {competence, suspendedFromDay?}
+    addCost: (b) => req('POST', '/costs', b),                                 // {category, description, amount, competence, evidenceRef?}
+    trialBalance: () => req('GET', '/reports/trial-balance'),                 // {accounts, totalDebit, totalCredit, balanced}
+    revenueVsCost: (params) => req('GET', '/reports/revenue-vs-cost' + qs(params)), // {from, to}
+    // gate regulatório
+    gate: () => req('GET', '/gate'),                                          // {items, allItemsResolved, lastApproval, goLive}
+    setGateItem: (key, b) => req('PUT', `/gate/items/${encodeURIComponent(key)}`, b), // {status, professionalName?, ...}
+    grantGoLive: () => req('POST', '/gate/grant'),                            // 200 {goLive:true} | 409
+    revokeGoLive: (b) => req('POST', '/gate/revoke', b || {}),               // {reason?}
+  },
 };

@@ -24,6 +24,9 @@ export const EVENT_TYPES = new Set([
   'token.transfer.requested', 'token.transfer.confirmed', 'token.transfer.failed',
   'token.freeze.confirmed', 'token.unfreeze.confirmed',
   'token.substitution.requested', 'token.substitution.confirmed', 'token.substitution.failed',
+  // receita + aluguel (Fase 4)
+  'market.fee.charged', 'rental.contract.created', 'rental.payment.recorded',
+  'rental.contract.suspended', 'rental.contract.reactivated', 'rental.contract.terminated',
 ]);
 
 export async function appendAudit({ actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId, payload = {}, occurredAt = null }) {
