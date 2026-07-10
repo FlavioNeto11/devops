@@ -27,7 +27,7 @@ import GateRegulatorio from './pages/GateRegulatorio.jsx';
 import Marketplace from './pages/Marketplace.jsx';
 import TituloDossie from './pages/TituloDossie.jsx';
 import InvestidorCarteira from './pages/InvestidorCarteira.jsx';
-import Entrar, { EntrarCallback } from './pages/Entrar.jsx';
+import Entrar, { EntrarCallback, Cadastro } from './pages/Entrar.jsx';
 
 const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
 
@@ -58,10 +58,10 @@ function RequireRole({ perm, children }) {
 
 // Área do usuário na topbar: menu (nome/e-mail/papéis + Sair) quando logado; "Entrar" quando não.
 function UserArea() {
-  const { user, logout } = useAuth();
+  const { user, logout, isPending } = useAuth();
   const navigate = useNavigate();
   if (!user) {
-    return <NavLink to="/entrar"><Icon name="login" /> Entrar</NavLink>;
+    return <NavLink to="/entrar" className="nav-entrar"><Icon name="login" size={14} /> Entrar</NavLink>;
   }
   const displayName = user.name || user.email || 'Usuário';
   const firstName = String(displayName).split(/\s+/)[0];
@@ -74,15 +74,20 @@ function UserArea() {
       <summary>
         <span className="um-avatar" aria-hidden="true"><Icon name="user" size={13} /></span>
         <span className="um-name">{firstName}</span>
+        {isPending && <span className="um-dot" title="Conta aguardando liberação" aria-hidden="true" />}
       </summary>
       <div className="um-pop">
         <div className="um-id">
           <strong>{displayName}</strong>
           {user.email && <span className="um-mail">{user.email}</span>}
         </div>
-        {Array.isArray(user.roles) && user.roles.length > 0 && (
+        {Array.isArray(user.roles) && user.roles.length > 0 ? (
           <div className="um-roles">
             {user.roles.map((r) => <span key={r} className="pill">{ROLE_LABELS[r] || r}</span>)}
+          </div>
+        ) : (
+          <div className="um-pending">
+            <Icon name="clock" size={13} /> Conta aguardando o gestor liberar seu acesso.
           </div>
         )}
         <button type="button" className="btn sm" onClick={doLogout}>
@@ -117,33 +122,38 @@ export default function App() {
               </span>
             </Link>
           </div>
-          <div className="spacer" />
-          <nav>
-            <NavLink to="/" end><Icon name="landmark" /> Início</NavLink>
-            <NavLink to="/marketplace"><Icon name="coins" /> Investir</NavLink>
-            <NavLink to="/biblioteca"><Icon name="library" /> Biblioteca</NavLink>
-            <NavLink to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência</NavLink>
-            {canSeeWallet && <NavLink to="/investidor/carteira"><Icon name="briefcase" /> Minha carteira</NavLink>}
-            {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Casos</NavLink>}
-            {canManageTitles && <NavLink to="/gestao/titulos"><Icon name="coins" /> Gestão</NavLink>}
-            {canAudit && <NavLink to="/auditoria"><Icon name="gavel" /> Auditoria</NavLink>}
-            {canAdmin && (
-              <details className="user-menu nav-admin">
-                <summary><Icon name="shield" size={13} /> <span>Administração</span></summary>
-                <div className="um-pop">
-                  {canManageUsers && <NavLink to="/gestao/usuarios" className="nav-admin-link"><Icon name="user" size={14} /> Usuários</NavLink>}
-                  {canManageRoles && <NavLink to="/gestao/papeis" className="nav-admin-link"><Icon name="shield" size={14} /> Papéis</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/financeiro" className="nav-admin-link"><Icon name="coins" size={14} /> Financeiro</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/alugueis" className="nav-admin-link"><Icon name="briefcase" size={14} /> Aluguéis</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/gate" className="nav-admin-link"><Icon name="scale" size={14} /> Gate regulatório</NavLink>}
+          <nav className="topnav">
+            <div className="nav-scroll">
+              <NavLink to="/" end><Icon name="landmark" /> Início</NavLink>
+              <NavLink to="/marketplace"><Icon name="coins" /> Investir</NavLink>
+              <NavLink to="/biblioteca"><Icon name="library" /> Biblioteca</NavLink>
+              <NavLink to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência</NavLink>
+              {canSeeWallet && <NavLink to="/investidor/carteira"><Icon name="briefcase" /> Carteira</NavLink>}
+              {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Casos</NavLink>}
+              {canManageTitles && <NavLink to="/gestao/titulos"><Icon name="coins" /> Títulos</NavLink>}
+              {canAudit && <NavLink to="/auditoria"><Icon name="gavel" /> Auditoria</NavLink>}
+              {canAdmin && (
+                <details className="nav-dd">
+                  <summary><Icon name="shield" size={14} /> <span>Gestão</span></summary>
+                  <div className="nav-dd-pop">
+                    {canManageUsers && <NavLink to="/gestao/usuarios" className="nav-dd-link"><Icon name="user" size={14} /> Usuários</NavLink>}
+                    {canManageRoles && <NavLink to="/gestao/papeis" className="nav-dd-link"><Icon name="shield" size={14} /> Papéis</NavLink>}
+                    {canSeeFinance && <NavLink to="/gestao/financeiro" className="nav-dd-link"><Icon name="coins" size={14} /> Financeiro</NavLink>}
+                    {canSeeFinance && <NavLink to="/gestao/alugueis" className="nav-dd-link"><Icon name="briefcase" size={14} /> Aluguéis</NavLink>}
+                    {canSeeFinance && <NavLink to="/gestao/gate" className="nav-dd-link"><Icon name="scale" size={14} /> Gate regulatório</NavLink>}
+                  </div>
+                </details>
+              )}
+              <details className="nav-dd">
+                <summary><Icon name="layers" size={14} /> <span>Recursos</span></summary>
+                <div className="nav-dd-pop">
+                  <NavLink to="/glossario" className="nav-dd-link"><Icon name="glossary" size={14} /> Glossário</NavLink>
+                  <NavLink to="/referencia" className="nav-dd-link"><Icon name="scale" size={14} /> Referência</NavLink>
+                  <NavLink to="/roadmap" className="nav-dd-link"><Icon name="roadmap" size={14} /> Roadmap</NavLink>
+                  <NavLink to="/ajuda" className="nav-dd-link"><Icon name="help" size={14} /> Ajuda</NavLink>
                 </div>
               </details>
-            )}
-            <span className="nav-sep" aria-hidden="true" />
-            <NavLink to="/glossario"><Icon name="glossary" /> Glossário</NavLink>
-            <NavLink to="/referencia"><Icon name="scale" /> Referência</NavLink>
-            <NavLink to="/ajuda"><Icon name="help" /> Ajuda</NavLink>
-            <span className="nav-sep" aria-hidden="true" />
+            </div>
             <UserArea />
           </nav>
         </div>
@@ -167,6 +177,7 @@ export default function App() {
           <Route path="/investidor/carteira" element={<RequireRole perm="contracts:read"><InvestidorCarteira /></RequireRole>} />
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/entrar/callback" element={<EntrarCallback />} />
+          <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/casos" element={<RequireRole perm="cases:read"><Dashboard /></RequireRole>} />
           <Route path="/gestao/titulos" element={<RequireRole perm="titles:read"><GestaoTitulos /></RequireRole>} />
           <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:read"><GestaoTituloDetail /></RequireRole>} />

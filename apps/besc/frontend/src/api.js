@@ -128,6 +128,7 @@ export const api = {
   auth: {
     config: () => req('GET', '/auth/config'),
     login: (email, password) => req('POST', '/auth/login', { email, password }),
+    register: (name, email, password) => req('POST', '/auth/register', { name, email, password }),
     ssoExchange: (accessToken) => req('POST', '/auth/sso/exchange', { accessToken }),
     refresh: (refreshToken) => req('POST', '/auth/refresh', { refreshToken }),
     logout: (refreshToken) => req('POST', '/auth/logout', { refreshToken }),
