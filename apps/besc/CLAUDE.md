@@ -30,6 +30,7 @@ do Brasil), que serve de fundamento para uma **futura** tokenização. Duas fren
 organizacional — **não** presta aconselhamento jurídico (ementas marcadas "requer validação jurídica").
 
 O escopo funcional do levantamento (10 seções) está em [`ESCOPO-FUNCIONAL.md`](./ESCOPO-FUNCIONAL.md).
+**Plano de evolução p/ MARKETPLACE tokenizado** (proposta, não implementado): [`docs/evolution/00-visao-geral.md`](./docs/evolution/00-visao-geral.md).
 
 ### Conteúdo (biblioteca + jurisprudência)
 - **Coleções** no mesmo store JSON: `library`, `jurisprudence`, `glossary`, `catalogMeta` (migração
