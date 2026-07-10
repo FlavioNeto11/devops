@@ -614,7 +614,7 @@ app.get('/stats', (req, res) => {
 app.use((req, res) => res.status(404).json({ error: 'rota não encontrada' }));
 
 const PORT = process.env.PORT || 8080;
-Promise.all([store.init(), bootFoundation()]).then(([, foundationOn]) => {
-  if (foundationOn) bootMarketplace(); // liga o SimulatedLedgerAdapter ao pool
+Promise.all([store.init(), bootFoundation()]).then(async ([, foundationOn]) => {
+  if (foundationOn) await bootMarketplace(); // liga o adapter (simulado por padrão) antes de servir
   app.listen(PORT, () => console.log(`[besc-api] ouvindo em :${PORT} (data em ${process.env.DATA_DIR || 'cwd/data'})`));
 });

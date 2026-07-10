@@ -4,6 +4,7 @@ import { query } from '../db.js';
 import { authorize } from '../foundation/rbac.js';
 import { setLedgerAdapter } from '../ledger/port.js';
 import { SimulatedLedgerAdapter } from '../ledger/simulated.js';
+import { config } from '../config.js';
 import { LEGAL_STATUSES, TRANSITIONS } from './states.js';
 import {
   createTitle, listTitles, getTitle, addValuation, createParameter, activateParameter,
@@ -14,7 +15,20 @@ import { installPortals } from './portals.js';
 import { markInvoicePaid, createLease, closeCompetence, addCost, trialBalance, revenueVsCost, listInvoices, listLeases } from './revenue.js';
 import { gateStatus, setGateItem, grantGoLive, revokeGoLive } from './gate.js';
 
-export function bootMarketplace() {
+export async function bootMarketplace() {
+  // Toggle simulado<->besu (docs/evolution/05). Default simulado: o off-chain e a fonte
+  // da verdade e a chain so entra apos o gate regulatorio. besu exige BESU_* no ambiente.
+  if (config.ledgerAdapter === 'besu' && config.besuRpcUrl && config.besuPrivateKey && config.besuContractAddress) {
+    try {
+      const { BesuAdapter } = await import('../ledger/besu.js');
+      const adapter = new BesuAdapter({ rpcUrl: config.besuRpcUrl, privateKey: config.besuPrivateKey, contractAddress: config.besuContractAddress, chainId: config.besuChainId });
+      const h = await adapter.health();
+      if (h.ok) { setLedgerAdapter(adapter); console.log(`[ledger] BesuAdapter ativo (${config.besuChainId}, bloco ${h.blockHeight})`); return; }
+      console.error('[ledger] Besu indisponível — caindo para o adaptador simulado:', h.error);
+    } catch (e) {
+      console.error('[ledger] falha ao iniciar BesuAdapter — usando simulado:', e.message);
+    }
+  }
   setLedgerAdapter(new SimulatedLedgerAdapter((text, params) => query(text, params)));
 }
 
