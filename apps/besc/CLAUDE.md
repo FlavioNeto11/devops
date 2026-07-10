@@ -57,6 +57,32 @@ O escopo funcional do levantamento (10 seções) está em [`ESCOPO-FUNCIONAL.md`
 Domínio (enums canônicos §2.11, motor de pendências §8.1, máquina de status §8.2, matriz de risco §8.3,
 relatórios §9) vive em `api/src/domain.js` + `api/src/reports.js`. Frontend em `frontend/src/`.
 
+### Evolução MARKETPLACE (Fases 0–4 IMPLEMENTADAS e no ar; plano em `docs/evolution/`)
+
+O portal evoluiu para um **marketplace de ações BESC tokenizadas** (as fases 0–4 do
+`docs/evolution/09-roadmap.md` estão na main). Módulos novos no `api/src/`:
+- **`foundation/`** — identidade/RBAC/auditoria: `auth.js` (login local + SSO), `rbac.js`
+  (papéis/permissões em dados; deny por padrão; papel novo sem deploy), `admin.js`,
+  `audit.js` (trilha hash-chain append-only; taxonomia fechada), `index.js` (boot fail-soft).
+- **`marketplace/`** — `titles.js` (título↔caso, valuation, parâmetros versionados, **máquina
+  jurídica de 7 estados** com cascatas), `issuance.js` (emissão, **trava de valor de face**,
+  substituição), `revenue.js` (**first-transfer fee = saída da treasury**, aluguel + accrual,
+  **contabilidade de dupla entrada append-only**), `gate.js` (**gate regulatório**: `go_live_enabled`
+  derivado dos 7 itens `requiresLegal` com parecer), `portals.js` (dossiê allowlist, escopo linked
+  do auditor, área do investidor), `states.js`.
+- **`ledger/`** — `port.js` (LedgerPort), `simulated.js` (SimulatedLedgerAdapter, DB-only, DEFAULT),
+  `besu.js` (BesuAdapter ethers v6, Fase 3), `contracts/TitleRegistry.sol` (+`.json` compilado).
+- **`db.js`** + **`db/migrate.js`** (Postgres, migrations `sql/000N_*.sql` com advisory lock).
+
+DDL do marketplace em `api/sql/0003_marketplace.sql`..`0005_receita_gate.sql`. Frontend: telas
+`/gestao/*` (títulos, usuários, papéis, financeiro, aluguéis, gate), `/investidor/*`, `/auditoria/*`,
+`/marketplace`. **Modo demonstração** (watermark) até o gate liberar `go_live` — nenhuma operação
+com dinheiro/valor mobiliário real antes do parecer regulatório (trava em código).
+
+**Ledger**: `LEDGER_ADAPTER=simulated` por padrão (off-chain é a fonte da verdade). O nó Besu
+(`k8s/besu.yaml`) roda como espelho; armar = `scripts/besu-deploy-contract.ps1` + `LEDGER_ADAPTER=besu`
++ `BESU_*` (chave via Sealed Secret), **só após o gate regulatório**.
+
 ## Rodar / publicar
 
 ```powershell

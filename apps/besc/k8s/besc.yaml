@@ -37,6 +37,11 @@ spec:
             - { name: KEYCLOAK_USERINFO_URL, value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/besc/protocol/openid-connect/userinfo" }
             - { name: KEYCLOAK_CLIENT_ID, value: besc-spa }
             - { name: AUTO_MIGRATE, value: "true" }
+            # ledger (Fase 3): simulado por padrao (off-chain e a fonte da verdade).
+            # Para armar o Besu: LEDGER_ADAPTER=besu + BESU_* (RPC interno + chave/contrato
+            # via SealedSecret) apos o gate regulatorio. Ver scripts/besu-deploy-contract.ps1.
+            - { name: LEDGER_ADAPTER, value: "simulated" }
+            - { name: BESU_RPC_URL, value: "http://besc-besu:8545" }
           resources:
             requests: { cpu: 50m, memory: 128Mi }
             limits: { cpu: 500m, memory: 512Mi }
