@@ -8,7 +8,6 @@ const TABS = [
   { key: 'conversao', label: 'Relações de substituição', icon: 'coins' },
   { key: 'base_legal', label: 'Base legal', icon: 'scale' },
   { key: 'historia', label: 'Histórico', icon: 'clock' },
-  { key: 'custas', label: 'Custas de cartório', icon: 'coins' },
   { key: 'jurisprudencia', label: 'Padrão jurisprudencial', icon: 'gavel' },
 ];
 
@@ -85,24 +84,6 @@ export default function Referencia() {
                   </div>
                 ))}
               </div>
-            </div></div>
-          )}
-
-          {tab === 'custas' && ref.notaryFees && (
-            <div className="card"><div className="card-body">
-              <h2 style={{ fontSize: 17, marginBottom: 4 }}>{ref.notaryFees.title}</h2>
-              <p className="small muted" style={{ marginBottom: 4 }}>{ref.notaryFees.source}</p>
-              <div className="banner warn" style={{ fontSize: 12.5 }}>{ref.notaryFees.disclaimer}</div>
-              <p className="small"><strong>UFESP 2024:</strong> {ref.notaryFees.parameters.ufesp_2024} · <strong>ISS:</strong> {ref.notaryFees.parameters.iss} · <strong>UF:</strong> {ref.notaryFees.parameters.jurisdiction}</p>
-              <table className="data" style={{ marginTop: 12 }}>
-                <thead><tr><th>Faixa</th><th>De (R$)</th><th>Até (R$)</th><th style={{ textAlign: 'right' }}>Total (R$)</th></tr></thead>
-                <tbody>
-                  {(ref.notaryFees.registro_declarado || []).map((r) => (
-                    <tr key={r.faixa}><td>{r.faixa}</td><td>{r.de}</td><td>{r.ate}</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{r.total}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="small muted" style={{ marginTop: 10 }}>{ref.notaryFees.note}</p>
             </div></div>
           )}
 

@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { useMeta, useLabel, useEnum, SkeletonList, Banner, formatBytes } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
-const KIND_ICON = { fundamento: 'shield', historia: 'clock', base_legal: 'scale', custos: 'coins', modelo: 'file', comunicado_bacen: 'landmark', laudo: 'report', video: 'video', outro: 'file' };
+const KIND_ICON = { fundamento: 'shield', historia: 'clock', base_legal: 'scale', modelo: 'file', atualizacao_monetaria: 'report', laudo: 'report', video: 'video', outro: 'file' };
 
 export default function BibliotecaList() {
   const [items, setItems] = useState(null);
@@ -39,7 +39,7 @@ export default function BibliotecaList() {
       <div className="pgtitle"><h1>Biblioteca institucional</h1></div>
       <p className="muted" style={{ marginTop: -8, marginBottom: 16, maxWidth: '74ch' }}>
         Documentos que explicam o que são as ações do BESC, como se deu a incorporação pelo Banco do
-        Brasil, a base legal, os custos e os materiais de apoio.
+        Brasil, a base legal e os materiais de apoio.
       </p>
 
       <Banner kind="err">{error}</Banner>

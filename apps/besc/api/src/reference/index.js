@@ -1,7 +1,8 @@
 // Agrega os dados de referencia estaticos servidos em /meta.reference e /glossary.
+// Tabela de custas de cartorio removida na curadoria 2026-07-10 (varia por Estado/ano,
+// inviavel manter atualizada — docs/evolution/11-curadoria-conteudo.md).
 import { GLOSSARY } from './glossary.js';
 import { VALUE_PROPOSITION, HISTORY_TIMELINE, MECHANISMS, LEGAL_BASIS, JURISPRUDENCE_PATTERN, SHARE_CONVERSION } from './portal-content.js';
-import { NOTARY_FEES_2024 } from './notary-fees-2024.js';
 
 export const REFERENCE = {
   glossary: GLOSSARY,
@@ -11,7 +12,6 @@ export const REFERENCE = {
   legalBasis: LEGAL_BASIS,
   shareConversion: SHARE_CONVERSION,
   jurisprudencePattern: JURISPRUDENCE_PATTERN,
-  notaryFees: NOTARY_FEES_2024,
 };
 
 export { GLOSSARY };

@@ -3370,34 +3370,6 @@
     "createdAt": "2026-07-04"
   },
   {
-    "id": "jur_fa9d9076166a",
-    "slug": "outro-banco-do-brasil-166a",
-    "title": "Documento não jurisprudencial — Certificado de Registro e Licenciamento de Veículo (CRLV)",
-    "tribunal": "outro",
-    "creditorCategory": "banco_do_brasil",
-    "clientCase": null,
-    "mechanism": [],
-    "year": 2025,
-    "uf": null,
-    "instancia": "segunda",
-    "processNumber": null,
-    "outcome": "indefinido",
-    "parties": null,
-    "summary": "O arquivo não contém decisão judicial: trata-se de um Certificado de Registro e Licenciamento de Veículo (CRLV digital) emitido pelo DETRAN-SP, sem qualquer conteúdo relativo a ações do BESC.",
-    "ementa": "O texto extraído corresponde a um Certificado de Registro e Licenciamento de Veículo (CRLV) digital, emitido pelo DETRAN-SP, com dados de veículo (Chevrolet/Onix, placa CMW0528) e informações de seguro. Não há pedido, fundamentação ou resultado judicial. Não é possível formular ementa sobre a tese das ações do BESC a partir deste documento.",
-    "tags": [
-      "banco_do_brasil"
-    ],
-    "sourcePath": "jurisprudencia/Banco do Brasil/CMW0528-1.pdf",
-    "fileRef": {
-      "stored": true,
-      "ext": ".pdf",
-      "mime": "application/pdf",
-      "sizeBytes": 81954
-    },
-    "createdAt": "2026-07-04"
-  },
-  {
     "id": "jur_ffe9d3f8949e",
     "slug": "tjdf-banco-do-brasil-949e",
     "title": "TJDF — Autos de ação de cessão de crédito contra o Banco do Brasil (capa e lista de documentos)",

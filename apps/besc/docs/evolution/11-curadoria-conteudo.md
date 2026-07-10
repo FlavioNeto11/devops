@@ -177,17 +177,17 @@ DELETEs). Enquanto não existir trilha de auditoria ([07-trilha-auditoria](./07-
 
 | Data | Passo | Item / arquivo | Ação executada | Evidência |
 |---|---|---|---|---|
-| _(pendente)_ | 1 | `lib_b963c1cf5cc8` | — | — |
-| _(pendente)_ | 1 | `lib_1434a16598e8` | — | — |
-| _(pendente)_ | 1 | `lib_6d3e54a037f8`, `lib_a2eabef394c7` | — | — |
-| _(pendente)_ | 1 | `lib_1e83d699fa42` | — | — |
-| _(pendente)_ | 1 | modelo Maxxii (após §4.2) | — | — |
-| _(pendente)_ | 1 | `lib_0bcc663272d6`, `lib_799937c687a3`, `lib_9605c47fefbf` | — | — |
-| _(pendente)_ | 1 | `lib_220fd1b8b1f8`, `lib_2b10a640f1f1`, `lib_4fdc8fc9dcbb`, `lib_c5495adc7443` | — | — |
-| _(pendente)_ | 1 | `jur_fa9d9076166a` | — | — |
-| _(pendente)_ | 2 | `api/seed/{library,jurisprudence}.json` + `catalog-version.json` v4→v5 | — | — |
-| _(pendente)_ | 3 | `Referencia.jsx` / `notary-fees-2024.js` / `reference/index.js` / `Roadmap.jsx` / `domain-content.js` | — | — |
-| _(pendente)_ | 3 | `PUT /library/lib_b3a134a8ef9e` (kind → `atualizacao_monetaria`) + seed | — | — |
+| 2026-07-10 | 2 | `api/seed/{library,jurisprudence}.json` + `catalog-version.json` v4→v5 | 12 itens de biblioteca + 1 de jurisprudência removidos dos seeds; laudo `lib_b3a134a8ef9e` reclassificado p/ `atualizacao_monetaria`; nota de curadoria na versão | PR da Fase 0-C (este commit); smoke local: seedCatalog v5 → library=6, jurisprudence=99 |
+| 2026-07-10 | 2 | `api/seed/curation-denylist.json` + `gen-catalog.mjs` | Denylist de curadoria criada e aplicada pelo gerador (itens removidos NUNCA voltam numa regeneração; patch reclassifica o laudo) | PR da Fase 0-C |
+| 2026-07-10 | 3 | `Referencia.jsx` / `notary-fees-2024.js` / `reference/index.js` / `Roadmap.jsx` / `domain-content.js` / `BibliotecaList.jsx` | Aba "Custas de cartório" removida; `notary-fees-2024.js` deletado; fase C do Roadmap reescrita (tabela retirada, estimador planejado); kinds `custos` e `comunicado_bacen` removidos do enum; kind `atualizacao_monetaria` criado; ícones/copy ajustados | PR da Fase 0-C; smoke: `/meta.reference` sem `notaryFees`, enum correto |
+| 2026-07-10 | 1 | `lib_b963c1cf5cc8` (histórico informal) | `DELETE /library/:id` no ambiente vivo (metadado + binário do PVC) | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `lib_1434a16598e8` (parecer Maxxii) | `DELETE /library/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `lib_6d3e54a037f8`, `lib_a2eabef394c7` (custos cartório) | `DELETE /library/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `lib_1e83d699fa42` (acordo Holambra) | `DELETE /library/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `lib_0bcc663272d6`, `lib_799937c687a3`, `lib_9605c47fefbf` (comunicados Bescval) | `DELETE /library/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `lib_220fd1b8b1f8`, `lib_2b10a640f1f1`, `lib_4fdc8fc9dcbb`, `lib_c5495adc7443` (4 vídeos, ~208 MB) | `DELETE /library/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| 2026-07-10 | 1 | `jur_fa9d9076166a` (CRLV Onix) | `DELETE /jurisprudence/:id` no ambiente vivo | _(preencher pós-deploy)_ |
+| _(pendente)_ | 1 | modelo Maxxii (após confirmação §4.2) | — | — |
 | _(pendente)_ | — | Confirmações §4.1–4.3 respondidas pelo operador | — | — |
 | _(pendente)_ | — | Integridade do PDF da petição restante (§7) | — | — |
 
