@@ -415,3 +415,30 @@ video.viewer-frame { min-height: auto; max-height: 70vh; background: #000; }
   .facet-rail { position: static; max-height: none; }
   .count-bar { grid-template-columns: minmax(90px, 140px) 1fr 34px; }
 }
+
+/* ===== AUTENTICAÇÃO (Fase 0 — login local + SSO) ===== */
+.auth-wrap { max-width: 430px; margin: 28px auto 0; }
+.auth-head { text-align: center; margin-bottom: 18px; }
+.auth-head .ah-ic { width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 14px; background: linear-gradient(180deg, var(--accent-soft), #d6e9ec); color: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px #c7e2e5; }
+.auth-head h1 { font-size: 22px; }
+.auth-head p { color: var(--muted); font-size: 13.5px; margin: 7px 0 0; line-height: 1.55; }
+.auth-card .card-body { padding: 22px; }
+.auth-actions .btn { width: 100%; justify-content: center; }
+.auth-divider { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin: 16px 0 14px; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-foot { text-align: center; font-size: 12px; color: var(--faint); margin-top: 14px; }
+
+/* menu do usuário na topbar (details/summary — teclado/SR nativos) */
+.user-menu { position: relative; margin-left: 4px; }
+.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,.9); font-weight: 600; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.1); transition: background .14s ease, color .14s ease; white-space: nowrap; }
+.user-menu summary::-webkit-details-marker { display: none; }
+.user-menu summary:hover, .user-menu[open] summary { background: rgba(255,255,255,.2); color: #fff; }
+.user-menu summary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.um-avatar { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.um-pop { position: absolute; right: 0; top: calc(100% + 8px); min-width: 232px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 12px 14px; z-index: 40; }
+.um-id { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+.um-id strong { font-size: 13.5px; }
+.um-id .um-mail { font-size: 12px; color: var(--muted); word-break: break-all; }
+.um-roles { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
+.um-pop .btn { width: 100%; justify-content: center; }
+.empty h3 svg { vertical-align: -2px; margin-right: 4px; color: var(--accent); }

@@ -1,4 +1,5 @@
-# BESC API (Express + store JSON num PVC). Imagem :local. Sem login, sem banco externo.
+# BESC API (Express + store JSON num PVC + Postgres besc-postgres p/ identidade/RBAC/
+# auditoria — Fase 0). Imagem :local. Secrets via SealedSecret (besc-db, besc-config).
 # Routing golden path: API com strip (/besc/api) e priority MAIOR que o frontend.
 ---
 apiVersion: v1
@@ -26,9 +27,19 @@ spec:
           image: besc-api:local
           imagePullPolicy: IfNotPresent
           command: ["npm", "start"]
+          envFrom:
+            - { secretRef: { name: besc-db } }      # DATABASE_URL + POSTGRES_* (SealedSecret)
+            - { secretRef: { name: besc-config } }  # SESSION_SECRET + BESC_BOOTSTRAP_* (SealedSecret)
           env:
             - { name: DATA_DIR, value: /data }
             - { name: PORT, value: "8080" }
+            - { name: KEYCLOAK_ISSUER_PUBLIC, value: "https://dev.nvit.com.br/auth/realms/besc" }
+            - { name: KEYCLOAK_USERINFO_URL, value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/besc/protocol/openid-connect/userinfo" }
+            - { name: KEYCLOAK_CLIENT_ID, value: besc-spa }
+            - { name: AUTO_MIGRATE, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
           ports: [ { name: http, containerPort: 8080 } ]
           volumeMounts: [ { name: data, mountPath: /data } ]
           readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
@@ -45,6 +56,28 @@ kind: Middleware
 metadata: { name: besc-api-strip, namespace: apps }
 spec: { stripPrefix: { prefixes: ["/besc/api"] } }
 ---
+# Secure headers (frontend + API). stsSeconds 0 = SEM HSTS de proposito: o
+# entrypoint `web` e HTTP local (nvit.localhost); TLS/HSTS ficam na borda (Cloudflare).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: besc-secure-headers, namespace: apps, labels: { app.kubernetes.io/part-of: besc } }
+spec:
+  headers:
+    browserXssFilter: true
+    contentTypeNosniff: true
+    frameDeny: true
+    referrerPolicy: no-referrer-when-downgrade
+    stsSeconds: 0
+---
+# Rate limit da API (sourceCriterion default = IP de origem).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: besc-api-ratelimit, namespace: apps, labels: { app.kubernetes.io/part-of: besc } }
+spec:
+  rateLimit:
+    average: 30
+    burst: 60
+---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata: { name: besc-api, namespace: apps, labels: { app.kubernetes.io/part-of: besc } }
@@ -55,4 +88,7 @@ spec:
       kind: Rule
       priority: 40
       services: [ { name: besc-api, port: 8080 } ]
-      middlewares: [ { name: besc-api-strip } ]
+      middlewares:
+        - { name: besc-api-ratelimit }
+        - { name: besc-api-strip }
+        - { name: besc-secure-headers }
