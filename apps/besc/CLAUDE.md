@@ -50,8 +50,8 @@ O escopo funcional do levantamento (10 seções) está em [`ESCOPO-FUNCIONAL.md`
 |---|---|
 | Frontend | React 18 + Vite 5 + react-router-dom, nginx (`besc-frontend`), base path `/besc/`, sem strip, priority 10 |
 | API | Node 20 + Express (`besc-api`), rotas na raiz (Traefik faz strip de `/besc/api`), priority 40 |
-| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** — sem Postgres/Redis (baixo volume, operador único). **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
-| Auth | nenhuma (sem login por definição) |
+| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** p/ portal + levantamento (cases, library, jurisprudence, glossary) — **+ Postgres `besc-postgres`** (pgvector/pg16, `k8s/postgres.yaml`) p/ identidade/RBAC/auditoria, credenciais no secret **`besc-db` selado**. **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
+| Auth | login local (bootstrap/fallback) + **SSO Keycloak realm dedicado `besc`** (client público `besc-spa`, PKCE S256); sessão própria do app via `@flavioneto11/oidc-kit`; **RBAC 100% em dados** (nunca derivado de claims do token) — ver `docs/evolution/01-rbac-permissoes.md` |
 | Deploy | `apps/besc/k8s` (Argo CD auto-sync) · imagens `:local` no laboratório |
 
 Domínio (enums canônicos §2.11, motor de pendências §8.1, máquina de status §8.2, matriz de risco §8.3,
@@ -65,6 +65,7 @@ relatórios §9) vive em `api/src/domain.js` + `api/src/reports.js`. Frontend em
 docker build -t besc-api:local apps/besc/api
 docker build -t besc-frontend:local apps/besc/frontend
 kubectl apply -f apps/besc/k8s
+scripts\setup-besc-realm.ps1   # (uma vez, idempotente) provisiona o realm 'besc' + client besc-spa no Keycloak
 ```
 
 Validar: `http://nvit.localhost/besc` (SPA) e `http://nvit.localhost/besc/api/health` (API pós-strip).
@@ -76,5 +77,7 @@ Público: `https://dev.nvit.com.br/besc`.
   Traefik **não** faz strip do frontend.
 - **PVC + `USER node`**: o Deployment usa `securityContext.fsGroup: 1000` para o usuário `node` escrever em `/data`.
 - **`.html` no dev**: o proxy do Vite intercepta `*.html` → `report.html` dá 404 **só no dev**; em produção o Traefik encaminha direto para a API (200).
-- Sem segredos: não há `secret.example.yaml` no path do Argo.
+- **Segredos via SealedSecret** (`besc-db`, `besc-config` — `k8s/sealed-*.yaml`): o exemplo com
+  placeholders fica em `k8s/secret.example.yaml.tmpl` — a extensão `.tmpl` impede o Argo de
+  aplicá-lo (um example "vivo" no path do Argo clobberaria o secret real a cada sync).
 

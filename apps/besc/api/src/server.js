@@ -1,11 +1,14 @@
-// API da Plataforma de Levantamento BESC Tokenizacao.
-// Rotas na RAIZ (o Traefik faz strip de /besc/api). Sem login.
+// API da Plataforma BESC. Rotas na RAIZ (o Traefik faz strip de /besc/api).
+// Fase 0: portal de conhecimento PUBLICO em leitura; casos e toda escrita GATED
+// por RBAC (docs/evolution/01-rbac-permissoes.md + apendice C); trilha de auditoria.
 import express from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import { mkdirSync, createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import * as store from './store.js';
+import { config } from './config.js';
+import { bootFoundation, installFoundation, authorize } from './foundation/index.js';
 import {
   ENUMS,
   DOC_CATEGORY_LABELS,
@@ -26,15 +29,21 @@ import { REFERENCE, GLOSSARY } from './reference/index.js';
 import { buildReport, renderReportHtml, REPORT_TYPES } from './reports.js';
 
 const app = express();
+app.set('trust proxy', true); // atras do Traefik: req.ip = X-Forwarded-For
 app.use(express.json({ limit: '1mb' }));
-// CORS permissivo (mesmo origin em producao; util para debug via port-forward).
+// CORS por allowlist (Fase 0 — o `*` anterior morreu junto com o "sem login").
 app.use((req, res, next) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  const origin = req.get('origin');
+  if (origin && config.corsOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+    res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+installFoundation(app);
 
 const now = () => new Date().toISOString();
 
@@ -148,14 +157,14 @@ app.get('/meta', (req, res) => {
   });
 });
 
-// --- cases ---
-app.get('/cases', (req, res) => {
+// --- cases (GATED: contem PII/CPF — leitura e escrita exigem papel com cases:*) ---
+app.get('/cases', authorize('cases:read'), (req, res) => {
   const list = store.listCases().map((c) => summarize(enrichCase(c).case));
   list.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   res.json(list);
 });
 
-app.post('/cases', async (req, res) => {
+app.post('/cases', authorize('cases:write'), async (req, res) => {
   const body = req.body || {};
   const c = {
     id: randomUUID(),
@@ -190,27 +199,27 @@ function loadCase(req, res) {
   return c;
 }
 
-app.get('/cases/:id', async (req, res) => {
+app.get('/cases/:id', authorize('cases:read'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   res.json(await saveAndEnrich(c));
 });
 
-app.put('/cases/:id', async (req, res) => {
+app.put('/cases/:id', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   Object.assign(c, pick(req.body || {}, CASE_FIELDS));
   res.json(await saveAndEnrich(c));
 });
 
-app.delete('/cases/:id', async (req, res) => {
+app.delete('/cases/:id', authorize('cases:write'), async (req, res) => {
   const ok = await store.deleteCase(req.params.id);
   if (!ok) return res.status(404).json({ error: 'caso não encontrado' });
   res.json({ ok: true });
 });
 
 // --- lawsuits ---
-app.post('/cases/:id/lawsuits', async (req, res) => {
+app.post('/cases/:id/lawsuits', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const l = { id: randomUUID(), ...pick(req.body || {}, LAWSUIT_FIELDS), createdAt: now() };
@@ -219,7 +228,7 @@ app.post('/cases/:id/lawsuits', async (req, res) => {
   res.status(201).json(await saveAndEnrich(c));
 });
 
-app.put('/cases/:id/lawsuits/:lid', async (req, res) => {
+app.put('/cases/:id/lawsuits/:lid', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const l = (c.lawsuits || []).find((x) => x.id === req.params.lid);
@@ -228,7 +237,7 @@ app.put('/cases/:id/lawsuits/:lid', async (req, res) => {
   res.json(await saveAndEnrich(c));
 });
 
-app.delete('/cases/:id/lawsuits/:lid', async (req, res) => {
+app.delete('/cases/:id/lawsuits/:lid', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   c.lawsuits = (c.lawsuits || []).filter((x) => x.id !== req.params.lid);
@@ -236,7 +245,7 @@ app.delete('/cases/:id/lawsuits/:lid', async (req, res) => {
 });
 
 // --- documents ---
-app.put('/cases/:id/documents/:key', async (req, res) => {
+app.put('/cases/:id/documents/:key', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const d = (c.documents || []).find((x) => x.key === req.params.key);
@@ -256,7 +265,7 @@ app.put('/cases/:id/documents/:key', async (req, res) => {
 });
 
 // --- anexos de documentos ---
-app.post('/cases/:id/documents/:key/attachments', (req, res) => {
+app.post('/cases/:id/documents/:key/attachments', authorize('cases:write'), (req, res) => {
   const c = store.getCase(req.params.id);
   if (!c) return res.status(404).json({ error: 'caso não encontrado' });
   const doc = (c.documents || []).find((x) => x.key === req.params.key);
@@ -283,7 +292,7 @@ app.post('/cases/:id/documents/:key/attachments', (req, res) => {
   });
 });
 
-app.get('/cases/:id/documents/:key/attachments/:attId/download', (req, res) => {
+app.get('/cases/:id/documents/:key/attachments/:attId/download', authorize('cases:read'), (req, res) => {
   const c = store.getCase(req.params.id);
   const doc = c && (c.documents || []).find((x) => x.key === req.params.key);
   const att = doc && (doc.attachments || []).find((a) => a.id === req.params.attId);
@@ -295,7 +304,7 @@ app.get('/cases/:id/documents/:key/attachments/:attId/download', (req, res) => {
     .pipe(res);
 });
 
-app.delete('/cases/:id/documents/:key/attachments/:attId', async (req, res) => {
+app.delete('/cases/:id/documents/:key/attachments/:attId', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const doc = (c.documents || []).find((x) => x.key === req.params.key);
@@ -310,7 +319,7 @@ app.delete('/cases/:id/documents/:key/attachments/:attId', async (req, res) => {
 });
 
 // --- legal checklist ---
-app.put('/cases/:id/legal/:key', async (req, res) => {
+app.put('/cases/:id/legal/:key', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const it = (c.legal || []).find((x) => x.key === req.params.key);
@@ -323,7 +332,7 @@ app.put('/cases/:id/legal/:key', async (req, res) => {
 });
 
 // --- tokenization checklist ---
-app.put('/cases/:id/tokenization/:key', async (req, res) => {
+app.put('/cases/:id/tokenization/:key', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const it = (c.tokenization || []).find((x) => x.key === req.params.key);
@@ -337,7 +346,7 @@ app.put('/cases/:id/tokenization/:key', async (req, res) => {
 });
 
 // --- collateral ---
-app.put('/cases/:id/collateral', async (req, res) => {
+app.put('/cases/:id/collateral', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const body = req.body || {};
@@ -350,7 +359,7 @@ app.put('/cases/:id/collateral', async (req, res) => {
 });
 
 // --- pericia / atualizacao monetaria ---
-app.put('/cases/:id/pericia', async (req, res) => {
+app.put('/cases/:id/pericia', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const body = req.body || {};
@@ -363,7 +372,7 @@ app.put('/cases/:id/pericia', async (req, res) => {
 });
 
 // --- status (manual) ---
-app.post('/cases/:id/status', async (req, res) => {
+app.post('/cases/:id/status', authorize('cases:write'), async (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const status = (req.body || {}).status;
@@ -387,14 +396,14 @@ const precedentResolver = (id) => {
   return j ? { id: j.id, title: j.title, tribunal: j.tribunal, year: j.year } : null;
 };
 
-app.get('/cases/:id/report', (req, res) => {
+app.get('/cases/:id/report', authorize('cases:read'), (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const enriched = enrichCase(c).case;
   res.json(buildReport(enriched, req.query.type, precedentResolver));
 });
 
-app.get('/cases/:id/report.html', (req, res) => {
+app.get('/cases/:id/report.html', authorize('cases:read'), (req, res) => {
   const c = loadCase(req, res);
   if (!c) return;
   const enriched = enrichCase(c).case;
@@ -451,14 +460,14 @@ app.get('/library/:id/file', (req, res) => {
   res.sendFile(fp, (err) => { if (err && !res.headersSent) res.status(404).json({ error: 'arquivo não encontrado' }); });
 });
 
-app.post('/library', async (req, res) => {
+app.post('/library', authorize('content:write'), async (req, res) => {
   const b = req.body || {};
   const it = { id: b.id || `lib_${randomUUID().slice(0, 12)}`, ...pick(b, LIBRARY_FIELDS), source: 'operator', createdAt: now(), updatedAt: now() };
   if (!it.slug) it.slug = it.id;
   res.status(201).json(await store.putLibrary(it));
 });
 
-app.put('/library/:id', async (req, res) => {
+app.put('/library/:id', authorize('content:write'), async (req, res) => {
   const it = store.getLibrary(req.params.id);
   if (!it) return res.status(404).json({ error: 'item não encontrado' });
   Object.assign(it, pick(req.body || {}, LIBRARY_FIELDS));
@@ -466,13 +475,13 @@ app.put('/library/:id', async (req, res) => {
   res.json(await store.putLibrary(it));
 });
 
-app.delete('/library/:id', async (req, res) => {
+app.delete('/library/:id', authorize('content:write'), async (req, res) => {
   const ok = await store.deleteLibrary(req.params.id);
   if (!ok) return res.status(404).json({ error: 'item não encontrado' });
   res.json({ ok: true });
 });
 
-app.post('/library/:id/file', (req, res) => {
+app.post('/library/:id/file', authorize('content:write'), (req, res) => {
   const it = store.getLibrary(req.params.id);
   if (!it) return res.status(404).json({ error: 'item não encontrado' });
   uploadLibraryFile(req, res, async (err) => {
@@ -528,7 +537,7 @@ app.get('/jurisprudence/:id/file', (req, res) => {
   res.sendFile(fp, (err) => { if (err && !res.headersSent) res.status(404).json({ error: 'arquivo não encontrado' }); });
 });
 
-app.post('/jurisprudence', async (req, res) => {
+app.post('/jurisprudence', authorize('content:write'), async (req, res) => {
   const b = req.body || {};
   const it = { id: b.id || `jur_${randomUUID().slice(0, 12)}`, ...pick(b, JURIS_FIELDS), source: 'operator', createdAt: now(), updatedAt: now() };
   if (!it.slug) it.slug = it.id;
@@ -536,7 +545,7 @@ app.post('/jurisprudence', async (req, res) => {
   res.status(201).json(await store.putJurisprudence(it));
 });
 
-app.put('/jurisprudence/:id', async (req, res) => {
+app.put('/jurisprudence/:id', authorize('content:write'), async (req, res) => {
   const it = store.getJurisprudence(req.params.id);
   if (!it) return res.status(404).json({ error: 'decisão não encontrada' });
   Object.assign(it, pick(req.body || {}, JURIS_FIELDS));
@@ -544,13 +553,13 @@ app.put('/jurisprudence/:id', async (req, res) => {
   res.json(await store.putJurisprudence(it));
 });
 
-app.delete('/jurisprudence/:id', async (req, res) => {
+app.delete('/jurisprudence/:id', authorize('content:write'), async (req, res) => {
   const ok = await store.deleteJurisprudence(req.params.id);
   if (!ok) return res.status(404).json({ error: 'decisão não encontrada' });
   res.json({ ok: true });
 });
 
-app.post('/jurisprudence/:id/file', (req, res) => {
+app.post('/jurisprudence/:id/file', authorize('content:write'), (req, res) => {
   const it = store.getJurisprudence(req.params.id);
   if (!it) return res.status(404).json({ error: 'decisão não encontrada' });
   uploadJurisFile(req, res, async (err) => {
@@ -603,6 +612,6 @@ app.get('/stats', (req, res) => {
 app.use((req, res) => res.status(404).json({ error: 'rota não encontrada' }));
 
 const PORT = process.env.PORT || 8080;
-store.init().then(() => {
+Promise.all([store.init(), bootFoundation()]).then(() => {
   app.listen(PORT, () => console.log(`[besc-api] ouvindo em :${PORT} (data em ${process.env.DATA_DIR || 'cwd/data'})`));
 });

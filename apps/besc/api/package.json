@@ -1,15 +1,18 @@
 {
   "name": "besc-api",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "API da Plataforma de Levantamento BESC Tokenizacao (levantamento/checklist, sem login).",
+  "description": "API da Plataforma BESC — portal de conhecimento + levantamento (store JSON) + fundacao do marketplace (identidade/RBAC/auditoria em Postgres).",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "dependencies": {
+    "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "express": "^4.19.2",
-    "multer": "^2.0.1"
+    "multer": "^2.0.1",
+    "pg": "^8.13.1"
   },
   "engines": {
     "node": ">=20"
