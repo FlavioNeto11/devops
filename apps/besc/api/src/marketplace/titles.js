@@ -200,15 +200,20 @@ export async function transitionLegalStatus(titleId, { toStatus, reason, evidenc
     } else if (action === 'reactivate') {
       await ledger.unfreezeTitle({ titleId, reasonCode: 'legal_status_reactivated', evidenceHash: evidenceHash(evidenceRef), idempotencyKey: idem });
     }
-    // NOTA: cascata de ALUGUEIS (suspender/reativar/write-off leases) entra na Fase 4,
-    // quando a tabela `lease` existir — a Fase 4 amplia esta função. Aqui só contratos.
+    // cascata: contratos + ALUGUEIS lastreados (I6: aluguel suspenso enquanto o título cai)
     if (action === 'suspend') {
       const r = await client.query(`UPDATE token_contract SET status = 'suspended' WHERE title_id = $1 AND status = 'active' RETURNING id`, [titleId]);
       affected.contracts = r.rowCount;
+      const rl = await client.query(`UPDATE lease SET status = 'suspended' WHERE contract_id IN (SELECT id FROM token_contract WHERE title_id = $1) AND status = 'active' RETURNING id`, [titleId]);
+      affected.leases = rl.rowCount;
     } else if (action === 'reactivate') {
       const r = await client.query(`UPDATE token_contract SET status = 'active' WHERE title_id = $1 AND status = 'suspended' RETURNING id`, [titleId]);
       affected.contracts = r.rowCount;
+      const rl = await client.query(`UPDATE lease SET status = 'active' WHERE contract_id IN (SELECT id FROM token_contract WHERE title_id = $1) AND status = 'suspended' RETURNING id`, [titleId]);
+      affected.leases = rl.rowCount;
     } else if (action === 'defeat') {
+      // aluguéis do título caído encerram (nada mais devido — write-off)
+      await client.query(`UPDATE lease SET status = 'written_off' WHERE contract_id IN (SELECT id FROM token_contract WHERE title_id = $1) AND status IN ('active','suspended')`, [titleId]);
       // contratos entram em suspenso aguardando resolucao do titular (§E.5)
       const r = await client.query(`UPDATE token_contract SET status = 'suspended' WHERE title_id = $1 AND status IN ('active','suspended') RETURNING id`, [titleId]);
       affected.contracts = r.rowCount;

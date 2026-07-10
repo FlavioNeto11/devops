@@ -21,6 +21,9 @@ import Auditoria from './pages/Auditoria.jsx';
 import AuditoriaTitulo from './pages/AuditoriaTitulo.jsx';
 import GestaoUsuarios from './pages/GestaoUsuarios.jsx';
 import GestaoPapeis from './pages/GestaoPapeis.jsx';
+import GestaoFinanceiro from './pages/GestaoFinanceiro.jsx';
+import GestaoAlugueis from './pages/GestaoAlugueis.jsx';
+import GateRegulatorio from './pages/GateRegulatorio.jsx';
 import Marketplace from './pages/Marketplace.jsx';
 import TituloDossie from './pages/TituloDossie.jsx';
 import InvestidorCarteira from './pages/InvestidorCarteira.jsx';
@@ -99,7 +102,8 @@ export default function App() {
   const canAudit = hasPerm('legal_status:read');
   const canManageUsers = hasPerm('users:manage');
   const canManageRoles = hasPerm('rbac:manage');
-  const canAdmin = canManageUsers || canManageRoles;
+  const canSeeFinance = hasPerm('fees:read');
+  const canAdmin = canManageUsers || canManageRoles || canSeeFinance;
   return (
     <>
       <header className="topbar">
@@ -129,6 +133,9 @@ export default function App() {
                 <div className="um-pop">
                   {canManageUsers && <NavLink to="/gestao/usuarios" className="nav-admin-link"><Icon name="user" size={14} /> Usuários</NavLink>}
                   {canManageRoles && <NavLink to="/gestao/papeis" className="nav-admin-link"><Icon name="shield" size={14} /> Papéis</NavLink>}
+                  {canSeeFinance && <NavLink to="/gestao/financeiro" className="nav-admin-link"><Icon name="coins" size={14} /> Financeiro</NavLink>}
+                  {canSeeFinance && <NavLink to="/gestao/alugueis" className="nav-admin-link"><Icon name="briefcase" size={14} /> Aluguéis</NavLink>}
+                  {canSeeFinance && <NavLink to="/gestao/gate" className="nav-admin-link"><Icon name="scale" size={14} /> Gate regulatório</NavLink>}
                 </div>
               </details>
             )}
@@ -167,6 +174,9 @@ export default function App() {
           <Route path="/auditoria/titulos/:id" element={<RequireRole perm="legal_status:read"><AuditoriaTitulo /></RequireRole>} />
           <Route path="/gestao/usuarios" element={<RequireRole perm="users:manage"><GestaoUsuarios /></RequireRole>} />
           <Route path="/gestao/papeis" element={<RequireRole perm="rbac:manage"><GestaoPapeis /></RequireRole>} />
+          <Route path="/gestao/financeiro" element={<RequireRole perm="fees:read"><GestaoFinanceiro /></RequireRole>} />
+          <Route path="/gestao/alugueis" element={<RequireRole perm="fees:read"><GestaoAlugueis /></RequireRole>} />
+          <Route path="/gestao/gate" element={<RequireRole perm="fees:read"><GateRegulatorio /></RequireRole>} />
           <Route path="/ajuda" element={<Ajuda />} />
           <Route path="/cases/new" element={<RequireRole perm="cases:read"><CaseForm /></RequireRole>} />
           <Route path="/cases/:id" element={<RequireRole perm="cases:read"><CaseDetail /></RequireRole>} />
