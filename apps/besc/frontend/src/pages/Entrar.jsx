@@ -116,10 +116,14 @@ export default function Entrar() {
               </div>
             </>
           )}
+          <div className="auth-divider">ainda não tem conta?</div>
+          <div className="auth-actions">
+            <Link to="/cadastro" className="btn ghost auth-create"><Icon name="user" size={15} /> Criar conta</Link>
+          </div>
         </div>
       </div>
       <p className="auth-foot">
-        Ainda não tem conta? <Link to="/cadastro">Criar conta</Link> · <Link to="/">Voltar ao início</Link>
+        Qualquer pessoa pode criar uma conta; o acesso é liberado pelo gestor. <Link to="/">Voltar ao início</Link>
       </p>
     </div>
   );
@@ -138,7 +142,10 @@ export function Cadastro() {
   const [done, setDone] = useState(false);
 
   if (loading) return <Loading label="Verificando sessão…" />;
-  if (user && !done) return <Navigate to="/" replace />;
+  // só expulsa quem CHEGOU logado; durante o cadastro `busy` está true (setado antes de
+  // register()), então a renderização intermediária pós-setUser NÃO redireciona (o que antes
+  // jogava o usuário na home sem ele ver "Conta criada").
+  if (user && !done && !busy) return <Navigate to="/" replace />;
 
   const submit = async (e) => {
     e.preventDefault();
