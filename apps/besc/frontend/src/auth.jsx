@@ -86,6 +86,21 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Reidrata o usuário (papéis/permissões) — usado após o gestor conceder acesso, para o
+  // recém-aprovado ver os menus sem F5. Silencioso: falha não derruba a sessão atual.
+  const refreshMe = useCallback(async () => {
+    if (!getAccessToken()) return;
+    try { const data = await api.auth.me(); setUser(data.user || null); } catch { /* mantém o estado atual */ }
+  }, []);
+
+  // Re-busca /auth/me quando a aba volta ao foco (barato) — pega concessões de acesso feitas
+  // pelo gestor enquanto a pessoa estava em outra aba/janela.
+  useEffect(() => {
+    const onFocus = () => { refreshMe(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshMe]);
+
   // A API é a autoridade; isto só decide o que a UI mostra. '*' = wildcard do admin.
   const hasPerm = useCallback((key) => {
     const perms = (user && Array.isArray(user.permissions)) ? user.permissions : [];
@@ -95,12 +110,13 @@ export function AuthProvider({ children }) {
   const isManager = !!(user && Array.isArray(user.roles)
     && (user.roles.includes('manager') || user.roles.includes('admin')));
 
-  // usuário logado sem nenhum papel = conta recém-criada aguardando o Gestor conceder acesso
-  const isPending = !!(user && (!Array.isArray(user.roles) || user.roles.length === 0));
+  // logado sem NENHUMA permissão efetiva = conta aguardando o gestor liberar o acesso.
+  // (o backend zera as permissões de contas não-aprovadas — publicUser em rbac.js)
+  const isPending = !!(user && (!Array.isArray(user.permissions) || user.permissions.length === 0));
 
   const value = useMemo(
-    () => ({ user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending }),
-    [user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending],
+    () => ({ user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending, refreshMe }),
+    [user, loading, login, register, loginSso, completeSsoCallback, logout, hasPerm, isManager, isPending, refreshMe],
   );
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

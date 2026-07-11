@@ -59,13 +59,16 @@ const dbGuard = (req, res) => {
 };
 
 // Rate limit simples em memoria p/ endpoints de credencial (alem do rateLimit do Traefik).
-const attempts = new Map(); // ip -> { count, resetAt }
-function throttle(req, res) {
+// Baldes SEPARADOS por escopo: cadastros legitimos atras de NAT nao competem com tentativas
+// de login/refresh no mesmo IP (evita 429 no "criar conta" em rede compartilhada).
+const buckets = { auth: new Map(), register: new Map() };
+function throttle(req, res, scope = 'auth', limit = 20) {
+  const map = buckets[scope] || buckets.auth;
   const key = req.ip || 'unknown';
   const nowMs = Date.now();
-  const slot = attempts.get(key);
-  if (!slot || nowMs > slot.resetAt) { attempts.set(key, { count: 1, resetAt: nowMs + 60_000 }); return true; }
-  if (slot.count >= 20) { res.status(429).json({ error: 'muitas tentativas; aguarde um minuto' }); return false; }
+  const slot = map.get(key);
+  if (!slot || nowMs > slot.resetAt) { map.set(key, { count: 1, resetAt: nowMs + 60_000 }); return true; }
+  if (slot.count >= limit) { res.status(429).json({ error: 'muitas tentativas; aguarde um minuto' }); return false; }
   slot.count += 1;
   return true;
 }
@@ -103,7 +106,7 @@ export function installAuthRoutes(app) {
   // papel — nenhum acesso ate o Gestor aprovar e conceder o papel certo (regra de seguranca
   // do plano: o app nunca concede acesso sozinho). Auto-login para o usuario ver o status.
   app.post('/auth/register', async (req, res) => {
-    if (!dbGuard(req, res) || !throttle(req, res)) return;
+    if (!dbGuard(req, res) || !throttle(req, res, 'register', 10)) return;
     const { name, email, password } = req.body || {};
     const emailOk = typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!emailOk) return res.status(400).json({ error: 'informe um e-mail válido' });

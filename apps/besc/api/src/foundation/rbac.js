@@ -173,6 +173,11 @@ export function authorize(permissionKey) {
   return (req, res, next) => {
     if (req.authUnavailable) return res.status(503).json({ error: 'autenticação indisponível no momento; tente novamente' });
     if (!req.auth) return res.status(401).json({ error: 'não autenticado' });
+    // Gate de aprovação (defesa em profundidade): conta pendente/rejeitada não opera, mesmo
+    // com papel. Conceder papel auto-aprova (admin.js), então o caminho feliz não esbarra aqui.
+    if (req.auth.user.approvalStatus !== 'active') {
+      return res.status(403).json({ error: 'sua conta aguarda liberação de acesso pelo gestor' });
+    }
     const scope = req.auth.perms.get(permissionKey) || req.auth.perms.get('*');
     if (!scope) return res.status(403).json({ error: 'sem permissão para esta ação' });
     req.authz = { permission: permissionKey, scope };
@@ -182,12 +187,15 @@ export function authorize(permissionKey) {
 
 export function publicUser(reqAuth) {
   if (!reqAuth) return null;
+  // Conta não-aprovada tem permissões EFETIVAS vazias (mesmo com papel), para a UI espelhar
+  // o gate do backend: a pessoa vê "aguardando liberação", não menus que dariam 403.
+  const approved = reqAuth.user.approvalStatus === 'active';
   return {
     id: reqAuth.user.id,
     email: reqAuth.user.email,
     name: reqAuth.user.name,
     approvalStatus: reqAuth.user.approvalStatus,
     roles: reqAuth.roles,
-    permissions: [...reqAuth.perms.entries()].map(([key, scope]) => ({ key, scope })),
+    permissions: approved ? [...reqAuth.perms.entries()].map(([key, scope]) => ({ key, scope })) : [],
   };
 }

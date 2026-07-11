@@ -58,9 +58,11 @@ export default function GestaoUsuarios() {
       <div className="pgtitle"><h1><Icon name="user" size={22} /> Usuários e acesso</h1></div>
 
       <HelpCallout title="Quem entra e o que pode">
-        Aprove investidores que se cadastraram, ative ou desative contas e ajuste papéis. Convide
-        <strong> advogados e juízes</strong> (que não têm auto-cadastro) e conceda-lhes acesso de auditoria a
-        títulos específicos. <strong>Todas as mudanças aqui são auditadas.</strong> Travas de segurança impedem,
+        Qualquer pessoa cria a própria conta e fica <strong>pendente, sem acesso</strong>. Para liberar,
+        <strong> escolha um perfil</strong> na coluna “Papéis” e clique <em>Conceder acesso</em> — isso já
+        aprova e libera a conta (não precisa de passo separado). Use <em>Rejeitar</em> para bloquear um
+        cadastro indevido. Convide <strong>advogados e juízes</strong> (que não têm auto-cadastro) e conceda-lhes
+        acesso de auditoria a títulos específicos. <strong>Tudo é auditado</strong>; travas de segurança impedem,
         por exemplo, desativar o <em>último Gestor</em>.
       </HelpCallout>
 
@@ -103,7 +105,9 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
   const [addRole, setAddRole] = useState('');
   const ap = APPROVAL[user.approval_status] || { l: user.approval_status || '—', c: 'b-grey' };
   const userRoles = Array.isArray(user.roles) ? user.roles : [];
-  const assignable = (roles || []).filter((r) => !userRoles.includes(r.key));
+  // 'public' é pseudo-papel do anônimo — nunca atribuível a uma conta
+  const assignable = (roles || []).filter((r) => !userRoles.includes(r.key) && r.key !== 'public');
+  const noAccessYet = userRoles.length === 0;
 
   return (
     <tr>
@@ -132,15 +136,19 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
         {canManageRoles && assignable.length > 0 && (
           <div className="row" style={{ gap: 6, marginTop: 6 }}>
             <select value={addRole} onChange={(e) => setAddRole(e.target.value)} style={{ maxWidth: 170 }}>
-              <option value="">+ papel…</option>
+              <option value="">{noAccessYet ? 'Escolher o perfil…' : '+ papel…'}</option>
               {assignable.map((r) => <option key={r.key} value={r.key}>{r.label || r.key}</option>)}
             </select>
             <button
-              type="button" className="btn sm"
+              type="button" className={noAccessYet ? 'btn primary sm' : 'btn sm'}
               disabled={!addRole}
+              title={noAccessYet ? 'Conceder este perfil já libera o acesso (aprova a conta)' : undefined}
               onClick={async () => { const ok = await run(api.admin.grantRole(user.id, addRole)); if (ok) setAddRole(''); }}
-            >Conceder</button>
+            >{noAccessYet ? 'Conceder acesso' : 'Conceder'}</button>
           </div>
+        )}
+        {canManageRoles && noAccessYet && (
+          <div className="small muted" style={{ marginTop: 4 }}>Escolha um perfil para liberar o acesso.</div>
         )}
       </td>
       <td><span className={`badge ${ap.c}`}>{ap.l}</span></td>

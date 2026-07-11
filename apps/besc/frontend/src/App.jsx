@@ -58,7 +58,7 @@ function RequireRole({ perm, children }) {
 
 // Área do usuário na topbar: menu (nome/e-mail/papéis + Sair) quando logado; "Entrar" quando não.
 function UserArea() {
-  const { user, logout, isPending } = useAuth();
+  const { user, logout, isPending, refreshMe } = useAuth();
   const navigate = useNavigate();
   if (!user) {
     return <NavLink to="/entrar" className="nav-entrar"><Icon name="login" size={14} /> Entrar</NavLink>;
@@ -88,6 +88,7 @@ function UserArea() {
         ) : (
           <div className="um-pending">
             <Icon name="clock" size={13} /> Conta aguardando o gestor liberar seu acesso.
+            <button type="button" className="um-refresh" onClick={() => refreshMe()}>Já liberou? Atualizar</button>
           </div>
         )}
         <button type="button" className="btn sm" onClick={doLogout}>

@@ -109,10 +109,18 @@ export function installAdminRoutes(app) {
        ON CONFLICT (user_id, role_id) DO NOTHING RETURNING user_id`,
       [req.params.id, roleKey, req.auth.user.id],
     );
+    if (!rows.length) return res.status(404).json({ error: 'papel ou usuário não encontrado' });
+    // "1 ação: escolher o perfil" — conceder papel LIBERA o acesso: aprova a conta pendente
+    // e garante que ela esteja ativa. O operador não precisa clicar "Aprovar" separado.
+    const appr = await query(
+      `UPDATE users SET approval_status = 'active', is_active = true, updated_at = now()
+       WHERE id = $1 AND (approval_status <> 'active' OR is_active = false) RETURNING id`,
+      [req.params.id],
+    );
     await query('UPDATE rbac_meta SET version = version + 1 WHERE id = 1');
     invalidateRbacCache();
-    await audit(req, 'rbac.role.granted', req.params.id, { roleKey, applied: rows.length > 0 });
-    res.json({ ok: true });
+    await audit(req, 'rbac.role.granted', req.params.id, { roleKey, applied: true, autoApproved: appr.rows.length > 0 });
+    res.json({ ok: true, autoApproved: appr.rows.length > 0 });
   });
 
   app.delete('/admin/users/:id/roles/:roleKey', authorize('rbac:manage'), async (req, res) => {
