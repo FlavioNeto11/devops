@@ -576,7 +576,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/forge-pilot-v2/api`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/forge-pilot-v2/api`)
       priority: 30
       services:
         - name: forge-pilot-v2-api
@@ -603,7 +603,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/forge-pilot-v2`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/forge-pilot-v2`)
       priority: 10
       services:
         - name: forge-pilot-v2-frontend

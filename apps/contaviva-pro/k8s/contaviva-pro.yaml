@@ -580,7 +580,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/contaviva-pro/api`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/contaviva-pro/api`)
       priority: 40
       services:
         - name: contaviva-pro-api
@@ -607,7 +607,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/contaviva-pro`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/contaviva-pro`)
       priority: 10
       services:
         - name: contaviva-pro-frontend
