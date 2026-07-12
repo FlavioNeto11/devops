@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { openStream, pmMe, pmProjects } from './api.js';
+import { fetchOverview, openStream, pmMe, pmProjects } from './api.js';
 import Overview from './components/Overview.jsx';
 import Apps from './components/Apps.jsx';
 import Publications from './components/Publications.jsx';
@@ -118,7 +118,13 @@ function ConsoleShell() {
   const [focusProject, setFocusProject] = useState(null);
   // Modal informativo do Traefik (dashboard interno, sem rota pública).
   const [traefikInfo, setTraefikInfo] = useState(false);
-  const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
+  // Navegação interna SINCRONIZA a URL (recarregar/compartilhar preserva a seção).
+  // replaceState não dispara hashchange — o apply() abaixo não re-executa (sem loop)
+  // e continua valendo só para entrada/links externos (#logs?app=X etc.).
+  const syncHash = (key) => {
+    try { window.history.replaceState(null, '', `#${key}`); } catch { /* noop (ambientes sem history) */ }
+  };
+  const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); syncHash(tab); };
 
   // (A4, Forja 4.0) deep-link por hash: outros apps apontam para uma seção (#conteudo?novo=1 abre
   // o assistente de portal — a criação começa na Forja/Studio). Só LEITURA do hash na entrada e em
@@ -179,10 +185,26 @@ function ConsoleShell() {
       return undefined;
     }
     esRef.current = es;
-    es.onopen = () => { if (!closed) setStreamStatus('open'); };
-    es.onerror = () => { if (!closed) setStreamStatus('error'); };
+    // Sessão expirada durante o SSE não é detectável pelo EventSource (ele não expõe o
+    // status HTTP do reconnect — só onerror) e viraria "reconectando…" eterno. Após 2
+    // falhas seguidas, um GET JSON descartável sonda a borda: o getJSON de api.js
+    // converte 401 em handleAuthExpired() (reload → login). Rede/backend fora do ar
+    // cai no catch e o EventSource segue reconectando normalmente.
+    let streamErrCount = 0;
+    let lastAuthProbe = 0;
+    es.onopen = () => { if (!closed) { streamErrCount = 0; setStreamStatus('open'); } };
+    es.onerror = () => {
+      if (closed) return;
+      setStreamStatus('error');
+      streamErrCount += 1;
+      if (streamErrCount >= 2 && Date.now() - lastAuthProbe > 15000) {
+        lastAuthProbe = Date.now();
+        fetchOverview().catch(() => { /* 401 já redirecionou; outras falhas: seguir reconectando */ });
+      }
+    };
     const onSnapshot = (evt) => {
       if (closed) return;
+      streamErrCount = 0;
       try { setStreamData(JSON.parse(evt.data)); setStreamStatus('open'); }
       catch (e) { /* frame não-JSON ignorado */ }
     };
@@ -221,8 +243,9 @@ function ConsoleShell() {
   }
 
   const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
-  // Navegação interna limpa o contexto de app do deep-link (ele vale para a seção onde se chegou).
-  const selectSection = (key) => { setActiveTab(key); setDeepApp(null); setMobileNavOpen(false); };
+  // Navegação interna limpa o contexto de app do deep-link (ele vale para a seção onde
+  // se chegou) — e escreve o hash SEM query, coerente com o contexto limpo.
+  const selectSection = (key) => { setActiveTab(key); setDeepApp(null); setMobileNavOpen(false); syncHash(key); };
   const platformLinks = isMember ? [] : [
     ...QUICK_LINKS,
     { label: 'Traefik', icon: 'info', title: 'Dashboard interno — como acessar', onClick: () => setTraefikInfo(true) },

@@ -342,7 +342,7 @@ export default function VisualEditor({ project }) {
 
       <p className="muted ve__hint">
         Passe o mouse sobre uma seção para mover/ocultar/excluir; clique para abrir o painel.
-        {' '}<strong style={{ color: 'var(--accent)' }}>Textos são editáveis direto na prévia</strong> — e o botão
+        {' '}<strong style={{ color: 'var(--accent-text)' }}>Textos são editáveis direto na prévia</strong> — e o botão
         {' '}<Icon name="sparkles" size={12} /> de cada seção pede mudanças à IA.
       </p>
 
