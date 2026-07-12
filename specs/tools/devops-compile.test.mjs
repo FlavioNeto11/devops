@@ -226,6 +226,10 @@ test('deriveValues com env: namespace/hosts do env, MESMO basePath, label de amb
 });
 
 test('hostsFromMatch: extrai os hosts da cláusula Host(...)', () => {
+  // Forma v3 (emitida pelo chart): um Host() por host, combinados com ||.
+  assert.deepEqual(hostsFromMatch('(Host(`a.local`) || Host(`b.com`)) && PathPrefix(`/x`)'), ['a.local', 'b.com']);
+  assert.deepEqual(hostsFromMatch('Host(`a.local`) && PathPrefix(`/x`)'), ['a.local']);
+  // Forma legada v2 (multi-arg) — rejeitada pelo Traefik v3, mas ainda parseável.
   assert.deepEqual(hostsFromMatch('Host(`a.local`, `b.com`) && PathPrefix(`/x`)'), ['a.local', 'b.com']);
   assert.deepEqual(hostsFromMatch('PathPrefix(`/x`)'), []);
 });
@@ -310,7 +314,8 @@ test('fixture commitada: sem Secret, com Host()+PathPrefix e strip completo', ()
   assert.deepEqual(irs.map((d) => d.metadata.name).sort(), ['forge-pilot-v2', 'forge-pilot-v2-frontend']);
   for (const ir of irs) {
     for (const r of ir.spec.routes) {
-      assert.match(r.match, /Host\(`nvit\.localhost`, `dev\.nvit\.com\.br`\) && PathPrefix\(/);
+      // Traefik v3: Host() com 1 argumento; multiplos hosts combinados com ||.
+      assert.match(r.match, /\(Host\(`nvit\.localhost`\) \|\| Host\(`dev\.nvit\.com\.br`\)\) && PathPrefix\(/);
     }
   }
   const mw = docs.find((d) => d.kind === 'Middleware');

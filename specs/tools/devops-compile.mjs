@@ -330,11 +330,12 @@ export function stripSecrets(rendered) {
 // Verificação dos manifests renderizados (função pura — coberta por testes)
 // ---------------------------------------------------------------------------
 
-// Extrai os hosts da cláusula Host(`a`, `b`) de um match do Traefik.
+// Extrai os hosts de um match do Traefik. Aceita a forma v3 emitida pelo chart
+// (Host(`a`) || Host(`b`)) e a forma legada v2 Host(`a`, `b`) — que o Traefik v3
+// rejeita no parse, mas ainda existe em manifests antigos.
 export function hostsFromMatch(match) {
-  const m = /Host\(([^)]*)\)/.exec(String(match || ''));
-  if (!m) return [];
-  return [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]);
+  const groups = [...String(match || '').matchAll(/Host\(([^)]*)\)/g)];
+  return groups.flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]));
 }
 
 export function checkRendered(rendered, contract, opts = {}) {
