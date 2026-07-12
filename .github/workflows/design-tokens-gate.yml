@@ -33,5 +33,10 @@ jobs:
         run: node packages/design-tokens/build.mjs --check
       - name: Validar sincronia da casca global (platform-shell)
         run: node packages/platform-shell/build.mjs --check
+      - name: Validar sincronia do kit ui-vue (apps da Forja) + CSP
+        run: node packages/ui-vue/build.mjs --check
       - name: Testes das funções puras da casca
         run: node --test packages/platform-shell/shell.test.js
+      - name: Testes das funções puras do kit ui-vue
+        run: node --test
+        working-directory: packages/ui-vue

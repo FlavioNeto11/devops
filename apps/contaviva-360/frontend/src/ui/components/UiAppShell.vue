@@ -13,7 +13,7 @@
         <span class="ui-user-avatar" aria-hidden="true">{{ userInitial }}</span>
         <span class="ui-user-email">{{ user.email }}</span>
       </div>
-      <a v-else-if="meChecked" class="ui-btn" data-variant="ghost" data-size="sm" :href="loginHref">Entrar</a>
+      <a v-else-if="meChecked && loginHref" class="ui-btn" data-variant="ghost" data-size="sm" :href="loginHref">Entrar</a>
     </header>
     <div class="ui-main">
       <aside class="ui-sidebar" :data-open="navOpen ? 'true' : 'false'">
@@ -56,13 +56,18 @@ const isActive = (to) => route.path === to || (to !== '/' && route.path.startsWi
 
 function applyTheme(d) {
   dark.value = d;
-  if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', d);
+  }
 }
-function toggleTheme() { const d = !dark.value; applyTheme(d); try { localStorage.setItem('theme', d ? 'dark' : 'light'); } catch {} }
+// chave única da plataforma (`nvit-theme`, a mesma da casca global) — o tema escolhido
+// persiste entre portal/console/reqhub e os produtos da Forja. `theme` fica como legado de leitura.
+function toggleTheme() { const d = !dark.value; applyTheme(d); try { localStorage.setItem('nvit-theme', d ? 'dark' : 'light'); } catch {} }
 
 onMounted(async () => {
   let pref = null;
-  try { pref = localStorage.getItem('theme'); } catch {}
+  try { pref = localStorage.getItem('nvit-theme') || localStorage.getItem('theme'); } catch {}
   if (pref) applyTheme(pref === 'dark');
   else if (typeof matchMedia !== 'undefined') applyTheme(matchMedia('(prefers-color-scheme: dark)').matches);
   if (props.meUrl) {
@@ -99,6 +104,7 @@ onMounted(async () => {
   .ui-user-email { display: none; }
   .ui-sidebar { position: fixed; top: 56px; bottom: 0; left: 0; z-index: var(--ui-z-bar); transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--ui-shadow-lg); }
   .ui-sidebar[data-open="true"] { transform: translateX(0); }
+  @media (prefers-reduced-motion: reduce) { .ui-sidebar { transition: none; } }
   .ui-scrim { display: block; position: fixed; inset: 56px 0 0 0; background: rgb(2 6 23 / 0.4); z-index: 40; }
 }
 </style>

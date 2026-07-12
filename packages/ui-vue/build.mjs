@@ -53,10 +53,12 @@ function bodyFor(rel) {
 }
 
 // ---- descobre apps web gerados (produto interfaces:web + frontend já existe) ----
+// Produtos `origin: adopted` (brownfield: sicat, imobia) têm frontend pré-Forja SEM o kit —
+// mesmo idioma do design-tokens: adoção é opt-in explícito, o sync os pula.
 function discoverApps() {
-  const apps = [];
+  const apps = []; const skipped = [];
   const prodDir = path.join(REPO, 'specs', 'products');
-  if (!fs.existsSync(prodDir)) return apps;
+  if (!fs.existsSync(prodDir)) return { apps, skipped };
   for (const name of fs.readdirSync(prodDir).sort()) {
     const pj = path.join(prodDir, name, 'product.json');
     if (!fs.existsSync(pj)) continue;
@@ -64,9 +66,11 @@ function discoverApps() {
     const interfaces = Array.isArray(product.interfaces) ? product.interfaces : ['api'];
     if (!interfaces.includes('web')) continue;
     const app = product.name || name;
-    if (fs.existsSync(path.join(REPO, 'apps', app, 'frontend', 'src'))) apps.push(app);
+    if (!fs.existsSync(path.join(REPO, 'apps', app, 'frontend', 'src'))) continue;
+    if (product.origin === 'adopted') { skipped.push(app); continue; }
+    apps.push(app);
   }
-  return apps;
+  return { apps, skipped };
 }
 
 // ---- CSP primeiro (sempre bloqueia) ----
@@ -77,7 +81,8 @@ if (violations.length) {
   process.exit(1);
 }
 
-const apps = discoverApps();
+const { apps, skipped } = discoverApps();
+if (skipped.length) console.log(`[ui-vue] pulados (origin: adopted, sem o kit): ${skipped.join(', ')}`);
 let drift = false, count = 0;
 for (const app of apps) {
   for (const rel of KIT_FILES) {

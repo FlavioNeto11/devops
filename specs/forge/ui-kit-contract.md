@@ -26,7 +26,7 @@
 | Componente | Uso | Props/slots/eventos principais |
 |---|---|---|
 | `UiAppShell` | casca (topbar+sidebar) — já no `App.vue` | `title`, `nav`, `meUrl` |
-| `UiPageLayout` | moldura de toda tela | `title`, `eyebrow`, `subtitle`, `width`(narrow/default/wide/full), `loading`, `error`, `@retry`; slots `actions`/`filters`/`banner`/`footer` |
+| `UiPageLayout` | moldura de toda tela | `title`, `eyebrow`, `subtitle`, `width`(narrow/default/wide/full), `loading`, `error`, `@retry`; slots `actions`/`filters`/`banner`/`footer`. Sincroniza `document.title` ("`<title>` · `<app>`") automaticamente |
 | `UiCard` | bloco de conteúdo | `title`, `subtitle`; slots `actions`/`footer` |
 | `UiMetricCard` | KPI no dashboard | `label`, `value`, `tone`, `hint`, `trend`, `clickable`, `@click` |
 | `UiDataTable` | listas | `columns`[{key,label,align,sortable,format}], `rows`, `rowKey`, `loading`, `error`, `empty`, `density`, `selectable`+`selected`(v-model), `clickableRows`+`@row-click`, `serverMode`+`sort`/`page`/`pageSize`/`total`+`paginated`; slots `cell-<key>`, `empty-action` |

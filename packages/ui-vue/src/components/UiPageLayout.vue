@@ -18,15 +18,30 @@
   </div>
 </template>
 <script setup>
+import { watch, onMounted, onUnmounted } from 'vue';
 import UiLoadingState from './UiLoadingState.vue';
 import UiErrorState from './UiErrorState.vue';
-defineProps({
+const props = defineProps({
   title: String, subtitle: String, eyebrow: String,
   width: { type: String, default: 'default' }, // narrow | default | wide | full
   loading: Boolean, loadingMessage: String,
   error: { type: [String, Object], default: null }, retryable: { type: Boolean, default: true },
 });
 defineEmits(['retry']);
+// título do documento por tela ("<página> · <app>") — o <title> do index.html é a base;
+// sem isso toda rota se anuncia igual (histórico, abas e leitores de tela indistinguíveis).
+function syncDocTitle() {
+  if (typeof document === 'undefined') return;
+  if (window.__uiBaseTitle == null) window.__uiBaseTitle = document.title;
+  document.title = props.title ? props.title + ' · ' + window.__uiBaseTitle : window.__uiBaseTitle;
+}
+onMounted(syncDocTitle);
+watch(() => props.title, syncDocTitle);
+// restaura o título base ao desmontar — a view antiga desmonta antes da nova montar,
+// então telas SEM UiPageLayout (ex.: login) não herdam o título da tela anterior.
+onUnmounted(() => {
+  if (typeof document !== 'undefined' && window.__uiBaseTitle != null) document.title = window.__uiBaseTitle;
+});
 </script>
 <style scoped>
 .ui-page { margin: 0 auto; padding: var(--ui-space-5); display: flex; flex-direction: column; gap: var(--ui-space-5); }
