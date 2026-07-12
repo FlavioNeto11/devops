@@ -22,8 +22,9 @@ export function LoginPage() {
           <div className="text-muted mt-1 text-sm">Seu WhatsApp na web</div>
         </div>
 
-        <label className="block text-sm text-muted mb-1">E-mail</label>
+        <label htmlFor="login-email" className="block text-sm text-muted mb-1">E-mail</label>
         <input
+          id="login-email"
           className="w-full mb-4 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="email"
           autoComplete="username"
@@ -32,8 +33,9 @@ export function LoginPage() {
           placeholder="voce@email.com"
         />
 
-        <label className="block text-sm text-muted mb-1">Senha</label>
+        <label htmlFor="login-password" className="block text-sm text-muted mb-1">Senha</label>
         <input
+          id="login-password"
           className="w-full mb-2 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="password"
           autoComplete="current-password"

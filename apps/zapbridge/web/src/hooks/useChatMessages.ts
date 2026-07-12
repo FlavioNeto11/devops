@@ -33,6 +33,8 @@ function fakeMessages(): Message[] {
   ];
 }
 
+type PendingMedia = { file: File | Blob; type: 'image' | 'video' | 'audio' | 'document'; name: string };
+
 export function useChatMessages(chatId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,8 +42,18 @@ export function useChatMessages(chatId: string) {
   const [exhausted, setExhausted] = useState(false);
   const [presence, setPresence] = useState<Presence>({});
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  // Contador monotônico de falhas de envio (para anúncio acessível na tela).
+  const [sendFailureAt, setSendFailureAt] = useState(0);
   const cursorRef = useRef<string | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tempSeq = useRef(0);
+  // Payloads de mídia pendentes/com erro, por id temporário (permite "Tentar de novo").
+  const pendingMediaRef = useRef(new Map<string, PendingMedia>());
+  // Espelho do estado atual (para callbacks async lerem a lista sem closure velha).
+  const messagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const upsert = useCallback((m: Message) => {
     setMessages((prev) => {
@@ -55,6 +67,55 @@ export function useChatMessages(chatId: string) {
     });
   }, []);
 
+  // Troca a bolha otimista (tempId) pela mensagem confirmada pelo servidor SEM
+  // duplicar quando o eco em tempo real (message.sent) já inseriu o id do servidor.
+  const reconcile = useCallback((tempId: string, serverMsg: Message) => {
+    setMessages((prev) => {
+      const echoIdx = prev.findIndex((m) => m.id === serverMsg.id);
+      if (echoIdx >= 0) {
+        // Eco chegou primeiro: atualiza a entrada do servidor e descarta a temporária.
+        const next = prev.filter((m) => m.id !== tempId);
+        const idx = next.findIndex((m) => m.id === serverMsg.id);
+        next[idx] = { ...next[idx], ...serverMsg };
+        return next;
+      }
+      const tempIdx = prev.findIndex((m) => m.id === tempId);
+      if (tempIdx >= 0) {
+        const next = [...prev];
+        next[tempIdx] = serverMsg;
+        return next;
+      }
+      return [serverMsg, ...prev];
+    });
+  }, []);
+
+  const markSendError = useCallback((tempId: string) => {
+    const prev = messagesRef.current;
+    const temp = prev.find((m) => m.id === tempId);
+    // Se o eco em tempo real (message.sent) JÁ entregou a mensagem real, o POST
+    // "falhou" só do nosso lado: remove a bolha temporária em silêncio (marcar erro
+    // criaria duplicata e o "Tentar de novo" reenviaria de verdade ao contato).
+    const alreadyDelivered =
+      !!temp &&
+      prev.some(
+        (m) =>
+          m.id !== tempId &&
+          !m.id.startsWith('local-') &&
+          m.fromMe &&
+          m.chatId === temp.chatId &&
+          m.type === temp.type &&
+          (temp.type !== 'text' || m.text === temp.text) &&
+          new Date(m.timestamp).getTime() >= new Date(temp.timestamp).getTime(),
+      );
+    if (!temp || alreadyDelivered) {
+      pendingMediaRef.current.delete(tempId);
+      setMessages((p) => p.filter((m) => m.id !== tempId));
+      return;
+    }
+    setMessages((p) => p.map((m) => (m.id === tempId ? { ...m, status: 'error' as const } : m)));
+    setSendFailureAt((n) => n + 1);
+  }, []);
+
   // Carrega histórico inicial + zera não-lidas.
   useEffect(() => {
     let alive = true;
@@ -64,6 +125,7 @@ export function useChatMessages(chatId: string) {
     setPresence({});
     setSuggestions([]);
     cursorRef.current = null;
+    pendingMediaRef.current.clear();
 
     if (isDevPreview()) {
       setMessages(fakeMessages());
@@ -157,30 +219,87 @@ export function useChatMessages(chatId: string) {
         } as Message);
         return;
       }
+      // Bolha otimista: aparece imediatamente como "pendente" e vira erro se o POST falhar.
+      const tempId = `local-${Date.now()}-${++tempSeq.current}`;
+      upsert({
+        id: tempId,
+        chatId,
+        fromMe: true,
+        senderJid: 'me',
+        type: 'text',
+        text,
+        quotedMessageId: quotedMessageId ?? null,
+        status: 'pending',
+        timestamp: new Date().toISOString(),
+      });
       try {
         const { data } = await api.post('/chats/' + chatId + '/messages', { text, quotedMessageId });
-        if (data?.message) upsert(data.message);
+        if (data?.message) reconcile(tempId, data.message);
+        else setMessages((prev) => prev.filter((m) => m.id !== tempId)); // eco em tempo real preenche
       } catch {
-        /* toast futuro */
+        markSendError(tempId);
       }
     },
-    [chatId, upsert],
+    [chatId, upsert, reconcile, markSendError],
   );
 
   const sendMedia = useCallback(
     async (file: File | Blob, type: 'image' | 'video' | 'audio' | 'document', name: string) => {
       if (isDevPreview()) return;
+      const tempId = `local-${Date.now()}-${++tempSeq.current}`;
+      pendingMediaRef.current.set(tempId, { file, type, name });
+      // Bolha otimista de mídia: sem media.id o MessageBubble mostra o rótulo do tipo.
+      upsert({
+        id: tempId,
+        chatId,
+        fromMe: true,
+        senderJid: 'me',
+        type,
+        text: null,
+        status: 'pending',
+        timestamp: new Date().toISOString(),
+      });
       const form = new FormData();
       form.append('type', type);
       form.append('file', file, name);
       try {
         const { data } = await api.post('/chats/' + chatId + '/media', form);
-        if (data?.message) upsert(data.message);
+        pendingMediaRef.current.delete(tempId);
+        if (data?.message) reconcile(tempId, data.message);
+        else setMessages((prev) => prev.filter((m) => m.id !== tempId)); // eco em tempo real preenche
       } catch {
-        /* toast futuro */
+        markSendError(tempId);
       }
     },
-    [chatId, upsert],
+    [chatId, upsert, reconcile, markSendError],
+  );
+
+  // Reenvio só é possível para bolhas otimistas locais: texto com conteúdo ou
+  // mídia cujo payload ainda está em pendingMediaRef. Mensagens 'error' vindas do
+  // histórico do servidor (id não-local) não têm ação de reenvio.
+  const canRetry = useCallback((msg: Message) => {
+    if (!msg.id.startsWith('local-')) return false;
+    if (pendingMediaRef.current.has(msg.id)) return true;
+    return msg.type === 'text' && !!msg.text;
+  }, []);
+
+  // "Tentar de novo" de uma bolha com erro: remove a bolha antiga e re-dispara o envio.
+  // Só remove quando há reenvio possível — caso contrário é no-op (a bolha fica).
+  const retrySend = useCallback(
+    (msg: Message) => {
+      const media = pendingMediaRef.current.get(msg.id);
+      if (media) {
+        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        pendingMediaRef.current.delete(msg.id);
+        void sendMedia(media.file, media.type, media.name);
+        return;
+      }
+      if (msg.id.startsWith('local-') && msg.type === 'text' && msg.text) {
+        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        void sendText(msg.text, msg.quotedMessageId ?? undefined);
+      }
+    },
+    [sendMedia, sendText],
   );
 
   const react = useCallback(
@@ -211,6 +330,9 @@ export function useChatMessages(chatId: string) {
     loadMore,
     sendText,
     sendMedia,
+    retrySend,
+    canRetry,
+    sendFailureAt,
     react,
     notifyTyping,
   };

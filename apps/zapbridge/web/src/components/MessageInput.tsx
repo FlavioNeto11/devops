@@ -135,7 +135,7 @@ export function MessageInput({
               </button>
             ))}
           </div>
-          <button onClick={onClearSuggestions} className="text-muted text-lg px-1">×</button>
+          <button onClick={onClearSuggestions} className="text-muted text-lg px-1" aria-label="Dispensar sugestões">×</button>
         </div>
       )}
 
@@ -163,7 +163,15 @@ export function MessageInput({
       <div className="flex items-end gap-2 p-2 bg-header border-t border-line" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
         {!recording && (
           <div className="relative">
-            <button onClick={() => setMenuOpen((v) => !v)} disabled={disabled} className="w-10 h-10 grid place-items-center text-muted text-2xl">＋</button>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              disabled={disabled}
+              aria-label="Anexar arquivo"
+              aria-expanded={menuOpen}
+              className="w-10 h-10 grid place-items-center text-muted text-2xl"
+            >
+              ＋
+            </button>
             {menuOpen && (
               <div className="absolute bottom-12 left-0 bg-surfaceAlt rounded-xl py-1 shadow-lg w-44 z-10">
                 <button onClick={() => fileRef.current?.click()} className="block w-full text-left px-4 py-2.5 hover:bg-surface text-white text-sm">📷 Foto ou vídeo</button>
@@ -183,6 +191,7 @@ export function MessageInput({
           <textarea
             className="flex-1 resize-none bg-surface rounded-2xl px-4 py-2.5 min-h-[42px] max-h-[120px] text-[15px] outline-none"
             placeholder="Mensagem"
+            aria-label="Mensagem"
             rows={1}
             value={value}
             disabled={disabled}
@@ -200,12 +209,32 @@ export function MessageInput({
         )}
 
         {showRewrite && (
-          <button onClick={() => setRewriteOpen((v) => !v)} disabled={disabled} className="w-11 h-11 rounded-full bg-surfaceAlt grid place-items-center text-lg shrink-0">✨</button>
+          <button
+            onClick={() => setRewriteOpen((v) => !v)}
+            disabled={disabled}
+            aria-label="Assistente de IA"
+            aria-expanded={rewriteOpen}
+            className="w-11 h-11 rounded-full bg-surfaceAlt grid place-items-center text-lg shrink-0"
+          >
+            ✨
+          </button>
         )}
         {showSend ? (
-          <button onClick={submit} disabled={disabled} className="w-11 h-11 rounded-full bg-primary text-bg grid place-items-center shrink-0 text-lg">➤</button>
+          <button
+            onClick={submit}
+            disabled={disabled}
+            aria-label="Enviar mensagem"
+            className="w-11 h-11 rounded-full bg-primary text-bg grid place-items-center shrink-0 text-lg"
+          >
+            ➤
+          </button>
         ) : (
-          <button onClick={toggleRecord} disabled={disabled} className={`w-11 h-11 rounded-full grid place-items-center shrink-0 text-lg ${recording ? 'bg-danger text-white' : 'bg-primary text-bg'}`}>
+          <button
+            onClick={toggleRecord}
+            disabled={disabled}
+            aria-label={recording ? 'Parar gravação' : 'Gravar áudio'}
+            className={`w-11 h-11 rounded-full grid place-items-center shrink-0 text-lg ${recording ? 'bg-danger text-white' : 'bg-primary text-bg'}`}
+          >
             {recording ? '■' : '🎤'}
           </button>
         )}

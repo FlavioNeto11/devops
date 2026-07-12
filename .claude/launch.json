@@ -72,6 +72,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/besc/frontend", "--", "--port", "5195", "--strictPort"],
       "port": 5195
+    },
+    {
+      "name": "zapbridge-web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/zapbridge/web", "--", "--port", "5196", "--strictPort"],
+      "port": 5196
     }
   ]
 }

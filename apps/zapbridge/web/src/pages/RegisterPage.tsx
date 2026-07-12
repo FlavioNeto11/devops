@@ -22,16 +22,18 @@ export function RegisterPage() {
           <div className="text-3xl font-extrabold text-primary">Criar conta</div>
         </div>
 
-        <label className="block text-sm text-muted mb-1">Nome</label>
+        <label htmlFor="register-name" className="block text-sm text-muted mb-1">Nome</label>
         <input
+          id="register-name"
           className="w-full mb-4 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Seu nome"
         />
 
-        <label className="block text-sm text-muted mb-1">E-mail</label>
+        <label htmlFor="register-email" className="block text-sm text-muted mb-1">E-mail</label>
         <input
+          id="register-email"
           className="w-full mb-4 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="email"
           autoComplete="username"
@@ -40,8 +42,9 @@ export function RegisterPage() {
           placeholder="voce@email.com"
         />
 
-        <label className="block text-sm text-muted mb-1">Senha</label>
+        <label htmlFor="register-password" className="block text-sm text-muted mb-1">Senha</label>
         <input
+          id="register-password"
           className="w-full mb-2 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="password"
           autoComplete="new-password"
