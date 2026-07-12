@@ -54,10 +54,22 @@ function handleNavigate(path) {
   isMobileMenuOpen.value = false;
   emit('navigate', path);
 }
+
+// Skip-link: foca o <main> direto (âncora por href brigaria com o history router).
+function skipToContent() {
+  const el = document.getElementById('sicat-conteudo');
+  if (el) {
+    el.focus();
+    el.scrollIntoView();
+  }
+}
 </script>
 
 <template>
   <div class="sicat-shell">
+    <a class="sicat-skip-link" href="#sicat-conteudo" @click.prevent="skipToContent">
+      Pular para o conteúdo
+    </a>
     <SicatTopbar
       :groups="groups"
       :is-desktop="isDesktop"
@@ -89,6 +101,8 @@ function handleNavigate(path) {
 
     <div class="sicat-shell__page">
       <main
+        id="sicat-conteudo"
+        tabindex="-1"
         class="sicat-shell__content"
         :class="{ 'sicat-shell__content--chat': isChatRoute }"
       >
