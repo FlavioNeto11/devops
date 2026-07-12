@@ -5,7 +5,18 @@ import { readFrontend } from './helpers.mjs';
 
 test('catálogo cobre os produtos e portais conhecidos', () => {
   const keys = PRODUCTS.map((p) => p.key);
-  for (const k of ['sicat', 'gymops', 'rmambiental', 'anarabottini']) {
+  for (const k of [
+    'sicat',
+    'gymops',
+    'besc',
+    'zapbridge',
+    'contaviva-360',
+    'contaviva-pro',
+    'imobia',
+    'neuroevolui',
+    'rmambiental',
+    'anarabottini',
+  ]) {
     assert.ok(keys.includes(k), `faltou produto ${k}`);
   }
 });
@@ -17,14 +28,14 @@ test('produtos que exigem login estão marcados', () => {
 
 test('DevOps Console (gated por OIDC) tem requiresLogin true', () => {
   // Todas as ferramentas de operador exigem login (OIDC/SSO ou auth do app).
-  for (const k of ['devops', 'grafana', 'argocd', 'keycloak', 'portal-rec']) {
+  for (const k of ['devops', 'reqhub', 'grafana', 'argocd', 'keycloak', 'portal-rec']) {
     assert.equal(TOOLS.find((t) => t.key === k).requiresLogin, true, `${k} deve exigir login`);
   }
 });
 
 test('ferramentas cobrem as rotas da plataforma', () => {
   const paths = TOOLS.map((t) => t.path);
-  for (const p of ['/devops', '/grafana', '/argocd', '/auth', '/portal-rec']) {
+  for (const p of ['/devops', '/reqs', '/grafana', '/argocd', '/auth', '/portal-rec']) {
     assert.ok(paths.includes(p), `faltou ferramenta em ${p}`);
   }
 });
