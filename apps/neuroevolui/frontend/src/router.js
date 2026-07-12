@@ -70,7 +70,7 @@ export const routes = [
 
   // Consultas
   { path: '/consultations', name: 'consultation-list', component: ConsultationListView },
-  { path: '/consultations/novo', name: 'consultation-create', component: ConsultationCreateView },
+  { path: '/consultations/new', alias: '/consultations/novo', name: 'consultation-create', component: ConsultationCreateView },
   { path: '/consultations/:id', name: 'consultation-detail', component: ConsultationDetailView, props: true },
 
   // Profissionais
