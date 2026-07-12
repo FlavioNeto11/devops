@@ -90,6 +90,7 @@ function render(brandKey) {
   if (brand.dark) out.push('', colorBlock('.dark', 'dark', brand.dark, brand, false));
   out.push('');
   out.push('html { scroll-behavior: smooth; }');
+  out.push('@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }');
   out.push(`section[id] { scroll-margin-top: ${tokens.structural.scrollMarginTop}; }`);
   out.push('::selection { background: rgb(var(--neon) / var(--selection-alpha)); }');
   out.push('::-webkit-scrollbar { width: 10px; height: 10px; }');
