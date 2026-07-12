@@ -25,7 +25,7 @@
       </UiDataTable>
     </UiCard>
 
-    <UiModal v-if="showForm" :title="editing ? 'Editar conta a pagar' : 'Nova conta a pagar'" @close="showForm = false">
+    <UiModal v-model:open="showForm" :title="editing ? 'Editar conta a pagar' : 'Nova conta a pagar'">
       <form @submit.prevent="save" class="modal-form">
         <UiFormSection title="Dados do lançamento" :columns="2">
           <UiFormField label="Fornecedor" :required="true">
