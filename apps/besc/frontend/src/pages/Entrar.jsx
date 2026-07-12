@@ -7,7 +7,20 @@ import { Icon } from '../icons.jsx';
 
 // Só aceita destinos internos da SPA (evita open redirect via ?next=).
 function safeNext(raw) {
-  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/casos';
+  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+}
+
+// Destino pós-login pelo perfil, sem ?next= explícito. Permissões REAIS do catálogo
+// (api/src/foundation/rbac.js): gestor/admin (cases:read) → /casos; investidor
+// (contracts:read) → carteira; advogado/juiz (titles:read + legal_status:read, sem
+// casos) → /auditoria; conta pendente (sem permissões efetivas) → home pública.
+function homeFor(user) {
+  const perms = (user && Array.isArray(user.permissions)) ? user.permissions : [];
+  const has = (k) => perms.some((p) => p && (p.key === k || p.key === '*'));
+  if (has('cases:read')) return '/casos';
+  if (has('contracts:read')) return '/investidor/carteira';
+  if (has('titles:read') && has('legal_status:read')) return '/auditoria';
+  return '/';
 }
 
 function friendlyError(err, fallback) {
@@ -23,7 +36,8 @@ export default function Entrar() {
   const { user, loading, login, loginSso } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = safeNext(params.get('next'));
+  const rawNext = params.get('next');
+  const next = rawNext ? safeNext(rawNext) : null; // null = sem destino explícito → roteia pelo perfil
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,15 +55,15 @@ export default function Entrar() {
   }, []);
 
   if (loading) return <Loading label="Verificando sessão…" />;
-  if (user) return <Navigate to={next} replace />;
+  if (user) return <Navigate to={next || homeFor(user)} replace />;
 
   const submit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) { setError('Informe seu e-mail e sua senha.'); return; }
     setBusy(true); setError(null);
     try {
-      await login(email.trim(), password);
-      navigate(next, { replace: true });
+      const u = await login(email.trim(), password);
+      navigate(next || homeFor(u), { replace: true });
     } catch (err) {
       const m = (err && err.message) || '';
       setError(/401|invalid|incorret|credencia|senha/i.test(m)
@@ -62,7 +76,8 @@ export default function Entrar() {
   const sso = async () => {
     setSsoBusy(true); setError(null);
     try {
-      sessionStorage.setItem('besc_next', next);
+      // vazio = sem destino explícito → o callback roteia pelo perfil retornado
+      sessionStorage.setItem('besc_next', next || '');
       await loginSso(); // redireciona para o Keycloak — não volta desta chamada
     } catch (err) {
       setError(friendlyError(err, 'Não foi possível iniciar o login com SSO. Tente novamente.'));
@@ -245,10 +260,11 @@ export function EntrarCallback() {
 
     let alive = true;
     completeSsoCallback({ code, state })
-      .then(() => {
-        const next = safeNext(sessionStorage.getItem('besc_next'));
+      .then((u) => {
+        const stored = sessionStorage.getItem('besc_next');
         sessionStorage.removeItem('besc_next');
-        if (alive) navigate(next, { replace: true });
+        // com destino explícito → respeita; sem → roteia pelo perfil retornado
+        if (alive) navigate(stored ? safeNext(stored) : homeFor(u), { replace: true });
       })
       .catch((err) => {
         if (alive) setError(friendlyError(err, 'Não foi possível concluir o login com SSO. Tente entrar de novo.'));

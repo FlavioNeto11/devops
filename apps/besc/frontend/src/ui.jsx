@@ -170,11 +170,12 @@ export function formatBytes(n) {
 
 export function Banner({ kind = 'err', children }) {
   if (!children) return null;
-  return <div className={`banner ${kind}`}>{children}</div>;
+  // erro é anunciado imediatamente (alert); demais avisos de forma educada (status)
+  return <div className={`banner ${kind}`} role={kind === 'err' ? 'alert' : 'status'}>{children}</div>;
 }
 
 export function Loading({ label = 'Carregando…' }) {
-  return <div className="center-load"><span className="spinner" /> {label}</div>;
+  return <div className="center-load" role="status" aria-live="polite"><span className="spinner" /> {label}</div>;
 }
 
 // Skeletons de carregamento (percepção de performance; sem layout shift)

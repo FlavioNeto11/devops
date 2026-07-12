@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useMeta, useLabel, CountBar } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
 
 const VC_ICON = { seguranca: 'shield', liquidez: 'liquidity', versatilidade: 'layers', jurisprudencia: 'gavel' };
 
 export default function PortalHome() {
   const { meta } = useMeta();
   const label = useLabel();
+  const { hasPerm } = useAuth();
+  const canSeeCases = hasPerm('cases:read');
   const [stats, setStats] = useState(null);
   useEffect(() => { api.stats().then(setStats).catch(() => setStats(null)); }, []);
 
@@ -19,9 +22,10 @@ export default function PortalHome() {
   const maxCat = Math.max(1, ...Object.values(byCat));
 
   const entries = [
+    { to: '/marketplace', ic: 'coins', title: 'Investir em títulos', desc: 'Títulos lastreados em ações BESC publicados no marketplace, com valores e disponibilidade.' },
     { to: '/biblioteca', ic: 'library', title: 'Biblioteca institucional', desc: 'Fundamentos, histórico da incorporação, comunicados, custos e vídeos.', count: stats && stats.library.total, unit: 'itens' },
     { to: '/jurisprudencia', ic: 'gavel', title: 'Jurisprudência', desc: 'Acervo de decisões filtrável por tribunal, credor, mecanismo e resultado.', count: stats && stats.jurisprudence.total, unit: 'decisões' },
-    { to: '/casos', ic: 'cases', title: 'Casos / levantamento', desc: 'Cadastro de titulares e processos, checklists, pendências e relatórios.', count: stats && stats.cases.total, unit: 'casos' },
+    { to: '/casos', ic: 'cases', title: 'Casos / levantamento', desc: 'Cadastro de titulares e processos, checklists, pendências e relatórios.', count: canSeeCases && stats ? stats.cases.total : null, unit: 'casos', restricted: !canSeeCases },
     { to: '/glossario', ic: 'glossary', title: 'Glossário', desc: 'Termos do processo BESC explicados de forma objetiva.', count: stats && stats.glossary.total, unit: 'termos' },
     { to: '/roadmap', ic: 'roadmap', title: 'Roadmap do processo', desc: 'O que já existe e o que ainda falta para o fluxo completo até a tokenização.' },
   ];
@@ -39,7 +43,8 @@ export default function PortalHome() {
           fundamento para uma futura tokenização.
         </p>
         <div className="hero-actions">
-          <Link className="btn primary" to="/jurisprudencia"><Icon name="gavel" /> Explorar jurisprudência</Link>
+          <Link className="btn primary" to="/marketplace"><Icon name="coins" /> Investir em títulos</Link>
+          <Link className="btn" to="/jurisprudencia"><Icon name="gavel" /> Explorar jurisprudência</Link>
           <Link className="btn" to="/biblioteca"><Icon name="library" /> Biblioteca</Link>
           <Link className="btn" to="/casos"><Icon name="cases" /> Casos</Link>
         </div>
@@ -68,6 +73,7 @@ export default function PortalHome() {
               <h3>{e.title}</h3>
               <p>{e.desc}</p>
               {e.count != null && <p style={{ marginTop: 6 }}><span className="ec-count">{e.count}</span> {e.unit}</p>}
+              {e.restricted && <p className="ec-lock"><Icon name="lock" size={12} /> Área restrita — requer acesso</p>}
             </span>
           </Link>
         ))}
