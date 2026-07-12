@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { DelayAnalysisModal } from '@/components/ai/DelayAnalysisModal';
 import { TutorialTrigger } from '@/features/tutorial';
 import Link from 'next/link';
@@ -42,9 +43,11 @@ function KpiCard({
 }: {
   icon: React.ElementType;
   label: string;
-  value: number;
+  /** Número real ou '—' quando os dados não puderam ser carregados. */
+  value: number | '—';
   variant?: 'default' | 'danger' | 'warning';
 }) {
+  const positive = typeof value === 'number' && value > 0;
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
@@ -55,9 +58,9 @@ function KpiCard({
         <div>
           <p
             className={`text-2xl font-semibold tracking-tight ${
-              variant === 'danger' && value > 0
+              variant === 'danger' && positive
                 ? 'text-red-600 dark:text-red-400'
-                : variant === 'warning' && value > 0
+                : variant === 'warning' && positive
                   ? 'text-amber-600 dark:text-amber-400'
                   : ''
             }`}
@@ -115,7 +118,7 @@ export default function DashboardPage() {
   });
   const overdueActivities: ActivityListItem[] = overdueData?.data ?? [];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-overview', organizationId],
     queryFn: () =>
       api.get<ApiResponse<DashboardOverview>>(
@@ -160,6 +163,16 @@ export default function DashboardPage() {
         <TutorialTrigger tutorialId="dashboard-overview" />
       </div>
 
+      {/* Falha ao carregar: banner explícito em vez de painel "zerado e saudável".
+          Com dados stale presentes, o banner avisa sem esconder o conteúdo. */}
+      {isError && (
+        <QueryErrorState
+          title={overview ? 'Não foi possível atualizar' : undefined}
+          description={overview ? 'Exibindo os últimos dados carregados.' : undefined}
+          onRetry={() => refetch()}
+        />
+      )}
+
       {/* KPIs */}
       <div data-tutorial="dashboard-kpis" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading ? (
@@ -169,24 +182,24 @@ export default function DashboardPage() {
             <KpiCard
               icon={AlertTriangle}
               label="Unidades com atraso crítico"
-              value={overview?.kpis.unitsWithCriticalOverdue ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.unitsWithCriticalOverdue ?? 0}
               variant="danger"
             />
             <KpiCard
               icon={TrendingDown}
               label="Atividades atrasadas"
-              value={overview?.kpis.totalOverdue ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.totalOverdue ?? 0}
               variant="warning"
             />
             <KpiCard
               icon={Clock}
               label="Financeiro vencendo hoje"
-              value={overview?.kpis.financialDueToday ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.financialDueToday ?? 0}
             />
             <KpiCard
               icon={Wrench}
               label="Manutenções abertas"
-              value={overview?.kpis.maintenanceOpen ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.maintenanceOpen ?? 0}
             />
           </>
         )}
@@ -285,7 +298,7 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ))}
-                {sortedUnits.length === 0 && (
+                {sortedUnits.length === 0 && !(isError && !overview) && (
                   <tr>
                     <td colSpan={5} className="p-0">
                       <EmptyState
@@ -293,6 +306,13 @@ export default function DashboardPage() {
                         title="Nenhuma unidade encontrada"
                         description="Cadastre uma unidade para acompanhar a operação por aqui."
                       />
+                    </td>
+                  </tr>
+                )}
+                {sortedUnits.length === 0 && isError && !overview && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      Dados indisponíveis no momento.
                     </td>
                   </tr>
                 )}

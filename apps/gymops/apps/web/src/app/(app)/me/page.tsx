@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ActivityCard } from '@/components/activities/ActivityCard';
 import { ActivityDrawer } from '@/components/activities/ActivityDrawer';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 import { useTutorialStore } from '@/features/tutorial';
 import { cn } from '@/lib/utils';
@@ -77,7 +78,7 @@ export default function MyActivitiesPage() {
   const run = useTutorialStore((s) => s.run);
   const isTutorialMyActivities = run?.tutorialId === 'my-activities';
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['my-activities', activeTab, organizationId],
     queryFn: () =>
       api.get<ApiResponse<ActivityListItem[]>>(
@@ -149,8 +150,18 @@ export default function MyActivitiesPage() {
       </div>
       </div>
 
-      {/* Activities */}
-      {isLoading ? (
+      {/* Activities — erro só substitui o conteúdo quando não há dados; com dados stale, banner acima */}
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />

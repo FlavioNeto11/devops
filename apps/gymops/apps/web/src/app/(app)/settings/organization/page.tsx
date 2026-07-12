@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Save, Loader2, Shield, Bell, Image as ImageIcon, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/avatar';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -52,19 +53,19 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
   const [deliveryStatus, setDeliveryStatus] = useState('');
   const [deliveryPage, setDeliveryPage] = useState(1);
 
-  const { data: orgData, isLoading } = useQuery({
+  const { data: orgData, isLoading, isError, refetch } = useQuery({
     queryKey: ['organization', organizationId],
     queryFn: () => organizationApi.get(organizationId),
     enabled: !!organizationId,
   });
 
-  const { data: auditData, isLoading: auditLoading } = useQuery({
+  const { data: auditData, isLoading: auditLoading, isError: auditError, refetch: refetchAudit } = useQuery({
     queryKey: ['audit-logs', organizationId, auditPage],
     queryFn: () => auditLogsApi.list({ organizationId, page: auditPage }),
     enabled: !!organizationId,
   });
 
-  const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
+  const { data: deliveriesData, isLoading: deliveriesLoading, isError: deliveriesError, refetch: refetchDeliveries } = useQuery({
     queryKey: ['deliveries', organizationId, deliveryChannel, deliveryStatus, deliveryPage],
     queryFn: () => deliveriesApi.list({ organizationId, channel: deliveryChannel || undefined, status: deliveryStatus || undefined, page: deliveryPage }),
     enabled: !!organizationId,
@@ -86,6 +87,14 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
+  if (isError && !orgData) {
+    return (
+      <div className="p-3 md:p-6 max-w-3xl mx-auto">
+        <QueryErrorState onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
   const auditLogs = auditData?.data ?? [];
   const auditMeta = (auditData as { meta?: { total: number; pages: number } })?.meta;
 
@@ -103,6 +112,16 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
         <div className={`rounded-md p-3 text-sm ${toast.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {toast.message}
         </div>
+      )}
+
+      {/* Refetch falhou mas há dados stale: banner não-bloqueante */}
+      {isError && orgData && (
+        <QueryErrorState
+          className="py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
       )}
 
       {/* Basic info + branding */}
@@ -172,7 +191,17 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
         </div>
         <p className="text-sm text-muted-foreground">Registro de ações administrativas da organização.</p>
 
-        {auditLoading ? (
+        {auditError && auditData && (
+          <QueryErrorState
+            className="py-4"
+            title="Não foi possível atualizar"
+            description="Exibindo os últimos dados carregados."
+            onRetry={() => refetchAudit()}
+          />
+        )}
+        {auditError && !auditData ? (
+          <QueryErrorState onRetry={() => refetchAudit()} />
+        ) : auditLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : auditLogs.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
@@ -258,7 +287,17 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
           </select>
         </div>
 
-        {deliveriesLoading ? (
+        {deliveriesError && deliveriesData && (
+          <QueryErrorState
+            className="py-4"
+            title="Não foi possível atualizar"
+            description="Exibindo os últimos dados carregados."
+            onRetry={() => refetchDeliveries()}
+          />
+        )}
+        {deliveriesError && !deliveriesData ? (
+          <QueryErrorState onRetry={() => refetchDeliveries()} />
+        ) : deliveriesLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : !deliveriesData?.data?.length ? (
           <div className="text-center py-8 text-muted-foreground text-sm">

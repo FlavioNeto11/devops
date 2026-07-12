@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { TutorialTrigger } from '@/features/tutorial';
 import { ActivityDrawer } from '@/components/activities/ActivityDrawer';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import type { ApiResponse } from '@gymops/shared';
 
 type ActivityStatusValue = 'novo' | 'em_andamento' | 'aguardando_terceiro' | 'aguardando_aprovacao' | 'concluido' | 'cancelado';
@@ -129,6 +130,8 @@ export default function ActivitiesPage() {
     data: pagesData,
     isLoading,
     isFetching,
+    isError,
+    isFetchNextPageError,
     fetchNextPage,
     hasNextPage,
     refetch,
@@ -256,7 +259,15 @@ export default function ActivitiesPage() {
     }
   };
 
+  // Falha ao buscar a próxima página (ou refetch com dados já presentes):
+  // erro inline junto ao "Carregar mais" — NUNCA descartar a lista já carregada.
+  const nextPageError = isFetchNextPageError || (isError && !!pagesData);
+
   const renderContent = (): ReactNode => {
+    if (isError && !pagesData) {
+      return <QueryErrorState onRetry={() => void refetch()} />;
+    }
+
     if (isLoading) {
       return (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
@@ -317,12 +328,15 @@ export default function ActivitiesPage() {
           </table>
         </div>
 
-        {/* Load more */}
-        {hasNextPage && (
-          <div className="flex justify-center pt-4">
-            <Button variant="outline" size="sm" onClick={() => fetchNextPage()} disabled={isFetching} className="gap-2">
+        {/* Load more — falha de página seguinte mostra erro inline, mantendo a lista */}
+        {(hasNextPage || nextPageError) && (
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {nextPageError && (
+              <p role="alert" className="text-sm text-destructive">Não foi possível carregar mais atividades.</p>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void fetchNextPage()} disabled={isFetching} className="gap-2">
               {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Carregar mais
+              {nextPageError ? 'Tentar novamente' : 'Carregar mais'}
             </Button>
           </div>
         )}
@@ -382,18 +396,18 @@ export default function ActivitiesPage() {
         </div>
       )}
 
-      {/* KPI strip */}
+      {/* KPI strip — '—' quando os dados não carregaram (evita zeros enganosos) */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold">{total}</p>
+          <p className="text-2xl font-bold">{isError && !pagesData ? '—' : total}</p>
           <p className="text-xs text-muted-foreground">Total</p>
         </div>
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
+          <p className="text-2xl font-bold text-red-600">{isError && !pagesData ? '—' : overdueCount}</p>
           <p className="text-xs text-muted-foreground">Atrasadas</p>
         </div>
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold text-green-600">{doneCount}</p>
+          <p className="text-2xl font-bold text-green-600">{isError && !pagesData ? '—' : doneCount}</p>
           <p className="text-xs text-muted-foreground">Concluídas</p>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Plus, Pencil, Archive, Copy, ListTodo, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 
 export default function TemplatesPage() {
@@ -25,7 +26,7 @@ export default function TemplatesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['templates-admin', organizationId, filterArea],
     queryFn: () => templatesAdminApi.list(organizationId!, filterArea || undefined),
     enabled: !!organizationId,
@@ -100,7 +101,17 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
       ) : templates.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">
