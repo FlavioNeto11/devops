@@ -3,7 +3,7 @@
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
 import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=62';
 import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=3';
-import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=17';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=18';
 
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 
@@ -790,11 +790,24 @@ function wireZoomPan(s, root, layout) {
 }
 
 /* ---------- Cobertura ---------- */
+// "Cobertura" também abriga as Telas (usabilidade): sub-abas trocam a view interna — o item da
+// sidebar continua aceso via NAV_ALIAS (usability → coverage). Mesmo molde de changesTabs (Mudanças).
+function coverageTabs(active) {
+  const bar = h('div', { class: 'usa-filter changes-tabs', role: 'group', 'aria-label': 'Seções de Cobertura' });
+  const tab = (label, view) => {
+    const on = active === view;
+    return h('button', { class: 'usa-fchip' + (on ? ' is-on' : ''), type: 'button', 'aria-pressed': on ? 'true' : 'false', onclick: () => { if (!on) switchView(view); } }, label);
+  };
+  const nRefs = refList().length;
+  bar.append(tab('Matriz de cobertura', 'coverage'), tab('Telas (usabilidade)' + (nRefs ? ` · ${nRefs}` : ''), 'usability'));
+  return bar;
+}
 function renderCoverage() {
   const wrapF = document.getElementById('coverage-filters');
   if (wrapF) wrapF.replaceChildren();
   const body = document.getElementById('coverage-body');
   body.replaceChildren();
+  body.append(coverageTabs('coverage'));
 
   const cols = [['acceptance', 'Aceite'], ['method', 'Método'], ['evidence', 'Evidência'], ['adr', 'ADR'], ['service', 'Serviço'], ['infra', 'Infra'], ['slo', 'SLO']];
   const allReqs = DATA.baseline.requirements;
@@ -2257,6 +2270,7 @@ function writeHash() {
     let h = '#/' + state.view;
     const qp = [];
     if (state.view === 'workspace' && state.selectedId) qp.push('id=' + encodeURIComponent(state.selectedId));
+    if (state.view === 'usability' && state.usabilitySel) qp.push('id=' + encodeURIComponent(state.usabilitySel)); // tela selecionada linkável (mesmo idioma do workspace)
     if (state.filters && state.filters.product && ['explorer', 'coverage'].includes(state.view)) qp.push('product=' + encodeURIComponent(state.filters.product));
     // (E1, Forja 4.1) detalhe do produto no Studio é linkável: #/forge?product=<slug> —
     // mesmo formato que a casca global emite (surfaceLink) e que applyHashRoute lê.
@@ -2266,7 +2280,9 @@ function writeHash() {
   } catch { /* ignore */ }
 }
 // Hashes de abas mortas na A1a: deep-links antigos (Console, favoritos) continuam funcionando.
-const LEGACY_HASH = { overview: 'forge', dev: 'forge', usability: 'coverage' };
+// (usability saiu daqui: voltou a ser roteável como sub-aba de Cobertura — antes o próprio
+// #/usability que o writeHash escrevia era redirecionado, e o deep-link se autodestruía.)
+const LEGACY_HASH = { overview: 'forge', dev: 'forge' };
 function applyHashRoute() {
   const m = (location.hash || '').match(/^#\/([a-z-]+)(?:\?(.*))?$/i);
   if (!m) return false;
@@ -2280,13 +2296,14 @@ function applyHashRoute() {
     state.forge.product = p || null;
     if (p) { state.forge.newMode = false; state.forge.newKind = null; }
   } else if (params.get('product')) state.filters.product = params.get('product');
+  if (view === 'usability' && params.get('id') && refById(params.get('id'))) state.usabilitySel = params.get('id'); // deep-link de tela (refinamento, não requisito)
   if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
   if (view === 'workspace' && !state.selectedId) return false; // sem REQ → cai no default
   switchView(view);
   return true;
 }
 function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); const t = document.getElementById('tab-workspace'); if (t) t.focus(); }
-function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-usability'); if (t) t.focus(); }
+function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-coverage'); if (t) t.focus(); } // nav dona via NAV_ALIAS (não há #tab-usability)
 // Destino SIMÉTRICO a openReq: foca o REQ no Mapa de impacto (Workspace/Reprocesso/copiloto ↔ Mapa).
 function openImpactAt(id) {
   if (!byId(id) && !(DATA.impact && DATA.impact.nodes && DATA.impact.nodes.find((n) => n.id === id))) return;
@@ -2317,6 +2334,7 @@ function usStateClass(name) {
 function renderUsability() {
   const body = document.getElementById('usability-body');
   body.replaceChildren();
+  body.append(coverageTabs('usability'));
   const refs = refList();
   if (!refs.length) {
     body.append(h('div', { class: 'card' }, h('h3', { text: 'Nenhum refinamento ainda' }),
@@ -2326,7 +2344,8 @@ function renderUsability() {
   }
   // DRILL: tela selecionada → detalhe focado (com voltar). Senão → mapa visual (grade de cards).
   const sel = state.usabilitySel ? refById(state.usabilitySel) : null;
-  if (sel) { renderUsabilityDetail(body, sel); return; }
+  // o detalhe faz host.replaceChildren() — re-insere as sub-abas no topo depois de renderizá-lo.
+  if (sel) { renderUsabilityDetail(body, sel); body.prepend(coverageTabs('usability')); return; }
 
   const byProd = {};
   for (const r of refs) { const p = r.scope?.product_scope || r.product || 'outros'; (byProd[p] = byProd[p] || []).push(r); }
@@ -2356,7 +2375,7 @@ function renderUsability() {
 function usaCard(r) {
   const beh = r.behavior || {};
   const states = Array.isArray(beh.states) ? beh.states : [];
-  const card = h('button', { class: 'usa-card', type: 'button', title: r.title || r.id, 'aria-label': (KIND_LABEL[r.kind] || 'componente') + ': ' + (r.title || r.id), onclick: () => { state.usabilitySel = r.id; renderUsability(); } });
+  const card = h('button', { class: 'usa-card', type: 'button', title: r.title || r.id, 'aria-label': (KIND_LABEL[r.kind] || 'componente') + ': ' + (r.title || r.id), onclick: () => { state.usabilitySel = r.id; renderUsability(); writeHash(); } });
   card.append(h('div', { class: 'usa-card-top' }, badge(KIND_LABEL[r.kind] || r.kind || 'componente', 'b-fn'),
     (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null));
   card.append(h('div', { class: 'usa-card-ti', text: truncateLabel(r.title || r.id, 64) }));
@@ -2373,7 +2392,7 @@ function renderUsabilityDetail(host, r) {
   const route = r.surface && r.surface.route;
   // VOLTAR ao mapa de telas (drill-down fluido)
   host.append(h('nav', { class: 'ed-crumbs', 'aria-label': 'Você está em' },
-    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.usabilitySel = null; renderUsability(); }, text: '‹ Telas de ' + (productMeta(uProd).display_name || uProd) })));
+    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.usabilitySel = null; renderUsability(); writeHash(); }, text: '‹ Telas de ' + (productMeta(uProd).display_name || uProd) })));
   const heading = h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id });
   host.append(h('div', { class: 'usa-detail-head' }, badge(kindLabel, 'b-fn'), heading, r.status ? badge(r.status, 'b') : null, h('span', { class: 'muted small usa-detail-id', text: r.id })));
 

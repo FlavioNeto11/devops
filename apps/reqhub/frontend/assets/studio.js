@@ -169,6 +169,29 @@ function applyForgeState(payload) {
   for (const p of payload.products) if (p.buildPlan !== undefined) DATA.buildPlans[p.name] = p.buildPlan;
   return merged;
 }
+// O re-render VIVO (SSE/poll) não pode descartar o que o usuário está fazendo: com o wizard
+// "Novo produto" aberto (state.forge.newMode — os dados vivos não alimentam o wizard) ou com foco
+// em campo de texto DENTRO da Forja, o renderForge é ADIADO (pendingRender) e disparado quando o
+// foco sai / o wizard fecha (todo fechamento passa por switchView/renderForge, que consomem o
+// flag) — a tela não fica permanentemente desatualizada. Os dados vivos já foram mesclados em
+// DATA (applyForgeState roda antes); só o REPAINT é adiado.
+let _forgePendingRender = false;
+function forgeLiveRenderBlocked() {
+  if (state.forge && state.forge.newMode) return true;
+  const ae = document.activeElement;
+  return !!(ae && /^(TEXTAREA|INPUT|SELECT)$/.test(ae.tagName) && ae.closest('#view-forge'));
+}
+function forgeLiveRender() {
+  if (String(location.hash || '').indexOf('forge') < 0) return; // mesmo guard de antes: fora da Forja não re-renderiza
+  if (forgeLiveRenderBlocked()) { _forgePendingRender = true; return; }
+  renderForge();
+}
+// Flush do render adiado quando o foco sai de um campo. setTimeout(0): focusout dispara ANTES do
+// focusin do destino — espera o foco assentar para reavaliar o bloqueio (campo→campo não repinta).
+document.addEventListener('focusout', () => {
+  if (!_forgePendingRender) return;
+  setTimeout(() => { if (_forgePendingRender && !forgeLiveRenderBlocked() && String(location.hash || '').indexOf('forge') >= 0) renderForge(); }, 0);
+});
 async function refreshForgeState(forceRender) {
   if (_forgeStateInflight) return;
   _forgeStateInflight = true;
@@ -177,7 +200,7 @@ async function refreshForgeState(forceRender) {
     const merged = (r.ok && r.data) ? applyForgeState(r.data) : null;
     if (merged) {
       const sig = forgeStateSig(merged); // assinatura sobre o MESCLADO (mudança vinda do baked também re-renderiza)
-      if (forceRender || sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
+      if (forceRender || sig !== _forgeStateSig) { _forgeStateSig = sig; forgeLiveRender(); }
     }
   } catch { /* fail-soft: mantém o baked */ } finally { _forgeStateInflight = false; }
 }
@@ -198,7 +221,7 @@ function ensureForgePolling() {
       const merged = applyForgeState(data);
       if (merged) {
         const sig = forgeStateSig(merged);
-        if (sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
+        if (sig !== _forgeStateSig) { _forgeStateSig = sig; forgeLiveRender(); }
       }
     });
     es.onerror = () => { try { es.close(); } catch { /* noop */ } _forgeEs = null; startForgeStatePollingFallback(); };
@@ -207,6 +230,7 @@ function ensureForgePolling() {
 }
 
 function renderForge() {
+  _forgePendingRender = false; // qualquer render integral consome o re-render adiado (DATA já está fresco)
   ensureForgePolling();
   void refreshForgeState(false);
   conteudoCleanup(); // (E4) listener/timer da fase Conteúdo não sobrevive a um re-render
@@ -1022,8 +1046,10 @@ function forgeBuild(panel, product, buildPlan) {
   // Pipeline da esteira AO VIVO (persistente): a MESMA visão da tela "Construindo", agora sempre
   // acessível ao reabrir o produto — fases ordenadas (requisitos→arquitetura→construção→publicado).
   const pipeBox = h('div', { class: 'fw-pipeline' });
-  const pipeSteps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
-  const pipeNow = h('div', { class: 'fw-pipe-now' });
+  // a lista completa de fases NÃO é live region (o replaceChildren de cada poll re-anunciava tudo);
+  // o anúncio pontual fica no "Agora: …" (pipeNow, role=status), trocado só quando o texto muda.
+  const pipeSteps = h('ol', { class: 'fw-launch-steps' });
+  const pipeNow = h('div', { class: 'fw-pipe-now', role: 'status' });
   const pipeUpdated = h('span', { class: 'fw-updated muted small', text: 'conectando…' });
   pipeBox.append(h('div', { class: 'forge-prog-head' }, h('h3', { text: 'Esteira (ao vivo)' }), pipeUpdated), pipeSteps, pipeNow);
   left.append(pipeBox, progBox, buildStatusEl, wavesBox);
@@ -1129,7 +1155,8 @@ function forgePollPipeline(name, els) {
     const product = findProduct(DATA.products, name) || { requirement_ids: [], phases: {} };
     const phases = launchPhases(stages, product, DATA.implStatus, DATA.buildPlans[name] || null);
     els.steps.replaceChildren(...forgePhaseNodes(phases));
-    els.now.replaceChildren(forgeNowNode(phases));
+    const nowNode = forgeNowNode(phases);
+    if (els.now.textContent !== nowNode.textContent) els.now.replaceChildren(nowNode); // role=status: só anuncia mudança REAL de fase
     els.updated.textContent = 'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
     _forgePipeTimer = setTimeout(tick, 8000);
   };
@@ -1342,7 +1369,8 @@ function renderForgeWizardLaunched(body, w) {
     ? 'Acompanhe ao vivo cada fase da esteira — quando o sistema ficar no ar, o link de acesso aparece abaixo.'
     : 'Os requisitos foram criados no git. Mescle o PR para a esteira construir e publicar.' });
   const updated = h('span', { class: 'fw-updated muted small', text: 'conectando…' });
-  const steps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
+  // lista de fases sem aria-live (poll de 6s re-anunciava a lista inteira); o pontual é o liveBox.
+  const steps = h('ol', { class: 'fw-launch-steps' });
   const progBox = h('div', { class: 'fw-progress' });
   const reqsBox = h('div', { class: 'fw-reqs' });
   const liveBox = h('div', { class: 'fw-live', 'aria-live': 'polite' });
@@ -1445,8 +1473,9 @@ function fwStartLaunchPolling(w, els) {
       fwStopPolling(w);
       return;
     }
-    // ainda construindo: destaca a fase ATUAL como "agora"
-    els.liveBox.replaceChildren(forgeNowNode(phases));
+    // ainda construindo: destaca a fase ATUAL como "agora" (liveBox é aria-live: troca só quando o texto muda)
+    const nowNode = forgeNowNode(phases);
+    if (els.liveBox.textContent !== nowNode.textContent) els.liveBox.replaceChildren(nowNode);
     w._statusTimer = setTimeout(tick, 6000);
   };
   tick();
@@ -1476,7 +1505,9 @@ function renderForgeWizard(body) {
   }
   body.append(stepper);
 
-  const stage = h('div', { class: 'fw-stage', role: 'region', 'aria-live': 'polite' });
+  // sem aria-live no contêiner largo: cada re-render anunciava a etapa INTEIRA ao leitor de tela;
+  // os anúncios ficam nos role=status/log pontuais internos de cada etapa.
+  const stage = h('div', { class: 'fw-stage', role: 'region', 'aria-label': 'Conteúdo da etapa' });
   body.append(stage);
   if (w.stage === 1) fwStageIdea(stage, w, { blueprints });
   else if (w.stage === 2) fwStageWhat(stage, w, { catalog });
@@ -2185,7 +2216,7 @@ function fwStagePreview(host, w) {
     ' com componentes reais e dados de exemplo. Refine o que quiser — quando estiver bom, aprove para a esteira construir.'));
 
   const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-  const stepsBox = h('ol', { class: 'fw-prev-steps', 'aria-live': 'polite' });
+  const stepsBox = h('ol', { class: 'fw-prev-steps' }); // sem aria-live: renderSteps refaz a lista toda a cada evento SSE (o pontual é o status acima)
   const stage = h('div', { class: 'fw-prev-stage' }); // iframe + lista de telas (preenche ao ficar pronto)
 
   const renderSteps = () => {
