@@ -37,7 +37,10 @@ test.describe('Activity creation', () => {
 
     await dialog.getByRole('button', { name: /^criar atividade$/i }).click();
 
-    // Activity should appear on the unit page
-    await expect(page.getByText(title)).toBeVisible({ timeout: 8_000 });
+    // App truth: onCreated opens the ActivityDrawer (units/[id] sets selectedActivityId),
+    // so the title renders TWICE — ActivityCard <span> in the list + the drawer <h2>.
+    // A bare getByText(title) violates strict mode; assert the drawer heading (proves
+    // creation AND the post-create drawer), then the list card entry specifically.
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 8_000 });
   });
 });

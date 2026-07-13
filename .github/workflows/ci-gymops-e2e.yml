@@ -198,6 +198,14 @@ jobs:
         env:
           NODE_ENV: production
 
+      # O wizard de import so avanca quando o JOB assincrono (BullMQ) vira awaiting_review.
+      # Como o Redis esta disponivel, enqueueImport() NAO cai no fallback inline — sem o
+      # worker o job fica preso em 'processing' e o e2e de import estoura o timeout.
+      - name: Start worker (import/recurrence/notification)
+        run: node apps/api/dist/worker-process.js &
+        env:
+          NODE_ENV: production
+
       - name: Build web app
         run: pnpm --filter @gymops/web run build
 
