@@ -111,9 +111,12 @@ jobs:
               # envs de auth (bloco contas-acesso): seed cria o admin de bootstrap CONHECIDO p/ os
               # testes locked logarem (admin@local / forge-test-admin); JWT fixo de teste. Apps sem o
               # bloco ignoram (não há auth.js); não rotaciona nada de produção (é o runner do PR).
-              ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
+              # exec => $! é o PID do PRÓPRIO node. Antes ($! do subshell com `... & echo $!` interno)
+              # o kill matava só o subshell e o node ficava ÓRFÃO segurando 8080/9464 — foi exatamente
+              # o que a checagem de identidade flagrou no run 29217069316 (contaviva-360 imortal).
+              ( cd "apps/$name/api" && exec env AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
                   JWT_SECRET=forge-test-secret BOOTSTRAP_ADMIN_EMAIL=admin@local BOOTSTRAP_ADMIN_PASSWORD=forge-test-admin \
-                  DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
+                  DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 ) & echo $! > /tmp/$name-app.pid
               # espera /health responder E confirma que quem responde é ESTE app: GET / dos scaffolds
               # retorna {"app":"<name>"}. Sem a identidade, um processo anterior ainda vivo na 8080
               # responde 200 e os testes LOCKED rodam contra a API ERRADA (corrida real do PR #244).
@@ -139,6 +142,11 @@ jobs:
                 kill "$APP_PID" >/dev/null 2>&1 || true
                 for i in $(seq 1 20); do kill -0 "$APP_PID" 2>/dev/null || break; sleep 0.5; done
                 kill -9 "$APP_PID" >/dev/null 2>&1 || true
+              fi
+              # escape: se a 8080 AINDA responde, um node escapou do PID salvo — mata por nome (loop é serial).
+              if curl -sf -o /dev/null http://localhost:8080/health 2>/dev/null; then
+                echo "$name: 8080 ainda ocupada após o kill do PID — matando node src/server.js remanescente"
+                pkill -9 -f 'node src/server.js' >/dev/null 2>&1 || true
               fi
               for i in $(seq 1 20); do curl -sf -o /dev/null http://localhost:8080/health 2>/dev/null || break; sleep 0.5; done
               echo "::endgroup::"
