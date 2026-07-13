@@ -68,6 +68,26 @@ jobs:
           echo "Apps alvo: $CHANGED"
           fail=0
           npmget() { if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm install --no-audit --no-fund; else npm install --no-audit --no-fund; fi; }
+          # Encerra o app da fase anterior e GARANTE a porta livre antes do próximo boot.
+          # (O bug: `( cd .. && env .. node .. & echo $! )` capturava o pid do SUBSHELL — o kill
+          # matava o wrapper e o node ficava ÓRFÃO segurando a 8080; o app seguinte crashava em
+          # EADDRINUSE e os testes rodavam contra o app ERRADO. Como os apps da Forja compartilham
+          # o blueprint (/health, /v1/records...), os smokes genéricos até PASSAVAM — falso-verde.)
+          stop_app() {
+            local pid_file="$1" pid
+            pid="$(cat "$pid_file" 2>/dev/null || true)"
+            if [ -n "$pid" ]; then
+              kill "$pid" >/dev/null 2>&1 || true
+              for i in $(seq 1 20); do kill -0 "$pid" >/dev/null 2>&1 || break; sleep 0.5; done
+              kill -9 "$pid" >/dev/null 2>&1 || true
+            fi
+            for i in $(seq 1 20); do
+              curl -sf -o /dev/null http://localhost:8080/health >/dev/null 2>&1 || return 0
+              sleep 0.5
+            done
+            echo "::warning::porta 8080 ainda responde após encerrar o app anterior: $(curl -s http://localhost:8080/ || true)"
+            return 1
+          }
           for name in $CHANGED; do
             [ -f "apps/$name/tests/.test-locks.json" ] || { echo "$name: sem suíte locked — pulando."; continue; }
             echo "::group::$name — verify-test-locks"
@@ -102,26 +122,36 @@ jobs:
                 fi
               fi
 
+              # porta PRECISA estar livre antes do boot — senão o readiness/testes valem para o app errado.
+              if curl -sf -o /dev/null http://localhost:8080/health >/dev/null 2>&1; then
+                echo "::error::$name: porta 8080 já ocupada antes do boot (app anterior não encerrou): $(curl -s http://localhost:8080/ || true)"; fail=1; echo "::endgroup::"; continue
+              fi
               PGPASSWORD=forge psql -h localhost -U forge -d forge -v ON_ERROR_STOP=0 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1 || true
               # envs de auth (bloco contas-acesso): seed cria o admin de bootstrap CONHECIDO p/ os
               # testes locked logarem (admin@local / forge-test-admin); JWT fixo de teste. Apps sem o
               # bloco ignoram (não há auth.js); não rotaciona nada de produção (é o runner do PR).
-              ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
+              # `exec env ... node`: o subshell VIRA o node — o $! capturado é o pid REAL do node
+              # (sem wrapper órfão; ver stop_app acima).
+              ( cd "apps/$name/api" && exec env AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
                   JWT_SECRET=forge-test-secret BOOTSTRAP_ADMIN_EMAIL=admin@local BOOTSTRAP_ADMIN_PASSWORD=forge-test-admin \
-                  DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
+                  DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js ) >/tmp/$name-app.log 2>&1 &
+              echo $! > /tmp/$name-app.pid
+              # readiness com IDENTIDADE: além do /health, o GET / do scaffold precisa anunciar
+              # {"app":"<name>"} — garante que quem responde é ESTE app, não um vizinho.
               ok=0
               for i in $(seq 1 40); do
-                if curl -sf http://localhost:8080/health >/dev/null 2>&1; then ok=1; break; fi
+                if curl -sf http://localhost:8080/health >/dev/null 2>&1 \
+                   && curl -sf http://localhost:8080/ 2>/dev/null | grep -q "\"app\":\"$name\""; then ok=1; break; fi
                 sleep 1
               done
               if [ "$ok" != "1" ]; then
-                echo "::error::$name: app NÃO subiu (/health não respondeu) — log:"; tail -n 40 /tmp/$name-app.log || true; fail=1
+                echo "::error::$name: app NÃO subiu com a identidade esperada — na porta agora: $(curl -s http://localhost:8080/ || echo '(nada)') — log:"; tail -n 40 /tmp/$name-app.log || true; fail=1
               else
                 mapfile -t TFILES < <(find "apps/$name/tests/locked" -name '*.test.mjs' -type f)
                 if [ "${#TFILES[@]}" -eq 0 ]; then echo "::error::$name: nenhum teste LOCKED"; fail=1; fi
                 BASE_URL="http://localhost:8080" FORGE_TEST_HEADERS="$IDENT" node --test --test-concurrency=1 "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
               fi
-              kill "$(cat /tmp/$name-app.pid 2>/dev/null)" >/dev/null 2>&1 || true
+              stop_app "/tmp/$name-app.pid" || true
               echo "::endgroup::"
             fi
           done
