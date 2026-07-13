@@ -255,14 +255,42 @@ export function phaseModel(product, buildPlan, implStatus) {
  * Mesma regra do phaseModel: exatamente uma fase 'current' (a primeira não concluída).
  */
 export const STUDIO_PHASE_KEYS = ['brief', 'requisitos', 'arquitetura', 'telas', 'docs', 'pipeline', 'publicado'];
+/* (E4, Forja 4.1) trilho REDUZIDO t1: portal de conteúdo (executor = CMS, sem esteira de código).
+   Brief → Conteúdo → Publicação. A fase Conteúdo embute o editor do CMS do Console e NUNCA fica
+   "done" — conteúdo é vivo por natureza (a fase é o lugar de trabalho, não um gate). */
+export const STUDIO_T1_PHASE_KEYS = ['brief', 'conteudo', 'publicado'];
+export function isT1Product(product) { return !!product && product.app_type === 'cms_portal'; }
+// exatamente uma fase 'current' (a primeira não concluída) — regra compartilhada dos trilhos
+function assignPhaseStatuses(keys, done, meta) {
+  let currentAssigned = false;
+  return keys.map((k) => {
+    let status;
+    if (done[k]) status = 'done';
+    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
+    else status = 'todo';
+    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
+  });
+}
 export function studioPhaseModel(product, buildPlan, implStatus, extra) {
   const x = extra || {};
+  const hasBrief = !!String((product && (product.vision || product.brief)) || '').trim();
+  // produto t1: sem requisitos/arquitetura/telas/pipeline — o executor é o CMS da plataforma
+  if (isT1Product(product)) {
+    return assignPhaseStatuses(STUDIO_T1_PHASE_KEYS, {
+      brief: hasBrief,
+      conteudo: false, // vivo por natureza: sempre a fase de trabalho (nunca 'done')
+      publicado: x.liveUrlOk === true,
+    }, {
+      brief: { label: 'Brief', detail: hasBrief ? 'visão registrada' : 'sem visão/brief' },
+      conteudo: { label: 'Conteúdo', detail: 'editor do CMS embutido — páginas e seções' },
+      publicado: { label: 'Publicação', detail: x.liveUrlOk === true ? 'no ar' : (x.liveUrlOk === false ? 'URL fora do ar!' : 'sonda pendente…') },
+    });
+  }
   const phases = (product && product.phases) || {};
   const reqIds = (product && product.requirement_ids) || [];
   const prog = weightedProgress(reqIds, implStatus);
   const nWaves = ((buildPlan && buildPlan.waves) || []).length;
   const archApproved = (phases.architecture && phases.architecture.status) === 'approved';
-  const hasBrief = !!String((product && (product.vision || product.brief)) || '').trim();
   const preview = x.previewStatus || null;
   // docs renderizáveis = há o que documentar (visão + requisitos ou arquitetura) — a fase Docs
   // compõe o que JÁ existe (product/build-plan/baseline); não depende de artefato novo.
@@ -292,14 +320,36 @@ export function studioPhaseModel(product, buildPlan, implStatus, extra) {
     pipeline: { label: 'Pipeline', detail: `${prog.live}/${prog.total} no ar · ${prog.pct}%` },
     publicado: { label: 'Publicação', detail: pipelineDone ? (x.liveUrlOk === false ? 'URL fora do ar!' : 'no ar') : 'aguardando o pipeline…' },
   };
-  let currentAssigned = false;
-  return STUDIO_PHASE_KEYS.map((k) => {
-    let status;
-    if (done[k]) status = 'done';
-    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
-    else status = 'todo';
-    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
-  });
+  return assignPhaseStatuses(STUDIO_PHASE_KEYS, done, meta);
+}
+
+/* ---------- (E4, Forja 4.1) embed do CMS no trilho t1 — helpers puros ----------
+   O editor de conteúdo do Console é embutido por IFRAME same-origin em modo embed
+   (?embed=1). O contrato postMessage é validado aqui (payload); a checagem de ORIGEM
+   (event.origin === location.origin) é responsabilidade do listener que tem o evento. */
+// URL do Console em modo EMBED: renderiza SÓ o editor de conteúdo (sem casca) já
+// focado no projeto <key> (o hash usa a MESMA gramática do deep-link A4/E1).
+export function embedConsoleUrl(projectKey) {
+  const k = String(projectKey || '').trim();
+  return k ? '/devops/?embed=1#conteudo?projeto=' + encodeURIComponent(k) : '';
+}
+// URL pública do portal (site-renderer /sites/<chave> ou app dedicado) — barra final
+// para os assets relativos resolverem dentro do iframe.
+export function publishedSiteUrl(product) {
+  const bp = String((product && product.base_path) || '');
+  return bp.startsWith('/') ? bp.replace(/\/+$/, '') + '/' : '';
+}
+// Mensagens aceitas do embed do Console: { source:'console-embed', type:'embed:ready'|'embed:navigate' }.
+// Qualquer outra coisa => null (nunca lança; dados de postMessage são input não confiável).
+export function parseEmbedMessage(data) {
+  if (!data || typeof data !== 'object' || data.source !== 'console-embed') return null;
+  const type = typeof data.type === 'string' ? data.type : '';
+  if (type !== 'embed:ready' && type !== 'embed:navigate') return null;
+  return {
+    type,
+    view: typeof data.view === 'string' ? data.view : '',
+    projeto: typeof data.projeto === 'string' ? data.projeto : '',
+  };
 }
 
 /**
@@ -568,6 +618,28 @@ const MODE_COPY = {
   'plan.q': { simples: 'Como ele vai ser construído', guiado: 'Plano de construção', profissional: 'Plano de construção' },
   'review.q': { simples: 'Confirmar e criar', guiado: 'Revisar e criar', profissional: 'Revisar e criar' },
   'review.launch': { simples: '🚀 Criar meu sistema', guiado: '🚀 Criar meu sistema', profissional: '🚀 Criar PR de requisitos' },
+  // (E2, Forja 4.1) 3º cartão do fork de criação: portal CAPTURADO como insumo — mesma engine,
+  // projeção por modo (o cartão muda de linguagem; a trilha e os artefatos são idênticos).
+  'fork.capture.title': {
+    simples: 'Copiar de um sistema que você já usa',
+    guiado: 'A partir de um portal capturado',
+    profissional: 'A partir de um contrato capturado',
+  },
+  'fork.capture.desc': {
+    simples: 'Você mostrou um sistema real para a plataforma (captura)? Dá para criar o seu a partir dele: a IA aprende o que aquele sistema faz e propõe um sistema seu com as mesmas funções.',
+    guiado: 'Use a captura de um portal real como insumo: o contrato normalizado (endpoints, entidades, fluxos) vira o brief e o contexto da IA — que propõe requisitos e arquitetura já conhecendo o sistema original.',
+    profissional: 'Deriva o brief do export canônico do portal-recorder (sem samples), anexa o export ao propose-requirements e carimba architecture.external_contract (portal, versão, content_hash) no launch.',
+  },
+  'fork.capture.foot': {
+    simples: 'usa uma captura já feita',
+    guiado: 'insumo: contrato do portal-recorder',
+    profissional: 'GET /portal-rec/api/v1/contracts → export',
+  },
+  'capture.lead': {
+    simples: 'Escolha abaixo qual sistema capturado você quer usar de modelo.',
+    guiado: 'Escolha um contrato capturado — ele vira o ponto de partida do novo sistema (brief + contexto da IA).',
+    profissional: 'Contratos normalizados do portal-recorder (export sem samples). Selecionar deriva o brief client-side e pré-carrega o wizard greenfield.',
+  },
 };
 export function modeCopy(mode, key) {
   const row = MODE_COPY[key];
@@ -656,8 +728,11 @@ export function forgeReqObject(id, pname, blueprint, req) {
  * artefatos: o payload é IDÊNTICO nos 3 modos, exceto o campo informativo `creation_mode`
  * (validado no backend; vai ao client_payload/PR como rastreabilidade de UX, nunca muda o writer).
  */
-export function buildLaunchBody({ product, displayName, blueprint, brief, mode, requirements, architecture, creationMode, skipPreviewGate } = {}) {
+export function buildLaunchBody({ product, displayName, blueprint, brief, mode, requirements, architecture, creationMode, skipPreviewGate, externalContract } = {}) {
   const arch = architecture || {};
+  // (E2) origem = captura de portal: carimba a REFERÊNCIA do contrato (nunca o export inteiro)
+  // dentro de architecture — o forge-launch faz passthrough do objeto architecture verbatim.
+  const ec = (externalContract && typeof externalContract === 'object' && externalContract.portal) ? externalContract : null;
   return {
     product,
     displayName: displayName || product,
@@ -665,10 +740,94 @@ export function buildLaunchBody({ product, displayName, blueprint, brief, mode, 
     brief: brief || '',
     mode,
     requirements: Array.isArray(requirements) ? requirements : [],
-    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
+    architecture: {
+      stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [],
+      ...(ec ? { external_contract: { portal: String(ec.portal), contract_version: String(ec.contract_version || ''), content_hash: String(ec.content_hash || '') } } : {}),
+    },
     ...(skipPreviewGate ? { skipPreviewGate: true } : {}),
     ...(creationMode ? { creation_mode: normalizeForgeMode(creationMode) } : {}),
   };
+}
+
+/* ─── (E2, Forja 4.1) CAPTURA como entrada da Forja — funções PURAS ───────────────────────────
+   O portal-recorder exporta um contrato canônico { manifest, endpoints } SEM samples
+   (GET /portal-rec/api/v1/contracts/:id/export → { data }). Aqui derivamos, client-side:
+   - briefFromPortalContract: brief textual (portal, entidades, fluxos, endpoints) p/ o wizard;
+   - externalContractRef: a referência { portal, contract_version, content_hash } que o launch
+     carimba em architecture.external_contract (rastreabilidade — nunca o export inteiro);
+   - suggestIntegrationBlock: o bloco de integração do catálogo a sugerir (gateway-externo).
+   Sem fetch, sem DOM — testável com node:test como o resto deste módulo. */
+
+// Teto de endpoints listados no brief (o launch trunca brief em 8000 chars no servidor;
+// o export COMPLETO segue como anexo multipart — o brief é resumo, não a fonte).
+export const CAPTURE_BRIEF_MAX_ENDPOINTS = 40;
+
+/**
+ * Deriva um brief textual do export canônico de um contrato capturado. Puro.
+ * exportJson: { manifest: { portal, base_url, version, endpoint_count, ... },
+ *               endpoints: [{ method, path_template, group, auth, requires_captcha, ... }] }
+ * opts.integrationBlock: id de bloco do catálogo a sugerir (ex.: 'gateway-externo').
+ * Retorna '' quando o export não é utilizável (sem manifest.portal ou sem endpoints).
+ */
+export function briefFromPortalContract(exportJson, opts = {}) {
+  const ex = (exportJson && typeof exportJson === 'object') ? exportJson : {};
+  const man = (ex.manifest && typeof ex.manifest === 'object') ? ex.manifest : null;
+  const eps = Array.isArray(ex.endpoints) ? ex.endpoints.filter((e) => e && typeof e === 'object') : [];
+  if (!man || !man.portal || !eps.length) return '';
+  const lines = [];
+  lines.push(`Sistema derivado da captura do portal real "${man.portal}"${man.base_url ? ` (${man.base_url})` : ''}.`);
+  lines.push(`Contrato normalizado${man.version ? ` de ${man.version}` : ''} com ${eps.length} endpoint(s) observado(s) — export sem payloads de exemplo (anexo).`);
+  // Entidades/áreas: os grupos funcionais derivados na normalização.
+  const groups = new Map();
+  for (const e of eps) { const g = String(e.group || 'general'); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(e); }
+  lines.push('', `Entidades/áreas observadas (${groups.size}): ${[...groups.keys()].sort().join(', ')}.`);
+  // Fluxos: leitura × escrita + exigências (auth/captcha) — o desenho do produto parte daqui.
+  const isWrite = (m) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(m || '').toUpperCase());
+  const writes = eps.filter((e) => isWrite(e.method)).length;
+  const auth = eps.filter((e) => e.auth && e.auth.required).length;
+  const captcha = eps.filter((e) => e.requires_captcha).length;
+  lines.push(`Fluxos: ${eps.length - writes} consulta(s) e ${writes} operação(ões) de escrita.`
+    + (auth ? ` ${auth} endpoint(s) exigem autenticação.` : '') + (captcha ? ` ${captcha} exigem captcha.` : ''));
+  lines.push('', 'Endpoints do portal original (referência de integração):');
+  let listed = 0;
+  for (const g of [...groups.keys()].sort()) {
+    if (listed >= CAPTURE_BRIEF_MAX_ENDPOINTS) break;
+    lines.push(`- ${g}:`);
+    for (const e of groups.get(g)) {
+      if (listed >= CAPTURE_BRIEF_MAX_ENDPOINTS) break;
+      lines.push(`  - ${String(e.method || 'GET').toUpperCase()} ${e.path_template || ''}`
+        + (e.auth && e.auth.required ? ' [auth]' : '') + (e.requires_captcha ? ' [captcha]' : ''));
+      listed++;
+    }
+  }
+  if (eps.length > listed) lines.push(`  … e mais ${eps.length - listed} endpoint(s) no contrato anexo.`);
+  lines.push('', 'O produto deve oferecer ao usuário final as funções equivalentes a esses fluxos e, quando precisar submeter/consultar dados reais, integrar-se ao portal original por uma camada de integração dedicada.');
+  const blk = (typeof opts.integrationBlock === 'string' && opts.integrationBlock) ? opts.integrationBlock : '';
+  if (blk) lines.push(`Capacidade sugerida: inclua o bloco "${blk}" — toda integração HTTP com o portal externo passa por um gateway único e resiliente.`);
+  return lines.join('\n');
+}
+
+/**
+ * Referência do contrato para o launch (architecture.external_contract). Puro.
+ * -> { portal, contract_version, content_hash } | null (export sem manifest utilizável).
+ */
+export function externalContractRef(exportJson) {
+  const man = (exportJson && exportJson.manifest && typeof exportJson.manifest === 'object') ? exportJson.manifest : null;
+  if (!man || !man.portal || !man.content_hash) return null;
+  return { portal: String(man.portal), contract_version: String(man.version || ''), content_hash: String(man.content_hash) };
+}
+
+/**
+ * Bloco de integração externa a sugerir quando a origem é captura. Preferência pelo id
+ * canônico 'gateway-externo' (specs/forge/capabilities); fallback DECLARATIVO: o primeiro
+ * bloco de category 'integration' do catálogo (sem mapa de sinônimos). null = catálogo
+ * sem bloco de integração — a UI simplesmente não sugere nada. Puro.
+ */
+export function suggestIntegrationBlock(catalog) {
+  const list = Array.isArray(catalog) ? catalog.filter((b) => b && b.id) : [];
+  if (list.some((b) => b.id === 'gateway-externo')) return 'gateway-externo';
+  const integ = list.find((b) => b.category === 'integration');
+  return integ ? integ.id : null;
 }
 
 // Resumo do que será criado (para a etapa "O que será criado"). Puro/testável.
@@ -687,4 +846,195 @@ export function planSummary(reqs, arch, catalog) {
     counts: { capabilities: capabilities.length, screens: screens.length, waves: asList(arch && arch.waves).length },
     stack: (arch && arch.stack) || null,
   };
+}
+
+/* ─── ETAPA IDEIA (copiloto de PRODUTO) — estado ideaDraft e funções PURAS ──────────────────────
+   A etapa 1 do wizard é 100% PRODUTO/NEGÓCIO (nada de tecnologia — isso é a etapa 2). O copiloto
+   conversa e devolve, a cada turno, um PATCH incremental deste estado. Estas funções são PURAS
+   (sem DOM, sem localStorage) e testáveis com node:test; o autosave (localStorage) fica no studio.js. */
+
+// Estado inicial vazio do ideaDraft (só campos de produto). chatHistory/maturity/confirmed são de UI.
+export function emptyIdea() {
+  return {
+    name: '', problem: '', audience: '', actors: [], summary: '',
+    capabilities: [], businessRules: [], goals: [], value: '', constraints: [],
+    openQuestions: [], maturity: 0, chatHistory: [], confirmed: false,
+  };
+}
+
+// Coerção de um valor em lista de strings limpas (tolera item objeto {text}); dedup fica no merge.
+function ideaStrList(v) {
+  return (Array.isArray(v) ? v : [])
+    .map((x) => String(x == null ? '' : (typeof x === 'object' ? (x.text || x.label || '') : x)).trim())
+    .filter(Boolean);
+}
+function clampMaturity(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0; }
+function normalizeOpenQuestions(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((q) => (q && typeof q === 'object')
+      ? { text: String(q.text || '').trim(), essential: q.essential === true }
+      : { text: String(q || '').trim(), essential: false })
+    .filter((q) => q.text);
+}
+// Une duas listas de strings preservando a ordem e removendo duplicatas (case-insensitive).
+// NUNCA descarta o que já existe — o incremental do copiloto só ACRESCENTA (a pessoa remove na UI).
+function mergeUniqueStrings(existing, incoming) {
+  const out = []; const seen = new Set();
+  const push = (x) => {
+    const s = String(x == null ? '' : (typeof x === 'object' ? (x.text || '') : x)).trim();
+    if (!s) return; const key = s.toLowerCase();
+    if (seen.has(key)) return; seen.add(key); out.push(s);
+  };
+  (Array.isArray(existing) ? existing : []).forEach(push);
+  (Array.isArray(incoming) ? incoming : []).forEach(push);
+  return out;
+}
+
+// Normaliza um ideaDraft parcial/sujo para o shape canônico (defensivo — nunca lança).
+export function normalizeIdea(idea) {
+  const d = (idea && typeof idea === 'object') ? idea : {};
+  const str = (v) => (typeof v === 'string' ? v.trim() : (v == null ? '' : String(v)));
+  return {
+    name: str(d.name), problem: str(d.problem), audience: str(d.audience),
+    actors: ideaStrList(d.actors), summary: str(d.summary),
+    capabilities: ideaStrList(d.capabilities), businessRules: ideaStrList(d.businessRules),
+    goals: ideaStrList(d.goals), value: str(d.value), constraints: ideaStrList(d.constraints),
+    openQuestions: normalizeOpenQuestions(d.openQuestions),
+    maturity: clampMaturity(d.maturity),
+    chatHistory: Array.isArray(d.chatHistory) ? d.chatHistory : [],
+    confirmed: d.confirmed === true,
+  };
+}
+
+/**
+ * Aplica o payload do evento SSE `patch` do copiloto ao ideaDraft. PURO (retorna novo objeto).
+ * payload = { patch:{name,problem,audience,actors,summary,capabilities,businessRules,goals,value,constraints},
+ *             maturity, open_questions:[{text,essential}], summary }.
+ * Escalares substituem quando vierem preenchidos; listas ACRESCENTAM com dedupe (nunca apagam o que a
+ * pessoa já tem). open_questions é um SNAPSHOT do modelo (substitui). maturity é clampada 0-100.
+ */
+export function applyIdeaPatch(idea, payload) {
+  const base = normalizeIdea(idea);
+  const p = (payload && typeof payload === 'object') ? payload : {};
+  const patch = (p.patch && typeof p.patch === 'object') ? p.patch : {};
+  const next = { ...base };
+  for (const k of ['name', 'problem', 'audience', 'value']) {
+    if (typeof patch[k] === 'string' && patch[k].trim()) next[k] = patch[k].trim();
+  }
+  const sum = (typeof patch.summary === 'string' && patch.summary.trim()) ? patch.summary.trim()
+    : (typeof p.summary === 'string' && p.summary.trim()) ? p.summary.trim() : '';
+  if (sum) next.summary = sum;
+  for (const k of ['actors', 'capabilities', 'businessRules', 'goals', 'constraints']) {
+    next[k] = mergeUniqueStrings(base[k], patch[k]);
+  }
+  if (p.maturity != null && Number.isFinite(Number(p.maturity))) next.maturity = clampMaturity(p.maturity);
+  if (Array.isArray(p.open_questions)) next.openQuestions = normalizeOpenQuestions(p.open_questions);
+  return next;
+}
+
+/**
+ * Gate de avanço para a etapa 2 (igual nos 3 modos). PURO. "Fechada" = maturidade suficiente,
+ * problema + público (audience OU atores) + >=2 capacidades e NENHUMA pergunta essencial em aberto.
+ */
+export const IDEA_MATURITY_THRESHOLD = 70;
+export function ideaReady(idea) {
+  const d = normalizeIdea(idea);
+  const hasProblem = !!d.problem;
+  const hasAudience = !!(d.audience || d.actors.length);
+  const enoughCaps = d.capabilities.length >= 2;
+  const noEssential = !d.openQuestions.some((q) => q && q.essential);
+  return d.maturity >= IDEA_MATURITY_THRESHOLD && hasProblem && hasAudience && enoughCaps && noEssential;
+}
+
+/** Dica curta de qual é a MAIOR lacuna de produto agora (para o indicador de maturidade). PURO. */
+export function ideaMaturityHint(idea) {
+  const d = normalizeIdea(idea);
+  if (!d.problem) return 'Comece contando qual problema o sistema resolve.';
+  if (!(d.audience || d.actors.length)) return 'Diga para quem é o sistema (quem vai usar).';
+  if (d.capabilities.length < 2) return 'Liste o que o sistema precisa fazer.';
+  const ess = d.openQuestions.filter((q) => q && q.essential);
+  if (ess.length) return ess[0].text;
+  if (d.maturity < IDEA_MATURITY_THRESHOLD) return 'Quase lá — detalhe regras e objetivos.';
+  return 'Ideia pronta para seguir.';
+}
+
+/**
+ * Compõe o `brief` textual (rico) que alimenta /v1/forge/propose-requirements no handoff para a
+ * etapa 2 — SEM mudar o contrato da etapa 2 (ela continua recebendo um brief string). PURO.
+ */
+export function composeBriefFromIdea(idea) {
+  const d = normalizeIdea(idea);
+  const lines = [];
+  if (d.summary) lines.push(d.summary);
+  if (d.problem) lines.push(`Problema/dor que resolve: ${d.problem}`);
+  const who = [d.audience, ...d.actors].filter(Boolean).join('; ');
+  if (who) lines.push(`Para quem / quem usa: ${who}`);
+  if (d.capabilities.length) lines.push(`O que o sistema faz:\n${d.capabilities.map((c) => `- ${c}`).join('\n')}`);
+  if (d.businessRules.length) lines.push(`Regras de negócio:\n${d.businessRules.map((r) => `- ${r}`).join('\n')}`);
+  if (d.goals.length) lines.push(`Objetivos: ${d.goals.join('; ')}`);
+  if (d.value) lines.push(`Valor esperado: ${d.value}`);
+  if (d.constraints.length) lines.push(`Restrições de negócio: ${d.constraints.join('; ')}`);
+  return lines.join('\n\n').trim();
+}
+
+// Primeira letra minúscula (p/ encaixar o problema no meio de uma frase) + tira ponto final.
+function lowerFirst(s) { const t = String(s || '').trim().replace(/[.。]\s*$/, ''); return t ? t[0].toLowerCase() + t.slice(1) : ''; }
+function stripDot(s) { return String(s || '').trim().replace(/[.。]\s*$/, ''); }
+
+/**
+ * Resumo EXECUTIVO de negócio para o passo "Revisar e criar" (C3). PURO, DETERMINÍSTICO (sem IA):
+ * destila o ideaDraft + as contagens do plano num objeto renderizável (o que é / para quem / o que faz
+ * / valor / o que ficou a decidir). Degrada com elegância quando o copiloto foi pulado (ideaDraft
+ * esparso): usa o `brief` livre e as contagens do plano como fallback. opts = { brief, name, capsCount,
+ * screensCount, wavesCount }.
+ */
+export function businessSummaryFromIdea(idea, opts = {}) {
+  const d = normalizeIdea(idea);
+  const o = opts && typeof opts === 'object' ? opts : {};
+  const name = d.name || (o.name ? String(o.name).trim() : '') || 'O sistema';
+  const forWhom = [d.audience, ...d.actors].filter(Boolean).slice(0, 4);
+  const problem = stripDot(d.problem).slice(0, 220); // DOR real (só quando o copiloto capturou)
+  // prosa descritiva de fallback (quando não há "problema"): resumo do copiloto > 1ª frase do brief livre
+  const briefLead = String(o.brief || '').trim().split(/\n|(?<=[.!?])\s/)[0] || '';
+  const description = stripDot(d.summary || briefLead).slice(0, 220);
+  const capabilities = d.capabilities.slice(0, 5);
+  const goal = stripDot(d.value || d.goals[0] || '');
+  const constraints = d.constraints.slice(0, 3);
+  const openEssential = d.openQuestions.filter((q) => q && q.essential).map((q) => q.text);
+  const openTotal = d.openQuestions.length;
+  // capacidades: nunca menos que os chips exibidos (idea) — usa o MAIOR entre a contagem do plano e a do
+  // draft, p/ não mostrar "0 capacidades" sob uma lista de capacidades (o plano pode não tê-las mapeado).
+  const counts = {
+    capabilities: Number.isFinite(Number(o.capsCount)) ? Math.max(Number(o.capsCount), d.capabilities.length) : d.capabilities.length,
+    screens: Number.isFinite(Number(o.screensCount)) ? Number(o.screensCount) : 0,
+    waves: Number.isFinite(Number(o.wavesCount)) ? Number(o.wavesCount) : 0,
+  };
+  // Frase-líder: "<Nome> é um sistema [para <quem>] [que resolve <dor>]." Só encaixa "resolve" quando há
+  // DOR real (não a prosa descritiva — "resolve sistema de agendamento" soaria estranho).
+  let lead = `${name} é um sistema`;
+  if (forWhom.length) lead += ` para ${forWhom.join(', ')}`;
+  if (problem) lead += ` que resolve ${lowerFirst(problem)}`;
+  lead += '.';
+  return { name, lead, forWhom, problem, description, capabilities, goal, constraints, openEssential, openTotal, counts };
+}
+
+/* ─── Preview das telas (etapa 4): mensagens de erro amigáveis ────────────────────────────────────
+   Mapeia o CÓDIGO de erro (do backend, já sanitizado) para uma frase pt-BR amigável e acionável —
+   NUNCA expõe o texto cru do backend/GitHub. Usado no catch de fwPreviewGenerate. PURO/testável. */
+const PREVIEW_ERROR_MESSAGES = {
+  DISPATCH_DISABLED: 'A geração de preview está desligada por um problema de configuração (token de publicação ausente ou inválido). Avise o suporte para configurar.',
+  PREVIEW_UPSTREAM_AUTH: 'Não foi possível gerar o preview agora: falha de autenticação com o serviço de build (problema de configuração). Avise o suporte.',
+  PREVIEW_UPSTREAM_FORBIDDEN: 'O serviço de build recusou a operação (permissão ou limite). Tente novamente em instantes.',
+  PREVIEW_UPSTREAM_NOTFOUND: 'Não foi possível gerar o preview: recurso de build não encontrado (configuração). Avise o suporte.',
+  PREVIEW_UPSTREAM: 'Não foi possível gerar o preview agora por um problema no serviço de build. Tente novamente; se persistir, avise o suporte.',
+  BUILD_FAILED: 'A construção do preview falhou. Tente novamente; se persistir, avise o suporte.',
+  BUILD_TIMEOUT: 'A construção do preview demorou demais. Tente novamente em instantes.',
+  AI_DISABLED: 'A IA está indisponível agora, então não dá para desenhar as telas. Tente novamente mais tarde.',
+  // Precondição: sem requisitos não dá p/ a IA desenhar as telas (falha ANTES do build — não é "vite build").
+  NO_REQUIREMENTS: 'Ainda não há requisitos para desenhar as telas. Volte ao passo “O que será criado” e gere (ou aguarde) os requisitos antes de gerar o preview.',
+  TOOL_INVALID_INPUT: 'Faltam dados para desenhar as telas (os requisitos). Volte ao passo “O que será criado” e gere os requisitos antes do preview.',
+};
+export function previewErrorMessage(code) {
+  return PREVIEW_ERROR_MESSAGES[code]
+    || 'Não foi possível gerar o preview agora por um problema de configuração ou serviço. Tente novamente; se persistir, avise o suporte.';
 }

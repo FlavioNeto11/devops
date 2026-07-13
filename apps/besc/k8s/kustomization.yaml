@@ -4,3 +4,8 @@ namespace: apps
 resources:
   - besc.yaml
   - besc-frontend.yaml
+  - postgres.yaml
+  - besu.yaml
+  # SealedSecrets gerados pelo operador (kubeseal) — exemplo em secret.example.yaml.tmpl
+  - sealed-besc-db.yaml
+  - sealed-besc-config.yaml

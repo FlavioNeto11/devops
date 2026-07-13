@@ -24,6 +24,20 @@ const PATHS = {
   info: (<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.8v.2" /></>),
   check: (<path d="M5 12l5 5L20 6" />),
   folder: (<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />),
+  library: (<><path d="M4 4v16M8 4v16" /><path d="M12 5l4-1 4 15-4 1z" /><path d="M4 4h4M4 20h4" /></>),
+  gavel: (<><path d="M14 4l6 6M17 7l-8 8" /><path d="M8.5 12.5l3 3L6 21H3v-3z" /><path d="M13 19h8" /></>),
+  scale: (<><path d="M12 3v18M7 21h10" /><path d="M12 6l-7 2 3 5a3 3 0 0 1-6 0l3-5M12 6l7 2-3 5a3 3 0 0 0 6 0l-3-5" /></>),
+  glossary: (<><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M8 7h7M8 11h7" /></>),
+  video: (<><rect x="3" y="6" width="12" height="12" rx="2" /><path d="M15 10l6-3v10l-6-3z" /></>),
+  roadmap: (<><path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z" /><path d="M9 4v14M15 6v14" /></>),
+  liquidity: (<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />),
+  external: (<><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></>),
+  filter: (<path d="M3 5h18l-7 8v6l-4-2v-4z" />),
+  layers: (<><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>),
+  clock: (<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  lock: (<><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /><path d="M12 15v2" /></>),
+  login: (<><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /></>),
+  logout: (<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>),
 };
 
 export function Icon({ name, size = 16, className, strokeWidth = 1.8, style }) {

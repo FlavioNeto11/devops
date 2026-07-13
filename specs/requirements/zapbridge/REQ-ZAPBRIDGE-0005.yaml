@@ -1,0 +1,31 @@
+id: REQ-ZAPBRIDGE-0005
+slug: req-zapbridge-0005
+title: Mídia ponta a ponta (envio, download, entrega via API, expiração)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve enviar mídia (imagem, vídeo, áudio, documento) por upload do cliente e receber mídia das conversas baixando-a do WhatsApp (downloadMediaMessage) para MEDIA_DIR (PVC), servindo os arquivos ao cliente por rota autenticada de mídia; a UI exibe preview de imagem, player de vídeo/áudio e abertura de documento, e mídia indisponível/expirada é marcada expired e comunicada claramente.
+business_rationale: Conversa real inclui mídia — sem download/entrega confiável a experiência quebra.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF026–RF028/RF034–RF035 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/media
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+priority: high
+criticality: high
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0004
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server

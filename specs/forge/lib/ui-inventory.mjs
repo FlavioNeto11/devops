@@ -15,7 +15,7 @@
 // =============================================================================
 
 export const FIELD_TYPES = ['text', 'number', 'currency', 'date', 'datetime', 'boolean', 'enum', 'status', 'longtext'];
-export const SCREEN_KINDS = ['dashboard', 'list', 'create', 'edit', 'detail', 'custom'];
+export const SCREEN_KINDS = ['dashboard', 'list', 'create', 'edit', 'detail', 'custom', 'calendar', 'booking'];
 export const NEUTRAL_BASES = ['slate', 'graphite', 'zinc', 'warm'];
 export const RADII = ['sm', 'md', 'lg'];
 

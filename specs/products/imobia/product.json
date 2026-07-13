@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.2.0",
+  "name": "imobia",
+  "display_name": "Imobia",
+  "base_path": "/imobia",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "origin": "adopted",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [],
+  "vision": "Ecossistema imobiliário + fintech onde o WhatsApp é o eixo central e múltiplas IAs atuam como funcionários especializados: Cortex faz a triagem/roteamento barato, GPT executa lógica/function-calling, Claude redação/análise e Gemini documentos/visão — tudo fail-soft (sem chaves, cada módulo opera manualmente e as IAs ficam dormentes). SPA Vue 3 + Vite sobre API Node 20/Fastify (TypeScript) com Prisma sobre Postgres 16/pgvector, Redis/BullMQ para filas e worker na mesma imagem da API. Módulos: Captação/Imóveis (busca semântica), Clientes/Leads (scoring + realimentação do funil), Financeiro PJ/PF, Agenda NL, WhatsApp multi-instância, ACM, PTAM (ABNT NBR 14653), Corbam/COBAN, Vistoria/Laudos e Documentos por etapa com trilha de auditoria de qual IA produziu cada passo. Stack real mais próxima do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres; difere em Fastify/Prisma/Redis) — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+  "requirement_ids": [
+    "REQ-IMOBIA-0001",
+    "REQ-IMOBIA-0002",
+    "REQ-IMOBIA-0003",
+    "REQ-IMOBIA-0004",
+    "REQ-IMOBIA-0005",
+    "REQ-IMOBIA-0006",
+    "REQ-IMOBIA-0007",
+    "REQ-IMOBIA-0008",
+    "REQ-IMOBIA-0009",
+    "REQ-IMOBIA-0010",
+    "REQ-IMOBIA-0011",
+    "REQ-IMOBIA-0012",
+    "REQ-IMOBIA-NFR-0001",
+    "REQ-IMOBIA-NFR-0002",
+    "REQ-IMOBIA-NFR-0003",
+    "REQ-IMOBIA-NFR-0004"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "adopted",
+      "note": "requisitos reais em specs/requirements/imobia/ — backfill D5 (Forja 4.1) extraído de apps/imobia/CLAUDE.md, docs/CONCEPCAO.md e devops.yaml"
+    },
+    "architecture": {
+      "status": "adopted",
+      "note": "ADRs extraídos das decisões reais do app (apps/imobia/CLAUDE.md + docs/CONCEPCAO.md) — ver architecture.json"
+    },
+    "scaffold": {
+      "status": "adopted",
+      "note": "app real pré-existente em apps/imobia — não scaffoldado pela Forja"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os REQ-IMOBIA-* estão deployed (cluster ns apps, imagens :local, F0–F8 entregues)"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 4.1 D5 — adoção brownfield por contrato (app real apps/imobia vira produto da Forja sem tocar código/k8s)"
+  }
+}

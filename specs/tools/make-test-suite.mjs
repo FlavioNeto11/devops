@@ -30,10 +30,19 @@ const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; } return a; }
 
 // ---- Helper de teste (gerado em locked/_lib.mjs; também locked) -------------------------------
+// Identidade de TESTE injetada pelo GATE (não pelo teste): FORGE_TEST_HEADERS é um JSON de
+// headers-default (ex.: {"X-Role":"professional","X-Tenant-Id":"1"}) que o runner LIVE
+// (forge-tests.yml) lê de apps/<app>/tests/test-identity.json (arquivo NÃO-locked). Assim o
+// RBAC pode evoluir por refinamento (ex.: PR que passa a exigir X-Role) SEM tocar os testes
+// locked: muda-se a identidade no gate, não o contrato de aceite. Cada teste ainda pode
+// sobrescrever por chamada via headers extras. JSON inválido = erro imediato (fail-closed).
 const LIB = [
   '// LOCKED — helper das suítes de teste geradas na concepção. NÃO EDITAR.',
   "const API = (process.env.BASE_URL || 'http://nvit.localhost@@BASE@@/api').replace(/\\/$/, '');",
-  'const H = (extra) => ({ "Content-Type": "application/json", ...(extra || {}) });',
+  '// identidade de teste injetada pelo GATE (forge-tests): headers-default p/ TODA chamada;',
+  '// vem de apps/@@APP@@/tests/test-identity.json (não-locked). O teste sobrescreve via extra.',
+  'const IDH = (() => { const raw = process.env.FORGE_TEST_HEADERS; if (!raw) return {}; try { return JSON.parse(raw); } catch (e) { throw new Error("FORGE_TEST_HEADERS invalido (esperado JSON de headers): " + e.message); } })();',
+  'const H = (extra) => ({ "Content-Type": "application/json", ...IDH, ...(extra || {}) });',
   'export const api = API;',
   'export const get = (p, h) => fetch(API + p, { headers: H(h) }).then(async (r) => ({ s: r.status, j: await r.json().catch(() => ({})) }));',
   'export const post = (p, b, h) => fetch(API + p, { method: "POST", headers: H(h), body: JSON.stringify(b || {}) }).then(async (r) => ({ s: r.status, j: await r.json().catch(() => ({})) }));',
@@ -44,6 +53,7 @@ const LIB = [
   'export const LIVE = !!process.env.BASE_URL || process.env.FORGE_LIVE === "1";',
   '',
 ].join('\n');
+export { LIB }; // p/ testes do gerador (make-test-suite.test.mjs)
 
 // header padrão de cada arquivo locked
 const header = (origin) => '// LOCKED — gerado de ' + origin + ' por make-test-suite.mjs. NÃO EDITAR (mudar exige spec + regenerar).\n';

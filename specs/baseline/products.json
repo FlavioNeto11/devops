@@ -1,6 +1,35 @@
 {
   "products": [
     {
+      "name": "anarabottini",
+      "display_name": "Ana Rabottini",
+      "base_path": "/anarabottini",
+      "blueprint": "cms-portal",
+      "origin": "adopted",
+      "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Portal de conteúdo (tier t1), par do rmambiental: a SPA React/Vite dedicada é servida em /anarabottini (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'anarabottini') — editável pelo editor visual (protocolo cmsEdit) sem tocar código. Primeiro portal t1 registrado como produto da Forja (E4), agora par do rmambiental na vitrine.",
+      "app_type": "cms_portal",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "portal de conteúdo (tier t1) — o artefato é o CONTEÚDO no CMS, não requisitos de código; nada em specs/requirements/ por design (blueprint cms-portal)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/anarabottini (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'anarabottini'); decisões nas default_adrs do blueprint"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "sem scaffold de código de produto (t1); o frontend dedicado pré-existente em apps/anarabottini é anterior à Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "site publicado NO AR: SPA responde 200 em /anarabottini; projeto CMS seedado/approved no pm-api"
+        }
+      }
+    },
+    {
       "name": "contaviva-360",
       "display_name": "ContaViva 360",
       "base_path": "/contaviva-360",
@@ -116,6 +145,52 @@
       }
     },
     {
+      "name": "imobia",
+      "display_name": "Imobia",
+      "base_path": "/imobia",
+      "blueprint": "node-api-vue-spa",
+      "origin": "adopted",
+      "vision": "Ecossistema imobiliário + fintech onde o WhatsApp é o eixo central e múltiplas IAs atuam como funcionários especializados: Cortex faz a triagem/roteamento barato, GPT executa lógica/function-calling, Claude redação/análise e Gemini documentos/visão — tudo fail-soft (sem chaves, cada módulo opera manualmente e as IAs ficam dormentes). SPA Vue 3 + Vite sobre API Node 20/Fastify (TypeScript) com Prisma sobre Postgres 16/pgvector, Redis/BullMQ para filas e worker na mesma imagem da API. Módulos: Captação/Imóveis (busca semântica), Clientes/Leads (scoring + realimentação do funil), Financeiro PJ/PF, Agenda NL, WhatsApp multi-instância, ACM, PTAM (ABNT NBR 14653), Corbam/COBAN, Vistoria/Laudos e Documentos por etapa com trilha de auditoria de qual IA produziu cada passo. Stack real mais próxima do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres; difere em Fastify/Prisma/Redis) — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Pinia + Vue Router (Vite → nginx, base /imobia/) + API Node 20/Fastify em TypeScript (runtime tsx, ESM) + worker na MESMA imagem (npm run worker) + Postgres 16/pgvector via Prisma (29 tabelas, 7 migrações versionadas) + Redis/BullMQ para filas + PVC imobia-files para uploads/PDFs. Aproximação do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres), diferindo em Fastify/Prisma/Redis.\nDecisões (ADRs): ADR-001: Orquestração 4-modelos — Cortex roteia, GPT/Claude/Gemini executam por vocação; ADR-002: Fail-soft em todas as integrações externas (IA dormente, filas no-op, provedores dormentes); ADR-003: Postgres 16 + pgvector via Prisma com migrações versionadas; ADR-004: Trabalho pesado em Redis/BullMQ; worker = mesma imagem da API; ADR-005: Auth local (JWT stateless via oidc-kit) + SSO Keycloak aditivo, multi-tenant por Membership; ADR-006: Arquivos em PVC com storageKey saneado (uploads e PDFs gerados); ADR-007: Trilha do tempo polimórfica registrando qual IA produziu cada etapa; ADR-008: SSE de IA como IngressRoute dedicada sem compress (não api2).",
+      "requirement_ids": [
+        "REQ-IMOBIA-0001",
+        "REQ-IMOBIA-0002",
+        "REQ-IMOBIA-0003",
+        "REQ-IMOBIA-0004",
+        "REQ-IMOBIA-0005",
+        "REQ-IMOBIA-0006",
+        "REQ-IMOBIA-0007",
+        "REQ-IMOBIA-0008",
+        "REQ-IMOBIA-0009",
+        "REQ-IMOBIA-0010",
+        "REQ-IMOBIA-0011",
+        "REQ-IMOBIA-0012",
+        "REQ-IMOBIA-NFR-0001",
+        "REQ-IMOBIA-NFR-0002",
+        "REQ-IMOBIA-NFR-0003",
+        "REQ-IMOBIA-NFR-0004"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais em specs/requirements/imobia/ — backfill D5 (Forja 4.1) extraído de apps/imobia/CLAUDE.md, docs/CONCEPCAO.md e devops.yaml"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/imobia/CLAUDE.md + docs/CONCEPCAO.md) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/imobia — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-IMOBIA-* estão deployed (cluster ns apps, imagens :local, F0–F8 entregues)"
+        }
+      }
+    },
+    {
       "name": "neuroevolui",
       "display_name": "NeuroEvolui",
       "base_path": "/neuroevolui",
@@ -149,6 +224,35 @@
         "build": {
           "status": "deployed",
           "note": "derivado do implementation-status: todos os 9 REQ-NEUROEVOLUI-* estão deployed (PRs #126-#132)"
+        }
+      }
+    },
+    {
+      "name": "rmambiental",
+      "display_name": "RM Ambiental",
+      "base_path": "/rmambiental",
+      "blueprint": "cms-portal",
+      "origin": "adopted",
+      "vision": "Portal institucional de consultoria ambiental (hero, serviços, galeria, contato). Portal de conteúdo (tier t1), par do anarabottini: a SPA React/Vite dedicada é servida em /rmambiental (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'rmambiental') — editável pelo editor visual sem tocar código. Mesma capacidade cms_portal do anarabottini; registrado como produto da Forja para consistência da vitrine.",
+      "app_type": "cms_portal",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "portal de conteúdo (tier t1) — o artefato é o CONTEÚDO no CMS, não requisitos de código; nada em specs/requirements/ por design (blueprint cms-portal)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/rmambiental (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'rmambiental'); decisões nas default_adrs do blueprint"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "sem scaffold de código de produto (t1); o frontend dedicado pré-existente em apps/rmambiental é anterior à Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "site publicado NO AR: SPA responde 200 em /rmambiental; projeto CMS seedado no pm-api (cms-seed-rmambiental)"
         }
       }
     },
@@ -203,6 +307,49 @@
         "build": {
           "status": "deployed",
           "note": "derivado do implementation-status: todos os REQ-SICAT-* estão deployed (cluster ns apps)"
+        }
+      }
+    },
+    {
+      "name": "zapbridge",
+      "display_name": "ZapBridge",
+      "base_path": "/zapbridge",
+      "blueprint": "app-simples",
+      "origin": "adopted",
+      "vision": "Cliente de mensageria que conecta à conta de WhatsApp do PRÓPRIO usuário via Baileys (QR/pairing, multi-dispositivo — uso legítimo apenas: sem Business API, sem scraping, sem envio em massa). Backend Node 20/Express (TypeScript, CommonJS) mantém a sessão Baileys viva, persiste conversas/contatos/grupos/mídia em SQLite (Prisma) num PVC RWO e entrega tudo em tempo real por Socket.IO (rota dedicada /zapbridge/socket.io); frontend web React 18 + Vite + Tailwind servido por nginx sob /zapbridge (reescrita que aposentou o app Expo — SW kill-switch migra instalações antigas). Camada de IA opt-in e fail-soft sobre @flavioneto11/ai-core (reasoning Claude + embeddings OpenAI) com banco SEPARADO Postgres 16/pgvector: smart replies, reescrita, resumo, busca semântica, assistente RAG, KB PME, agente proposeTools→confirmação HMAC e auto-resposta com guardrails — DORMENTE sem chaves no Secret zapbridge-config (o app funciona 100% sem IA). Stack real mais próxima do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário (Postgres/pgvector só para a IA) — adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): frontend React 18 + Vite + Tailwind + React Router (nginx, base /zapbridge — reescrita que aposentou o app Expo/react-native-web, mantido em apps/zapbridge/app) + backend Node 20/Express em TypeScript CommonJS com Socket.IO no mesmo processo + Baileys 6 (patch-package) para a sessão WhatsApp + Prisma/SQLite em PVC RWO (1 réplica, Recreate) + Postgres 16/pgvector dedicado SÓ para a camada de IA opt-in (@flavioneto11/ai-core). Aproximação do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário.\nDecisões (ADRs): ADR-001: Baileys 6 (multi-dispositivo via QR/pairing) como integração WhatsApp — uso legítimo apenas; ADR-002: Prisma + SQLite single-writer em PVC RWO — 1 réplica com strategy Recreate; ADR-003: Socket.IO no mesmo processo HTTP com rota IngressRoute dedicada (priority 40, sem strip/compress); ADR-004: Frontend web reescrito em React 18 + Vite puro; app Expo aposentado com SW kill-switch; ADR-005: IA opt-in fail-soft sobre ai-core com banco SEPARADO Postgres 16/pgvector; ADR-006: Server CommonJS × kits ESM-only — carregamento por import() dinâmico (ai-core-loader); ADR-007: Mutações da IA nunca silenciosas — dry-run + token HMAC + confirmação humana; auto-resposta com judge-gate; ADR-008: Métricas Prometheus em porta dedicada 9464 fora do Traefik + ServiceMonitor.",
+      "requirement_ids": [
+        "REQ-ZAPBRIDGE-0001",
+        "REQ-ZAPBRIDGE-0002",
+        "REQ-ZAPBRIDGE-0003",
+        "REQ-ZAPBRIDGE-0004",
+        "REQ-ZAPBRIDGE-0005",
+        "REQ-ZAPBRIDGE-0006",
+        "REQ-ZAPBRIDGE-0007",
+        "REQ-ZAPBRIDGE-0008",
+        "REQ-ZAPBRIDGE-0009",
+        "REQ-ZAPBRIDGE-0010",
+        "REQ-ZAPBRIDGE-NFR-0001",
+        "REQ-ZAPBRIDGE-NFR-0002",
+        "REQ-ZAPBRIDGE-NFR-0003"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais em specs/requirements/zapbridge/ — backfill D5 (Forja 4.1) extraído de apps/zapbridge/docs/MVP-FUNCIONAL.md (45 RFs + RF046–RF060 da IA, agrupados por capacidade), apps/zapbridge/CLAUDE.md, devops.yaml e do código (server/src/modules, web/)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/zapbridge/CLAUDE.md + código + k8s/) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/zapbridge — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-ZAPBRIDGE-* estão deployed (cluster ns apps, imagens :local; camada de IA deployada porém DORMENTE sem chaves no Secret zapbridge-config)"
         }
       }
     }

@@ -10,7 +10,7 @@
       "name": "anarabottini",
       "base_path": "/anarabottini",
       "app_type": "cms_portal",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "besc",
@@ -40,7 +40,7 @@
       "name": "imobia",
       "base_path": "/imobia",
       "app_type": "product_software",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "neuroevolui",
@@ -64,7 +64,7 @@
       "name": "rmambiental",
       "base_path": "/rmambiental",
       "app_type": "cms_portal",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "sicat",
@@ -76,7 +76,7 @@
       "name": "zapbridge",
       "base_path": "/zapbridge",
       "app_type": "product_software",
-      "has_product": false
+      "has_product": true
     }
   ]
 }

@@ -82,6 +82,47 @@ export const ENUMS = {
     alto: 'Alto',
     indeterminado: 'Indeterminado',
   },
+  // --- processo real de liquidacao com acoes BESC (extensao) ---
+  mechanism: {
+    compensacao: 'Compensação',
+    quitacao: 'Quitação',
+    conversao: 'Conversão em numerário',
+    dacao_pagamento: 'Dação em pagamento',
+    substituicao_penhora: 'Substituição de penhora',
+    caucao: 'Caução / garantia',
+    indefinido: 'Indefinido (verificar)',
+  },
+  target_creditor_type: {
+    banco_do_brasil: 'Banco do Brasil (sub-rogado do BESC)',
+    banco_privado: 'Banco privado',
+    caixa: 'Caixa Econômica Federal',
+    empresa_privada: 'Empresa privada',
+    tributo_federal: 'Tributo federal (União)',
+    tributo_estadual: 'Tributo estadual (ICMS)',
+    tributo_municipal: 'Tributo municipal',
+    outro: 'Outro (verificar)',
+  },
+  laudo_status: {
+    nao_iniciado: 'Não iniciado',
+    em_andamento: 'Em andamento',
+    concluido: 'Concluído',
+    contestado: 'Contestado',
+  },
+  authenticity_status: {
+    nao_verificada: 'Não verificada',
+    autentica: 'Autêntica (laudo)',
+    inconclusiva: 'Inconclusiva',
+    fraudulenta: 'Indício de fraude',
+  },
+  monetary_index: {
+    igpm: 'IGP-M',
+    ipca: 'IPCA',
+    inpc: 'INPC',
+    selic: 'SELIC',
+    tr: 'TR',
+    tabela_tj: 'Tabela do tribunal',
+    outro: 'Outro (verificar)',
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -231,6 +272,25 @@ export function emptyCollateral() {
   };
 }
 
+// Pericia / atualizacao monetaria (padrao collateral). `active` liga o modulo; enquanto
+// desligado nao gera pendencia. `updated_value_pericial`/`agio` sao INFORMADOS (o sistema
+// registra o laudo, nao o calcula) — respeita "sem calculo oficial de correcao".
+export function emptyPericia() {
+  return {
+    active: false,
+    acquisition_price: '',        // preco pago na aquisicao (base da atualizacao)
+    acquisition_date: '',         // data-base da atualizacao (pode espelhar c.acquisition_date)
+    monetary_index: '',           // enum monetary_index
+    updated_value_pericial: '',   // valor atualizado apurado no laudo (informado)
+    agio: '',                     // agio informado
+    perito: '',                   // nome do perito/entidade
+    laudo_status: 'nao_iniciado', // enum laudo_status
+    authenticity_status: 'nao_verificada', // enum authenticity_status
+    notes: '',
+    updatedAt: null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Derivacoes (completude, pendencias, status, risco)
 // ---------------------------------------------------------------------------
@@ -314,6 +374,16 @@ export function computePendencies(c) {
   if (tokenAnswer(c, 'doc_custodian') === 'nao_avaliado') {
     add('missing_document_custodian', 'tokenizacao', 'info', 'Falta definir o custodiante documental.', false, 'tokenization');
   }
+  // Pericia: so gera pendencia quando o modulo foi ATIVADO (casos legados sem c.pericia
+  // ou com pericia.active=false nao sao penalizados). Nunca 'blocker'.
+  if (c.pericia && c.pericia.active) {
+    if (String(c.pericia.updated_value_pericial || '').trim() === '') {
+      add('missing_monetary_update', 'legal', 'medium', 'Falta o valor pericial atualizado (atualização monetária desde a aquisição).', false, 'pericia');
+    }
+    if (c.pericia.laudo_status !== 'concluido') {
+      add('missing_pericia', 'legal', 'high', 'Perícia/laudo de autenticidade e atualização ainda não concluído.', true, 'pericia');
+    }
+  }
 
   p.sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity]);
   return p;
@@ -395,15 +465,28 @@ export function computeRisk(c) {
   else clDir = 'neutral';
   F('case_law_alignment', 'Alinhamento jurisprudencial', clDir, false);
 
+  // authenticity (pericia): fator NAO essencial de proposito — se fosse essencial, todo
+  // caso legado (default 'unknown') viraria 'undetermined'. Como nao-essencial + default
+  // 'unknown', contribui 0 ao score quando nao avaliado, preservando os ratios atuais.
+  const auth = c.pericia ? c.pericia.authenticity_status : 'nao_verificada';
+  let authDir = 'unknown';
+  if (auth === 'autentica') authDir = 'favorable';
+  else if (auth === 'fraudulenta') authDir = 'unfavorable';
+  else if (auth === 'inconclusiva') authDir = 'neutral';
+  F('authenticity', 'Autenticidade da cártula (laudo)', authDir, false);
+
   // regra de agregacao
   const essentialUnknown = factors.some((f) => f.essential && f.direction === 'unknown');
   if (essentialUnknown) return { level: 'undetermined', factors };
 
-  const weight = { ownership_proven: 3, procedural_phase: 2, liquidity: 2, assignability: 2, prescription_risk: 2, case_law_alignment: 1 };
+  const weight = { ownership_proven: 3, procedural_phase: 2, liquidity: 2, assignability: 2, prescription_risk: 2, case_law_alignment: 1, authenticity: 1 };
   let score = 0;
   let maxScore = 0;
   for (const f of factors) {
     const w = weight[f.key] || 1;
+    // 'authenticity' so entra no denominador quando avaliado — garante que casos legados
+    // (sem laudo, direction 'unknown') mantenham maxScore/ratio identicos ao anterior.
+    if (f.key === 'authenticity' && f.direction === 'unknown') continue;
     maxScore += w;
     if (f.direction === 'favorable') score += w;
     else if (f.direction === 'unfavorable') score -= w;

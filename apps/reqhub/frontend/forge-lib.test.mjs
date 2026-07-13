@@ -6,10 +6,14 @@ import {
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
   weightedProgress, wavesFromProgress, STAGE_WEIGHT,
-  studioPhaseModel, STUDIO_PHASE_KEYS,
+  studioPhaseModel, STUDIO_PHASE_KEYS, STUDIO_T1_PHASE_KEYS,
+  isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
   mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
+  briefFromPortalContract, externalContractRef, suggestIntegrationBlock, CAPTURE_BRIEF_MAX_ENDPOINTS,
+  emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
+  previewErrorMessage, businessSummaryFromIdea,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -300,6 +304,70 @@ test('studioPhaseModel: sonda liveUrlOk=false rebaixa publicado mesmo com pipeli
   assert.match(pub.detail, /fora do ar/);
 });
 
+// ---------- (E4, Forja 4.1) trilho REDUZIDO t1 + embed do CMS ----------
+const t1Prod = { name: 'anarabottini', display_name: 'Ana Rabottini', app_type: 'cms_portal', blueprint: 'cms-portal', base_path: '/sites/anarabottini', vision: 'Portal de palestrante', requirement_ids: [], phases: { requirements: { status: 'adopted' } } };
+
+test('isT1Product: cms_portal é t1; software/ausente não é', () => {
+  assert.equal(isT1Product(t1Prod), true);
+  assert.equal(isT1Product({ app_type: 'product_software' }), false);
+  assert.equal(isT1Product({}), false);
+  assert.equal(isT1Product(null), false);
+});
+
+test('studioPhaseModel t1: trilho reduzido Brief → Conteúdo → Publicação (sem esteira de código)', () => {
+  const steps = studioPhaseModel(t1Prod, null, { items: {} }, { liveUrlOk: true });
+  assert.deepEqual(steps.map((s) => s.key), STUDIO_T1_PHASE_KEYS);
+  assert.deepEqual(STUDIO_T1_PHASE_KEYS, ['brief', 'conteudo', 'publicado']);
+  const by = Object.fromEntries(steps.map((s) => [s.key, s]));
+  assert.equal(by.brief.status, 'done');            // tem visão
+  assert.equal(by.conteudo.status, 'current');      // conteúdo é vivo: nunca 'done'
+  assert.equal(by.publicado.status, 'done');        // sonda confirmou no ar
+  assert.equal(by.publicado.detail, 'no ar');
+});
+
+test('studioPhaseModel t1: exatamente uma fase current; sonda rebaixa/pende publicado', () => {
+  const off = studioPhaseModel(t1Prod, null, { items: {} }, { liveUrlOk: false });
+  assert.equal(off.filter((s) => s.status === 'current').length, 1);
+  assert.match(off.find((s) => s.key === 'publicado').detail, /fora do ar/);
+  const unknown = studioPhaseModel(t1Prod, null, { items: {} }, {});
+  assert.match(unknown.find((s) => s.key === 'publicado').detail, /pendente/);
+  const semBrief = studioPhaseModel({ ...t1Prod, vision: '' }, null, { items: {} }, {});
+  assert.equal(semBrief[0].status, 'current'); // brief vira a primeira pendência
+  assert.equal(semBrief.find((s) => s.key === 'conteudo').status, 'todo');
+});
+
+test('studioPhaseModel: produto t3 NÃO é afetado pelo trilho t1 (regressão)', () => {
+  const prod = { name: 'crm', vision: 'v', app_type: 'product_software', requirement_ids: [], phases: {} };
+  assert.deepEqual(studioPhaseModel(prod, null, { items: {} }, {}).map((s) => s.key), STUDIO_PHASE_KEYS);
+});
+
+test('embedConsoleUrl: URL do modo embed do Console com o projeto codificado', () => {
+  assert.equal(embedConsoleUrl('anarabottini'), '/devops/?embed=1#conteudo?projeto=anarabottini');
+  assert.equal(embedConsoleUrl('a b&c'), '/devops/?embed=1#conteudo?projeto=a%20b%26c');
+  assert.equal(embedConsoleUrl(''), '');
+  assert.equal(embedConsoleUrl(null), '');
+});
+
+test('publishedSiteUrl: base_path com barra final; nunca URL fora do site', () => {
+  assert.equal(publishedSiteUrl({ base_path: '/sites/anarabottini' }), '/sites/anarabottini/');
+  assert.equal(publishedSiteUrl({ base_path: '/rmambiental/' }), '/rmambiental/');
+  assert.equal(publishedSiteUrl({}), '');
+  assert.equal(publishedSiteUrl({ base_path: 'https://evil.example' }), ''); // só path absoluto
+});
+
+test('parseEmbedMessage: aceita só o contrato do console-embed (payload não confiável)', () => {
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:ready' }),
+    { type: 'embed:ready', view: '', projeto: '' });
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:navigate', view: 'conteudo', projeto: 'x' }),
+    { type: 'embed:navigate', view: 'conteudo', projeto: 'x' });
+  // projeto/view não-string são descartados (nunca lança)
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:navigate', projeto: 42 }).projeto, '');
+  assert.equal(parseEmbedMessage({ source: 'outro', type: 'embed:ready' }), null);
+  assert.equal(parseEmbedMessage({ source: 'console-embed', type: 'outro' }), null);
+  assert.equal(parseEmbedMessage('embed:ready'), null);
+  assert.equal(parseEmbedMessage(null), null);
+});
+
 // ---------- (C2) MODOS DE USUÁRIO: projeções puras sobre a MESMA engine ----------
 test('normalizeForgeMode: default guiado + migração dos nomes antigos do wizard', () => {
   assert.deepEqual(FORGE_MODES, ['simples', 'guiado', 'profissional']);
@@ -459,3 +527,244 @@ test('forgeStateSig: determinística e sensível a origem/progresso', () => {
   assert.equal(a, forgeStateSig([{ name: 'x', reqCount: 2, progress: { done: 1, pct: 50 }, origin: 'greenfield' }]));
 });
 
+
+// ---------- (E2, Forja 4.1) captura de portal como entrada da Forja ----------
+// Export canônico de exemplo (formato do portal-recorder: manifest + endpoints, SEM samples).
+const CAPTURE_EXPORT = {
+  manifest: {
+    portal: 'cetesb-mtr', base_url: 'https://mtr.cetesb.sp.gov.br', version: '2026-07-01',
+    endpoint_count: 4, content_hash: 'sha256:abc123', redaction_policy: 'business-sensitive-v1',
+  },
+  endpoints: [
+    { id: 'e1', group: 'manifesto', method: 'GET', path_template: '/api/manifesto/{id}', auth: { required: true }, requires_captcha: false },
+    { id: 'e2', group: 'manifesto', method: 'POST', path_template: '/api/manifesto', auth: { required: true }, requires_captcha: false },
+    { id: 'e3', group: 'auth', method: 'POST', path_template: '/api/login', auth: { required: false }, requires_captcha: true },
+    { id: 'e4', group: 'parceiro', method: 'GET', path_template: '/api/parceiro', auth: { required: true }, requires_captcha: false },
+  ],
+};
+
+test('briefFromPortalContract: deriva brief com portal, entidades, fluxos e endpoints', () => {
+  const brief = briefFromPortalContract(CAPTURE_EXPORT);
+  assert.match(brief, /"cetesb-mtr"/, 'nome do portal');
+  assert.match(brief, /https:\/\/mtr\.cetesb\.sp\.gov\.br/, 'base_url');
+  assert.match(brief, /4 endpoint\(s\)/, 'contagem de endpoints');
+  assert.match(brief, /Entidades\/áreas observadas \(3\): auth, manifesto, parceiro\./, 'grupos = entidades, ordenados');
+  assert.match(brief, /Fluxos: 2 consulta\(s\) e 2 operação\(ões\) de escrita\./, 'leitura × escrita');
+  assert.match(brief, /3 endpoint\(s\) exigem autenticação\./, 'auth agregado');
+  assert.match(brief, /1 exigem captcha\./, 'captcha agregado');
+  assert.match(brief, /GET \/api\/manifesto\{id\}|GET \/api\/manifesto\/\{id\}/, 'endpoint listado');
+  assert.match(brief, /POST \/api\/login\s.*\[captcha\]/, 'flag [captcha] no endpoint');
+  assert.match(brief, /GET \/api\/parceiro \[auth\]/, 'flag [auth] no endpoint');
+  assert.doesNotMatch(brief, /sample|payload de exemplo anexado/i, 'nunca menciona samples como conteúdo');
+});
+
+test('briefFromPortalContract: sugere o bloco de integração quando informado (opts.integrationBlock)', () => {
+  const withBlock = briefFromPortalContract(CAPTURE_EXPORT, { integrationBlock: 'gateway-externo' });
+  assert.match(withBlock, /Capacidade sugerida: inclua o bloco "gateway-externo"/);
+  const without = briefFromPortalContract(CAPTURE_EXPORT);
+  assert.doesNotMatch(without, /Capacidade sugerida/);
+});
+
+test('briefFromPortalContract: trunca a lista no teto e aponta o restante para o anexo', () => {
+  const many = {
+    manifest: { portal: 'p', version: 'v', content_hash: 'sha256:x' },
+    endpoints: Array.from({ length: CAPTURE_BRIEF_MAX_ENDPOINTS + 7 }, (_, i) => ({
+      id: 'e' + i, group: 'g', method: 'GET', path_template: '/api/x/' + i, auth: { required: false },
+    })),
+  };
+  const brief = briefFromPortalContract(many);
+  const listed = (brief.match(/^ {2}- GET /gm) || []).length;
+  assert.equal(listed, CAPTURE_BRIEF_MAX_ENDPOINTS, 'lista exatamente o teto');
+  assert.match(brief, /… e mais 7 endpoint\(s\) no contrato anexo\./);
+});
+
+test('briefFromPortalContract: fail-soft — export inutilizável vira string vazia', () => {
+  assert.equal(briefFromPortalContract(null), '');
+  assert.equal(briefFromPortalContract({}), '');
+  assert.equal(briefFromPortalContract({ manifest: { portal: 'p' }, endpoints: [] }), '', 'sem endpoints');
+  assert.equal(briefFromPortalContract({ manifest: {}, endpoints: [{ method: 'GET' }] }), '', 'sem portal');
+  assert.equal(briefFromPortalContract('string'), '');
+});
+
+test('externalContractRef: referência {portal, contract_version, content_hash} do manifest', () => {
+  assert.deepEqual(externalContractRef(CAPTURE_EXPORT),
+    { portal: 'cetesb-mtr', contract_version: '2026-07-01', content_hash: 'sha256:abc123' });
+  assert.equal(externalContractRef(null), null);
+  assert.equal(externalContractRef({ manifest: { portal: 'p' } }), null, 'sem content_hash -> null');
+  assert.equal(externalContractRef({ manifest: { content_hash: 'sha256:x' } }), null, 'sem portal -> null');
+  // version ausente degrada para '' (não quebra o carimbo)
+  assert.deepEqual(externalContractRef({ manifest: { portal: 'p', content_hash: 'sha256:x' } }),
+    { portal: 'p', contract_version: '', content_hash: 'sha256:x' });
+});
+
+test('suggestIntegrationBlock: prefere gateway-externo; fallback categoria integration; null sem opção', () => {
+  const catalog = [
+    { id: 'camadas-rigidas', category: 'foundation' },
+    { id: 'gateway-externo', category: 'integration' },
+    { id: 'outro-integ', category: 'integration' },
+  ];
+  assert.equal(suggestIntegrationBlock(catalog), 'gateway-externo');
+  assert.equal(suggestIntegrationBlock([{ id: 'outro-integ', category: 'integration' }]), 'outro-integ', 'fallback declarativo por categoria');
+  assert.equal(suggestIntegrationBlock([{ id: 'camadas-rigidas', category: 'foundation' }]), null);
+  assert.equal(suggestIntegrationBlock([]), null);
+  assert.equal(suggestIntegrationBlock(undefined), null);
+});
+
+test('buildLaunchBody: externalContract carimba architecture.external_contract (retrocompat sem ele)', () => {
+  const base = {
+    product: 'meu-mtr', displayName: 'Meu MTR', blueprint: 'node-api-vue-spa', brief: 'b', mode: 'pr',
+    requirements: [{ title: 'T', statement: 'S' }],
+    architecture: { stack: 'sicat', selected_blocks: [{ id: 'gateway-externo' }], adrs: [], waves: [] },
+  };
+  const withEc = buildLaunchBody({ ...base, externalContract: externalContractRef(CAPTURE_EXPORT) });
+  assert.deepEqual(withEc.architecture.external_contract,
+    { portal: 'cetesb-mtr', contract_version: '2026-07-01', content_hash: 'sha256:abc123' });
+  // sem externalContract o payload NEM tem o campo (idêntico ao pré-E2, byte a byte)
+  const withoutEc = buildLaunchBody(base);
+  assert.ok(!('external_contract' in withoutEc.architecture));
+  // externalContract inválido (sem portal) é ignorado — nunca carimba lixo
+  const junk = buildLaunchBody({ ...base, externalContract: { content_hash: 'x' } });
+  assert.ok(!('external_contract' in junk.architecture));
+  // e o resto do payload permanece igual nos três casos
+  const strip = (b) => { const { architecture, ...rest } = b; return rest; };
+  assert.deepEqual(strip(withEc), strip(withoutEc));
+});
+
+test('modeCopy: cartão de captura projeta pelos 3 modos (copy distinta por modo)', () => {
+  const titles = FORGE_MODES.map((m) => modeCopy(m, 'fork.capture.title'));
+  assert.equal(new Set(titles).size, 3, 'títulos distintos por modo');
+  assert.match(modeCopy('simples', 'fork.capture.title'), /sistema que você já usa/i);
+  assert.match(modeCopy('guiado', 'fork.capture.title'), /portal capturado/i);
+  assert.match(modeCopy('profissional', 'fork.capture.foot'), /\/portal-rec\/api\/v1\/contracts/);
+  // modo desconhecido cai no guiado (regra geral do MODE_COPY)
+  assert.equal(modeCopy('???', 'fork.capture.desc'), modeCopy('guiado', 'fork.capture.desc'));
+});
+
+/* ─── ETAPA IDEIA — copiloto de produto (funções puras) ─────────────────────────────────────── */
+
+test('emptyIdea/normalizeIdea: shape canônico e defensivo (nunca lança)', () => {
+  const e = emptyIdea();
+  assert.deepEqual(e.capabilities, []);
+  assert.equal(e.maturity, 0);
+  assert.equal(e.confirmed, false);
+  // entrada suja: campos ausentes/errados viram defaults; listas coagidas a string[]
+  const n = normalizeIdea({ problem: '  dor  ', capabilities: ['a', { text: 'b' }, '', 42], maturity: 250, actors: 'x' });
+  assert.equal(n.problem, 'dor');
+  assert.deepEqual(n.capabilities, ['a', 'b', '42']);
+  assert.equal(n.maturity, 100, 'maturity clampada a 100');
+  assert.deepEqual(n.actors, [], 'actors não-array vira []');
+  assert.doesNotThrow(() => normalizeIdea(null));
+});
+
+test('applyIdeaPatch: escalares substituem, listas acrescentam com dedupe (nunca apagam)', () => {
+  let idea = emptyIdea();
+  idea = applyIdeaPatch(idea, { patch: { name: 'Chamados', problem: 'suporte caótico', capabilities: ['abrir chamado', 'atribuir a técnico'] }, maturity: 30, open_questions: [{ text: 'qual SLA?', essential: true }] });
+  assert.equal(idea.name, 'Chamados');
+  assert.deepEqual(idea.capabilities, ['abrir chamado', 'atribuir a técnico']);
+  assert.equal(idea.maturity, 30);
+  assert.equal(idea.openQuestions[0].essential, true);
+  // segundo turno: acrescenta 1 capacidade nova + repete uma (dedupe case-insensitive) e sobe maturity
+  idea = applyIdeaPatch(idea, { patch: { capabilities: ['Abrir chamado', 'avisar quando atrasa'] }, maturity: 55, open_questions: [] });
+  assert.deepEqual(idea.capabilities, ['abrir chamado', 'atribuir a técnico', 'avisar quando atrasa'], 'sem duplicata; preserva o que já havia');
+  assert.equal(idea.maturity, 55);
+  assert.deepEqual(idea.openQuestions, [], 'open_questions é snapshot (substitui)');
+  // patch vazio não destrói nada
+  const before = JSON.stringify(idea);
+  idea = applyIdeaPatch(idea, {});
+  assert.equal(JSON.stringify(idea), before);
+});
+
+test('applyIdeaPatch: summary vem do patch.summary OU do payload.summary (fechamento)', () => {
+  let idea = applyIdeaPatch(emptyIdea(), { summary: 'Sistema para gerir chamados.' });
+  assert.equal(idea.summary, 'Sistema para gerir chamados.');
+  idea = applyIdeaPatch(idea, { patch: { summary: 'Gestão de chamados de ponta a ponta.' } });
+  assert.equal(idea.summary, 'Gestão de chamados de ponta a ponta.', 'patch.summary tem prioridade');
+});
+
+test('ideaReady: gate exige maturidade + problema + público + >=2 capacidades e nenhuma pergunta essencial', () => {
+  const closed = { problem: 'p', audience: 'gestores', capabilities: ['a', 'b'], maturity: IDEA_MATURITY_THRESHOLD, openQuestions: [] };
+  assert.equal(ideaReady(closed), true);
+  assert.equal(ideaReady({ ...closed, maturity: 69 }), false, 'abaixo do limiar');
+  assert.equal(ideaReady({ ...closed, capabilities: ['a'] }), false, 'menos de 2 capacidades');
+  assert.equal(ideaReady({ ...closed, problem: '' }), false, 'sem problema');
+  assert.equal(ideaReady({ ...closed, audience: '', actors: [] }), false, 'sem público nem atores');
+  assert.equal(ideaReady({ ...closed, audience: '', actors: ['operador'] }), true, 'atores satisfazem "quem usa"');
+  assert.equal(ideaReady({ ...closed, openQuestions: [{ text: 'x', essential: true }] }), false, 'pergunta essencial bloqueia');
+  assert.equal(ideaReady({ ...closed, openQuestions: [{ text: 'x', essential: false }] }), true, 'pergunta não-essencial não bloqueia');
+});
+
+test('composeBriefFromIdea: monta brief textual rico (>=10 chars) preservando as seções', () => {
+  const brief = composeBriefFromIdea({
+    summary: 'Gestão de chamados.', problem: 'suporte caótico', audience: 'equipe de suporte', actors: ['técnico'],
+    capabilities: ['abrir chamado', 'atribuir'], businessRules: ['SLA de 24h'], goals: ['reduzir atraso'], value: 'clientes satisfeitos', constraints: ['LGPD'],
+  });
+  assert.ok(brief.length >= 10);
+  assert.match(brief, /Problema\/dor que resolve: suporte caótico/);
+  assert.match(brief, /Para quem \/ quem usa: equipe de suporte; técnico/);
+  assert.match(brief, /- abrir chamado/);
+  assert.match(brief, /Regras de negócio:/);
+  assert.match(brief, /Restrições de negócio: LGPD/);
+});
+
+test('ideaMaturityHint: aponta a MAIOR lacuna atual em ordem', () => {
+  assert.match(ideaMaturityHint(emptyIdea()), /qual problema/i);
+  assert.match(ideaMaturityHint({ problem: 'p' }), /para quem/i);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a' }), /o que o sistema/i);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], openQuestions: [{ text: 'falta o SLA', essential: true }] }), /SLA/);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], maturity: 100 }), /pronta/i);
+});
+
+/* ─── Preview: mensagens de erro amigáveis (nunca o texto cru) ───────────────────────────────── */
+test('previewErrorMessage: mapeia código -> pt-BR amigável; default para desconhecido/ausente', () => {
+  assert.match(previewErrorMessage('DISPATCH_DISABLED'), /configuração/i);
+  assert.match(previewErrorMessage('PREVIEW_UPSTREAM_AUTH'), /autenticação|configuração/i);
+  assert.match(previewErrorMessage('BUILD_TIMEOUT'), /demorou/i);
+  assert.match(previewErrorMessage('AI_DISABLED'), /IA/);
+  // desconhecido e ausente caem no genérico amigável
+  assert.match(previewErrorMessage('HTTP 500'), /Tente novamente/i);
+  assert.match(previewErrorMessage(), /Tente novamente/i);
+  // NUNCA vaza termos técnicos do GitHub
+  for (const c of ['DISPATCH_DISABLED', 'PREVIEW_UPSTREAM_AUTH', 'PREVIEW_UPSTREAM', undefined]) {
+    assert.doesNotMatch(previewErrorMessage(c), /Bad credentials|documentation_url|GitHub \d/i);
+  }
+});
+
+test('businessSummaryFromIdea: destila ideaDraft rico (o que é / p/ quem / faz / valor / a decidir)', () => {
+  const s = businessSummaryFromIdea({
+    name: 'BookSantiago', problem: 'Faltas em agendamentos de barbearia.', audience: 'barbearias',
+    actors: ['recepção', 'barbeiro'], capabilities: ['Agendar horário', 'Registrar no-show', 'Gerir serviços'],
+    value: 'Menos faltas e agenda cheia', constraints: ['LGPD'],
+    openQuestions: [{ text: 'Integra com WhatsApp?', essential: true }, { text: 'Cor do tema?', essential: false }],
+  }, { capsCount: 3, screensCount: 12, wavesCount: 2 });
+  assert.equal(s.name, 'BookSantiago');
+  assert.match(s.lead, /BookSantiago é um sistema para/);
+  assert.match(s.lead, /resolve faltas/i); // problema com 1ª minúscula, sem ponto
+  assert.deepEqual(s.forWhom, ['barbearias', 'recepção', 'barbeiro']);
+  assert.equal(s.capabilities.length, 3);
+  assert.equal(s.goal, 'Menos faltas e agenda cheia');
+  assert.deepEqual(s.constraints, ['LGPD']);
+  assert.deepEqual(s.openEssential, ['Integra com WhatsApp?']); // só as essenciais
+  assert.equal(s.openTotal, 2);
+  assert.deepEqual(s.counts, { capabilities: 3, screens: 12, waves: 2 });
+});
+
+test('businessSummaryFromIdea: degrada com copiloto pulado (ideaDraft esparso) usando brief + contagens', () => {
+  const s = businessSummaryFromIdea({ name: 'BookSantiago' }, {
+    brief: 'Sistema de agendamento para uma barbearia. Controla clientes e faltas.', capsCount: 5, screensCount: 9,
+  });
+  assert.equal(s.name, 'BookSantiago');
+  assert.equal(s.lead, 'BookSantiago é um sistema.'); // sem dor real → lead simples (não "resolve <brief>")
+  assert.equal(s.problem, ''); // sem d.problem → problem vazio
+  assert.match(s.description, /agendamento para uma barbearia/i); // 1ª frase do brief como prosa de fallback
+  assert.equal(s.capabilities.length, 0); // sem capacidades no draft…
+  assert.equal(s.counts.capabilities, 5); // …mas as contagens do plano preenchem
+  assert.equal(s.counts.screens, 9);
+});
+
+test('businessSummaryFromIdea: idea vazio não lança e cai em fallback neutro', () => {
+  const s = businessSummaryFromIdea({}, {});
+  assert.equal(s.name, 'O sistema');
+  assert.match(s.lead, /^O sistema é um sistema\.?$/);
+  assert.deepEqual(s.forWhom, []);
+  assert.deepEqual(s.openEssential, []);
+});

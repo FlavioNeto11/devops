@@ -1,0 +1,29 @@
+id: REQ-ZAPBRIDGE-0002
+slug: req-zapbridge-0002
+title: Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve conectar a conta de WhatsApp do PRÓPRIO usuário via Baileys (máximo 1 sessão ativa por usuário) — iniciar sessão emitindo QR Code (dataURL via evento session.qr.updated) com alternativa de pairing code, detectar conectado/desconectado (session.connected/session.disconnected), reconectar automaticamente sem novo QR em queda recuperável (loggedOut exige novo QR), restaurar sessões previamente conectadas no boot do servidor e encerrar a sessão a pedido (logout + remoção das credenciais). As credenciais Baileys persistem por usuário em AUTH_DIR (PVC), nunca trafegam ao cliente, e a conexão SEMPRE exige o pareamento explícito do dono da conta (uso legítimo — sem Business API, sem scraping, sem envio em massa).
+business_rationale: É a capacidade-núcleo do produto — "a ponte entre você e suas conversas" só existe com a sessão Baileys viva e legítima.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF006–RF014/RF045 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/whatsapp
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+    - apps/zapbridge/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server

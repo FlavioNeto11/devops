@@ -103,8 +103,8 @@ export function generatePreview(inventoryIn, opts = {}) {
     add('src/ui/' + rel, fs.readFileSync(path.join(KIT_SRC, rel), 'utf8'));
   }
 
-  // --- VENDOR: mock-data -> src/mock-data.js (com fallback embutido se o pacote não existir ainda) ---
-  add('src/mock-data.js', readMockData());
+  // --- VENDOR: mock-data -> src/mock-data.js (injeta REF_KINDS + ENTITY_COUNTS derivados do inventário) ---
+  add('src/mock-data.js', readMockData(inv));
 
   // --- main.js + router + nav + App.vue + banner ---
   const screens = inv.screens;
@@ -265,10 +265,12 @@ function routerJs(screens) {
 function renderView(screen, entity, inv) {
   switch (screen.kind) {
     case 'dashboard': return dashboardView(screen, entity, inv);
-    case 'list': return listView(screen, entity);
-    case 'create': return formView(screen, entity, 'create');
-    case 'edit': return formView(screen, entity, 'edit');
-    case 'detail': return detailView(screen, entity);
+    case 'list': return listView(screen, entity, inv);
+    case 'create': return formView(screen, entity, 'create', inv);
+    case 'edit': return formView(screen, entity, 'edit', inv);
+    case 'detail': return detailView(screen, entity, inv);
+    case 'calendar': return calendarView(screen, entity, inv);
+    case 'booking': return bookingView(screen, entity, inv);
     case 'custom':
     default: return customView(screen, entity);
   }
@@ -330,40 +332,45 @@ function emptyObjExpr(title, description) {
 function sq(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
 
 // ---- LIST ------------------------------------------------------------------
-function listView(screen, entity) {
+function listView(screen, entity, inv) {
   const cols = tableColumns(entity);
-  const detailRoute = guessDetailRoute(screen, entity);
-  const createRoute = guessCreateRoute(screen, entity);
+  const detailRoute = guessDetailRoute(inv, entity);
+  const createRoute = guessCreateRoute(inv, entity);
   const entLabel = entity ? entity.label : screen.title;
   const fieldsForMock = (entity && entity.fields) || cols.map((c) => ({ name: c.key, type: 'text' }));
   return [
     '<template>',
     '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Lista de ' + entLabel.toLowerCase() + '.')) + ' eyebrow="Preview" :loading="state===' + "'loading'" + '" :error="state===' + "'error'" + ' ? errorMsg : null" @retry="reload" width="wide">',
-    createRoute ? '    <template #actions><UiButton @click="noop">Novo ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
+    createRoute ? '    <template #actions><UiButton @click="goCreate">Novo ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
     '    <template #filters>',
     '      <UiFiltersPanel v-model="filters" :fields="filterFields" @apply="reload" @clear="reload" />',
     '    </template>',
     '    <UiDataTable :columns="columns" :rows="rows" :loading="state===' + "'loading'" + '" row-key="id"',
-    '      clickable-rows @row-click="noop"',
+    '      clickable-rows @row-click="' + (detailRoute ? 'goDetail' : 'noop') + '"',
     '      :empty="' + emptyObjExpr('Nenhum ' + singular(entLabel).toLowerCase() + ' ainda', 'Quando houver dados, eles aparecem aqui.') + '">',
-    createRoute ? '      <template #empty-action><UiButton @click="noop">Cadastrar ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
+    createRoute ? '      <template #empty-action><UiButton @click="goCreate">Cadastrar ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
     '    </UiDataTable>',
     '  </UiPageLayout>',
     '</template>',
     '<script setup>',
     "import { ref, computed, onMounted } from 'vue';",
+    "import { useRouter } from 'vue-router';",
     "import { UiPageLayout, UiDataTable, UiButton, UiFiltersPanel } from '../ui/index.js';",
     "import { mockRows } from '../mock-data.js';",
+    'const router = useRouter();',
     'const columns = ' + j(cols) + ';',
     'const fieldDefs = ' + j(fieldsForMock.map((f) => ({ name: f.name, type: f.type, enumValues: f.enumValues }))) + ';',
     "const filterFields = [{ key: 'q', label: 'Buscar', type: 'text' }" + filterEnumFields(entity) + '];',
     "const filters = ref({ q: '' });",
-    "const state = ref('loading'); // loading -> normal | empty | error",
+    "const state = ref('normal'); // preview: dados de exemplo já populados (sem loading fake — nunca eterno)",
     "const errorMsg = ref('Não foi possível carregar (preview).');",
-    'const allRows = mockRows(fieldDefs, 14);',
+    'const allRows = mockRows(fieldDefs, ' + (entity ? entityCountOf(entity) : 14) + ');',
     'const rows = computed(() => (state.value === ' + "'empty'" + ' ? [] : allRows));',
-    'function reload() { state.value = ' + "'loading'" + '; setTimeout(() => { state.value = ' + "'normal'" + '; }, 280); }',
-    'function noop() { /* preview: navegação/ações são ilustrativas */ }',
+    'function reload() { state.value = ' + "'normal'" + '; }',
+    // navegação DENTRO do preview (rotas que o router.js já gera) — .catch p/ não estourar promise rejeitada
+    createRoute ? 'function goCreate() { router.push({ name: ' + sq(createRoute) + " }).catch(() => {}); }" : '',
+    detailRoute ? 'function goDetail(row) { router.push({ name: ' + sq(detailRoute) + ', params: { id: encodeURIComponent(String((row && row.id) != null ? row.id : ' + "'1'" + ')) } }).catch(() => {}); }' : '',
+    'function noop() { /* sem tela alvo no inventário: mantém o realce de clicável, mas não navega */ }',
     'onMounted(reload);',
     '</script>', '',
   ].filter(Boolean).join('\n');
@@ -376,7 +383,8 @@ function filterEnumFields(entity) {
 }
 
 // ---- FORM (create/edit) ----------------------------------------------------
-function formView(screen, entity, mode) {
+function formView(screen, entity, mode, inv) {
+  const listRoute = guessListRoute(inv, entity);
   const fields = ((entity && entity.fields) || []).slice(0, 12);
   const ctrls = fields.map((f) => ({ f, c: formControl(f) }));
   const inner = ctrls.map(({ f, c }) => formFieldMarkup(f, c)).join('\n');
@@ -391,7 +399,7 @@ function formView(screen, entity, mode) {
     fields.length ? inner : '          <p class="pv-note">Sem campos definidos para esta entidade.</p>',
     '        </UiFormSection>',
     '        <div class="pv-form-actions">',
-    '          <UiButton variant="ghost" type="button" @click="noop">Cancelar</UiButton>',
+    '          <UiButton variant="ghost" type="button" @click="cancel">Cancelar</UiButton>',
     '          <UiButton type="submit" :loading="saving">' + (mode === 'edit' ? 'Salvar alterações' : 'Criar') + '</UiButton>',
     '        </div>',
     '      </form>',
@@ -400,8 +408,10 @@ function formView(screen, entity, mode) {
     '</template>',
     '<script setup>',
     "import { ref } from 'vue';",
+    "import { useRouter } from 'vue-router';",
     "import { UiPageLayout, UiCard, UiFormSection, UiFormField, UiButton, useToast } from '../ui/index.js';",
     "import { mockValue } from '../mock-data.js';",
+    'const router = useRouter();',
     'const toast = useToast();',
     'const fieldDefs = ' + j(fields.map((f) => ({ name: f.name, type: f.type, enumValues: f.enumValues }))) + ';',
     'function blankForm() { const o = {}; for (const f of fieldDefs) o[f.name] = f.type === ' + "'boolean'" + ' ? false : ' + "''" + '; return o; }',
@@ -409,7 +419,8 @@ function formView(screen, entity, mode) {
     'const formv = ref(' + seedExpr + ');',
     'const saving = ref(false);',
     'function submit() { saving.value = true; setTimeout(() => { saving.value = false; toast.success(' + "'Pré-visualização: nada foi salvo (sem backend).'" + '); }, 350); }',
-    'function noop() {}',
+    // Cancelar: volta p/ a lista da entidade (se existir no inventário) ou p/ a tela anterior.
+    'function cancel() { ' + (listRoute ? 'router.push({ name: ' + sq(listRoute) + " }).catch(() => {});" : 'router.back();') + ' }',
     '</script>',
     '<style scoped>',
     '.pv-form-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); margin-top: var(--ui-space-5); }',
@@ -459,13 +470,14 @@ function formFieldMarkup(f, c) {
 }
 
 // ---- DETAIL ----------------------------------------------------------------
-function detailView(screen, entity) {
+function detailView(screen, entity, inv) {
+  const editRoute = guessEditRoute(inv, entity);
   const fields = ((entity && entity.fields) || []).slice(0, 12);
   const entLabel = entity ? entity.label : screen.title;
   return [
     '<template>',
     '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Detalhe de ' + singular(entLabel).toLowerCase() + '.')) + ' eyebrow="Preview" :loading="state===' + "'loading'" + '" width="default">',
-    '    <template #actions><UiButton variant="ghost" @click="noop">Editar</UiButton></template>',
+    editRoute ? '    <template #actions><UiButton variant="ghost" @click="goEdit">Editar</UiButton></template>' : '',
     '    <UiCard ' + attr('title', singular(entLabel)) + '>',
     fields.length ? '      <dl class="pv-dl">' : '      <p class="pv-note">Sem campos definidos.</p>',
     fields.length ? fields.map((f) => detailRow(f)).join('\n') : '',
@@ -475,15 +487,18 @@ function detailView(screen, entity) {
     '</template>',
     '<script setup>',
     "import { ref, onMounted } from 'vue';",
+    editRoute ? "import { useRouter, useRoute } from 'vue-router';" : '',
     "import { UiPageLayout, UiCard, UiButton, UiStatusBadge, format } from '../ui/index.js';",
     "import { mockValue } from '../mock-data.js';",
+    editRoute ? 'const router = useRouter(); const route = useRoute();' : '',
     'const fieldDefs = ' + j(fields.map((f) => ({ name: f.name, type: f.type, label: f.label || humanizeLabel(f.name), enumValues: f.enumValues }))) + ';',
-    "const state = ref('loading');",
-    'const record = ref({});',
-    'function load() { state.value = ' + "'loading'" + '; setTimeout(() => { const o = {}; for (const f of fieldDefs) o[f.name] = mockValue(f); record.value = o; state.value = ' + "'normal'" + '; }, 280); }',
+    "const state = ref('normal');",
+    'const record = ref((function () { const o = {}; for (const f of fieldDefs) o[f.name] = mockValue(f); return o; })());',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'function fmt(f) { const v = record.value[f.name]; return format.formatValue(v, ' + "f.type === 'currency' ? 'currency' : f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime' : f.type === 'number' ? 'number' : f.type === 'boolean' ? 'boolean' : undefined" + '); }',
     'function isStatus(f) { return f.type === ' + "'status'" + ' || f.type === ' + "'enum'" + '; }',
-    'function noop() {}',
+    // Editar: mantém o mesmo :id da rota de detalhe (fallback '1') ao ir p/ a tela de edição.
+    editRoute ? 'function goEdit() { router.push({ name: ' + sq(editRoute) + ", params: { id: route.params.id || '1' } }).catch(() => {}); }" : '',
     'onMounted(load);',
     '</script>',
     '<style scoped>',
@@ -535,21 +550,15 @@ function dashboardView(screen, entity, inv) {
     '<script setup>',
     "import { ref, onMounted } from 'vue';",
     "import { UiPageLayout, UiMetricCard" + (cols.length ? ', UiCard, UiDataTable' : '') + " } from '../ui/index.js';",
-    "import { mockRows, mockValue } from '../mock-data.js';",
-    "const state = ref('loading');",
+    "import { mockRows, mockCount } from '../mock-data.js';",
+    "const state = ref('normal');",
     'const metricDefs = ' + j(metrics) + ';',
-    'const metrics = ref(metricDefs.map((m) => ({ ...m, value: ' + "'—'" + ', hint: ' + "''" + ' })));',
+    // números plausíveis (dezenas/poucas centenas) já no setup — sem loading fake nem valores "milhares"
+    "const metrics = ref(metricDefs.map((m) => ({ ...m, value: mockCount(m.key), hint: 'total' })));",
     cols.length ? 'const columns = ' + j(cols) + ';' : '',
     cols.length ? 'const fieldDefs = ' + j(fieldsForMock) + ';' : '',
-    cols.length ? 'const rows = ref([]);' : '',
-    'function load() {',
-    '  state.value = ' + "'loading'" + ';',
-    '  setTimeout(() => {',
-    "    metrics.value = metricDefs.map((m) => ({ ...m, value: mockValue({ name: m.key + '_count', type: 'number' }), hint: 'total' }));",
-    cols.length ? '    rows.value = mockRows(fieldDefs, 8);' : '',
-    '    state.value = ' + "'normal'" + ';',
-    '  }, 300);',
-    '}',
+    cols.length ? 'const rows = ref(mockRows(fieldDefs, 8));' : '',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'onMounted(load);',
     '</script>',
     '<style scoped>',
@@ -579,13 +588,173 @@ function customView(screen, entity) {
     "import { ref, onMounted } from 'vue';",
     "import { UiPageLayout" + (cols.length ? ', UiDataTable' : ', UiCard, UiEmptyState') + " } from '../ui/index.js';",
     cols.length ? "import { mockRows } from '../mock-data.js';" : '',
-    "const state = ref('loading');",
+    "const state = ref('normal');",
     cols.length ? 'const columns = ' + j(cols) + ';' : '',
     cols.length ? 'const fieldDefs = ' + j(fieldsForMock) + ';' : '',
-    cols.length ? 'const rows = ref([]);' : '',
-    'function load() { state.value = ' + "'loading'" + '; setTimeout(() => { ' + (cols.length ? 'rows.value = mockRows(fieldDefs, 10); ' : '') + 'state.value = ' + "'normal'" + '; }, 280); }',
+    cols.length ? 'const rows = ref(mockRows(fieldDefs, ' + (entity ? entityCountOf(entity) : 10) + '));' : '',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'onMounted(load);',
     '</script>', '',
+  ].filter(Boolean).join('\n');
+}
+
+// ---- CALENDAR (agenda recurso × horário) -----------------------------------
+// Domínios de agendamento (recurso × tempo) ganham uma grade semanal: colunas = profissionais/recursos,
+// linhas = horários; blocos mockados (serviço + cliente) posicionados deterministicamente por semana.
+// Reusa mockValue (nomes/serviços do MESMO pool do preview). Ilustrativo — nada é salvo.
+function calendarView(screen, entity, inv) {
+  const entLabel = entity ? entity.label : screen.title;
+  const bookingRoute = entity ? routeNameFor(inv, entity.name, 'booking') : null;
+  return [
+    '<template>',
+    '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Agenda de ' + entLabel.toLowerCase() + ' — recurso × horário.')) + ' eyebrow="Preview" width="wide">',
+    bookingRoute ? '    <template #actions><UiButton @click="goBook">Nova marcação</UiButton></template>' : '',
+    '    <UiCard>',
+    '      <div class="cal-head">',
+    '        <button class="cal-nav" type="button" @click="week--" aria-label="Semana anterior">‹</button>',
+    '        <strong>{{ weekLabel }}</strong>',
+    '        <button class="cal-nav" type="button" @click="week++" aria-label="Próxima semana">›</button>',
+    '      </div>',
+    '      <div class="cal-scroll">',
+    '        <div class="cal-grid">',
+    '          <div class="cal-cell cal-corner"></div>',
+    '          <div v-for="r in resources" :key="r" class="cal-cell cal-res">{{ r }}</div>',
+    '          <template v-for="slot in slots" :key="slot">',
+    '            <div class="cal-cell cal-time">{{ slot }}</div>',
+    '            <div v-for="r in resources" :key="r + slot" class="cal-cell cal-slot">',
+    "              <button v-if=\"appt(r, slot)\" type=\"button\" class=\"cal-appt\" :class=\"'tone-' + appt(r, slot).tone\" @click=\"pick()\">",
+    '                <span class="cal-appt-svc">{{ appt(r, slot).service }}</span>',
+    '                <span class="cal-appt-cli">{{ appt(r, slot).client }}</span>',
+    '              </button>',
+    '            </div>',
+    '          </template>',
+    '        </div>',
+    '      </div>',
+    '      <p class="cal-note">Agenda de exemplo — clique num horário marcado (nada é salvo).</p>',
+    '    </UiCard>',
+    '  </UiPageLayout>',
+    '</template>',
+    '<script setup>',
+    "import { ref, computed } from 'vue';",
+    bookingRoute ? "import { useRouter } from 'vue-router';" : '',
+    "import { UiPageLayout, UiCard, UiButton, useToast } from '../ui/index.js';",
+    "import { mockValue } from '../mock-data.js';",
+    bookingRoute ? 'const router = useRouter();' : '',
+    'const toast = useToast();',
+    'const week = ref(0);',
+    "const slots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];",
+    "const resources = [0, 1, 2, 3].map((i) => mockValue({ name: 'profissional#' + i, type: 'text' }));",
+    "const TONES = ['ok', 'info', 'warn'];",
+    'function h32(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }',
+    'function appt(r, slot) {',
+    "  const seed = h32(r + '|' + slot + '|' + week.value);",
+    '  if (seed % 5 < 2) return null;',
+    "  return { service: mockValue({ name: 'servico#' + (seed % 6), type: 'text' }), client: mockValue({ name: 'cliente#' + (seed % 9), type: 'text' }), tone: TONES[seed % TONES.length] };",
+    '}',
+    "const weekLabel = computed(() => week.value === 0 ? 'Esta semana' : (week.value > 0 ? 'Em ' + week.value + ' semana(s)' : 'Há ' + (-week.value) + ' semana(s)'));",
+    "function pick() { toast.success('Pré-visualização: agenda de exemplo (nada é salvo).'); }",
+    bookingRoute ? 'function goBook() { router.push({ name: ' + sq(bookingRoute) + " }).catch(() => {}); }" : '',
+    '</script>',
+    '<style scoped>',
+    '.cal-head { display: flex; align-items: center; justify-content: center; gap: var(--ui-space-4); margin-bottom: var(--ui-space-3); }',
+    '.cal-nav { border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); color: rgb(var(--ui-fg)); border-radius: var(--ui-radius-md); width: 30px; height: 30px; cursor: pointer; font-size: 16px; line-height: 1; }',
+    '.cal-scroll { overflow-x: auto; }',
+    // colunas FIXAS (1 de horário + 4 de profissionais — resources tem sempre 4): grade no CSS, sem :style
+    // (inline style é proibido pela CSP estrita do preview; ver o teste CSP do gerador).
+    '.cal-grid { display: grid; grid-template-columns: 64px repeat(4, minmax(116px, 1fr)); gap: 1px; background: rgb(var(--ui-border)); border: 1px solid rgb(var(--ui-border)); border-radius: var(--ui-radius-md); overflow: hidden; min-width: 560px; }',
+    '.cal-cell { background: rgb(var(--ui-surface)); padding: 6px 8px; min-height: 42px; }',
+    '.cal-corner, .cal-res { background: rgb(var(--ui-surface-2)); }',
+    '.cal-res { font-weight: 600; font-size: var(--ui-text-sm); text-align: center; }',
+    '.cal-time { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); display: flex; align-items: center; }',
+    '.cal-slot { padding: 4px; }',
+    '.cal-appt { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: 0; border-radius: var(--ui-radius-sm); padding: 4px 6px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.cal-appt-svc { font-size: var(--ui-text-xs); font-weight: 700; }',
+    '.cal-appt-cli { font-size: var(--ui-text-xs); opacity: 0.75; }',
+    '.tone-ok { background: rgb(var(--ui-ok) / 0.16); }',
+    '.tone-info { background: rgb(var(--ui-accent) / 0.16); }',
+    '.tone-warn { background: rgb(var(--ui-warn) / 0.18); }',
+    '.cal-note { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); margin: var(--ui-space-3) 0 0; }',
+    '</style>', '',
+  ].filter(Boolean).join('\n');
+}
+
+// ---- BOOKING (fluxo guiado de marcação: serviço → horário → confirmar) ------
+function bookingView(screen, entity, inv) {
+  const entLabel = entity ? entity.label : screen.title;
+  const listRoute = entity ? routeNameFor(inv, entity.name, 'list') : null;
+  return [
+    '<template>',
+    '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Marcar ' + singular(entLabel).toLowerCase() + ' em 3 passos.')) + ' eyebrow="Preview" width="narrow">',
+    '    <UiCard>',
+    '      <ol class="bk-steps">',
+    "        <li :class=\"{ on: step >= 1, done: step > 1 }\">1 · Serviço</li>",
+    "        <li :class=\"{ on: step >= 2, done: step > 2 }\">2 · Horário</li>",
+    "        <li :class=\"{ on: step >= 3 }\">3 · Confirmar</li>",
+    '      </ol>',
+    '      <div v-if="step === 1" class="bk-body">',
+    '        <p class="bk-q">Escolha o serviço</p>',
+    "        <button v-for=\"s in services\" :key=\"s.name\" type=\"button\" class=\"bk-opt\" :class=\"{ sel: form.service === s.name }\" @click=\"form.service = s.name\">",
+    '          <span class="bk-opt-n">{{ s.name }}</span><span class="bk-opt-m">{{ s.dur }} min · {{ s.price }}</span>',
+    '        </button>',
+    '      </div>',
+    '      <div v-else-if="step === 2" class="bk-body">',
+    '        <p class="bk-q">Escolha o horário — {{ form.pro }}</p>',
+    '        <div class="bk-slots">',
+    "          <button v-for=\"t in slots\" :key=\"t\" type=\"button\" class=\"bk-slot\" :class=\"{ sel: form.time === t }\" @click=\"form.time = t\">{{ t }}</button>",
+    '        </div>',
+    '      </div>',
+    '      <div v-else class="bk-body">',
+    '        <p class="bk-q">Confirme a marcação</p>',
+    '        <dl class="bk-sum">',
+    '          <dt>Serviço</dt><dd>{{ form.service }}</dd>',
+    '          <dt>Horário</dt><dd>{{ form.time }}</dd>',
+    '          <dt>Profissional</dt><dd>{{ form.pro }}</dd>',
+    '        </dl>',
+    '      </div>',
+    '      <div class="bk-actions">',
+    "        <UiButton v-if=\"step > 1\" variant=\"ghost\" type=\"button\" @click=\"step--\">Voltar</UiButton>",
+    "        <UiButton v-if=\"step < 3\" type=\"button\" :disabled=\"!canNext ? 'disabled' : null\" @click=\"next\">Continuar</UiButton>",
+    '        <UiButton v-else type="button" @click="confirm">Confirmar marcação</UiButton>',
+    '      </div>',
+    '    </UiCard>',
+    '  </UiPageLayout>',
+    '</template>',
+    '<script setup>',
+    "import { ref, computed } from 'vue';",
+    listRoute ? "import { useRouter } from 'vue-router';" : '',
+    "import { UiPageLayout, UiCard, UiButton, useToast } from '../ui/index.js';",
+    "import { mockValue } from '../mock-data.js';",
+    listRoute ? 'const router = useRouter();' : '',
+    'const toast = useToast();',
+    'const step = ref(1);',
+    "const slots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];",
+    "const PRICES = ['R$ 40', 'R$ 60', 'R$ 90', 'R$ 120'];",
+    // tiers DISTINTOS (evita nomes de serviço repetidos numa lista de 4 — pareceria bug)
+    "const TIERS = ['Básico', 'Padrão', 'Premium', 'Completo'];",
+    "const services = TIERS.map((t, i) => ({ name: 'Serviço ' + t, dur: 20 + i * 15, price: PRICES[i % PRICES.length] }));",
+    "const form = ref({ service: '', time: '', pro: mockValue({ name: 'profissional#0', type: 'text' }) });",
+    "const canNext = computed(() => step.value === 1 ? !!form.value.service : step.value === 2 ? !!form.value.time : true);",
+    'function next() { if (canNext.value && step.value < 3) step.value++; }',
+    "function confirm() { toast.success('Pré-visualização: marcação de exemplo (nada é salvo).'); step.value = 1; form.value = { service: '', time: '', pro: form.value.pro }; " + (listRoute ? "router.push({ name: " + sq(listRoute) + " }).catch(() => {});" : '') + ' }',
+    '</script>',
+    '<style scoped>',
+    '.bk-steps { display: flex; gap: var(--ui-space-2); list-style: none; margin: 0 0 var(--ui-space-4); padding: 0; }',
+    '.bk-steps li { flex: 1; text-align: center; font-size: var(--ui-text-xs); font-weight: 600; color: rgb(var(--ui-muted)); border-bottom: 2px solid rgb(var(--ui-border)); padding-bottom: 6px; }',
+    '.bk-steps li.on { color: rgb(var(--ui-fg)); border-bottom-color: rgb(var(--ui-accent)); }',
+    '.bk-steps li.done { color: rgb(var(--ui-accent-strong, var(--ui-accent))); }',
+    '.bk-q { font-weight: 600; margin: 0 0 var(--ui-space-3); }',
+    '.bk-opt { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); border-radius: var(--ui-radius-md); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.bk-opt.sel { border-color: rgb(var(--ui-accent)); background: rgb(var(--ui-accent) / 0.1); }',
+    '.bk-opt-n { font-weight: 600; }',
+    '.bk-opt-m { font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); }',
+    '.bk-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }',
+    '.bk-slot { border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); border-radius: var(--ui-radius-md); padding: 10px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.bk-slot.sel { border-color: rgb(var(--ui-accent)); background: rgb(var(--ui-accent) / 0.1); font-weight: 700; }',
+    '.bk-sum { display: grid; grid-template-columns: 120px 1fr; gap: var(--ui-space-2) var(--ui-space-4); margin: 0; }',
+    '.bk-sum dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); }',
+    '.bk-sum dd { margin: 0; font-weight: 600; }',
+    '.bk-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); margin-top: var(--ui-space-5); }',
+    '</style>', '',
   ].filter(Boolean).join('\n');
 }
 
@@ -593,14 +762,26 @@ function customView(screen, entity) {
 // helpers de roteamento/rótulo
 // ===========================================================================
 function glyphFor(s) {
-  const map = { dashboard: '◧', list: '▤', create: '＋', edit: '✎', detail: '▣', custom: '✦' };
+  const map = { dashboard: '◧', list: '▤', create: '＋', edit: '✎', detail: '▣', custom: '✦', calendar: '▦', booking: '⧉' };
   return map[s.kind] || '•';
 }
-function guessDetailRoute(screen, entity) {
-  if (!entity) return null;
-  return null; // preview não navega para backend; mantido p/ extensão futura
+// routeNameFor — resolve o NOME de rota (Vue Router) da tela da MESMA entidade com o `kind` pedido,
+// espelhando a nomeação do routerJs: a home (dashboard OU 1ª tela) e qualquer tela com route '/'
+// chamam-se 'home'; as demais usam o próprio slug. Retorna null se não existir tela alvo. Isso liga
+// as ações do preview (Novo/linha/Editar/Cancelar) às rotas que o router.js JÁ gera — sem inventar destino.
+function routeNameFor(inv, entityName, kind) {
+  const screens = (inv && inv.screens) || [];
+  if (!entityName || !screens.length) return null;
+  const home = screens.find((s) => s.kind === 'dashboard') || screens[0];
+  const match = screens.find((s) => s.entity === entityName && s.kind === kind);
+  if (!match) return null;
+  if ((home && match.slug === home.slug) || match.route === '/') return 'home';
+  return match.slug;
 }
-function guessCreateRoute() { return true; } // sempre oferece a CTA "Novo" (ilustrativa)
+function guessDetailRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'detail') : null; }
+function guessCreateRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'create') : null; }
+function guessEditRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'edit') : null; }
+function guessListRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'list') : null; }
 function singular(label) {
   const s = String(label || '').trim();
   // heurística pt-BR leve: remove plural simples
@@ -631,8 +812,46 @@ function walk(dir, base = dir) {
 //     que faz Number(value) — uma string "R$ ..." já formatada viraria NaN -> "—".
 // Por isso o preview NÃO vendora packages/mock-data (que devolve strings já formatadas e não injeta id):
 // os contratos divergem de propósito. Determinístico, sem entropia, pt-BR.
-function readMockData() {
+// --- classificação de entidade p/ mock COERENTE (A2/A4) — infere pelo nome/label, SEM receber o brief ---
+const PERSON_RE = /(client|customer|cliente|barber|barbeiro|user|usuario|professional|profissional|staff|employ|funcionario|patient|paciente|doctor|medico|dentist|dentista|tutor|aluno|student|member|membro|atendente|attendant|seller|vendedor|manager|gerente|driver|motorista|prestador|responsavel|contato|contact|guest|host|pessoa|person|people|terapeuta|nutricionista)/;
+const SERVICE_RE = /(servic|service|plano|plan|produto|product|pacote|package|assinatura|subscription|procedimento|tratamento|treatment|aula|class|curso|course)/;
+const TXN_RE = /(agendamento|appointment|pedido|order|venda|sale|transac|pagamento|payment|fatura|invoice|reserva|booking|atendimento|consulta|sessao|session|movimenta|lancamento|ticket|chamado)/;
+function fnv(s) { let h = 0x811c9dc5; const t = String(s || ''); for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function refKeyJs(s) { return String(s || '').split('#')[0].toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/_?id$/, '').replace(/[^a-z0-9]/g, '').replace(/s$/, ''); }
+function entityKindOf(e) {
+  const hay = (String(e && e.name || '') + ' ' + String(e && e.label || '')).toLowerCase();
+  if (PERSON_RE.test(hay)) return 'person';
+  if (SERVICE_RE.test(hay)) return 'service';
+  return 'thing';
+}
+// contagem PLAUSÍVEL por entidade (transacional = dezenas; pessoa/recurso e serviço = poucas).
+function entityCountOf(e) {
+  const hay = (String(e && e.name || '') + ' ' + String(e && e.label || '')).toLowerCase();
+  const seed = fnv(refKeyJs(e && e.name));
+  if (TXN_RE.test(hay)) return 12 + (seed % 9);          // 12..20
+  const kind = entityKindOf(e);
+  if (kind === 'person') return 3 + (seed % 7);          // 3..9
+  if (kind === 'service') return 4 + (seed % 7);         // 4..10
+  return 6 + (seed % 9);                                  // 6..14
+}
+// mapas injetados no mock-data.js: REF_KINDS (resolução de referências) + ENTITY_COUNTS (escala coerente).
+function buildEntityMeta(entities) {
+  const refKinds = {}; const counts = {};
+  for (const e of (Array.isArray(entities) ? entities : [])) {
+    if (!e || !e.name) continue;
+    const meta = { kind: entityKindOf(e), label: singular(e.label || e.name) };
+    refKinds[refKeyJs(e.name)] = meta;
+    if (e.label) refKinds[refKeyJs(e.label)] = meta;
+    counts[e.name] = entityCountOf(e);
+  }
+  return { refKinds, counts };
+}
+
+function readMockData(inv) {
+  const { refKinds, counts } = buildEntityMeta(inv && inv.entities);
   return '// VENDORADO p/ o preview — não editar. Contrato próprio do preview (raw values + id por linha).\n'
+    + 'const REF_KINDS = ' + JSON.stringify(refKinds) + ';\n'
+    + 'const ENTITY_COUNTS = ' + JSON.stringify(counts) + ';\n'
     + MOCK_DATA_FALLBACK;
 }
 
@@ -705,11 +924,23 @@ const WORDS = ['relatório', 'cadastro', 'pedido', 'fatura', 'contrato', 'client
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function pad(n, w) { return String(n).padStart(w, '0'); }
 
+// Referência a outra entidade: normaliza o nome do campo (tira #i do mockRows, _id, plural) e resolve pelo
+// REF_KINDS injetado (pessoa -> nome de pessoa; serviço/coisa -> rótulo legível). Corrige colunas de FK
+// que caíam no fallback genérico ("cliente = Pedido Delta").
+function refKey(s) { return String(s || '').split('#')[0].toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/_?id$/, '').replace(/[^a-z0-9]/g, '').replace(/s$/, ''); }
+function refValue(name, seed) {
+  const r = (typeof REF_KINDS !== 'undefined') ? REF_KINDS[refKey(name)] : null;
+  if (!r) return null;
+  if (r.kind === 'person') return pick(FIRST, seed) + ' ' + pick(LAST, seed >>> 4);
+  if (r.kind === 'service') return (r.label || 'Serviço') + ' ' + pick(['Premium', 'Básico', 'Completo', 'Padrão', 'Avulso', 'Mensal'], seed >>> 3);
+  return (r.label || 'Item') + ' ' + pad(1 + (seed % 99), 2);
+}
+
 function fieldNameHints(name) {
   const n = String(name || '').toLowerCase();
   return {
     isEmail: /e?-?mail/.test(n),
-    isName: /(name|nome|cliente|responsavel|respons|titular|contato)/.test(n) && !/(file|arquivo|user_?name)/.test(n),
+    isName: /(name|nome|cliente|client|customer|barbeiro|barber|profissional|professional|atendente|attendant|responsavel|respons|titular|contato|contact|funcionario|employ|staff|vendedor|seller|paciente|patient|medico|doctor|tutor|aluno|student|membro|member|usuario|user)/.test(n) && !/(file|arquivo|user_?name|username)/.test(n),
     isCompany: /(company|empresa|razao|fantasia|fornecedor)/.test(n),
     isCity: /(city|cidade|municipio)/.test(n),
     isPhone: /(phone|tel|celular|fone|whats)/.test(n),
@@ -718,6 +949,8 @@ function fieldNameHints(name) {
     isDoc: /(documento|doc|registro)/.test(n),
     isMoney: /(price|preco|valor|total|amount|salario|custo|receita|despesa)/.test(n),
     isTitle: /(title|titulo|assunto|descricao_curta)/.test(n),
+    // PK/código: SÓ chaves "cruas" (id, code, sku…). *_id de referência é resolvido antes (refValue/isName).
+    isId: /^(id|uuid|guid|codigo|code|sku|matricula|protocolo|numero|num)$|_id$/.test(n),
   };
 }
 
@@ -726,12 +959,12 @@ export function mockValue(field) {
   const name = f.name || 'campo';
   const seed = hash(name + ':' + (f.type || 'text'));
   const type = f.type || 'text';
-  const hints = fieldNameHints(name);
+  const hints = fieldNameHints(String(name).split('#')[0]); // tira o sufixo "#i" de variação de linha antes de casar pistas
 
   switch (type) {
     case 'number': {
-      // determinístico, faixa plausível
-      return 1 + (seed % 9999);
+      // determinístico, faixa plausível para uma célula de tabela (não milhares)
+      return 1 + (seed % 999);
     }
     case 'currency': {
       const cents = (seed % 900000) + 1000; // 10.00 .. 9010.00
@@ -757,6 +990,9 @@ export function mockValue(field) {
       return capitalize(a) + ' referente a ' + b + ' e ' + c + ', registrado para acompanhamento e revisão posterior.';
     }
     default: {
+      // referência a outra entidade -> valor coerente com o tipo dela (pessoa/serviço/coisa)
+      const ref = refValue(name, seed);
+      if (ref != null) return ref;
       // text — usa pistas do nome do campo
       if (hints.isEmail) {
         const fn = pick(FIRST, seed).toLowerCase(); const ln = pick(LAST, seed >>> 4).toLowerCase();
@@ -769,6 +1005,7 @@ export function mockValue(field) {
       if (hints.isCpf) return pad(seed % 1000, 3) + '.' + pad((seed >>> 4) % 1000, 3) + '.' + pad((seed >>> 8) % 1000, 3) + '-' + pad((seed >>> 12) % 100, 2);
       if (hints.isCnpj) return pad(seed % 100, 2) + '.' + pad((seed >>> 3) % 1000, 3) + '.' + pad((seed >>> 7) % 1000, 3) + '/0001-' + pad((seed >>> 11) % 100, 2);
       if (hints.isTitle) return capitalize(pick(WORDS, seed)) + ' ' + pad(1 + (seed % 999), 3);
+      if (hints.isId) return '#' + pad(1 + (seed % 9999), 4); // PK/código cru (checado por último)
       // genérico legível
       return capitalize(pick(WORDS, seed)) + ' ' + pick(['Alfa', 'Beta', 'Gama', 'Delta', 'Ômega'], seed >>> 5);
     }
@@ -791,7 +1028,15 @@ export function mockRows(fields, n = 10) {
   return rows;
 }
 
-export default { mockValue, mockRows };
+// Contagem PLAUSÍVEL para cards de métrica (dezenas a poucas centenas — nunca "milhares" num preview
+// de produto pequeno). Determinístico por chave. Substitui o antigo mockValue({type:'number'}) que ia até 9999.
+export function mockCount(key) {
+  if (typeof ENTITY_COUNTS !== 'undefined' && ENTITY_COUNTS[key] != null) return ENTITY_COUNTS[key]; // contagem COERENTE (= nº de linhas)
+  const seed = hash(String(key || 'count') + ':count');
+  return 6 + (seed % 174); // 6..179 (fallback)
+}
+
+export default { mockValue, mockRows, mockCount };
 `;
 
 // ===========================================================================

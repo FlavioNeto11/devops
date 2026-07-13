@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1530,6 +1530,182 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0002",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0004.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0005.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0006.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0007.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0009.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0010.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0011.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "type": "functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0012.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "imobia",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0004.yaml"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -3873,6 +4049,149 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/traefik/REQ-TRAEFIK-NFR-004.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0001",
+      "title": "Contas e autenticação do app (registro + login JWT local)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0001.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0002",
+      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0002.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0003",
+      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0003.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0004",
+      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0004.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0005",
+      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0005.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0006",
+      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0006.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0007",
+      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0007.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0008",
+      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0008.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0009",
+      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0009.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0010",
+      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
+      "type": "functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0010.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0001",
+      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0001.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0002",
+      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0002.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0003",
+      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "zapbridge",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0003.yaml"
     }
   ],
   "refinements": [

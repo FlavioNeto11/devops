@@ -5,7 +5,7 @@
 // import circular. Lógica pura continua em forge-lib.js/lib.js (testáveis com node:test).
 import {
   state, DATA, h, svg, badge, byId, AI, dd, dt, filePicker, sameOriginUrl, applyTransform, nav,
-} from './core.js?v=2';
+} from './core.js?v=3';
 import { findSimilarReqs, forceLayout, toYaml, truncateLabel } from './lib.js?v=42';
 import {
   productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
@@ -13,12 +13,43 @@ import {
   typeLabel, asList, planSummary, mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
-} from './forge-lib.js?v=56';
+  briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
+  isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
+  emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
+  previewErrorMessage, businessSummaryFromIdea,
+} from './forge-lib.js?v=62';
+// (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
+// index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
+import { surfaceLink } from './platform-shell.js?v=45';
 
 // Navegação do app.js via registry (late-binding) — mesmos nomes do código extraído.
 const switchView = (...a) => nav.switchView(...a);
 const openReq = (...a) => nav.openReq(...a);
 const overviewBriefing = (...a) => nav.overviewBriefing(...a);
+
+// (E1, Forja 4.1) CONTEXTO DE PRODUTO na casca global: o Studio anuncia o produto aberto via
+// atributos reativos da <platform-shell> (chip "em <produto>" + launcher "Neste produto").
+// O contexto viaja por URL (#/forge?product=…, ver writeHash/applyHashRoute) — aqui só
+// refletimos o estado atual no componente. CSP-safe (setAttribute, zero inline).
+function syncShellProduct(name, label) {
+  const sh = document.querySelector('platform-shell');
+  if (!sh) return;
+  if (name) { sh.setAttribute('product', name); sh.setAttribute('product-label', label || name); }
+  else { sh.removeAttribute('product'); sh.removeAttribute('product-label'); }
+}
+/* ─── (E2, Forja 4.1) cliente do portal-recorder (mesma origem, CSP connect-src 'self') ───
+   As rotas de LEITURA do portal-rec-api são abertas atrás do SSO de borda — fetch direto,
+   SEM Authorization (o token do AI é do reqhub-api; o promote com token NÃO é escopo daqui).
+   Fail-soft: qualquer erro (rede/5xx) vira { ok:false } — o chamador degrada com mensagem. */
+const PORTAL_REC_BASE = '/portal-rec/api';
+async function portalRecGet(path) {
+  try {
+    const r = await fetch(PORTAL_REC_BASE + path, { headers: { Accept: 'application/json' } });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  } catch (e) { return { ok: false, status: 0, data: { error: { message: String((e && e.message) || e) } } }; }
+}
+
 const DONE_ST = ['deployed', 'done', 'merged'];
 function dStateCls(status) {
   if (DONE_ST.includes(status)) return 'done';
@@ -43,11 +74,14 @@ function openForgeProduct(name) {
   // Fase inicial do TRILHO: produto em construção/no ar abre no Pipeline; novo abre na primeira
   // fase pendente (null = resolvido pelo renderForgeDetail via studioPhaseModel).
   state.forge.step = (started || DATA.buildPlans[name]) ? 'pipeline' : null;
+  syncShellProduct(name, product && product.display_name);
   switchView('forge'); document.getElementById('tab-forge').focus();
   if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
 }
 function openForgeNew() { state.forge.product = null; state.forge.newMode = true; state.forge.newKind = null; switchView('forge'); }
-function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; renderForge(); }
+// backToHub navega por switchView (e não renderForge direto) para o writeHash tirar o
+// ?product= da URL — o contexto de produto viaja por URL e precisa sumir junto com o chip.
+function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; syncShellProduct(null); switchView('forge'); }
 function forgeStep(step) { state.forge.step = step; renderForge(); }
 
 /* ─── (C2) MODOS DE USUÁRIO: estado do FRONTEND (localStorage), projeções em forge-lib ───
@@ -175,16 +209,24 @@ function ensureForgePolling() {
 function renderForge() {
   ensureForgePolling();
   void refreshForgeState(false);
+  conteudoCleanup(); // (E4) listener/timer da fase Conteúdo não sobrevive a um re-render
   const body = document.getElementById('forge-body');
   body.replaceChildren();
+  // (E1) reflete o contexto de produto na casca em TODOS os caminhos de entrada — inclusive o
+  // deep-link #/forge?product= (applyHashRoute seta o state sem passar por openForgeProduct).
+  const ctxProduct = (!state.forge.newMode && state.forge.product) ? state.forge.product : null;
+  const ctxP = ctxProduct ? findProduct(DATA.products, ctxProduct) : null;
+  syncShellProduct(ctxProduct, ctxP && ctxP.display_name);
   if (!DATA.products || !((DATA.products.products) || []).length) {
     body.append(forgeIntroHead());
     body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
     return;
   }
-  // (A4) PONTO ÚNICO de criação: fork na entrada — portal de conteúdo (CMS) ou sistema (greenfield).
+  // (A4) PONTO ÚNICO de criação: fork na entrada — portal de conteúdo (CMS), sistema (greenfield)
+  // ou (E2) sistema a partir de um PORTAL CAPTURADO (contrato do portal-recorder como insumo).
   if (state.forge.newMode && !state.forge.newKind) { setForgeTitle('Criar'); renderForgeKindFork(body); return; }
   if (state.forge.newMode && state.forge.newKind === 'portal') { setForgeTitle('Criar um portal'); renderForgePortalTrail(body); return; }
+  if (state.forge.newMode && state.forge.newKind === 'captura') { setForgeTitle('Criar de um portal capturado'); renderForgeCaptureTrail(body); return; }
   if (state.forge.newMode) { setForgeTitle('Criar um sistema'); renderForgeWizard(body); }
   else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
   else { setForgeTitle('Produtos'); renderForgeHub(body); }
@@ -228,12 +270,16 @@ function renderForgeHub(body) {
   const cards = h('div', { class: 'forge-cards' });
   for (const p of shown) {
     const live = p.progress.pct === 100 && p.progress.total > 0;
-    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.live} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
+    // (E4) produto t1 (portal de conteúdo): sem requisitos/esteira — contadores de REQ mentiriam.
+    const t1 = p.app_type === 'cms_portal';
+    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': t1 ? `${p.display_name}: portal de conteúdo (CMS)` : `${p.display_name}: ${p.progress.live} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
       h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: p.display_name }), h('span', { class: 'forge-card-path', text: p.base_path })),
       p.blueprint ? h('span', { class: 'forge-card-bp', text: p.blueprint }) : null,
       h('p', { class: 'forge-card-vision', text: p.vision || 'Sem descrição.' }),
-      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.live}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
-      progressBar(p.progress.pct));
+      t1
+        ? h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: 'conteúdo no CMS' }), badge('portal de conteúdo', 'b-nfr'))
+        : h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.live}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
+      t1 ? null : progressBar(p.progress.pct));
     cards.append(card);
   }
   if (!shown.length) cards.append(h('p', { class: 'empty', text: 'Nenhum produto neste filtro.' }));
@@ -281,7 +327,138 @@ function renderForgeKindFork(body) {
   cards.append(
     card('Portal / onepage de conteúdo', 'Site institucional, landing page ou portal de conteúdo — páginas e seções montadas no editor visual (CMS), com IA para gerar o conteúdo. No ar em minutos, sem código.', 'executor: CMS · sem esteira de código', () => { state.forge.newKind = 'portal'; renderForge(); }),
     card('Sistema / produto de software', 'Aplicação completa a partir de requisitos: a IA propõe requisitos e arquitetura, você refina o preview das telas e a esteira constrói (frontend + API + banco + k8s + CI).', 'executor: esteira greenfield · requisitos → código', () => { state.forge.newKind = 'sistema'; renderForge(); }));
+  // (E2) 3º cartão: portal CAPTURADO como insumo — copy projetada pelo MODO (modeCopy), mesma
+  // engine por baixo. Fail-soft: sonda o /health do portal-rec e DEGRADA o rodapé (badge) se
+  // estiver fora — o cartão continua clicável (a trilha explica e oferece "tentar de novo").
+  const mode = forgeMode();
+  const capFoot = h('span', { class: 'muted', text: modeCopy(mode, 'fork.capture.foot') });
+  const capCard = h('button', { class: 'forge-card', type: 'button', onclick: () => { state.forge.newKind = 'captura'; renderForge(); } },
+    h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: modeCopy(mode, 'fork.capture.title') })),
+    h('p', { class: 'forge-card-vision', text: modeCopy(mode, 'fork.capture.desc') }),
+    h('div', { class: 'forge-card-foot' }, capFoot));
+  cards.append(capCard);
+  portalRecGet('/health').then((r) => {
+    if (!r.ok && capFoot.isConnected) {
+      capFoot.textContent = '';
+      capFoot.append(badge('portal-recorder fora do ar', 'b-crit'), ' — dá para entrar e tentar de novo');
+    }
+  });
   body.append(cards);
+}
+
+/* ---------- (E2, Forja 4.1) trilha "a partir de um portal capturado" ----------
+   Lista os contratos normalizados do portal-recorder (GET /v1/contracts + /v1/portals p/ nomear)
+   e, ao escolher um, busca o EXPORT canônico (sem samples), deriva o brief CLIENT-SIDE
+   (briefFromPortalContract) e pré-carrega o wizard greenfield com o insumo (w.capture):
+   o export vira anexo do propose-requirements e a referência vira architecture.external_contract
+   no launch. Fail-soft de ponta a ponta — portal-rec fora nunca quebra o fork. */
+function renderForgeCaptureTrail(body) {
+  body.append(forgeCrumbs([
+    { label: 'Produtos', onclick: backToHub },
+    { label: 'Criar', onclick: () => { state.forge.newKind = null; renderForge(); } },
+    { label: 'Portal capturado' }]));
+  const mode = forgeMode();
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: modeCopy(mode, 'fork.capture.title') }),
+    h('p', { class: 'muted', text: modeCopy(mode, 'capture.lead') }));
+  const status = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite' });
+  const listBox = h('div', {});
+  sec.append(status, listBox);
+  body.append(sec);
+  captureLoadContracts(status, listBox);
+}
+
+async function captureLoadContracts(status, listBox) {
+  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Consultando os contratos capturados…');
+  listBox.replaceChildren();
+  const [cr, pr] = await Promise.all([portalRecGet('/v1/contracts'), portalRecGet('/v1/portals')]);
+  if (!cr.ok) {
+    status.textContent = '';
+    listBox.append(h('div', { class: 'card' },
+      h('h4', {}, badge('portal-recorder indisponível', 'b-crit')),
+      h('p', { class: 'muted', text: 'Não consegui listar os contratos capturados (o portal-recorder está fora do ar ou sem resposta). Os outros caminhos de criação continuam funcionando normalmente.' }),
+      h('div', { class: 'fw-actions' },
+        h('button', { class: 'btn', type: 'button', text: '↻ Tentar de novo', onclick: () => captureLoadContracts(status, listBox) }),
+        h('a', { class: 'btn-link', href: '/portal-rec/', target: '_blank', rel: 'noopener', text: 'abrir o portal-recorder ↗' }))));
+    return;
+  }
+  const contracts = (cr.data && Array.isArray(cr.data.data)) ? cr.data.data : [];
+  // portais só para NOMEAR os grupos (fail-soft: sem eles, agrupa pelo portal_id).
+  const portals = new Map();
+  if (pr.ok && pr.data && Array.isArray(pr.data.data)) for (const p of pr.data.data) if (p && p.id) portals.set(p.id, p);
+  if (!contracts.length) {
+    status.textContent = '';
+    listBox.append(h('p', { class: 'empty', text: 'Nenhum contrato capturado ainda.' }),
+      h('p', { class: 'muted small', text: 'Capture um portal no portal-recorder (sessão de captura → normalizar) e ele aparece aqui como insumo de criação.' }),
+      h('div', { class: 'fw-actions' }, h('a', { class: 'btn primary', href: '/portal-rec/', target: '_blank', rel: 'noopener', text: 'Capturar um portal ↗' })));
+    return;
+  }
+  status.textContent = `${contracts.length} contrato(s) capturado(s).`;
+  const byPortal = new Map();
+  for (const c of contracts) { const k = c.portal_id || '?'; if (!byPortal.has(k)) byPortal.set(k, []); byPortal.get(k).push(c); }
+  const fmtDate = (v) => { try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return String(v || ''); } };
+  for (const [pid, list] of byPortal) {
+    const portal = portals.get(pid) || { slug: pid, name: pid };
+    listBox.append(h('h4', { class: 'fw-sec' }, (portal.name || portal.slug) + ' ', h('code', { class: 'fw-cap-id', text: portal.slug })));
+    const ul = h('ul', { class: 'forge-reqlist' });
+    for (const c of list) {
+      const st = h('span', { class: 'muted small', role: 'status', 'aria-live': 'polite' });
+      const use = h('button', { class: 'btn primary', type: 'button', text: 'Usar como insumo' });
+      use.addEventListener('click', () => captureSelectContract(c, portal, use, st));
+      ul.append(h('li', { class: 'forge-reqitem forge-capture-item' },
+        h('code', { text: c.id }),
+        h('span', { class: 'rt', text: `v${c.version} · ${fmtDate(c.created_at)} · ${c.endpoint_count} endpoint(s)` }),
+        use, st));
+    }
+    listBox.append(ul);
+  }
+  listBox.append(h('p', { class: 'muted small', text: 'O export usado é o canônico SEM payloads de exemplo (samples nunca saem do portal-recorder). Ele vira o brief + o contexto da IA, e o launch carimba a referência do contrato na arquitetura.' }));
+}
+
+async function captureSelectContract(contract, portal, btn, st) {
+  btn.disabled = true;
+  st.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Baixando o export…');
+  const r = await portalRecGet('/v1/contracts/' + encodeURIComponent(contract.id) + '/export');
+  const exportJson = r.ok && r.data ? r.data.data : null;
+  if (!exportJson) {
+    const msg = (r.data && r.data.error && r.data.error.message) || ('HTTP ' + r.status);
+    st.replaceChildren(h('span', { class: 'fw-err', text: 'Export falhou: ' + msg }));
+    btn.disabled = false;
+    return;
+  }
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  const blk = suggestIntegrationBlock(catalog);
+  const brief = briefFromPortalContract(exportJson, { integrationBlock: blk });
+  if (!brief) {
+    st.replaceChildren(h('span', { class: 'fw-err', text: 'O export veio sem endpoints utilizáveis — normalize a sessão de novo no portal-recorder.' }));
+    btn.disabled = false;
+    return;
+  }
+  // Pré-carrega um wizard NOVO com o insumo. O nome fica em branco de propósito: o produto é um
+  // sistema NOVO derivado do portal (nome próprio), não o portal em si (evita slug protegido).
+  state.forge.wizard = null;
+  state.forge.newKind = 'sistema';
+  const w = forgeWizardState();
+  w.brief = brief;
+  w.capture = {
+    portal: portal.slug || String(contract.portal_id || ''),
+    contract_id: contract.id,
+    ref: externalContractRef(exportJson),           // -> architecture.external_contract no launch
+    export: exportJson,                              // -> anexo multipart do propose-requirements
+    suggestedBlock: blk || null,
+  };
+  renderForge();
+}
+
+// Arquivo do export p/ o multipart do propose-requirements (o file-ingest do backend extrai o
+// texto de .json e o funde ao brief — o contrato vira contexto da IA sem endpoint novo). null =
+// sem insumo de captura no wizard.
+function fwCaptureFile(w) {
+  if (!w || !w.capture || !w.capture.export) return null;
+  try {
+    return new File([JSON.stringify(w.capture.export)],
+      'portal-contract-' + (w.capture.portal || 'portal') + '.json', { type: 'application/json' });
+  } catch { return null; }
 }
 function renderForgePortalTrail(body) {
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Criar', onclick: () => { state.forge.newKind = null; renderForge(); } }, { label: 'Portal de conteúdo' }]));
@@ -294,7 +471,7 @@ function renderForgePortalTrail(body) {
       h('li', {}, h('span', { class: 'lt', text: '3' }), 'Edite visualmente (clique-para-editar, arrastar seções, mídia) e publique — o portal fica em /sites/<chave>.')),
     h('div', { class: 'fw-actions' },
       h('a', { class: 'btn primary', href: '/devops/#conteudo?novo=1', target: '_blank', rel: 'noopener', text: '✦ Criar portal no editor visual ↗' })),
-    h('p', { class: 'muted small', text: 'Registro do portal como produto (tier onepage) na base de requisitos chega com o catálogo v2 — aí ele aparece neste hub como os demais.' }));
+    h('p', { class: 'muted small', text: 'Portal registrado como produto t1 (specs/products/<chave>, blueprint cms-portal) aparece neste hub com o trilho reduzido Brief → Conteúdo → Publicação — a fase Conteúdo embute este mesmo editor.' }));
   body.append(sec);
 }
 
@@ -314,7 +491,8 @@ function renderForgeDetail(body, name) {
   const buildPlan = DATA.buildPlans[name] || null;
   // TRILHO de 7 fases (A1b): sinais assíncronos (preview/sonda) vêm do cache fail-soft — a primeira
   // renderização usa o que há; quando o fetch resolve, re-renderiza com o dado real.
-  const pv = forgePreviewCached(name);
+  // (E4) produto t1 não tem preview de telas (o executor é o CMS) — pula a consulta.
+  const pv = isT1Product(product) ? null : forgePreviewCached(name);
   const live = forgeLiveCached(product);
   const steps = studioPhaseModel(product, buildPlan, DATA.implStatus, {
     previewStatus: pv ? pv.status : null,
@@ -332,7 +510,10 @@ function renderForgeDetail(body, name) {
   body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: product.display_name || name }),
     product.blueprint ? badge(product.blueprint, 'b-nfr') : null,
     liveUrl && live === true ? h('a', { class: 'btn-link', href: liveUrl, target: '_blank', rel: 'noopener', text: product.base_path + ' ↗' }) : badge(product.base_path, 'b-low'),
-    product.origin === 'adopted' ? badge('adotado', 'b-nfr') : null));
+    product.origin === 'adopted' ? badge('adotado', 'b-nfr') : null,
+    // (E1) atalhos contextuais cross-superfície — deep-links canônicos da casca (contexto por URL)
+    h('a', { class: 'btn-link', href: surfaceLink('console', 'logs', { product: name }), target: '_blank', rel: 'noopener', text: 'Logs ↗' }),
+    h('a', { class: 'btn-link', href: surfaceLink('console', 'pubs', { product: name }), target: '_blank', rel: 'noopener', text: 'Publicações ↗' })));
 
   // stepper/trilho de fases (clicável, com estados reais)
   const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do produto no Studio' });
@@ -361,6 +542,7 @@ function renderForgeDetail(body, name) {
   else if (state.forge.step === 'requisitos') forgeDefinir(panel, product);
   else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
   else if (state.forge.step === 'telas') forgeTelas(panel, product);
+  else if (state.forge.step === 'conteudo') forgeConteudo(panel, product); // (E4) só no trilho t1
   else if (state.forge.step === 'docs') forgeDocs(panel, product, buildPlan);
   else if (state.forge.step === 'publicado') forgePublicado(panel, product);
   else forgeBuild(panel, product, buildPlan);
@@ -437,6 +619,13 @@ async function telasGenerate(product, statusEl, { inventory } = {}) {
   const body = inventory
     ? { product: name, inventory }
     : { product: name, displayName: product.display_name || name, blueprint: product.blueprint || '', brief: product.vision || '', requirements: telasRequirements(product) };
+  // GUARD: sem requisitos (produto ainda sem reqs na baseline) a IA não tem o que desenhar — orienta em
+  // vez de disparar e falhar com TOOL_INVALID_INPUT genérico no servidor.
+  if (!body.inventory && (!Array.isArray(body.requirements) || body.requirements.length === 0)) {
+    say(h('span', { class: 'fw-err', text: previewErrorMessage('NO_REQUIREMENTS') }));
+    _telasBusy[name] = false;
+    return;
+  }
   const LBL = { start: 'começando', propose: 'IA propondo as telas', inventory: 'inventário pronto', dispatch: 'build disparado no runner', building: 'construindo a SPA', ready: 'pronto' };
   try {
     await AI.stream2('/v1/forge/preview/generate', body, {
@@ -519,6 +708,102 @@ function forgeTelas(panel, product) {
       h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
     sec.append(h('p', { class: 'muted small', text: 'A IA propõe o inventário a partir dos requisitos do produto e o runner constrói uma SPA navegável com componentes ui-vue reais e dados fake.' }));
   }
+  panel.append(sec);
+}
+
+/* ---------- (E4, Forja 4.1) fase CONTEÚDO do trilho t1: o editor do CMS EMBUTIDO ----------
+   Dois iframes alternáveis (tabs): "Editar" = Console em modo embed (/devops/?embed=1#conteudo
+   ?projeto=<key>, mesma origem — o nginx do Console responde `frame-ancestors 'self'` SÓ no
+   documento do embed, anulando o X-Frame-Options: DENY do Traefik, padrão provado no E0) e
+   "Ver no ar" = o site publicado (/sites/<chave>, rota que por design não tem frameDeny).
+   O embed anuncia embed:ready/embed:navigate por postMessage (payload validado por
+   parseEmbedMessage + ORIGEM checada aqui) — vira estado de loading/erro FAIL-SOFT: sem
+   resposta em 15s, degrada com o deep-link do Console (o caminho A4 continua existindo). */
+let _conteudoMsg = null;   // listener de message ativo (um por render; removido em conteudoCleanup)
+let _conteudoTimer = null; // timeout do fail-soft de carregamento do embed
+function conteudoCleanup() {
+  if (_conteudoMsg) { window.removeEventListener('message', _conteudoMsg); _conteudoMsg = null; }
+  if (_conteudoTimer) { clearTimeout(_conteudoTimer); _conteudoTimer = null; }
+}
+function forgeConteudo(panel, product) {
+  conteudoCleanup();
+  const key = product.name;
+  const editUrl = sameOriginUrl(embedConsoleUrl(key));
+  const liveUrl = sameOriginUrl(publishedSiteUrl(product));
+  const consoleDeepLink = '/devops/#conteudo?projeto=' + encodeURIComponent(key);
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: 'Conteúdo do portal' }),
+    h('p', { class: 'muted', text: 'Páginas e seções são editadas no CMS da plataforma — aqui mesmo, sem sair do Studio. A aba "Ver no ar" mostra o site publicado como o público vê.' }));
+
+  const status = h('p', { class: 'muted small', role: 'status', 'aria-live': 'polite' });
+  const editFrame = h('iframe', { class: 'forge-embed-frame', title: 'Editor de conteúdo (CMS) de ' + (product.display_name || key) });
+  const liveFrame = h('iframe', { class: 'forge-embed-frame', title: 'Site publicado de ' + (product.display_name || key), loading: 'lazy', hidden: 'hidden' });
+
+  // fail-soft do embed: pronto = mensagem embed:ready do Console; sem ela em 15s, degrada
+  let ready = false;
+  const showLoading = () => status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Carregando o editor embutido…');
+  const showFallback = () => status.replaceChildren(
+    badge('editor embutido sem resposta', 'b-crit'),
+    ' O Console pode estar fora do ar ou pedindo login. ',
+    h('a', { class: 'btn-link', href: consoleDeepLink, target: '_blank', rel: 'noopener', text: 'abrir no Console ↗' }), ' · ',
+    h('button', { class: 'btn-link', type: 'button', text: '↻ tentar de novo', onclick: () => { ready = false; showLoading(); armTimeout(); editFrame.setAttribute('src', editUrl); } }));
+  const armTimeout = () => {
+    if (_conteudoTimer) clearTimeout(_conteudoTimer);
+    _conteudoTimer = setTimeout(() => { if (!ready && status.isConnected) showFallback(); }, 15000);
+  };
+  _conteudoMsg = (ev) => {
+    if (ev.origin !== location.origin) return; // só a MESMA origem (embed same-origin)
+    const m = parseEmbedMessage(ev.data);
+    if (!m || !status.isConnected) return;
+    if (m.type === 'embed:ready') {
+      ready = true;
+      if (_conteudoTimer) { clearTimeout(_conteudoTimer); _conteudoTimer = null; }
+      status.replaceChildren('Editor pronto ✓ — as mudanças publicadas aparecem na aba "Ver no ar".');
+    } else if (m.type === 'embed:navigate' && m.projeto) {
+      status.replaceChildren('Editando: ', h('code', { text: m.projeto }),
+        m.projeto === key ? '' : ' — atenção: este é OUTRO portal (o deste produto é ' + key + ').');
+    }
+  };
+  window.addEventListener('message', _conteudoMsg);
+
+  // tabs "Editar" × "Ver no ar" (mesmo padrão de radiogroup/roving-tabindex do seletor de modos)
+  const TABS = [
+    { id: 'editar', label: 'Editar', frame: editFrame, url: editUrl },
+    { id: 'no-ar', label: 'Ver no ar', frame: liveFrame, url: liveUrl },
+  ];
+  let active = 'editar';
+  const tabs = h('div', { class: 'forge-embed-tabs', role: 'tablist', 'aria-label': 'Conteúdo do portal' });
+  const paint = () => {
+    for (const t of TABS) {
+      const on = t.id === active;
+      t.btn.classList.toggle('is-on', on);
+      t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.btn.tabIndex = on ? 0 : -1;
+      if (on && t.url && !t.frame.getAttribute('src')) t.frame.setAttribute('src', t.url); // lazy: só carrega ao abrir
+      t.frame.hidden = !on;
+    }
+  };
+  TABS.forEach((t, i) => {
+    t.btn = h('button', {
+      class: 'forge-embed-tab', type: 'button', role: 'tab', 'aria-selected': 'false',
+      onclick: () => { active = t.id; paint(); },
+      onkeydown: (ev) => {
+        let j = null;
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % TABS.length;
+        else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + TABS.length) % TABS.length;
+        if (j != null) { ev.preventDefault(); active = TABS[j].id; paint(); TABS[j].btn.focus(); }
+      },
+    }, t.label);
+    tabs.append(t.btn);
+  });
+  const actions = h('div', { class: 'fw-actions forge-embed-actions' }, tabs,
+    liveUrl ? h('a', { class: 'btn-link', href: liveUrl, target: '_blank', rel: 'noopener', text: 'abrir o site em nova aba ↗' }) : null,
+    h('a', { class: 'btn-link', href: consoleDeepLink, target: '_blank', rel: 'noopener', text: 'abrir no Console ↗' }));
+
+  sec.append(actions, status);
+  if (editUrl) { showLoading(); armTimeout(); } else showFallback();
+  sec.append(editFrame, liveFrame);
+  paint();
   panel.append(sec);
 }
 
@@ -998,7 +1283,8 @@ function forgeWizardState() {
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // preview: estado da etapa "Preview" (telas ui-vue reais + dados fake), persistido no wizard.
   // status: 'idle'|'building'|'ready'|'error'; approved=true libera o launch (gate "Aprovar e construir").
-  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: forgeMode(), name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null };
+  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: forgeMode(), name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null, idea: fwLoadIdea() };
+  if (!state.forge.wizard.idea) state.forge.wizard.idea = fwLoadIdea(); // wizard de sessão antiga (pré-copiloto)
   return state.forge.wizard;
 }
 // Estado inicial do preview (recriado a cada nova proposta de requisitos — ver fwApplyProposed).
@@ -1036,7 +1322,8 @@ function fwLaunch(w, mode, statusEl, btns) {
     launchCtx: {
       brief: w.brief || '', displayName: w.name || w.slug,
       getArch: () => w.arch,
-      onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); },
+      externalContract: (w.capture && w.capture.ref) || null, // (E2) -> architecture.external_contract
+      onLaunched: (d, m) => { fwClearIdea(); w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); }, // idea consumida no launch -> limpa o autosave
     },
     status: statusEl, btns,
   };
@@ -1062,7 +1349,7 @@ function renderForgeWizardLaunched(body, w) {
   const foot = h('div', { class: 'fw-actions' });
   if (d.actions_url) foot.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Ver no GitHub ↗' }));
   if (!rel && d.pulls_url) foot.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
-  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }));
+  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); fwClearIdea(); state.forge.wizard = null; backToHub(); } }));
   card.append(head, lead, h('div', { class: 'fw-meta' }, updated), steps, liveBox, progBox, reqsBox, foot);
   body.append(card);
   fwStartLaunchPolling(w, { steps, progBox, reqsBox, liveBox, lead, updated });
@@ -1198,35 +1485,392 @@ function renderForgeWizard(body) {
   else fwStageReview(stage, w, { catalog });
 }
 
+// ─── ETAPA 1 "IDEIA" — COPILOTO DE PRODUTO (conversacional, 3 visões) ────────────────────────────
+// A aba Ideia é 100% PRODUTO/NEGÓCIO (nada de tecnologia — isso é a etapa 2). A pessoa conversa com um
+// copiloto que faz perguntas para amadurecer a ideia; o entendimento (ideaDraft) aparece ao vivo. O
+// MODO selecionado é a VISÃO da aba (simples/guiado/profissional) — muda a profundidade/apresentação,
+// nunca o nível técnico. As 3 visões compartilham o MESMO estado (w.idea) e o mesmo copiloto; trocar
+// de modo NÃO perde dados (w.idea vive em state.forge.wizard). Streaming SSE (deltas) + patch do estado
+// + autosave. Fail-closed: se a IA estiver fora, cai no formulário manual (fwStageIdeaManual).
 function fwStageIdea(host, w, { blueprints }) {
-  const card = h('div', { class: 'fw-card' });
-  // (C2) textos de condução por modo — projeção pura (modeCopy), dados idênticos por baixo.
+  if (!w.idea) w.idea = fwLoadIdea();
+  const mount = h('div', { class: 'fw-idea-mount' });
+  host.append(mount);
+  fwRenderIdeaCopilot(mount, w, { blueprints });
+  // health: sem IA (sem credencial) o chat não funciona -> degrada para o formulário manual.
+  AI.health().then((r) => {
+    const up = !!(r && r.ok && r.data && r.data.ai);
+    if (!up && state.forge.wizard === w && w.stage === 1) {
+      mount.replaceChildren();
+      fwStageIdeaManual(mount, w, { blueprints }, 'A IA está indisponível agora — descreva sua ideia manualmente (você ainda pode gerar o sistema).');
+    }
+  }).catch(() => { /* health inacessível: mantém o copiloto (o envio mostrará erro claro) */ });
+}
+
+/* ---------- Autosave do ideaDraft (localStorage; efeito colateral fica AQUI, não em forge-lib) ---------- */
+const FW_IDEA_KEY = 'reqhub_forge_idea';
+function fwLoadIdea() {
+  try { const raw = localStorage.getItem(FW_IDEA_KEY); if (raw) return normalizeIdea(JSON.parse(raw)); } catch { /* ignore */ }
+  return emptyIdea();
+}
+function fwSaveIdea(idea) { try { localStorage.setItem(FW_IDEA_KEY, JSON.stringify(idea)); } catch { /* ignore */ } }
+function fwClearIdea() { try { localStorage.removeItem(FW_IDEA_KEY); } catch { /* ignore */ } }
+function fwIdeaPersist(w) { if (w && w.idea) fwSaveIdea(w.idea); }
+function fwSlug(name) { return String(name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30); }
+// Corpo enviado à IA: o produto do ideaDraft SEM o histórico (vai em `history`) nem flags de UI.
+function fwIdeaForApi(idea) { const d = normalizeIdea(idea); delete d.chatHistory; delete d.confirmed; return d; }
+
+// Monta a etapa: coluna CHAT (compartilhada) + painel da VISÃO por modo (nome + view + gate).
+function fwRenderIdeaCopilot(host, w, { blueprints }) {
+  const idea = w.idea;
+  const card = h('div', { class: 'fw-card fw-idea-card' });
   card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'idea.q') }));
-  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: modeCopy(w.mode, 'idea.namePh'), 'aria-label': 'Nome do sistema' });
+  card.append(h('p', { class: 'muted fw-idea-lead', text: 'Converse com o copiloto de produto — ele pergunta para amadurecer a IDEIA (nada de tecnologia; isso vem no próximo passo). Nada é escrito sem você.' }));
+  if (w.capture) card.append(fwIdeaCaptureNote(w));
+
+  const grid = h('div', { class: 'fw-idea fw-idea-m-' + normalizeForgeMode(w.mode) });
+  const chatCol = h('div', { class: 'fw-idea-chat' });
+  const sideCol = h('div', { class: 'fw-idea-side' });
+  grid.append(chatCol, sideCol);
+  card.append(grid);
+  host.append(card);
+
+  // ----- chat -----
+  const log = h('div', { class: 'fw-idea-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversa com o copiloto de produto' });
+  const typing = h('div', { class: 'chat-typing fw-idea-typing', hidden: 'hidden', 'aria-hidden': 'true' }, h('span', { class: 'dot' }), h('span', { class: 'dot' }), h('span', { class: 'dot' }));
+  const chips = h('div', { class: 'fw-idea-chips', 'aria-label': 'Respostas rápidas' });
+  const errBox = h('p', { class: 'fw-status fw-idea-err', role: 'alert', hidden: 'hidden' });
+  const input = h('textarea', { class: 'fw-textarea fw-idea-input', rows: '2', 'aria-label': 'Escreva para o copiloto', placeholder: 'Escreva sobre a sua ideia…' });
+  const sendBtn = h('button', { class: 'btn primary fw-idea-sendbtn', type: 'button', text: 'Enviar' });
+  // Anexos (opcional, multimodal): a IA lê documento/planilha/imagem sobre a ideia. Persistido no
+  // wizard (w._ideaPicker) p/ sobreviver às re-renderizações (ex.: troca de modo).
+  if (!w._ideaPicker) w._ideaPicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: '📎 Anexar (opcional)' });
+  chatCol.append(log, typing, chips, errBox, h('div', { class: 'fw-idea-composer' }, input, sendBtn), h('div', { class: 'fw-idea-attach' }, w._ideaPicker.el));
+
+  const bubble = (role, text) => { const b = h('div', { class: 'fw-idea-msg is-' + role }); const body = h('div', { class: 'fw-idea-bubble' }); body.textContent = text || ''; b.append(body); return b; };
+
+  // ----- painel: nome + view + gate -----
+  const nameInput = h('input', { class: 'fw-input fw-idea-name-in', type: 'text', 'aria-label': 'Nome do sistema', placeholder: 'ex.: Central de Chamados' });
+  nameInput.value = idea.name || '';
+  nameInput.addEventListener('change', () => { idea.name = nameInput.value.trim(); fwIdeaPersist(w); });
+  const nameField = h('label', { class: 'fw-idea-name' }, h('span', { class: 'fw-fld-l', text: 'Nome do sistema' }), nameInput);
+  const viewHost = h('div', { class: 'fw-idea-viewhost' });
+  const gateHost = h('div', { class: 'fw-idea-gatehost' });
+  sideCol.append(nameField, viewHost, gateHost);
+
+  const ui = {
+    sending: false, input, log,
+    appendBubble: (role, text) => { const b = bubble(role, text); log.append(b); log.scrollTop = log.scrollHeight; return b; },
+    setBubbleText: (b, t) => { const el = b.querySelector('.fw-idea-bubble'); if (el) el.textContent = t; log.scrollTop = log.scrollHeight; },
+    setTyping: (on) => { typing.hidden = !on; log.setAttribute('aria-busy', on ? 'true' : 'false'); },
+    setError: (msg) => { if (msg) { errBox.textContent = msg; errBox.hidden = false; } else { errBox.textContent = ''; errBox.hidden = true; } },
+    setChips: (list) => fwIdeaRenderChips(chips, w, ui, list),
+    refreshName: () => { if (nameInput !== document.activeElement) nameInput.value = w.idea.name || ''; },
+    repaintView: () => { viewHost.replaceChildren(fwIdeaView(w, ui)); ui.refreshName(); },
+    repaintGate: () => { gateHost.replaceChildren(fwIdeaGate(w, ui)); },
+  };
+
+  ui.repaintView();
+  ui.repaintGate();
+
+  // histórico OU boas-vindas + exemplos de partida
+  if (idea.chatHistory && idea.chatHistory.length) {
+    for (const t of idea.chatHistory) ui.appendBubble(t.role === 'user' ? 'user' : 'ai', t.content);
+  } else {
+    ui.appendBubble('ai', 'Oi! Vou te ajudar a amadurecer a ideia do seu sistema. Me conta em poucas palavras: que problema ele resolve — e para quem?');
+    fwIdeaRenderStarters(chips, w, ui);
+  }
+
+  const doSend = () => fwIdeaSend(w, input.value, ui);
+  sendBtn.addEventListener('click', doSend);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+  input.focus();
+}
+
+// Envia uma mensagem ao copiloto e transmite a resposta em DELTAS (otimista: bolha do usuário +
+// "digitando" na hora). No `patch` aplica ao ideaDraft e repinta a visão/gate ao vivo.
+async function fwIdeaSend(w, text, ui) {
+  const msg = String(text || '').trim();
+  const files = (w._ideaPicker && w._ideaPicker.hasFiles()) ? w._ideaPicker.files() : [];
+  if ((!msg && !files.length) || ui.sending) return;
+  ui.sending = true; ui.setError('');
+  const history = (w.idea.chatHistory || []).slice(-16).map((t) => ({ role: t.role, content: t.content }));
+  const shown = msg || ('📎 ' + files.length + ' arquivo(s) anexado(s)');
+  w.idea.chatHistory.push({ role: 'user', content: shown });
+  ui.appendBubble('user', shown);
+  ui.input.value = '';
+  ui.setChips([]);
+  const live = ui.appendBubble('ai', '');
+  ui.setTyping(true);
+  let acc = '';
+  const product = w.slug || fwSlug(w.idea.name);
+  // Com arquivos -> multipart (SSE-over-multipart); o backend (withIngest) funde o texto extraído em
+  // `message` e reidrata history/draft. Sem arquivos -> JSON de sempre (retrocompat).
+  let body;
+  if (files.length) {
+    body = new FormData();
+    body.append('message', msg);
+    body.append('product', product || '');
+    body.append('mode', w.mode);
+    body.append('history', JSON.stringify(history));
+    body.append('draft', JSON.stringify(fwIdeaForApi(w.idea)));
+    for (const f of files) if (f) body.append('files', f, f.name);
+  } else {
+    body = { product, message: msg, history, draft: fwIdeaForApi(w.idea), mode: w.mode };
+  }
+  try {
+    await AI.stream2('/v1/forge/idea/chat', body, {
+      onEvent: (event, data) => {
+        if (event === 'delta') { acc += (data && data.text) || ''; ui.setBubbleText(live, acc); }
+        else if (event === 'patch') {
+          w.idea = applyIdeaPatch(w.idea, data);
+          ui.repaintView(); ui.repaintGate();
+          ui.setChips((data && data.quick_replies) || []);
+        }
+      },
+    });
+    const finalText = acc.trim();
+    if (!finalText) ui.setBubbleText(live, '(sem resposta)');
+    w.idea.chatHistory.push({ role: 'assistant', content: finalText || '(sem resposta)' });
+    if (files.length && w._ideaPicker && w._ideaPicker.clear) w._ideaPicker.clear(); // consumidos -> limpa
+    fwIdeaPersist(w);
+  } catch (e) {
+    live.remove();
+    ui.setError('Não consegui responder agora (' + String((e && (e.message || e.code)) || e) + '). Tente de novo, ou use “✨ Ver como vai ficar”.');
+  } finally {
+    ui.setTyping(false); ui.sending = false; ui.input.focus();
+  }
+}
+
+// Chips de resposta rápida (do turno) — clicar envia a resposta.
+function fwIdeaRenderChips(chips, w, ui, list) {
+  chips.replaceChildren();
+  const arr = Array.isArray(list) ? list.filter((x) => typeof x === 'string' && x.trim()).slice(0, 4) : [];
+  for (const q of arr) {
+    const c = h('button', { class: 'fw-chip fw-idea-chip', type: 'button', text: q });
+    c.addEventListener('click', () => { chips.replaceChildren(); fwIdeaSend(w, q, ui); });
+    chips.append(c);
+  }
+}
+// Exemplos de partida (mantidos): clicar inicia a conversa com aquele brief.
+function fwIdeaRenderStarters(chips, w, ui) {
+  chips.replaceChildren();
+  const ex = [
+    ['Central de chamados', 'Quero um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
+    ['Controle de estoque', 'Quero controlar produtos e estoque, com alertas de baixa quantidade e relatórios.'],
+    ['Agenda de clientes', 'Quero cadastrar clientes e agendar serviços, com lembretes automáticos por mensagem.'],
+  ];
+  for (const [t, b] of ex) {
+    const c = h('button', { class: 'fw-chip fw-idea-chip', type: 'button', text: '💡 ' + t });
+    c.addEventListener('click', () => { chips.replaceChildren(); fwIdeaSend(w, b, ui); });
+    chips.append(c);
+  }
+}
+function fwIdeaCaptureNote(w) {
+  const rm = h('button', { class: 'btn-link', type: 'button', text: 'remover insumo' });
+  rm.addEventListener('click', () => { w.capture = null; fwRerender(); });
+  return h('div', { class: 'fw-fld fw-capture-note' },
+    h('span', { class: 'fw-fld-l', text: 'Insumo de captura' }),
+    h('p', { class: 'fw-hint' }, '📡 Contrato do portal ', h('code', { text: w.capture.portal }),
+      w.capture.ref && w.capture.ref.contract_version ? ' (versão ' + w.capture.ref.contract_version + ')' : '',
+      ' — será considerado ao montar a arquitetura no próximo passo.', ' ', rm));
+}
+
+/* ---------- Visão por MODO (mesmo w.idea) ---------- */
+function fwIdeaView(w, ui) {
+  const m = normalizeForgeMode(w.mode);
+  const onChange = () => { fwIdeaPersist(w); ui.repaintGate(); };
+  if (m === 'simples') return fwIdeaViewSimples(w, onChange);
+  if (m === 'profissional') return fwIdeaViewProfissional(w, onChange);
+  return fwIdeaViewGuiado(w, onChange);
+}
+
+// SIMPLES: resumo amigável — propósito + "o que vai fazer" (lista) + público. Editável/removível.
+function fwIdeaViewSimples(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-simples' });
+  box.append(h('h4', { class: 'fw-idea-view-t', text: 'A sua ideia' }));
+  box.append(h('p', { class: 'fw-idea-purpose', text: idea.summary || 'Vá conversando — vou montar aqui um resumo simples da sua ideia.' }));
+  if (idea.audience || idea.actors.length) box.append(h('p', { class: 'fw-idea-who muted', text: 'Para: ' + [idea.audience, ...idea.actors].filter(Boolean).join(', ') }));
+  box.append(h('h5', { class: 'fw-idea-sub', text: 'O que o sistema vai fazer' }));
+  box.append(fwIdeaEditList(idea.capabilities, { label: 'O que o sistema faz', placeholder: 'Adicionar função…', onChange }));
+  return box;
+}
+
+// GUIADO: 5 cartões editáveis (problema / quem usa / o que faz / regras / perguntas) + "detalhe opcional".
+function fwIdeaViewGuiado(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-guiado' });
+  const card = (title, primary, detailTitle, detailEl) => {
+    const sec = h('section', { class: 'fw-idea-card2' }, h('h4', { class: 'fw-idea-card-t', text: title }), primary);
+    if (detailEl) sec.append(h('details', { class: 'fw-idea-detail' }, h('summary', { text: detailTitle || 'Detalhe opcional' }), detailEl));
+    return sec;
+  };
+  box.append(card('Que problema resolve', fwIdeaScalar(idea, 'problem', { label: 'Problema', ph: 'A dor que o sistema resolve…', rows: 2, onChange }),
+    'Propósito em uma frase', fwIdeaScalar(idea, 'summary', { label: 'Propósito', ph: 'Em uma frase…', rows: 2, onChange })));
+  box.append(card('Quem usa', fwIdeaScalar(idea, 'audience', { label: 'Público', ph: 'Para quem é…', onChange }),
+    'Perfis/atores', fwIdeaEditList(idea.actors, { label: 'Atores', placeholder: 'Adicionar perfil…', onChange })));
+  box.append(card('O que faz', fwIdeaEditList(idea.capabilities, { label: 'Capacidades', placeholder: 'Adicionar função…', onChange }),
+    'Objetivos', fwIdeaEditList(idea.goals, { label: 'Objetivos', placeholder: 'Adicionar objetivo…', onChange })));
+  box.append(card('Regras de negócio', fwIdeaEditList(idea.businessRules, { label: 'Regras de negócio', placeholder: 'Adicionar regra…', onChange }),
+    'Restrições', fwIdeaEditList(idea.constraints, { label: 'Restrições', placeholder: 'Adicionar restrição…', onChange })));
+  box.append(card('Perguntas em aberto', fwIdeaOpenQuestions(idea, onChange)));
+  return box;
+}
+
+// PROFISSIONAL: tudo aberto e editável (todos os campos de PRODUTO) + reordenar capacidades.
+function fwIdeaViewProfissional(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-profissional' });
+  const field = (title, el) => h('section', { class: 'fw-idea-fieldset' }, h('h4', { class: 'fw-idea-card-t', text: title }), el);
+  box.append(field('Problema', fwIdeaScalar(idea, 'problem', { label: 'Problema', rows: 2, onChange })));
+  box.append(field('Propósito (1 frase)', fwIdeaScalar(idea, 'summary', { label: 'Propósito', rows: 2, onChange })));
+  box.append(field('Público', fwIdeaScalar(idea, 'audience', { label: 'Público', onChange })));
+  box.append(field('Atores', fwIdeaEditList(idea.actors, { label: 'Atores', placeholder: 'Adicionar perfil…', onChange })));
+  box.append(field('Capacidades (use ↑/↓ para ordenar)', fwIdeaEditList(idea.capabilities, { label: 'Capacidades', placeholder: 'Adicionar função…', onChange, reorder: true })));
+  box.append(field('Regras de negócio', fwIdeaEditList(idea.businessRules, { label: 'Regras de negócio', placeholder: 'Adicionar regra…', onChange })));
+  box.append(field('Objetivos', fwIdeaEditList(idea.goals, { label: 'Objetivos', placeholder: 'Adicionar objetivo…', onChange })));
+  box.append(field('Valor esperado', fwIdeaScalar(idea, 'value', { label: 'Valor esperado', rows: 2, onChange })));
+  box.append(field('Restrições de negócio', fwIdeaEditList(idea.constraints, { label: 'Restrições', placeholder: 'Adicionar restrição…', onChange })));
+  box.append(field('Perguntas em aberto', fwIdeaOpenQuestions(idea, onChange)));
+  return box;
+}
+
+// Campo escalar editável (input/textarea) ligado a idea[key]; grava no `change`.
+function fwIdeaScalar(idea, key, { label, ph, rows, onChange } = {}) {
+  const el = rows
+    ? h('textarea', { class: 'fw-textarea fw-idea-fin', rows: String(rows), 'aria-label': label, placeholder: ph || '' })
+    : h('input', { class: 'fw-input fw-idea-fin', type: 'text', 'aria-label': label, placeholder: ph || '' });
+  el.value = idea[key] || '';
+  el.addEventListener('change', () => { idea[key] = el.value.trim(); onChange(); });
+  return el;
+}
+
+// Lista editável de strings (adicionar/editar/remover; opcionalmente reordenar). Muta o array in place.
+function fwIdeaEditList(items, { label, placeholder, onChange, reorder } = {}) {
+  const wrap = h('div', { class: 'fw-idea-list' });
+  const ul = h('ul', { class: 'fw-idea-items', 'aria-label': label || 'Itens' });
+  const rebuild = () => {
+    ul.replaceChildren();
+    if (!items.length) { ul.append(h('li', { class: 'fw-idea-empty muted', text: '— nada ainda —' })); return; }
+    items.forEach((it, i) => {
+      const inp = h('input', { class: 'fw-idea-item-in', type: 'text', value: it, 'aria-label': (label || 'item') + ' ' + (i + 1) });
+      inp.addEventListener('change', () => { const v = inp.value.trim(); if (v) { items[i] = v; onChange(); } else { items.splice(i, 1); onChange(); rebuild(); } });
+      const ctl = h('span', { class: 'fw-idea-item-ctl' });
+      if (reorder) {
+        const up = h('button', { class: 'btn-link fw-idea-mv', type: 'button', 'aria-label': 'Mover para cima', text: '↑', disabled: i === 0 ? 'disabled' : null });
+        up.addEventListener('click', () => { const t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; onChange(); rebuild(); });
+        const dn = h('button', { class: 'btn-link fw-idea-mv', type: 'button', 'aria-label': 'Mover para baixo', text: '↓', disabled: i === items.length - 1 ? 'disabled' : null });
+        dn.addEventListener('click', () => { const t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; onChange(); rebuild(); });
+        ctl.append(up, dn);
+      }
+      const rm = h('button', { class: 'btn-link fw-idea-rm', type: 'button', 'aria-label': 'Remover', text: '✕' });
+      rm.addEventListener('click', () => { items.splice(i, 1); onChange(); rebuild(); });
+      ctl.append(rm);
+      ul.append(h('li', { class: 'fw-idea-item' }, inp, ctl));
+    });
+  };
+  rebuild();
+  const add = h('input', { class: 'fw-input fw-idea-add', type: 'text', placeholder: placeholder || 'Adicionar e Enter…', 'aria-label': 'Adicionar em ' + (label || '') });
+  add.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = add.value.trim(); if (v) { items.push(v); add.value = ''; onChange(); rebuild(); } } });
+  wrap.append(ul, add);
+  return wrap;
+}
+
+// Perguntas em aberto do copiloto (essenciais destacadas). A pessoa pode dispensar.
+function fwIdeaOpenQuestions(idea, onChange) {
+  const ul = h('ul', { class: 'fw-idea-oq', 'aria-label': 'Perguntas em aberto' });
+  const rebuild = () => {
+    ul.replaceChildren();
+    const oq = idea.openQuestions || [];
+    if (!oq.length) { ul.append(h('li', { class: 'fw-idea-empty muted', text: 'Nenhuma pergunta em aberto 🎉' })); return; }
+    oq.forEach((q, i) => {
+      const rm = h('button', { class: 'btn-link fw-idea-rm', type: 'button', 'aria-label': 'Dispensar pergunta', text: '✕' });
+      rm.addEventListener('click', () => { oq.splice(i, 1); onChange(); rebuild(); });
+      ul.append(h('li', { class: 'fw-idea-oq-item' + (q.essential ? ' is-essential' : '') },
+        q.essential ? badge('essencial', 'b-high') : h('span', { class: 'fw-idea-oq-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'fw-idea-oq-t', text: q.text }), rm));
+    });
+  };
+  rebuild();
+  return ul;
+}
+
+// Anel de maturidade (SVG) — reduced-motion safe; is-ready quando cruza o limiar do gate.
+function fwIdeaRing(pct) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+  const C = 2 * Math.PI * 26;
+  const s = svg('svg', { class: 'fw-ring', viewBox: '0 0 64 64', role: 'img', 'aria-label': 'Maturidade da ideia: ' + p + '%' });
+  s.append(svg('circle', { class: 'fw-ring-track', cx: '32', cy: '32', r: '26', fill: 'none' }));
+  s.append(svg('circle', { class: 'fw-ring-arc' + (p >= IDEA_MATURITY_THRESHOLD ? ' is-ready' : ''), cx: '32', cy: '32', r: '26', fill: 'none', 'stroke-dasharray': C.toFixed(2), 'stroke-dashoffset': (C * (1 - p / 100)).toFixed(2), transform: 'rotate(-90 32 32)' }));
+  s.append(svgText({ class: 'fw-ring-v', x: '32', y: '37', 'text-anchor': 'middle' }, p + '%'));
+  return s;
+}
+
+// Gate + indicador de maturidade + botão de avanço (só habilita quando ideaReady) + atalho avançado.
+function fwIdeaGate(w, ui) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-gate' });
+  const ready = ideaReady(idea);
+  const meter = h('div', { class: 'fw-idea-meter' });
+  if (normalizeForgeMode(w.mode) === 'simples') meter.append(h('div', { class: 'fw-idea-bar' }, progressBar(idea.maturity)));
+  else meter.append(fwIdeaRing(idea.maturity));
+  meter.append(h('p', { class: 'fw-idea-hint muted small', text: ideaMaturityHint(idea) }));
+  box.append(meter);
+
+  const status = h('p', { class: 'fw-status muted fw-idea-gate-st', role: 'status', 'aria-live': 'polite' });
+  const advance = h('button', { class: 'btn primary fw-cta fw-idea-advance', type: 'button', text: 'Seguir para “O que será criado” →' });
+  advance.disabled = !ready;
+  advance.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  if (!ready) advance.title = 'Continue a conversa para fechar a ideia (maturidade + perguntas essenciais).';
+  // Consistência botão = ABA = chat: usa o disabled REAL como gate (não re-avalia ideaReady no clique —
+  // isso evitava o botão "não fazer nada" por um descompasso render↔clique). Se os requisitos JÁ existem,
+  // apenas NAVEGA (fwGoto, idêntico à aba do passo 2); se ainda não, gera (transição instantânea).
+  advance.addEventListener('click', () => { if (advance.disabled) return; w.idea.confirmed = true; fwIdeaPersist(w); fwAdvanceToWhat(w, status, advance); });
+  box.append(advance);
+  if (ready) box.append(h('p', { class: 'fw-idea-ready muted small', text: '✓ Ideia madura — você pode seguir ou continuar refinando.' }));
+
+  const skip = h('button', { class: 'btn fw-idea-skip', type: 'button', text: '✨ Ver como vai ficar' });
+  skip.addEventListener('click', () => fwHandoffToWhat(w, status, skip));
+  box.append(h('details', { class: 'fw-idea-adv' }, h('summary', { text: 'Atalho avançado' }),
+    h('p', { class: 'fw-hint', text: 'Pular a conversa e gerar direto a partir do que já está aqui.' }), skip), status);
+  return box;
+}
+
+// Avança para a etapa 2 de forma IDÊNTICA à aba do passo 2 e ao chat: se os requisitos já existem,
+// apenas navega (fwGoto — a MESMA função que a aba chama); se ainda não, gera (fwHandoffToWhat).
+function fwAdvanceToWhat(w, statusEl, btn) {
+  if (w.proposed && w.proposed.length) fwGoto(2);
+  else fwHandoffToWhat(w, statusEl, btn);
+}
+
+// Handoff para a etapa 2: compõe o brief a partir do ideaDraft (sem mudar o contrato da etapa 2)
+// e dispara fwGenerate (propose-requirements). O aceite explícito é o clique do botão.
+function fwHandoffToWhat(w, statusEl, btn) {
+  w.name = (w.idea.name || w.name || '').trim();
+  if (!w.name) w.name = (w.idea.summary || w.idea.problem || 'meu-sistema').slice(0, 40);
+  w.brief = composeBriefFromIdea(w.idea);
+  fwGenerate(w, statusEl, btn);
+}
+
+// FALLBACK MANUAL (IA fora): o antigo formulário estático (nome + descrição + anexos + gerar).
+function fwStageIdeaManual(host, w, { blueprints }, note) {
+  const card = h('div', { class: 'fw-card' });
+  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'idea.q') }));
+  if (note) card.append(h('p', { class: 'fw-status muted', text: note }));
+  const name = h('input', { class: 'fw-input', type: 'text', value: w.name || w.idea.name || '', placeholder: modeCopy(w.mode, 'idea.namePh'), 'aria-label': 'Nome do sistema' });
   name.addEventListener('input', () => { w.name = name.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.name') }), name));
-  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante. Ex.: "abrir e acompanhar chamados, atribuir a técnicos, e avisar quando algo atrasa".' });
-  brief.value = w.brief;
+  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante.' });
+  brief.value = w.brief || composeBriefFromIdea(w.idea);
   brief.addEventListener('input', () => { w.brief = brief.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.brief') }), brief));
-  // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
-  // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
   if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
   card.append(h('div', { class: 'fw-fld' },
     h('span', { class: 'fw-fld-l', text: 'Anexos (opcional)' }),
     h('p', { class: 'fw-hint', text: 'Tem um documento, planilha ou imagem que descreve a ideia? Anexe — a IA vai considerar o conteúdo.' }),
     w._filePicker.el));
-  if (w.mode !== 'profissional') {
-    // simples/guiado: a IA infere blueprint/blocos — o usuário nunca escolhe stack nem vê YAML.
-    const ex = [
-      ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
-      ['Controle de estoque', 'Controle de produtos e estoque, com alertas de baixa quantidade e relatórios.'],
-      ['Agenda de clientes', 'Cadastro de clientes e agendamento de serviços, com lembretes automáticos por mensagem.'],
-    ];
-    const chips = h('div', { class: 'fw-chips' });
-    for (const [t, b] of ex) chips.append(h('button', { class: 'fw-chip', type: 'button', onclick: () => { w.name = t; w.brief = b; fwRerender(); } }, '💡 ' + t));
-    card.append(h('p', { class: 'fw-hint', text: 'Sem ideia? comece por um exemplo:' }), chips);
-  } else {
+  if (w.mode === 'profissional') {
     const bpsel = h('select', { class: 'fw-input', 'aria-label': 'Blueprint' });
     for (const b of blueprints) bpsel.append(h('option', { value: b.id, text: b.name, selected: b.id === w.blueprint }));
     bpsel.addEventListener('change', () => { w.blueprint = bpsel.value; });
@@ -1240,20 +1884,26 @@ function fwStageIdea(host, w, { blueprints }) {
   gen.addEventListener('click', () => fwGenerate(w, status, gen));
   card.append(h('div', { class: 'fw-actions' }, gen), status);
   host.append(card);
-  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo profissional.'; }).catch(() => {});
   card.querySelector('.fw-q').focus();
 }
 
 async function fwGenerate(w, status, btn) {
   const slug = (w.name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
-  if (!slug) { w.error = 'Dê um nome ao sistema.'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  w.slug = slug; w.error = ''; btn.disabled = true;
-  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' A IA está desenhando o sistema — requisitos e arquitetura…');
+  // Validação ANTES de transicionar (fica na etapa atual): sem nome/brief não avança.
+  if (!slug) { w.error = 'Dê um nome ao sistema.'; if (status) status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; if (status) status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  w.slug = slug; w.error = '';
+  // TRANSIÇÃO INSTANTÂNEA para a etapa 2: propose-requirements leva ~20s; NÃO travamos a etapa Ideia
+  // com um spinner (parecia "não avança"). Vamos JÁ para a etapa 2 mostrando o estado "gerando", e a
+  // resposta da IA preenche/erra ali. (BUG: o clique no botão/aba parecia não fazer nada por 20s.)
+  w.generating = true; w.stage = 2; fwRerender();
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
+  // (E2) origem = captura: o export do contrato (sem samples) entra como anexo — contexto da IA.
   const files = (w._filePicker && w._filePicker.hasFiles()) ? w._filePicker.files() : [];
+  const capFile = fwCaptureFile(w);
+  if (capFile) files.push(capFile);
   // (C2) tone: no modo simples a IA escreve title/statement em linguagem de negócio clara —
   // MESMO schema de saída/validação; nos demais modos, o prompt técnico de sempre (retrocompat).
   const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' };
@@ -1265,11 +1915,12 @@ async function fwGenerate(w, status, btn) {
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
     fwApplyProposed(w, r.data);
-    w.stage = 2; fwRerender(); // mostra a tela 2 já com os requisitos (não espera a arquitetura)
-    fwKickArch(w);             // arquitetura (waves) em SEGUNDO PLANO
+    w.generating = false; w.error = '';
+    if (state.forge.wizard === w) fwRerender(); // mostra a tela 2 já com os requisitos
+    fwKickArch(w);                              // arquitetura (waves) em SEGUNDO PLANO
   } catch (e) {
-    w.error = String(e.message || e); btn.disabled = false;
-    status.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error }));
+    w.generating = false; w.error = String(e.message || e);
+    if (state.forge.wizard === w) fwRerender(); // a etapa 2 renderiza o erro + "Tentar de novo"
   }
 }
 
@@ -1308,7 +1959,13 @@ async function fwAdjust(w, instruction, statusEl) {
   const augmented = (w.brief || '') + '\n\n--- AJUSTE PEDIDO PELO USUÁRIO ---\n' + instr
     + '\n\nRequisitos atuais (revise conforme o ajuste — mantenha os que ainda fazem sentido; edite/adicione/remova o que o ajuste pedir):\n' + current;
   try {
-    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' });
+    const adjFields = { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' };
+    // (E2) mantém o contrato capturado como contexto TAMBÉM no ajuste (senão o refinamento
+    // re-propõe sem conhecer o portal original). Sem captura: caminho JSON de sempre.
+    const adjCapFile = fwCaptureFile(w);
+    const r = adjCapFile
+      ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: adjFields, files: [adjCapFile] })
+      : await AI.post('/v1/forge/propose-requirements', adjFields);
     if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos.');
@@ -1414,6 +2071,34 @@ function fwReqCard(w, p, i) {
 }
 
 function fwStageWhat(host, w, { catalog }) {
+  const hasProposed = w.proposed && w.proposed.length;
+  // Estado GERANDO (a IA leva ~20s p/ propor os requisitos) — mostra loading aqui, na etapa 2, em vez
+  // de travar a etapa Ideia. Deixa voltar p/ a Ideia enquanto gera.
+  if (!hasProposed && w.generating) {
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }));
+    host.append(h('div', { class: 'fw-generating' },
+      h('span', { class: 'forge-spin', 'aria-hidden': 'true' }),
+      h('p', { class: 'fw-lead', text: 'A IA está desenhando o ' + (w.name || w.slug) + ' — capacidades, telas e requisitos. Isso leva alguns segundos…' })));
+    host.append(fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
+  // Erro na geração — mensagem amigável + "Tentar de novo" (não fica preso).
+  if (!hasProposed && w.error) {
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }));
+    host.append(h('p', { class: 'fw-status' }, h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error })));
+    const retry = h('button', { class: 'btn primary fw-cta', type: 'button', text: '↻ Tentar de novo' });
+    retry.addEventListener('click', () => fwGenerate(w));
+    host.append(h('div', { class: 'fw-actions' }, retry), fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
+  if (!hasProposed) { // sem proposta e sem gerar (ex.: voltou aqui direto) — volta p/ a Ideia
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }),
+      h('p', { class: 'fw-lead', text: 'Ainda não há nada gerado. Volte para a Ideia e siga a partir de lá.' }), fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   const dn = w.name || w.slug;
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }),
@@ -1560,6 +2245,14 @@ async function fwPreviewGenerate(w, els) {
         requirements: (w.proposed || []).map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [], acceptance_criteria: p.req.acceptance_criteria || [] })),
         architecture: w.arch ? { stack: w.arch.stack, selected_blocks: w.arch.selected_blocks || [], waves: w.arch.waves || [] } : null,
       };
+  // GUARD (raiz): propor telas exige requisitos. Sem eles (e sem inventory pronto), NÃO dispara — evita o
+  // erro no servidor e orienta o usuário de volta ao passo 2 (defesa-em-profundidade além do fwMaxStage).
+  if (!body.inventory && (!Array.isArray(body.requirements) || body.requirements.length === 0)) {
+    pv.status = 'error'; pv.error = previewErrorMessage('NO_REQUIREMENTS');
+    els.genBtn.disabled = false; els.genBtn.textContent = '✨ Gerar preview das telas';
+    els.status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
+    return;
+  }
   // marca as etapas anteriores como concluídas conforme o build avança (visual de progresso).
   const ORDER = ['start', 'propose', 'inventory', 'dispatch', 'building', 'ready'];
   const advance = (key) => { const i = ORDER.indexOf(key); for (let j = 0; j < i; j++) upStep(ORDER[j], null, 'done'); upStep(key, null, 'active'); };
@@ -1585,7 +2278,11 @@ async function fwPreviewGenerate(w, els) {
     els.genBtn.disabled = false; els.genBtn.textContent = '↻ Regenerar preview';
     fwPreviewRenderReady(w, els.stage);
   } catch (e) {
-    pv.status = 'error'; pv.error = 'Não consegui gerar o preview: ' + String((e && e.message) || e);
+    // Mensagem AMIGÁVEL por código (nunca o texto cru do backend/GitHub). Erros com código vêm do
+    // servidor (já sanitizados) -> mapeia; sem código = throw interno nosso (ex.: "sem endereço") -> seguro.
+    pv.status = 'error';
+    pv.error = (e && e.code) ? previewErrorMessage(e.code) : ((e && e.message) || previewErrorMessage());
+    const act = pv.steps.find((s) => s.state === 'active'); if (act) act.state = 'error'; els.renderSteps(); // não deixa a etapa presa em amarelo
     els.status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
     els.genBtn.disabled = false; els.genBtn.textContent = '↻ Tentar de novo';
   }
@@ -1599,12 +2296,27 @@ function fwPreviewRenderReady(w, stage) {
   // 1) iframe do preview (mesma origem /reqs — CSP default-src 'self' cobre frame-src; o backend
   // serve a SPA em /reqs/api/v1/forge/preview/<product>/, então a URL é same-origin).
   const frameWrap = h('div', { class: 'fw-prev-frame' });
-  // sandbox="allow-scripts" (SEM allow-same-origin): a SPA do preview roda em origem opaca, isolada
-  // da origem do Reqhub (não acessa cookies/localStorage/DOM do pai). Os assets do SPA são URLs
-  // ABSOLUTAS no mesmo servidor (base = /reqs/api/v1/forge/preview/<product>/), então carregam normalmente.
-  frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts' }));
+  // sandbox COM allow-same-origin: a SPA gerada (Vite/Vue) PRECISA de same-origin para dar boot
+  // (history API, storage, origem própria) e para carregar os assets `crossorigin` (JS/CSS) — sem isso
+  // o iframe roda em origem OPACA e a SPA nem inicializa (preview em branco / sem estilo). O conteúdo é
+  // FIRST-PARTY confiável (gerado pelo nosso template, servido pelo nosso backend no MESMO domínio
+  // /reqs), então é seguro compartilhar a origem; mantemos o sandbox (defesa em profundidade) só sem o
+  // allow-same-origin era o bug. allow-forms/allow-popups deixam a navegação ilustrativa funcionar.
+  frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups' }));
+  // C4 — toggle de viewport (desktop/tablet/mobile): troca a classe do frameWrap SEM recarregar o iframe.
+  // A escolha persiste em pv.viewport (sobrevive às re-renderizações). Puro CSS (larguras 100%/768/375).
+  const viewport = (pv.viewport === 'tablet' || pv.viewport === 'mobile') ? pv.viewport : 'desktop';
+  frameWrap.className = 'fw-prev-frame is-' + viewport;
+  const vpBtns = {};
+  const setVp = (v) => { pv.viewport = v; frameWrap.className = 'fw-prev-frame is-' + v; for (const k in vpBtns) { vpBtns[k].classList.toggle('is-on', k === v); vpBtns[k].setAttribute('aria-pressed', k === v ? 'true' : 'false'); } };
+  const mkVp = (v, label, title) => { const b = h('button', { class: 'fw-vp' + (v === viewport ? ' is-on' : ''), type: 'button', title, 'aria-pressed': v === viewport ? 'true' : 'false', text: label, onclick: () => setVp(v) }); vpBtns[v] = b; return b; };
+  const vpBar = h('div', { class: 'fw-prev-vp', role: 'group', 'aria-label': 'Tamanho da tela do preview' },
+    mkVp('desktop', '🖥️ Desktop', 'Ver em tela cheia (desktop)'),
+    mkVp('tablet', '▭ Tablet', 'Ver em largura de tablet (768px)'),
+    mkVp('mobile', '📱 Mobile', 'Ver em largura de celular (375px)'));
   stage.append(h('div', { class: 'fw-prev-toolbar' },
     h('span', { class: 'muted small', text: 'Preview com dados de exemplo — nada é salvo.' }),
+    vpBar,
     h('a', { class: 'btn-link', href: pv.url, target: '_blank', rel: 'noopener', text: 'Abrir em nova aba ↗' })), frameWrap);
 
   // 2) lista das telas + refino por tela (se o backend reportou as telas).
@@ -1712,7 +2424,8 @@ function fwPreviewGate(w) {
   }
   const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
   const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✅ Aprovar e construir' });
-  btn.addEventListener('click', () => { pv.approved = true; st.replaceChildren(document.createTextNode('Aprovado!')); fwRerender(); });
+  // aprovou → já avança p/ o passo Revisar (elimina o vaivém: não precisa clicar "Ir para criar")
+  btn.addEventListener('click', () => { pv.approved = true; fwGoto(5); });
   wrap.append(
     h('h4', { class: 'fw-sec', text: 'Aprovar e construir' }),
     h('p', { class: 'fw-hint', text: 'Quando as telas estiverem como você quer, aprove. Só depois disso a esteira começa a construir o sistema de verdade.' }),
@@ -1723,14 +2436,54 @@ function fwPreviewGate(w) {
 function fwStageReview(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'review.q') }));
+
+  // C3 — Resumo executivo de NEGÓCIO (determinístico, sem IA): o que é / p/ quem / faz / valor. Degrada
+  // com elegância se o copiloto foi pulado (usa o brief livre + as contagens do plano).
+  const exec = businessSummaryFromIdea(w.idea, { brief: w.brief, name: w.name, capsCount: sum.counts.capabilities, screensCount: sum.counts.screens, wavesCount: sum.counts.waves });
+  const execBox = h('div', { class: 'fw-exec' });
+  execBox.append(h('h4', { class: 'fw-exec-t' }, h('span', { 'aria-hidden': 'true', text: '📋 ' }), 'Resumo do que você vai criar'));
+  execBox.append(h('p', { class: 'fw-exec-lead', text: exec.lead }));
+  if (exec.problem === '' && exec.description) execBox.append(h('p', { class: 'fw-exec-desc muted', text: exec.description }));
+  if (exec.forWhom.length) execBox.append(h('p', { class: 'fw-exec-who' }, h('span', { class: 'fw-exec-k', text: 'Para: ' }), exec.forWhom.join(', ')));
+  if (exec.capabilities.length) {
+    const chips = h('div', { class: 'fw-exec-caps' });
+    exec.capabilities.forEach((c) => chips.append(h('span', { class: 'fw-chip', text: c })));
+    execBox.append(h('p', { class: 'fw-exec-k', text: 'O que faz:' }), chips);
+  }
+  if (exec.goal) execBox.append(h('p', { class: 'fw-exec-goal' }, h('span', { class: 'fw-exec-k', text: 'Objetivo: ' }), exec.goal));
+  execBox.append(h('p', { class: 'fw-exec-nums muted', text: exec.counts.capabilities + ' capacidades · ' + exec.counts.screens + ' telas · ' + (exec.counts.waves || 1) + ' etapa(s) de construção' }));
+  host.append(execBox);
+
+  // C5 — Pendências: decisões em aberto do copiloto (persistem no wizard) que valem revisar antes de criar.
+  const oq = (w.idea && Array.isArray(w.idea.openQuestions)) ? w.idea.openQuestions : [];
+  if (oq.length) {
+    const ess = oq.filter((q) => q && q.essential).length;
+    const notice = h('div', { class: 'fw-pending', role: 'note' });
+    notice.append(h('p', { class: 'fw-pending-t' }, h('span', { 'aria-hidden': 'true', text: '⚠️ ' }),
+      oq.length + ' decisão(ões) em aberto' + (ess ? ' (' + ess + ' essencial' + (ess > 1 ? 'is' : '') + ')' : '') + ' — vale revisar antes de construir.'));
+    const list = h('ul', { class: 'fw-pending-l' });
+    oq.slice(0, 4).forEach((q) => list.append(h('li', { class: q && q.essential ? 'is-ess' : null, text: (q && q.text) || '' })));
+    notice.append(list);
+    notice.append(h('div', { class: 'fw-actions' }, h('button', { class: 'btn', type: 'button', text: '← Revisar na Ideia', onclick: () => fwGoto(1) })));
+    host.append(notice);
+  }
+
   const approved = fwPreviewApproved(w);
   // Gate: enquanto o preview não estiver aprovado, o launch fica bloqueado com um aviso claro
   // que leva de volta à etapa Preview. (Aditivo: só afeta o caminho do wizard.)
   if (!approved) {
+    // Se o preview JÁ foi construído (status ready), dá p/ aprovar AQUI mesmo — sem voltar ao passo 4
+    // (elimina o vaivém). Se ainda não construiu, o único caminho é "Ver o preview" (gerar/refinar lá).
+    const previewReady = !!(w.preview && w.preview.status === 'ready');
+    const actions = h('div', { class: 'fw-actions' },
+      h('button', { class: previewReady ? 'btn' : 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }));
+    if (previewReady) {
+      actions.append(h('button', { class: 'btn primary', type: 'button', text: '✅ Aprovar preview', onclick: () => { w.preview.approved = true; fwRerender(); } }));
+    }
     host.append(h('div', { class: 'fw-gatebar', role: 'status' },
       h('p', { class: 'fw-gatebar-t' }, h('span', { 'aria-hidden': 'true', text: '🔒 ' }), 'Aprove o preview das telas antes de construir.'),
-      h('p', { class: 'fw-hint', text: 'Gere o preview, refine o que quiser e clique em "Aprovar e construir". Só então a criação é liberada.' }),
-      h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }))));
+      h('p', { class: 'fw-hint', text: previewReady ? 'Revise o preview e aprove aqui mesmo — ou volte para refinar mais.' : 'Gere o preview, refine o que quiser e aprove. Só então a criação é liberada.' }),
+      actions));
   }
   if (w.mode !== 'profissional') {
     // simples/guiado vão DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a
@@ -1754,7 +2507,7 @@ function fwStageReview(host, w, { catalog }) {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
     // launchGate=false bloqueia os botões "Criar PR"/"Liberar tudo" até o preview ser aprovado.
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, launchGate: approved, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, externalContract: (w.capture && w.capture.ref) || null, launchGate: approved, onLaunched: (d, m) => { fwClearIdea(); w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
   host.append(fwNav(4, null, null));
@@ -1945,10 +2698,13 @@ async function forgeLaunch(mode, ctx) {
   });
   // (C2) buildLaunchBody é PURO (forge-lib): o payload é IDÊNTICO nos 3 modos, exceto o
   // campo informativo creation_mode (rastreabilidade de UX no client_payload/PR).
+  // (E2) origem = captura: externalContract (referência, nunca o export) vira
+  // architecture.external_contract — o forge-launch faz passthrough do objeto architecture.
   const body = buildLaunchBody({
     product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '',
     mode, requirements, architecture: arch,
     creationMode: forgeMode(), skipPreviewGate: !!ctx.skipPreviewGate,
+    externalContract: launchCtx.externalContract || null,
   });
   btns.forEach((b) => { b.disabled = true; });
   status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';

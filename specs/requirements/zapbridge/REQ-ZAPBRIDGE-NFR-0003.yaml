@@ -1,0 +1,43 @@
+id: REQ-ZAPBRIDGE-NFR-0003
+slug: req-zapbridge-nfr-0003
+title: 'Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)'
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: 'O sistema deve garantir privacidade e uso legítimo: credenciais Baileys nunca trafegam ao cliente (vivem apenas em AUTH_DIR no backend); segredos (JWT_SECRET, chaves de IA) só via Secret zapbridge-config — nunca em env/ConfigMap/git; não existe endpoint de broadcast/envio em massa e as rotas de IA têm rate-limit; a IA nunca envia mensagem ao WhatsApp sem confirmação humana (token HMAC) ou opt-in por chat com judge-gate; conversa trancada fica fora da IA; desconectar a sessão expurga todos os dados de IA do usuário (embeddings, memória, KB, logs).'
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RN06–RN08/RN11–RN16 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/ai/pending-actions.ts
+    - apps/zapbridge/server/src/modules/ai/consent.ts
+    - apps/zapbridge/devops.yaml
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+priority: critical
+criticality: critical
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário dono da conta de WhatsApp conectada (ou agente de IA agindo em seu nome)
+    stimulus: Tentativa de qualquer envio automatizado (tool mutante do agente, auto-resposta) ou de acesso às credenciais da sessão
+    environment: Cluster ns apps, sessão Baileys ativa, IA habilitada com consentimento
+    artifact: zapbridge-server (Baileys manager + camada de IA + rotas REST)
+    response: Credenciais permanecem exclusivamente no backend; tools mutantes retornam dry-run e só executam com token HMAC confirmado pelo usuário; auto-resposta só dispara em chat com opt-in explícito, dentro de horário/limite e nunca em grupos; disconnect expurga os dados de IA
+    response_measure: Nenhuma rota expõe o auth state Baileys; zero mensagens enviadas sem confirmação ou opt-in por chat; segredos ausentes do git (gitleaks limpo); expurgo verificado no disconnectSession
+links:
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0002
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0009
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+  infra_refs:
+    - infra-sealed-secrets

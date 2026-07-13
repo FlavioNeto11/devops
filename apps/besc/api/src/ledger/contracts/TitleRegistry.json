@@ -1,0 +1,573 @@
+{
+  "contractName": "TitleRegistry",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "fromEventId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "toEventId",
+          "type": "uint256"
+        }
+      ],
+      "name": "AuditAnchored",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "faceValueCents",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "splitFactor",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "issuanceDocHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BatchIssued",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "claimsHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "IdentityRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "IdentityRevoked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "fromTitleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "toTitleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "holder",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "docHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "Substituted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "reasonCode",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "TitleFrozen",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "reasonCode",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "TitleUnfrozen",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "transferKind",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "referenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "Transferred",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "agent",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "merkleRoot",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "fromEventId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "toEventId",
+          "type": "uint256"
+        }
+      ],
+      "name": "anchorAuditRoot",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "reasonCode",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "freezeTitle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "faceValueCents",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint32",
+          "name": "splitFactor",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "issuanceDocHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "issueBatch",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "claimsHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registerIdentity",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "revokeIdentity",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "fromTitleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "toTitleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "holder",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "burnAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "mintAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "docHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "substitute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "totalSupply",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint8",
+          "name": "transferKind",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "referenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "transfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "titleId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "reasonCode",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "unfreezeTitle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "whitelisted",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080604052348015600e575f5ffd5b505f80546001600160a01b03191633179055610c4f8061002d5f395ff3fe608060405234801561000f575f5ffd5b50600436106100cb575f3560e01c8063b524abcf11610088578063d7f2b0f711610063578063d7f2b0f7146101d1578063d936547e146101e4578063e2706d0714610206578063f5ff5c7614610219575f5ffd5b8063b524abcf14610167578063b52a08cb14610194578063c2038236146101a7575f5ffd5b806320e86f44146100cf5780632125b0f9146100e45780632ad275ab146100f75780639e9e46661461010a578063a9ee5fdc14610141578063b161fc0314610154575b5f5ffd5b6100e26100dd3660046109a6565b610243565b005b6100e26100f23660046109a6565b6102d3565b6100e26101053660046109ef565b61034d565b61012c610118366004610a5a565b60016020525f908152604090205460ff1681565b60405190151581526020015b60405180910390f35b6100e261014f366004610a71565b610485565b6100e2610162366004610abe565b610619565b610186610175366004610a5a565b60026020525f908152604090205481565b604051908152602001610138565b6100e26101a2366004610b1b565b61081f565b6101866101b5366004610b43565b600360209081525f928352604080842090915290825290205481565b6100e26101df366004610b6d565b6108a5565b61012c6101f2366004610b96565b60046020525f908152604090205460ff1681565b6100e2610214366004610b1b565b610914565b5f5461022b906001600160a01b031681565b6040516001600160a01b039091168152602001610138565b5f546001600160a01b031633146102755760405162461bcd60e51b815260040161026c90610bb6565b60405180910390fd5b5f83815260016020818152604092839020805460ff1916909217909155815160ff8516815290810183905284917fa7abb5bce27b11b08bfdefd00b98d0bb8ce5d118f5cae5fe8f24f8de00a0844b91015b60405180910390a2505050565b5f546001600160a01b031633146102fc5760405162461bcd60e51b815260040161026c90610bb6565b5f83815260016020908152604091829020805460ff19169055815160ff8516815290810183905284917f78e077eaaef11ffca041a2a8839e4951d33a9aaf97abe6aa44f22a6b292c9fea91016102c6565b5f546001600160a01b031633146103765760405162461bcd60e51b815260040161026c90610bb6565b5f8781526001602052604090205460ff16156103c35760405162461bcd60e51b815260206004820152600c60248201526b1d1a5d1b19481c185d5cd95960a21b604482015260640161026c565b5f87815260026020526040812080548692906103e0908490610bed565b90915550505f8781526003602090815260408083206001600160a01b038916845290915281208054869290610416908490610bed565b9091555050604080516001600160a01b03871681526020810186905290810184905263ffffffff8316606082015260808101829052869088907f32304e35da8b081bb899f85678cb7fa6001a337a30c8e4e48bd6e238653b87179060a00160405180910390a350505050505050565b5f546001600160a01b031633146104ae5760405162461bcd60e51b815260040161026c90610bb6565b5f8681526003602090815260408083206001600160a01b03881684529091529020548311156105135760405162461bcd60e51b815260206004820152601160248201527034b739bab33334b1b4b2b73a10313ab93760791b604482015260640161026c565b5f8681526003602090815260408083206001600160a01b038816845290915281208054859290610544908490610c06565b90915550505f8681526002602052604081208054859290610566908490610c06565b90915550505f8581526003602090815260408083206001600160a01b03881684529091528120805484929061059c908490610bed565b90915550505f85815260026020526040812080548492906105be908490610bed565b9091555050604080516001600160a01b038616815260208101849052908101829052859087907fd2f9d61c9ff07073d5a35c670ef89750adfc52620334e85bb09609f77c1931029060600160405180910390a3505050505050565b5f546001600160a01b031633146106425760405162461bcd60e51b815260040161026c90610bb6565b5f8681526001602052604090205460ff161561068f5760405162461bcd60e51b815260206004820152600c60248201526b3a34ba363290333937bd32b760a11b604482015260640161026c565b6001600160a01b0384165f9081526004602052604090205460ff166106f65760405162461bcd60e51b815260206004820152601960248201527f726563697069656e74206e6f742077686974656c697374656400000000000000604482015260640161026c565b5f8681526003602090815260408083206001600160a01b03891684529091529020548311156107565760405162461bcd60e51b815260206004820152600c60248201526b1a5b9cdd59999a58da595b9d60a21b604482015260640161026c565b5f8681526003602090815260408083206001600160a01b038916845290915281208054859290610787908490610c06565b90915550505f8681526003602090815260408083206001600160a01b0388168452909152812080548592906107bd908490610bed565b90915550506040805184815260ff841660208201529081018290526001600160a01b03808616919087169088907f3f03f7c486b530fbbd75b29c609c26fc75e823d84db20203f03da86b20cb58b89060600160405180910390a4505050505050565b5f546001600160a01b031633146108485760405162461bcd60e51b815260040161026c90610bb6565b6001600160a01b0382165f8181526004602052604090819020805460ff19169055517f898185a9e0933bcd25b9f43bc589ab95570a5c4b75d013955435eaf290380d4c906108999084815260200190565b60405180910390a25050565b5f546001600160a01b031633146108ce5760405162461bcd60e51b815260040161026c90610bb6565b60408051848152602081018490529081018290527fde91638d378ce38712064ffd3b187fdcfbdd8098229e4ceb216eed943254a5b09060600160405180910390a1505050565b5f546001600160a01b0316331461093d5760405162461bcd60e51b815260040161026c90610bb6565b6001600160a01b0382165f8181526004602052604090819020805460ff19166001179055517f209ae2eb4ff1890ce972a80ec3e167b52d41ab089135cc6430447b1430e824be906108999084815260200190565b803560ff811681146109a1575f5ffd5b919050565b5f5f5f606084860312156109b8575f5ffd5b833592506109c860208501610991565b929592945050506040919091013590565b80356001600160a01b03811681146109a1575f5ffd5b5f5f5f5f5f5f5f60e0888a031215610a05575f5ffd5b8735965060208801359550610a1c604089016109d9565b9450606088013593506080880135925060a088013563ffffffff81168114610a42575f5ffd5b96999598509396929591949193505060c09091013590565b5f60208284031215610a6a575f5ffd5b5035919050565b5f5f5f5f5f5f60c08789031215610a86575f5ffd5b8635955060208701359450610a9d604088016109d9565b959894975094956060810135955060808101359460a0909101359350915050565b5f5f5f5f5f5f60c08789031215610ad3575f5ffd5b86359550610ae3602088016109d9565b9450610af1604088016109d9565b935060608701359250610b0660808801610991565b9598949750929591949360a090920135925050565b5f5f60408385031215610b2c575f5ffd5b610b35836109d9565b946020939093013593505050565b5f5f60408385031215610b54575f5ffd5b82359150610b64602084016109d9565b90509250929050565b5f5f5f60608486031215610b7f575f5ffd5b505081359360208301359350604090920135919050565b5f60208284031215610ba6575f5ffd5b610baf826109d9565b9392505050565b6020808252600990820152681b9bdd081859d95b9d60ba1b604082015260600190565b634e487b7160e01b5f52601160045260245ffd5b80820180821115610c0057610c00610bd9565b92915050565b81810381811115610c0057610c00610bd956fea26469706673582212207a0df4b3afa7432eb370cd043e854c71a83ac6e7b2d416e3ffceacfb5a18884a64736f6c63430008240033",
+  "compiler": "solc 0.8.26",
+  "compiledAt": "build-time"
+}

@@ -64,6 +64,30 @@ jobs:
         working-directory: specs/tools
         run: node --test
 
+      # Anti-fabricação de CONTRATO nos REFs (F3-prep Forja 4.1): todo REF alterado no
+      # PR é validado contra o openapi REAL do produto — rota/campo citado deve existir
+      # no contrato, ou o item deve declarar contract:"proposed" (endpoint novo a criar,
+      # EXPLÍCITO). Escopo = só os ARQUIVOS MUDADOS no PR (REFs legados na main não
+      # bloqueiam PRs alheios); produto sem openapi = skip explícito (não é contract-first).
+      - name: Validar REFs alterados contra o contrato da API (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -uo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          if ! git rev-parse -q --verify "$BASE^{commit}" >/dev/null 2>&1; then
+            echo "base do PR indisponivel — pulando"; exit 0
+          fi
+          mapfile -t REFS < <(git diff --name-only "$BASE" HEAD -- 'specs/refinements/' | grep -E '\.ya?ml$' || true)
+          if [ "${#REFS[@]}" -eq 0 ]; then echo "nenhum REF alterado neste PR."; exit 0; fi
+          fail=0
+          for f in "${REFS[@]}"; do
+            [ -f "$f" ] || continue   # REF deletado no PR
+            echo "::group::validate-refinement-contract — $f"
+            node specs/tools/validate-refinement-contract.mjs --file "$f" || { echo "::error file=$f::REF cita rota/campo que NAO existe no contrato openapi do produto (marque contract:\"proposed\" se for endpoint novo a criar)"; fail=1; }
+            echo "::endgroup::"
+          done
+          exit $fail
+
       # Em PR: enforce do versionamento semantico (gate unico, sempre executado).
       # Se um requisito mudou em campo semantico sem versionar (item_revision++ ,
       # semantic_change!=none, change_reason), FALHA. Em push (main) nao se aplica.

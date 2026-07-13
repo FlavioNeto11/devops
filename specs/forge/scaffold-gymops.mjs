@@ -614,7 +614,7 @@ function buildSsoRoute() {
     '---', 'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute',
     'metadata: { name: @@APP@@-sso, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
     'spec:', '  entryPoints: [web]', '  routes:',
-    '    - match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`@@BASE@@/api`)',
+    '    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`@@BASE@@/api`)',
     '      kind: Rule', '      priority: 41',
     '      services: [ { name: @@APP@@-api, port: 8080 } ]',
     '      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: @@APP@@-api-strip } ]', '',

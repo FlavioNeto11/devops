@@ -43,7 +43,7 @@ export function validateProduct(raw) {
 // ARCHITECT do gerador. Aqui só garantimos shape mínimo + tetos, e devolvemos um inventário SANEADO.
 // ---------------------------------------------------------------------------
 const FIELD_TYPES = new Set(['text', 'number', 'currency', 'date', 'datetime', 'boolean', 'enum', 'status', 'longtext']);
-const SCREEN_KINDS = new Set(['dashboard', 'list', 'create', 'edit', 'detail', 'custom']);
+const SCREEN_KINDS = new Set(['dashboard', 'list', 'create', 'edit', 'detail', 'custom', 'calendar', 'booking']);
 const NEUTRALS = new Set(['slate', 'graphite', 'zinc', 'warm']);
 const RADII = new Set(['sm', 'md', 'lg']);
 const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;

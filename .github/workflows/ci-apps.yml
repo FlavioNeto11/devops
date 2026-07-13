@@ -70,6 +70,7 @@ jobs:
             {"app":"portal-recorder-frontend","path":"portal-recorder/frontend","pm":"npm","prep":"","checks":"build"},
             {"app":"ai-control-plane-api","path":"ai-control-plane/api","pm":"npm","prep":"","checks":"test"},
             {"app":"reqhub-api","path":"reqhub/api","pm":"npm","prep":"","checks":"test"},
+            {"app":"besc-api","path":"besc/api","pm":"npm","prep":"","checks":"test"},
             {"app":"zapbridge-server","path":"zapbridge/server","pm":"npm","prep":"npx prisma generate","checks":"build"}
           ]
           JSON
@@ -98,6 +99,58 @@ jobs:
           fi
           echo "apps selecionados: $inc"
           echo "include=$inc" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # req-traceability — gate WARNING-FIRST (F8 Forja 4.1): PR que muda o codigo
+  # de um app COM contrato de produto (specs/products/<name>/product.json) sem
+  # citar um REQ-*/REF-* (titulo, corpo, branch) e sem tocar specs/** ganha um
+  # ::warning por app. NUNCA falha o PR — o objetivo e criar o habito de ligar
+  # mudanca a requisito (fonte da verdade), nao bloquear hotfix. A lista de
+  # produtos e derivada de specs/products/ em runtime (adoções futuras entram
+  # sozinhas, ex.: imobia/zapbridge/besc-next).
+  # ---------------------------------------------------------------------------
+  req-traceability:
+    name: rastreabilidade REQ (warning)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_SHA:-}" ] || ! git rev-parse -q --verify "$BASE_SHA^{commit}" >/dev/null 2>&1; then
+            echo "base do PR indisponivel — pulando (warning-first)"; exit 0
+          fi
+          changed="$(git diff --name-only "$BASE_SHA" HEAD || true)"
+          # PR que ja toca a base de requisitos esta rastreado por definicao.
+          if printf '%s\n' "$changed" | grep -q '^specs/'; then
+            echo "PR toca specs/** — rastreabilidade ok"; exit 0
+          fi
+          reftext="$PR_TITLE
+          $PR_BODY
+          $PR_BRANCH"
+          has_ref=0
+          if printf '%s' "$reftext" | grep -qE 'RE[QF]-[A-Z0-9]+-[0-9]+'; then has_ref=1; fi
+          missing=""
+          for pj in specs/products/*/product.json; do
+            [ -f "$pj" ] || continue
+            name="$(basename "$(dirname "$pj")")"
+            if printf '%s\n' "$changed" | grep -q "^apps/$name/" && [ "$has_ref" = "0" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning title=PR de app sem REQ::Este PR altera app(s) de produto ($missing ) sem citar um REQ-*/REF-* no titulo/corpo/branch e sem tocar specs/**. Ligue a mudanca a um requisito (ou crie um via /reqs) — a base de requisitos e a fonte da verdade."
+          else
+            echo "rastreabilidade ok"
+          fi
 
   apps:
     name: ${{ matrix.app }}

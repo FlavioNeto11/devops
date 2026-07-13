@@ -3,7 +3,35 @@
 # multiagente `generate-ui` (skill forge-build-ui) via `claude` headless no runner self-hosted.
 # Fecha o gap: a esteira constrói o BACKEND por requisito, mas o frontend ficava genérico. Este
 # workflow constrói as telas reais (CRUD por entidade + dashboard + assistente) sobre o kit ui-vue,
-# ancoradas aos requisitos, e faz deploy.
+# ancoradas aos requisitos.
+#
+# REGIME (Forja 4.1 F4 — decisão do operador): o motor NÃO commita mais direto na main e NÃO
+# deploya. O fluxo replica o padrão de segurança da esteira req-implement:
+#   1. o motor roda SEM credencial git (persist-credentials:false + nenhum GH_TOKEN no passo) —
+#      mesmo executando código, não consegue autenticar push/PR no remoto;
+#   2. a esteira NEUTRALIZA desvios do motor antes de validar (forense do run 28626996637 /
+#      PR #211): DISSOLVE qualquer commit local que o motor tenha criado (reset --mixed p/ a
+#      base — o motor commitou 180 arquivos como 'forge-bot' e o guard só via os 6 que restavam
+#      staged), DESCARTA toda mudança fora do blast-radius do PR do produto (apps/<prod>/** +
+#      specs/{products,requirements,refinements,baseline}/** — ex.: sync do kit ui-vue p/ OUTROS
+#      apps, trabalho legítimo de fluxo/PR dedicado; descarte listado em ::warning e preservado
+#      no artefato) e VALIDA o DIFF COMPLETO branch-vs-main com specs/tools/guard-worktree.mjs
+#      (barreira TÉCNICA: allowed_paths do produto + denylist — tests/locked/**, segredos,
+#      .github/**, platform/**, specs/requirements/**, ...) ANTES de qualquer push; após o
+#      commit o guard REVALIDA `git diff base..HEAD` (nada não-validado sobe);
+#   3. aprovado → commit em BRANCH `forge-ui/<produto>/r<run_id>` + PR com labels
+#      `claude-generated`+`forge-ui` e corpo rastreável (produto, run_id, nº de telas, inventário);
+#   4. merge = gate híbrido (validação → label `gpt-approved` por aprovador confiável + CI verde).
+#      NB: o auto-merge-validated só mescla sozinho PR com REQ-ID (Closes-Req/branch req/*) — este
+#      PR agrega N requisitos e não tem um REQ único, então o clique final do merge é do OPERADOR
+#      (intencional: mais conservador que o auto-merge);
+#   5. SEM deploy automático: após o merge, o operador dispara
+#      `gh workflow run forge-deploy.yml -f product=<produto>` (fluxo normal da Forja).
+#
+# PR GIGANTE (mitigação): o motor projeta o inventário COMPLETO e pode gerar dezenas de telas num
+# PR só (precedente: 47 views no neuroevolui). O input `scope` roda POR PARTES: passe uma lista de
+# REQ-IDs e só telas ancoradas neles entram na rodada — é o próprio filtro anti-fabricação do motor
+# (âncora fora da lista de requisitos passada → tela descartada) fazendo o recorte.
 #
 # DISPATCH MANUAL (decisão do dono): o operador dispara por produto — o motor é caro (~1h, milhões
 # de tokens), então NÃO roda automático em todo build. Para o concept→app COMPLETO: rode a esteira
@@ -25,27 +53,37 @@ on:
         description: "Produto da Forja (slug) — apps/<product> já na main, com requisitos em specs/requirements/<product>"
         type: string
         required: true
+      scope:
+        description: "Opcional: REQ-IDs (separados por vírgula/espaço) p/ rodar POR PARTES — só telas ancoradas neles entram nesta rodada (mitiga PR gigante). Vazio = inventário completo."
+        type: string
+        required: false
+        default: ""
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   build-ui:
-    name: Motor generate-ui (frontend de domínio) + deploy
+    name: Motor generate-ui (frontend de domínio) → branch + PR
     runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
     defaults:
       run:
         shell: pwsh
     env:
-      KUBECONFIG: C:\ProgramData\forge-kube\config
       PRODUCT: ${{ github.event.inputs.product }}
+      SCOPE: ${{ github.event.inputs.scope }}
     steps:
       - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: false   # a Claude/motor só EDITA; o git (commit/push) é passo separado.
+          persist-credentials: false   # a Claude/motor só EDITA; nenhuma credencial git no worktree.
+                                        # O token só é injetado no passo de publicação (pós-guard).
 
+      # PASSO 1 — motor headless, SEM nenhuma credencial git no ambiente (não há GH_TOKEN aqui;
+      # checkout com persist-credentials:false). Mesmo com permissões amplas de edição, o motor
+      # NÃO consegue autenticar push/PR — o git é todo da esteira, depois do guard.
       - name: Rodar o motor generate-ui (forge-build-ui) headless
         run: |
           $ErrorActionPreference = "Stop"
@@ -55,6 +93,8 @@ jobs:
           if (-not (Test-Path "apps/$prod") -or -not (Test-Path "specs/requirements/$prod")) {
             Write-Host "::error::produto '$prod' não encontrado (apps/$prod + specs/requirements/$prod). Rode a esteira primeiro."; exit 1
           }
+          $scope = ("$env:SCOPE").Trim()
+          if ($scope -and $scope -notmatch '^[A-Za-z0-9,\s-]+$') { Write-Host "::error::scope inválido (esperado: REQ-IDs separados por vírgula/espaço): '$scope'"; exit 1 }
           if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
           if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { Write-Host "::error::CLI 'claude' não encontrada no runner."; exit 1 }
           # Credencial: a CONTA Claude do runner (setup-token headless) é o PADRÃO e cobre backend+frontend.
@@ -67,36 +107,210 @@ jobs:
           } else {
             Write-Host "::error::Sem credencial Claude no runner (defina CLAUDE_CODE_OAUTH_TOKEN via 'claude setup-token', ou ANTHROPIC_API_KEY)."; exit 1
           }
+          # RODADA PARCIAL (mitigação de PR gigante): restringir args.requirements faz o filtro
+          # anti-fabricação do motor descartar toda tela ancorada fora da lista — recorte técnico,
+          # não só instrução de prompt.
+          $scopeClause = ""
+          if ($scope) {
+            Write-Host "Rodada PARCIAL — escopo: $scope"
+            $scopeClause = " RODADA PARCIAL: monte args.requirements SOMENTE com estes requisitos (id+title+statement lidos dos YAMLs): $scope. O filtro anti-fabricação do motor descarta telas ancoradas fora dessa lista — esta rodada constrói só as telas desses REQs."
+          }
           # O motor é um Workflow Claude multiagente — precisa rodar com permissões amplas (o operador
-          # disparou intencionalmente; o blast-radius é apps/<prod>/** + specs/{products,refinements}/<prod>).
-          $prompt = "Use a skill forge-build-ui para gerar/elevar o FRONTEND DE DOMÍNIO do produto '$prod'. Leia os requisitos em specs/requirements/$prod/ e o contrato specs/forge/ui-kit-contract.md, então rode o Workflow specs/forge/workflows/generate-ui.workflow.mjs com args { product: '$prod', appDir: 'apps/$prod', requirements: [{id,title,statement}] reais lidos dos YAMLs, contract: <texto do ui-kit-contract.md> }. O motor LÊ o backend existente (apps/$prod/api/src/server.js) e liga as telas às rotas reais; remove o /records placeholder. NÃO use git — este workflow cuida do commit/deploy. Ao final, reporte as telas construídas e lacunas."
+          # disparou intencionalmente; o blast-radius é garantido DEPOIS, pelo guard-worktree).
+          $prompt = "Use a skill forge-build-ui para gerar/elevar o FRONTEND DE DOMÍNIO do produto '$prod'. Leia os requisitos em specs/requirements/$prod/ e o contrato specs/forge/ui-kit-contract.md, então rode o Workflow specs/forge/workflows/generate-ui.workflow.mjs com args { product: '$prod', appDir: 'apps/$prod', requirements: [{id,title,statement}] reais lidos dos YAMLs, contract: <texto do ui-kit-contract.md> }.$scopeClause O motor LÊ o backend existente (apps/$prod/api/src/server.js) e liga as telas às rotas reais; remove o /records placeholder. NÃO use git — a esteira valida o diff (guard-worktree), commita em BRANCH e abre PR (sem deploy automático). Ao final, reporte as telas construídas e lacunas."
           claude -p $prompt --dangerously-skip-permissions --output-format json
-          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::claude saiu com $LASTEXITCODE — o motor pode ter concluído parcialmente; o passo de commit publica o que mudou." }
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::claude saiu com $LASTEXITCODE — o motor pode ter concluído parcialmente; o guard/PR publicam o que mudou." }
 
-      - name: Baseline + commit + push (main)
-        env:
-          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+      # PASSO 2 — neutralização de desvios do motor + BARREIRA TÉCNICA (guard) sobre o DIFF
+      # COMPLETO + commit em branch. Ainda SEM credencial git: este passo só escreve no repositório
+      # LOCAL; nada sobe sem passar pelo guard.
+      # Forense do run 28626996637 (PR #211): o motor commitou 180 arquivos como 'forge-bot' ANTES
+      # do guard; o `git add`+`diff --cached` só viam os 6 arquivos que restavam na working tree e
+      # o `checkout -B` herdou o commit NÃO validado — o PR saiu com 186 arquivos "validados" como
+      # 6. Além disso o sync do kit ui-vue p/ OUTROS apps (sicat/imobia/contaviva-pro/neuroevolui)
+      # entrou no PR do produto e derrubou o CI (teste LIVE de outro app). Este passo fecha os dois
+      # furos: (1a) dissolve commits do motor; (2) descarta o fora-de-escopo com transparência;
+      # (1b) guard sobre o diff completo + revalidação pós-commit do range da branch.
+      - name: Guard de blast-radius (diff completo) + commit em branch (sem credencial git)
+        id: guard
         run: |
           $ErrorActionPreference = "Stop"
           $PSNativeCommandUseErrorActionPreference = $false
           $prod = "$env:PRODUCT"
-          # o motor escreve REFs/brand → regenera a baseline p/ o specs-governance não acusar drift.
-          if (Test-Path scripts/specs-baseline-check.ps1) { pwsh -File scripts/specs-baseline-check.ps1 -Fix 2>$null }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "apps/$prod" "specs/products/$prod" "specs/refinements/$prod" specs/baseline packages/ui-vue packages/design-tokens 2>$null
-          $changed = @(git diff --cached --name-only)
-          if (-not $changed -or $changed.Count -eq 0) { Write-Host "::warning::motor não produziu mudanças — nada a publicar."; exit 0 }
-          Write-Host "Publicando $($changed.Count) arquivo(s)."
-          git commit -m "feat($prod): frontend de domínio gerado pelo motor generate-ui (forge-build-ui)" -m "Telas Vue ricas (CRUD por entidade + dashboard + assistente) sobre o kit ui-vue, ancoradas aos requisitos, sobre o backend existente. Gerado via greenfield-ui (dispatch manual)."
-          git pull --rebase "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git" main 2>$null
-          git push "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git" HEAD:main
-          Write-Host "::notice::greenfield-ui: frontend de '$prod' publicado na main."
+          # Base do run = main como foi checkoutada (o ref local origin/main não se move sozinho
+          # durante o run; github.sha poderia ficar defasado se a main andasse entre dispatch e
+          # checkout).
+          $base = "$(git rev-parse origin/main)".Trim()
+          if ($base -notmatch '^[0-9a-f]{40}$') { Write-Host "::error::base inválida: '$base'"; exit 1 }
+          # ===== FURO 1a — commits locais do motor são DISSOLVIDOS (nunca herdados sem validação).
+          # O reset --mixed devolve TUDO à working tree (nada se perde) e o diff completo passa a
+          # ser visível ao staging/descarte/guard abaixo.
+          $motorCommits = @(git log --format="%h %an: %s" "$base..HEAD" 2>$null)
+          if ($motorCommits.Count -gt 0) {
+            Write-Host "::warning::motor criou $($motorCommits.Count) commit(s) locais (a instrução é NÃO usar git) — dissolvidos p/ o guard validar o DIFF COMPLETO: $($motorCommits -join ' | ')"
+          }
+          git reset -q --mixed $base
+          # o motor escreve REFs/brand → regenera a baseline p/ o specs-governance não acusar drift no PR.
+          if (Test-Path scripts/specs-baseline-check.ps1) { pwsh -File scripts/specs-baseline-check.ps1 -Fix 2>$null }
+          # stage-a TUDO: com HEAD == base, o índice passa a conter o DIFF COMPLETO do motor vs
+          # main (o que estava commitado, staged ou solto) — nada escapa da validação por ordem
+          # de staging.
+          git add -A 2>$null
+          # NUNCA stage-ar os artefatos EFÊMEROS do próprio pipeline (lição da req-implement: o
+          # .git/info/exclude com CRLF no Windows não casa os padrões — reset explícito é robusto).
+          git reset -q -- changed.txt forge-ui-order.json forge-ui-diff.patch pr-body.md 2>$null
+          $all = @(git -c core.quotepath=false diff --cached --name-only --no-renames)
+          if (-not $all -or $all.Count -eq 0) {
+            Write-Host "::warning::motor não produziu mudança alguma — nada a publicar."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=false"
+            exit 0
+          }
+          # preserva o diff INTEGRAL do motor como artefato ANTES do descarte (o run é caro —
+          # inclusive o sync de kit descartado abaixo fica recuperável p/ o fluxo dedicado).
+          git diff --cached --no-renames | Set-Content -Encoding utf8 forge-ui-diff.patch
+          # ===== FURO 2 — DESCARTA (git restore/checkout) toda mudança FORA do blast-radius do
+          # PR do produto: apps/<prod>/** + specs/{products,requirements,refinements,baseline}/**.
+          # O sync do kit ui-vue p/ outros apps/packages é trabalho legítimo, mas pertence a um
+          # fluxo/PR dedicado — não ao PR do produto (no #211 ele arrastou o teste LIVE do
+          # contaviva-pro e derrubou o CI). O que SOBREVIVE ao descarte (ex.: apps/<prod>/tests/
+          # locked/**, specs/requirements/**) ainda enfrenta a denylist do guard — fail-closed.
+          function Test-InScope([string]$f) {
+            return ($f -like "apps/$prod/*") -or
+                   $f.StartsWith('specs/products/') -or $f.StartsWith('specs/requirements/') -or
+                   $f.StartsWith('specs/refinements/') -or $f.StartsWith('specs/baseline/')
+          }
+          $drop = @($all | Where-Object { $_ -and -not (Test-InScope $_) })
+          foreach ($f in $drop) {
+            git reset -q -- ":(literal)$f" 2>$null
+            git cat-file -e "HEAD:$f" 2>$null
+            if ($LASTEXITCODE -eq 0) { git checkout -q -- ":(literal)$f" }
+            else { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+          }
+          if ($drop.Count -gt 0) {
+            Write-Host "::warning::DESCARTADAS $($drop.Count) mudança(s) FORA do blast-radius do produto (não entram neste PR; diff integral preservado no artefato forge-ui-diff — sync do kit pertence a fluxo/PR dedicado): $($drop -join ', ')"
+          }
+          # ===== FURO 1b — BARREIRA TÉCNICA sobre o DIFF COMPLETO: com HEAD == base, o staged é
+          # EXATAMENTE o conteúdo que o PR vai ter (allowed_paths do produto + denylist).
+          $changed = @(git -c core.quotepath=false diff --cached --name-only --no-renames)
+          if (-not $changed -or $changed.Count -eq 0) {
+            Write-Host "::warning::motor não produziu mudanças no blast-radius do produto — nada a publicar."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=false"
+            exit 0
+          }
+          $changed | Set-Content -Encoding utf8 changed.txt
+          # ordem sintética no formato que o guard consome (objeto sem `orders` é usado direto);
+          # a DENYLIST vale SEMPRE, mesmo dentro do escopo (apps/*/tests/locked/**, .env, segredos,
+          # .github/**, platform/**, specs/requirements/**, ...). packages/** NÃO é mais
+          # allowed_path: o sync do kit é descartado acima — se sobreviver por bug, o guard reprova.
+          $order = [ordered]@{
+            req_id        = "FORGE-UI-" + $prod.ToUpper()
+            product_scope = $prod
+            restricted    = $false
+            allowed_paths = @(
+              "apps/$prod/**",
+              "specs/products/$prod/**",
+              "specs/refinements/$prod/**",
+              "specs/baseline/**"
+            )
+          }
+          $order | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 forge-ui-order.json
+          node specs/tools/guard-worktree.mjs --work-order forge-ui-order.json --changed-file changed.txt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::guard-worktree REPROVOU o diff do motor (fora do blast-radius) — branch/PR NÃO serão criados. O diff ficou no artefato forge-ui-diff p/ análise."
+            exit 1
+          }
+          # aprovado → a esteira commita em BRANCH (nunca na main).
+          $branch = "forge-ui/$prod/r${{ github.run_id }}"
+          git checkout -B "$branch"
+          git commit -m "feat(${prod}): frontend de domínio gerado pelo motor generate-ui (forge-build-ui)" -m "Telas Vue ricas (CRUD por entidade + dashboard) sobre o kit ui-vue, ancoradas aos requisitos, sobre o backend existente. Gerado via greenfield-ui (run_id=${{ github.run_id }}); merge pelo gate híbrido (gpt-approved, decisão do operador); deploy via forge-deploy APÓS o merge."
+          # ===== REVALIDAÇÃO pós-commit — o guard valida o range REAL da branch vs base (é ISTO
+          # que o push publica). Se qualquer coisa não-validada existir no range, aborta ANTES de
+          # existir credencial git no job.
+          $final = @(git -c core.quotepath=false diff --name-only --no-renames "$base..HEAD")
+          $final | Set-Content -Encoding utf8 changed.txt
+          node specs/tools/guard-worktree.mjs --work-order forge-ui-order.json --changed-file changed.txt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::REVALIDAÇÃO pós-commit reprovou: o diff da branch vs main contém arquivo não validado — publicação abortada."
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=true"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "branch=$branch"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "base_sha=$base"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "dropped=$($drop.Count)"
+          Write-Host "::notice::guard OK sobre o DIFF COMPLETO — $($final.Count) arquivo(s) na branch '$branch' (descartados fora do blast-radius: $($drop.Count))."
 
-      - name: Deploy (forge-deploy)
+      # O diff INTEGRAL do motor é preservado SEMPRE (aprovado, reprovado ou descartado): o run
+      # custa ~1h/milhões de tokens — se o guard bloquear, ou o descarte remover o sync do kit,
+      # o operador recupera o patch completo sem perder o trabalho.
+      - name: Preservar diff do motor (artefato)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-ui-diff
+          path: forge-ui-diff.patch
+          if-no-files-found: ignore
+
+      # PASSO 3 — publicação (push do branch + PR): ÚNICO passo com GH_TOKEN, roda só se o guard
+      # aprovou. O PR entra no gate híbrido da esteira: validação → label gpt-approved (aprovador
+      # confiável) + CI verde; o merge final é clique do OPERADOR (sem Closes-Req, o
+      # auto-merge-validated não mescla sozinho — intencional). SEM deploy automático.
+      - name: Publicar branch + PR (único passo com GH_TOKEN)
+        if: steps.guard.outputs.has_pr == 'true'
         env:
           GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.guard.outputs.branch }}
+          BASE_SHA: ${{ steps.guard.outputs.base_sha }}
+          DROPPED: ${{ steps.guard.outputs.dropped }}
+          RUN_ID: ${{ github.run_id }}
         run: |
+          $ErrorActionPreference = "Stop"
           $prod = "$env:PRODUCT"
-          gh workflow run forge-deploy.yml --repo "${{ github.repository }}" -f product="$prod"
-          Write-Host "::notice::forge-deploy disparado p/ '$prod' — frontend + api sobem com as telas novas."
+          $branch = "$env:BRANCH"
+          # defesa: valida branch name e base antes de qualquer uso (mesmo padrão da req-implement).
+          if ($branch -notmatch '^forge-ui/[a-z][a-z0-9-]{1,30}/r[0-9]+$') { Write-Host "::error::branch inválido: '$branch'"; exit 1 }
+          $base = "$env:BASE_SHA"
+          if ($base -notmatch '^[0-9a-f]{40}$') { Write-Host "::error::base_sha inválido: '$base'"; exit 1 }
+          gh auth setup-git    # helper de credencial do git p/ usar GH_TOKEN (só neste passo)
+          # labels da esteira (gh pr create ABORTA se um label falta).
+          gh label create claude-generated --color 1d76db --description "Gerado pela Claude (esteira)" 2>$null
+          gh label create forge-ui         --color d93f0b --description "Frontend gerado pelo motor generate-ui (Forja)" 2>$null
+          gh label create gpt-approved     --color 5319e7 --description "Validado no ChatGPT (auto-merge)" 2>$null
+          git push -u origin "$branch"
+          # corpo rastreável: estatísticas do DIFF COMPLETO da branch vs main, RECOMPUTADO do git
+          # (nunca de arquivo intermediário — no run 28626996637 o changed.txt via 6 de 186
+          # arquivos e o corpo do PR reportou estatística falsa).
+          $changed = @(git -c core.quotepath=false diff --name-only --no-renames "$base..HEAD")
+          $dropped = 0; if ("$env:DROPPED" -match '^[0-9]+$') { $dropped = [int]$env:DROPPED }
+          $views = @($changed | Where-Object { $_ -match "^apps/$prod/frontend/src/views/.+\.vue$" })
+          $refs  = @($changed | Where-Object { $_ -match "^specs/refinements/$prod/.+\.yaml$" })
+          $scope = ("$env:SCOPE").Trim(); if (-not $scope) { $scope = "completo (todos os requisitos do produto)" }
+          $lines = @()
+          $lines += "Frontend de domínio de **$prod** gerado pelo motor ``generate-ui`` (skill forge-build-ui) via ``greenfield-ui``."
+          $lines += ""
+          $lines += "## Rastreabilidade"
+          $lines += "- Produto: ``$prod``"
+          $lines += "- Run do motor: [$env:RUN_ID](https://github.com/${{ github.repository }}/actions/runs/$env:RUN_ID)"
+          $lines += "- Escopo da rodada: $scope"
+          $lines += "- Telas (views Vue) no diff: **$($views.Count)**"
+          foreach ($v in $views) { $lines += "  - ``$v``" }
+          $lines += "- Refinamentos (REF-*) no diff: **$($refs.Count)**"
+          $lines += "- Arquivos alterados: **$($changed.Count)** — DIFF COMPLETO da branch vs main (recomputado do git no push), validado por ``specs/tools/guard-worktree.mjs`` (allowed_paths do produto + denylist) + revalidação pós-commit."
+          if ($dropped -gt 0) { $lines += "- Mudanças do motor FORA do blast-radius: **$dropped arquivo(s) descartados** deste PR (ex.: sync do kit ui-vue p/ outros apps — pertence a fluxo/PR dedicado; lista no ::warning do run, diff integral no artefato ``forge-ui-diff``)." }
+          $lines += ""
+          $lines += "## Gate (decisão do operador)"
+          $lines += "- Merge SOMENTE após validação no ChatGPT → label ``gpt-approved`` (aplicado por aprovador confiável) + CI verde."
+          $lines += "- Este PR agrega N requisitos (sem ``Closes-Req`` único), então o ``auto-merge-validated`` NÃO mescla sozinho — o clique final do merge é do operador."
+          $lines += "- **SEM deploy automático**: após o merge, dispare ``gh workflow run forge-deploy.yml -f product=$prod``."
+          $lines += ""
+          $lines += "## PR grande?"
+          $lines += "O motor projeta o inventário completo (precedente: 47 views no neuroevolui). Para revisar por partes, feche este PR sem mesclar e re-rode o ``greenfield-ui`` com o input ``scope`` (lista de REQ-IDs) — só telas ancoradas neles entram por rodada."
+          $lines += ""
+          $lines += "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+          $lines | Set-Content -Encoding utf8 pr-body.md
+          gh pr create --base main --head "$branch" `
+            --title "feat(${prod}): frontend de domínio via motor generate-ui (forge-ui r$env:RUN_ID)" `
+            --label claude-generated --label forge-ui `
+            --body-file pr-body.md
+          Write-Host "::notice::greenfield-ui: PR aberto p/ '$prod' em '$branch' — merge pelo gate híbrido; deploy via forge-deploy após o merge."

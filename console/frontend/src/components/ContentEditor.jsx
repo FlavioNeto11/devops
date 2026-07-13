@@ -80,7 +80,7 @@ function SectionDrawer({ section, onClose, onSaved }) {
 }
 
 // ===========================================================================
-export default function ContentEditor({ initialId = null, me = null, autoNew = false }) {
+export default function ContentEditor({ initialId = null, me = null, autoNew = false, embed = false, onNavigate = null }) {
   const toast = useToast();
   const isAdmin = !!me?.isAdmin;
   const [wizard, setWizard] = useState(false);
@@ -142,6 +142,13 @@ export default function ContentEditor({ initialId = null, me = null, autoNew = f
 
   const sel = projects.find((p) => p.id === selId) || null;
   const liveApp = liveAppFor(apps, sel);
+
+  // (E4) modo embed: anuncia ao pai (Product Studio) o portal em edição — dispara na
+  // seleção inicial e a cada navegação interna. No modo normal (sem onNavigate) é inerte.
+  const selKey = sel ? sel.key : null;
+  useEffect(() => {
+    if (onNavigate && selKey) onNavigate({ view: 'conteudo', projeto: selKey });
+  }, [onNavigate, selKey]);
 
   // Prévia/edição visual funciona quando há um frontend que fala o protocolo
   // cmsEdit: app dedicado VIVO no cluster (rmambiental/anarabottini) OU o
@@ -223,10 +230,14 @@ export default function ContentEditor({ initialId = null, me = null, autoNew = f
             </a>
           )}
           {/* (A4) criação unificada: novos portais nascem na Forja (fork "portal de conteúdo" →
-              volta para cá com ?novo=1 abrindo o assistente). NewPortalWizard permanece como executor. */}
-          <a className="btn btn--primary" href="/reqs/#/forge" title="A criação (portal ou sistema) começa na Forja — o trilho de portal volta para este editor">
-            <Icon name="plus" size={16} /> Criar na Forja →
-          </a>
+              volta para cá com ?novo=1 abrindo o assistente). NewPortalWizard permanece como executor.
+              (E4) No modo embed o CTA some: o operador JÁ está dentro do Studio (evita navegar a
+              Forja dentro do próprio iframe do editor). */}
+          {!embed && (
+            <a className="btn btn--primary" href="/reqs/#/forge" title="A criação (portal ou sistema) começa na Forja — o trilho de portal volta para este editor">
+              <Icon name="plus" size={16} /> Criar na Forja →
+            </a>
+          )}
         </>
       )} />
 

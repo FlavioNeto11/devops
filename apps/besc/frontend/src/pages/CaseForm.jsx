@@ -9,6 +9,7 @@ const EMPTY = {
   summary: '', origin: '', acquisition_date: '', share_quantity: '', share_class: 'unknown',
   certificate_count: '', registrar: '', right_type: 'indeterminado', liquidity_status: 'indeterminado',
   estimated_value: '', notes: '',
+  mechanism: 'indefinido', target_creditor_type: 'outro', target_creditor_name: '', legal_basis_notes: '',
 };
 
 export default function CaseForm() {
@@ -46,7 +47,7 @@ export default function CaseForm() {
 
   return (
     <>
-      <div className="crumbs"><Link to="/">Casos</Link> / {editing ? 'Editar caso' : 'Novo caso'}</div>
+      <div className="crumbs"><Link to="/casos">Casos</Link> / {editing ? 'Editar caso' : 'Novo caso'}</div>
       <div className="pgtitle"><h1>{editing ? 'Editar caso' : 'Cadastro do caso'}</h1></div>
       <Banner kind="err">{error}</Banner>
 
@@ -110,6 +111,24 @@ export default function CaseForm() {
         </fieldset>
 
         <fieldset>
+          <legend><Icon name="layers" size={14} /> Mecanismo e credor-alvo</legend>
+          <div className="form-grid">
+            <Field label="Mecanismo pretendido" help="Como se pretende usar as ações para liquidar o passivo." example="Compensar dívida com o Banco do Brasil → “Compensação”. Oferecer como garantia → “Caução”.">
+              <EnumSelect enumName="mechanism" value={form.mechanism} onChange={setEnum('mechanism')} />
+            </Field>
+            <Field label="Natureza do credor-alvo" help="Contra qual passivo/credor as ações serão usadas." example="Dívida de ICMS → “Tributo estadual”. Financiamento bancário → “Banco privado”.">
+              <EnumSelect enumName="target_creditor_type" value={form.target_creditor_type} onChange={setEnum('target_creditor_type')} />
+            </Field>
+            <Field label="Identificação do credor" hint="Nome do credor/órgão" example="“Fazenda Estadual SC”, “Banco X S.A.”">
+              <input value={form.target_creditor_name} onChange={set('target_creditor_name')} />
+            </Field>
+            <Field label="Base legal invocada" help="Fundamentos citados (organizacional, não é parecer)." example="CPC art. 805 (menor onerosidade); sub-rogação do BB.">
+              <input value={form.legal_basis_notes} onChange={set('legal_basis_notes')} />
+            </Field>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend><Icon name="file" size={14} /> Descrição</legend>
           <Field label="Resumo do caso" help="Conte a história em poucas linhas." example="“Herdeiros de titular de 1.200 ações ON do BESC; ação judicial discute a relação de troca na incorporação pelo BB.”">
             <textarea value={form.summary} onChange={set('summary')} rows={3} />
@@ -119,7 +138,7 @@ export default function CaseForm() {
 
         <div className="row">
           <button className="btn primary" disabled={saving} type="submit">{saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Cadastrar caso'}</button>
-          <Link className="btn" to={editing ? `/cases/${id}` : '/'}>Cancelar</Link>
+          <Link className="btn" to={editing ? `/cases/${id}` : '/casos'}>Cancelar</Link>
         </div>
       </div></form>
     </>
