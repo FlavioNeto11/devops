@@ -27,6 +27,7 @@ import { broadcast } from './events.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
+// GET / é CONTRATO do gate forge-tests: o CI confere {"app":"contaviva-360"} antes dos testes LOCKED.
 app.get('/', async () => ({ app: 'contaviva-360', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/me', async (req) => ({ role: req.role, user: req.user, tenantId: req.tenantId }));

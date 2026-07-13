@@ -46,6 +46,7 @@ app.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, (_req, bo
 
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.actor = ctx.user; });
 
+// GET / é CONTRATO do gate forge-tests: o CI confere {"app":"neuroevolui"} antes dos testes LOCKED.
 app.get('/', async () => ({ app: 'neuroevolui', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 
