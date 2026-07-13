@@ -18,6 +18,7 @@ try {
 // helper: opções da rota com rate-limit SÓ se o plugin carregou (senão objeto vazio = sem limite).
 const authLimited = (opts) => authRateLimitOn ? { ...opts, config: { ...(opts && opts.config), rateLimit: AUTH_RATE } } : (opts || {});
 app.addHook('onRequest', async (req) => { req.tenantId = Number(req.headers['x-tenant-id']) || 1; });
+// GET / é CONTRATO do gate forge-tests: o CI confere {"app":"contaviva-pro"} antes dos testes LOCKED.
 app.get('/', async () => ({ app: 'contaviva-pro', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));

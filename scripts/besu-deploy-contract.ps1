@@ -4,17 +4,24 @@
 # (gera um endereco novo a cada run; guarde o endereco retornado).
 #
 # Uso:
-#   scripts\besu-deploy-contract.ps1                 # usa a chave dev do no --network=dev
+#   $env:BESU_DEV_PRIVATE_KEY = '0x...'              # chave dev pre-fundeada do --network=dev
+#   scripts\besu-deploy-contract.ps1
 #   scripts\besu-deploy-contract.ps1 -PrivateKey 0x... -RpcUrl http://localhost:18545
 #
+# A chave NAO fica mais hardcoded aqui (mesmo a dev key publica do Besu dispara o
+# secret-scan e normaliza maus habitos). Para o no --network=dev, use a "dev key"
+# pre-fundeada documentada no proprio Besu (docs "Developer mode"). Producao: HSM/KMS.
 # Depois: seale a chave/endereco no Secret besc-config e ligue LEDGER_ADAPTER=besu.
 [CmdletBinding()]
 param(
   [string]$RpcUrl = "http://localhost:18545",
-  # chave dev pre-fundeada do Besu --network=dev (NAO usar em producao; trocar por HSM/KMS)
-  [string]$PrivateKey = "0x8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63"
+  # sem default no codigo: vem do parametro ou de $env:BESU_DEV_PRIVATE_KEY (fail-fast abaixo)
+  [string]$PrivateKey = $env:BESU_DEV_PRIVATE_KEY
 )
 $ErrorActionPreference = "Stop"
+if (-not $PrivateKey) {
+  throw "Informe a chave: -PrivateKey 0x... ou `$env:BESU_DEV_PRIVATE_KEY. Para o no local --network=dev, use a dev key pre-fundeada documentada no Besu (Developer mode)."
+}
 $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 
 Write-Host "== port-forward para o no Besu (svc/besc-besu:8545 -> ${RpcUrl}) =="
