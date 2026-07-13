@@ -62,6 +62,7 @@ export function MessageBubble({
   onReply,
   onReact,
   onForward,
+  onRetry,
 }: {
   message: Message;
   isGroup?: boolean;
@@ -69,6 +70,7 @@ export function MessageBubble({
   onReply?: (m: Message) => void;
   onReact?: (m: Message, emoji: string) => void;
   onForward?: (m: Message) => void;
+  onRetry?: (m: Message) => void;
 }) {
   const mine = message.fromMe;
   const showSender = isGroup && !mine;
@@ -187,6 +189,19 @@ export function MessageBubble({
             {mine && <StatusTick status={message.status} />}
           </div>
         </div>
+
+        {mine && message.status === 'error' && onRetry && (
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px]">
+            <span className="text-danger">Falha ao enviar.</span>
+            <button
+              onClick={() => onRetry(message)}
+              className="text-primary font-semibold underline underline-offset-2"
+              aria-label="Tentar enviar novamente"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        )}
 
         {reactions.length > 0 && <ReactionBadge reactions={reactions} />}
       </div>

@@ -86,6 +86,7 @@
   }
 }
 html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 ::selection { background: rgb(var(--ui-accent) / 0.22); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: rgb(var(--ui-bg)); }

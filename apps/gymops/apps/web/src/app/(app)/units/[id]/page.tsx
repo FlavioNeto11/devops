@@ -12,6 +12,7 @@ import { NewActivityDialog } from '@/components/activities/NewActivityDialog';
 import { AiDraftDialog } from '@/components/ai/AiDraftDialog';
 import { DailySummaryBadge } from '@/components/ai/DailySummaryBadge';
 import { TutorialTrigger } from '@/features/tutorial';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { useAuthStore } from '@/store/auth';
 import type { ApiResponse } from '@gymops/shared';
 
@@ -117,7 +118,7 @@ export default function UnitPage({ params }: { params: { id: string } }) {
   });
 
   // Activities list (separate query for filters)
-  const { data: activitiesRes, isLoading } = useQuery({
+  const { data: activitiesRes, isLoading, isError, refetch } = useQuery({
     queryKey: ['activities', params.id, filterStatus, filterPriority, filterOverdue],
     queryFn: () =>
       activitiesApi.list({
@@ -233,8 +234,18 @@ export default function UnitPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
-      {/* Areas accordion */}
-      {isLoading ? (
+      {/* Areas accordion — erro só substitui o conteúdo quando não há dados; com dados stale, banner acima */}
+      {isError && activitiesRes && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !activitiesRes ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />)}
         </div>

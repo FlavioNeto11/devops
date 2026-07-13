@@ -33,14 +33,21 @@ export function WhatsAppTabBar({ active, unread = 0 }: { active: TabKey; unread?
 
   return (
     <nav
+      aria-label="Navegação principal"
       className="flex border-t border-line bg-header pt-2"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
     >
       {TABS.map((t) => {
         const activeT = t.key === active;
         return (
-          <button key={t.key} onClick={() => go(t.key)} className="flex-1 flex flex-col items-center gap-0.5">
-            <div className="relative">
+          <button
+            key={t.key}
+            onClick={() => go(t.key)}
+            aria-current={activeT ? 'page' : undefined}
+            aria-label={t.key === 'chats' && unread > 0 ? `${t.label}, ${unread} não lidas` : t.label}
+            className="flex-1 flex flex-col items-center gap-0.5"
+          >
+            <div className="relative" aria-hidden="true">
               <TabIcon tab={t.key} active={activeT} />
               {t.key === 'chats' && unread > 0 && (
                 <span className="absolute -top-1 -right-2 min-w-[17px] h-[17px] px-1 rounded-full bg-primary text-bg text-[10px] font-extrabold grid place-items-center">

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Upload, FileJson, Wifi, ChevronRight, RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 import { importsApi, integrationsApi } from '@/lib/imports-api';
 import type { BoardPreview, BoardMapping, ListMapping, ImportMapping } from '@/lib/imports-api';
@@ -72,7 +73,11 @@ export default function ImportPage() {
   }
 
   // Trello boards for API mode
-  const { data: trelloBoardsData } = useQuery({
+  const {
+    data: trelloBoardsData,
+    isError: boardsError,
+    refetch: refetchBoards,
+  } = useQuery({
     queryKey: ['trello-boards', organizationId],
     queryFn: () => integrationsApi.getTrelloBoards(organizationId!),
     enabled: mode === 'api' && step === 'boards',
@@ -265,7 +270,20 @@ export default function ImportPage() {
       {step === 'boards' && (
         <div className="space-y-4">
           <p className="text-sm font-medium">Selecione os boards a importar:</p>
-          {trelloBoards.length === 0 ? (
+          {boardsError && trelloBoardsData && (
+            <QueryErrorState
+              className="py-4"
+              title="Não foi possível atualizar"
+              description="Exibindo os últimos boards carregados."
+              onRetry={() => refetchBoards()}
+            />
+          )}
+          {boardsError && !trelloBoardsData ? (
+            <QueryErrorState
+              description="Não foi possível listar os boards do Trello."
+              onRetry={() => refetchBoards()}
+            />
+          ) : trelloBoards.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Carregando boards do Trello...

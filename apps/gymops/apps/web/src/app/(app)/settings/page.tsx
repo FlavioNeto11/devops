@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bell, Mail, Smartphone, MessageCircle, CheckCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { notificationsApi } from '@/lib/activities-api';
 import { integrationsExtApi, deliveriesApi } from '@/lib/admin-api';
 import { TutorialTrigger } from '@/features/tutorial';
@@ -52,7 +53,7 @@ export default function SettingsPage() {
     else if (Notification.permission === 'granted') setPushStatus('subscribed');
   }, []);
 
-  const { data: prefsData, isLoading } = useQuery({
+  const { data: prefsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['notification-preferences'],
     queryFn: () => notificationsApi.getPreferences(),
   });
@@ -81,7 +82,7 @@ export default function SettingsPage() {
     onError: () => toast.error('Erro ao salvar preferência'),
   });
 
-  const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
+  const { data: deliveriesData, isLoading: deliveriesLoading, isError: deliveriesError, refetch: refetchDeliveries } = useQuery({
     queryKey: ['notification-deliveries', organizationId],
     queryFn: () => deliveriesApi.list({ organizationId: organizationId ?? undefined }),
     enabled: !!organizationId && showDeliveries && isAdmin,
@@ -133,6 +134,13 @@ export default function SettingsPage() {
           <Bell className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Notificações</h2>
         </div>
+
+        {isError && (
+          <QueryErrorState
+            description="As preferências exibidas podem não refletir o estado salvo."
+            onRetry={() => refetch()}
+          />
+        )}
 
         <div className="divide-y rounded-lg border">
           {CHANNELS.map(({ key, label, description, icon: Icon }) => {
@@ -242,8 +250,18 @@ export default function SettingsPage() {
               {showDeliveries ? 'Ocultar' : 'Ver log'}
             </Button>
           </div>
+          {showDeliveries && deliveriesError && deliveriesData && (
+            <QueryErrorState
+              className="py-4"
+              title="Não foi possível atualizar"
+              description="Exibindo os últimos dados carregados."
+              onRetry={() => refetchDeliveries()}
+            />
+          )}
           {showDeliveries && (
-            deliveriesLoading ? (
+            deliveriesError && !deliveriesData ? (
+              <QueryErrorState onRetry={() => refetchDeliveries()} />
+            ) : deliveriesLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : (deliveriesData?.data ?? []).length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">Nenhum registro de entrega encontrado.</div>

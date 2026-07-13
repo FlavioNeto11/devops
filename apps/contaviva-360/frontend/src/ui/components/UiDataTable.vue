@@ -11,7 +11,10 @@
             </th>
             <th v-for="c in columns" :key="c.key" scope="col" :data-align="c.align || 'left'"
                 :data-sortable="c.sortable ? 'true' : null" :aria-sort="ariaSort(c)"
-                @click="c.sortable && requestSort(c.key)">
+                :tabindex="c.sortable ? 0 : null"
+                @click="c.sortable && requestSort(c.key)"
+                @keydown.enter="c.sortable && requestSort(c.key)"
+                @keydown.space.prevent="c.sortable && requestSort(c.key)">
               <span class="ui-dt-th">{{ c.label }}<span v-if="c.sortable" class="ui-dt-arrow" aria-hidden="true">{{ sortIcon(c.key) }}</span></span>
             </th>
           </tr>
@@ -24,7 +27,10 @@
         </tbody>
         <tbody v-else>
           <tr v-for="row in viewRows" :key="row[rowKey]" :data-clickable="clickableRows ? 'true' : null"
-              @click="clickableRows && $emit('row-click', row)">
+              :tabindex="clickableRows ? 0 : null"
+              @click="clickableRows && $emit('row-click', row)"
+              @keydown.enter.self="clickableRows && $emit('row-click', row)"
+              @keydown.space.self.prevent="clickableRows && $emit('row-click', row)">
             <td v-if="selectable" class="ui-dt-check" @click.stop>
               <input type="checkbox" :checked="isSelected(row)" :aria-label="'Selecionar linha'" @change="toggleRow(row)" />
             </td>

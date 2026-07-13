@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchOverview, fetchPods } from '../api.js';
+import { fetchEvents, fetchOverview, fetchPods } from '../api.js';
 import { ageFrom, phaseBadgeClass, shortImage, asCount } from '../format.js';
 import { CardSkeleton, TableSkeleton } from './Skeleton.jsx';
+
+/** Máximo de eventos exibidos no painel "Eventos recentes". */
+const EVENTS_LIMIT = 15;
 
 /**
  * Overview
@@ -23,18 +26,26 @@ import { CardSkeleton, TableSkeleton } from './Skeleton.jsx';
 export default function Overview({ streamData, streamStatus }) {
   const [counts, setCounts] = useState(null);
   const [pods, setPods] = useState([]);
+  const [events, setEvents] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [podFilter, setPodFilter] = useState('');
 
-  // Fetch inicial: overview (contagens) + pods (tabela), em paralelo.
+  // Fetch inicial: overview (contagens) + pods (tabela) + eventos, em paralelo.
   const load = useCallback(async (signal) => {
     setError(null);
     try {
       const opt = signal ? { signal } : undefined;
-      const [ov, podList] = await Promise.all([fetchOverview(opt), fetchPods(opt)]);
+      const [ov, podList, evts] = await Promise.all([
+        fetchOverview(opt),
+        fetchPods(opt),
+        // Eventos degradam graciosamente: falha aqui não derruba o overview inteiro
+        // (o snapshot SSE repõe a lista no próximo frame).
+        fetchEvents(opt).catch(() => []),
+      ]);
       setCounts(ov?.counts || null);
       setPods(Array.isArray(podList) ? podList : []);
+      setEvents(Array.isArray(evts) ? evts : []);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
       setError(err.message || String(err));
@@ -49,11 +60,12 @@ export default function Overview({ streamData, streamStatus }) {
     return () => ctrl.abort();
   }, [load]);
 
-  // Atualizacao em tempo real a partir do snapshot SSE.
+  // Atualizacao em tempo real a partir do snapshot SSE (que já traz `events`).
   useEffect(() => {
     if (!streamData) return;
     if (streamData.overview?.counts) setCounts(streamData.overview.counts);
     if (Array.isArray(streamData.pods)) setPods(streamData.pods);
+    if (Array.isArray(streamData.events)) setEvents(streamData.events);
     setLoading(false);
   }, [streamData]);
 
@@ -65,9 +77,14 @@ export default function Overview({ streamData, streamStatus }) {
         <CardSkeleton count={8} />
         <h2 className="section-title">Pods</h2>
         <TableSkeleton rows={6} cols={7} />
+        <h2 className="section-title">Eventos recentes</h2>
+        <TableSkeleton rows={4} cols={5} />
       </section>
     );
   }
+
+  const visiblePods = pods.filter((p) => !podFilter
+    || `${p.name} ${p.namespace}`.toLowerCase().includes(podFilter.toLowerCase()));
 
   return (
     <section className="overview" aria-label="Visao geral do cluster">
@@ -123,7 +140,17 @@ export default function Overview({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {pods.filter((p) => !podFilter || `${p.name} ${p.namespace}`.toLowerCase().includes(podFilter.toLowerCase())).map((p) => {
+            {pods.length > 0 && visiblePods.length === 0 && (
+              <tr>
+                <td colSpan={7} className="table__empty">
+                  Nenhum resultado para "{podFilter}".{' '}
+                  <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => setPodFilter('')}>
+                    Limpar filtro
+                  </button>
+                </td>
+              </tr>
+            )}
+            {visiblePods.map((p) => {
               const ready = readyText(p);
               const restarts = asCount(p.restartCount);
               return (
@@ -146,6 +173,52 @@ export default function Overview({ streamData, streamStatus }) {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Eventos recentes do cluster: fetch inicial (/events) + campo `events` do
+          snapshot SSE que o App já entrega — nenhuma mudança no backend. */}
+      <h2 className="section-title">Eventos recentes</h2>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Motivo</th>
+              <th>Objeto</th>
+              <th>Mensagem</th>
+              <th className="num">Idade</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.length === 0 && (
+              <tr>
+                <td colSpan={5} className="table__empty">
+                  Nenhum evento recente.
+                </td>
+              </tr>
+            )}
+            {events.slice(0, EVENTS_LIMIT).map((e, idx) => (
+              <tr key={`${e.namespace || ''}/${e.name || idx}`}>
+                <td>
+                  <span className={e.type === 'Warning' ? 'badge badge-err' : 'badge badge-muted'}>
+                    {e.type || '—'}
+                  </span>
+                </td>
+                <td className="mono">
+                  {e.reason || '—'}
+                  {asCount(e.count) > 1 && <span className="muted"> ×{e.count}</span>}
+                </td>
+                <td className="mono" title={e.involvedObject?.namespace || e.namespace || ''}>
+                  {e.involvedObject
+                    ? `${e.involvedObject.kind || '?'}/${e.involvedObject.name || '?'}`
+                    : '—'}
+                </td>
+                <td>{e.message || '—'}</td>
+                <td className="num">{e.timestamp ? ageFrom(e.timestamp) : (e.age || '—')}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

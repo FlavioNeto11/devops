@@ -192,6 +192,7 @@ export function deriveForgeTokensCss(brandIn) {
   out.push('  }');
   out.push('}');
   out.push('html { scroll-behavior: smooth; }');
+  out.push('@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }');
   out.push('::selection { background: rgb(var(--ui-accent) / 0.22); }');
   out.push('::-webkit-scrollbar { width: 10px; height: 10px; }');
   out.push('::-webkit-scrollbar-track { background: rgb(var(--ui-bg)); }');

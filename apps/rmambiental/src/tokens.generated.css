@@ -47,6 +47,7 @@
 }
 
 html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 section[id] { scroll-margin-top: 92px; }
 ::selection { background: rgb(var(--neon) / var(--selection-alpha)); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
