@@ -8,6 +8,11 @@
 #       e roda os testes LOCKED com BASE_URL setado e SERIAL (--test-concurrency=1, pois compartilham
 #       uma instância) => os testes de integração/aceite RODAM DE VERDADE (antes skipavam sem BASE_URL
 #       e o gate "passava" sem testar nada).
+#       Anti-corrida entre apps (bug real do PR #244): o wait de /health também confirma a IDENTIDADE
+#       de quem responde (GET / dos scaffolds da Forja retorna {"app":"<name>"} — rota raiz é CONTRATO
+#       deste gate) e, ao final de cada app, o kill ESPERA o processo morrer e a porta 8080 liberar.
+#       Sem isso, o app seguinte caía em EADDRINUSE (só no log), o /health respondia 200 pelo processo
+#       ANTIGO e os testes LOCKED rodavam contra a API errada (404 em rota que existe).
 #   (3a) CONTRATO (F3-prep Forja 4.1) — app contract-first (script validate:openapi no api/package.json)
 #        roda `npm run validate:openapi`: rota implementada fora do openapi (ou vice-versa) FALHA o PR.
 #        Antes NENHUM workflow raiz rodava esse gate (drift passava verde, ex.: PR #136).
@@ -109,19 +114,33 @@ jobs:
               ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
                   JWT_SECRET=forge-test-secret BOOTSTRAP_ADMIN_EMAIL=admin@local BOOTSTRAP_ADMIN_PASSWORD=forge-test-admin \
                   DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
+              # espera /health responder E confirma que quem responde é ESTE app: GET / dos scaffolds
+              # retorna {"app":"<name>"}. Sem a identidade, um processo anterior ainda vivo na 8080
+              # responde 200 e os testes LOCKED rodam contra a API ERRADA (corrida real do PR #244).
               ok=0
               for i in $(seq 1 40); do
-                if curl -sf http://localhost:8080/health >/dev/null 2>&1; then ok=1; break; fi
+                if curl -sf http://localhost:8080/health >/dev/null 2>&1; then
+                  if curl -sf http://localhost:8080/ | grep -q "\"app\":\"$name\""; then ok=1; break; fi
+                  echo "$name: 8080 respondeu /health, mas GET / não identifica este app (processo anterior ainda na porta?) — aguardando"
+                fi
                 sleep 1
               done
               if [ "$ok" != "1" ]; then
-                echo "::error::$name: app NÃO subiu (/health não respondeu) — log:"; tail -n 40 /tmp/$name-app.log || true; fail=1
+                echo "::error::$name: app NÃO subiu na 8080 com a identidade dele (/health mudo, EADDRINUSE ou GET / sem {\"app\":\"$name\"}) — log:"; tail -n 40 /tmp/$name-app.log || true; fail=1
               else
                 mapfile -t TFILES < <(find "apps/$name/tests/locked" -name '*.test.mjs' -type f)
                 if [ "${#TFILES[@]}" -eq 0 ]; then echo "::error::$name: nenhum teste LOCKED"; fail=1; fi
                 BASE_URL="http://localhost:8080" FORGE_TEST_HEADERS="$IDENT" node --test --test-concurrency=1 "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
               fi
-              kill "$(cat /tmp/$name-app.pid 2>/dev/null)" >/dev/null 2>&1 || true
+              # derruba o app e ESPERA morrer + porta liberar — kill sem wait deixava o processo antigo
+              # segurando a 8080 e o próximo app caía em EADDRINUSE (corrida real do PR #244).
+              APP_PID="$(cat /tmp/$name-app.pid 2>/dev/null || true)"
+              if [ -n "$APP_PID" ]; then
+                kill "$APP_PID" >/dev/null 2>&1 || true
+                for i in $(seq 1 20); do kill -0 "$APP_PID" 2>/dev/null || break; sleep 0.5; done
+                kill -9 "$APP_PID" >/dev/null 2>&1 || true
+              fi
+              for i in $(seq 1 20); do curl -sf -o /dev/null http://localhost:8080/health 2>/dev/null || break; sleep 0.5; done
               echo "::endgroup::"
             fi
           done
