@@ -1,8 +1,1 @@
-{
-  "name": "ContaViva 360",
-  "accent": "#4f46e5",
-  "neutralBase": "slate",
-  "radius": "md",
-  "displayFont": "Sora",
-  "vibe": ""
-}
+{"name":"ContaViva 360","accent":"#1d6b52","neutralBase":"slate","radius":"md","displayFont":"Inter","vibe":"Profissional, confiável e preciso — verde-esmeralda escuro evoca solidez fiscal; slate neutro mantém legibilidade em tabelas densas de dados contábeis"}

@@ -1,0 +1,85 @@
+id: REF-CONTAVIVA360-0030
+slug: nf-clients-create
+title: Novo Cliente NF
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: formulário de cadastro de cliente para emissão de NF
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: relates_to
+    note: CNPJ pode ser consultado via gateway RFB para auto-preenchimento
+
+surface:
+  route: /nf-clients/new
+  name: Novo Cliente NF
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos razão social, CNPJ, inscrição estadual, inscrição municipal, endereço, contato, tipo de cliente
+    - name: loading
+      when: envio em andamento ou consulta RFB em progresso
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valor padrão (tipo_cliente=empresa)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: razao_social
+      source: api:/v1/nf-clients
+      format: texto (obrigatório)
+      editable: true
+    - field: cnpj
+      source: api:/v1/nf-clients
+      format: CNPJ (obrigatório)
+      editable: true
+    - field: inscricao_estadual
+      source: api:/v1/nf-clients
+      format: texto
+      editable: true
+    - field: inscricao_municipal
+      source: api:/v1/nf-clients
+      format: texto
+      editable: true
+    - field: endereco
+      source: api:/v1/nf-clients
+      format: objeto JSON (logradouro, numero, bairro, cidade, estado, cep)
+      editable: true
+    - field: contato
+      source: api:/v1/nf-clients
+      format: objeto JSON (telefone, email)
+      editable: true
+    - field: tipo_cliente
+      source: api:/v1/nf-clients
+      format: enum (empresa|consumidor_final|orgao_publico)
+      editable: true
+  interactions:
+    - trigger: digitar CNPJ e clicar em "Consultar RFB"
+      action: GET /v1/gateways/rfb/cadastral/:cnpj
+      result: auto-preenche razão social e endereço via gateway RFB
+    - trigger: submeter formulário
+      action: POST /v1/nf-clients com razao_social, cnpj, inscricao_estadual, inscricao_municipal, endereco, contato, tipo_cliente
+      result: cria cliente NF e redireciona para /nf-clients/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /nf-clients
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

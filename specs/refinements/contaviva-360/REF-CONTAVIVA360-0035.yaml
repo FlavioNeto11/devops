@@ -1,0 +1,90 @@
+id: REF-CONTAVIVA360-0035
+slug: nf-products-edit
+title: Editar Produto / Serviço
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: formulário de edição de produto ou serviço NF existente
+
+surface:
+  route: /nf-products/:id/edit
+  name: Editar Produto / Serviço
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos com todos os campos editáveis
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Produto não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: codigo
+      source: api:/v1/nf-products/:id
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/nf-products/:id
+      format: texto
+      editable: true
+    - field: valor_unitario
+      source: api:/v1/nf-products/:id
+      format: decimal
+      editable: true
+    - field: cfop
+      source: api:/v1/nf-products/:id
+      format: código CFOP
+      editable: true
+    - field: ncm_nbs
+      source: api:/v1/nf-products/:id
+      format: código NCM/NBS
+      editable: true
+    - field: aliquota_icms
+      source: api:/v1/nf-products/:id
+      format: percentual decimal
+      editable: true
+    - field: aliquota_iss
+      source: api:/v1/nf-products/:id
+      format: percentual decimal
+      editable: true
+    - field: aliquota_pis
+      source: api:/v1/nf-products/:id
+      format: percentual decimal
+      editable: true
+    - field: aliquota_cofins
+      source: api:/v1/nf-products/:id
+      format: percentual decimal
+      editable: true
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf-products/:id
+      result: pré-preenche campos com dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/nf-products/:id com codigo, descricao, valor_unitario, cfop, ncm_nbs, aliquota_icms, aliquota_iss, aliquota_pis, aliquota_cofins
+      result: atualiza produto/serviço e redireciona para /nf-products
+    - trigger: clicar em "Cancelar"
+      action: navega para /nf-products
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

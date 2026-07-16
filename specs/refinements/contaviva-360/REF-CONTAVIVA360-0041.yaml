@@ -1,0 +1,96 @@
+id: REF-CONTAVIVA360-0041
+slug: income-expenses-list
+title: Receitas e Despesas
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: listagem unificada de lançamentos de receitas e despesas por entidade
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: controle financeiro com visão consolidada de receitas e despesas
+
+surface:
+  route: /income-expenses
+  name: Receitas e Despesas
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com tipo (receita/despesa), categoria, entidade, valor, data, status e ações; totalizadores no topo
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela e dos totalizadores
+    - name: empty
+      when: nenhum lançamento encontrado
+      ui: mensagem "Nenhum lançamento encontrado" com botão "Novo Lançamento"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/income-expenses
+      format: número
+      editable: false
+    - field: tipo
+      source: api:/v1/income-expenses
+      format: enum (receita|despesa)
+      editable: false
+    - field: categoria
+      source: api:/v1/income-expenses
+      format: texto
+      editable: false
+    - field: descricao
+      source: api:/v1/income-expenses
+      format: texto
+      editable: false
+    - field: valor
+      source: api:/v1/income-expenses
+      format: moeda BRL
+      editable: false
+    - field: data
+      source: api:/v1/income-expenses
+      format: data DD/MM/AAAA
+      editable: false
+    - field: status
+      source: api:/v1/income-expenses
+      format: enum (pendente|pago|cancelado)
+      editable: false
+    - field: entity_type
+      source: api:/v1/income-expenses
+      format: texto (pf|pj)
+      editable: false
+    - field: contraparte
+      source: api:/v1/income-expenses
+      format: texto
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/income-expenses
+      result: popula tabela com os lançamentos do tenant
+    - trigger: filtrar por tipo
+      action: GET /v1/income-expenses?tipo=receita ou GET /v1/income-expenses?tipo=despesa
+      result: filtra apenas receitas ou despesas
+    - trigger: filtrar por entidade
+      action: GET /v1/income-expenses?entity_type=pf&entity_id=<id>
+      result: filtra lançamentos de uma PF específica
+    - trigger: clicar em "Novo Lançamento"
+      action: navega para /income-expenses/new
+      result: abre formulário de cadastro
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

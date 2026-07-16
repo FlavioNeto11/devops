@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
-  "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
+  "refinements_hash": "26fecb48f87f926f666f47f4f4ab440d9553f2409af6eae723ca31c5d1e8bba2",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 381,
@@ -36,14 +36,15 @@
       "non-functional": 111
     },
     "refinements": {
-      "total": 63,
+      "total": 108,
       "by_product": {
+        "contaviva-360": 45,
         "gymops": 1,
         "neuroevolui": 50,
         "portal": 12
       },
       "by_kind": {
-        "screen": 53,
+        "screen": 98,
         "component": 8,
         "interaction": 2
       }
@@ -14833,6 +14834,5860 @@
     }
   ],
   "refinements": [
+    {
+      "id": "REF-CONTAVIVA360-0001",
+      "slug": "dashboard-home",
+      "title": "Painel Principal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0008",
+          "relation": "implements",
+          "note": "painel central com KPIs e visão geral da plataforma"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "Painel Principal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "cards de KPI (obrigações fiscais, tarefas pendentes, saldo de caixa), lista de alertas recentes"
+          },
+          {
+            "name": "loading",
+            "when": "requisições em andamento",
+            "ui": "skeletons nos cards de KPI e lista de alertas"
+          },
+          {
+            "name": "empty",
+            "when": "sem dados cadastrados ainda",
+            "ui": "mensagem de boas-vindas com chamadas para cadastrar PF/PJ ou obrigações"
+          },
+          {
+            "name": "error",
+            "when": "erro de rede ou API indisponível",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "obrigacoes_pendentes",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "tarefas_abertas",
+            "source": "api:/v1/tasks",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "saldo_atual",
+            "source": "api:/v1/cash-flow",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "alertas_fiscais",
+            "source": "api:/v1/dashboard/obligations",
+            "format": "lista resumida",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em card de obrigações",
+            "action": "navega para /fiscal-obligations",
+            "result": "abre lista de obrigações fiscais"
+          },
+          {
+            "trigger": "clicar em card de tarefas",
+            "action": "navega para /tasks",
+            "result": "abre lista de tarefas"
+          },
+          {
+            "trigger": "clicar em alerta fiscal",
+            "action": "navega para /fiscal-obligations/:id",
+            "result": "abre detalhe da obrigação"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0001.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0002",
+      "slug": "pf-list",
+      "title": "Pessoas Físicas",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "listagem de pessoas físicas cadastradas"
+        }
+      ],
+      "surface": {
+        "route": "/pf",
+        "name": "Pessoas Físicas",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com colunas nome, CPF, patrimônio inicial, data de cadastro e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma PF cadastrada",
+            "ui": "mensagem \"Nenhuma pessoa física cadastrada\" com botão \"Cadastrar\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/pf",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "nome",
+            "source": "api:/v1/pf",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cpf",
+            "source": "api:/v1/pf",
+            "format": "CPF formatado",
+            "editable": false
+          },
+          {
+            "field": "patrimonio_inicial",
+            "source": "api:/v1/pf",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "data_nascimento",
+            "source": "api:/v1/pf",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em \"Nova Pessoa Física\"",
+            "action": "navega para /pf/new",
+            "result": "abre formulário de cadastro"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /pf/:id",
+            "result": "abre detalhe da PF"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /pf/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pf",
+            "result": "popula a tabela com as PFs do tenant"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0002.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0003",
+      "slug": "pf-create",
+      "title": "Nova Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de cadastro de pessoa física"
+        }
+      ],
+      "surface": {
+        "route": "/pf/new",
+        "name": "Nova Pessoa Física",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos CPF, nome, data de nascimento, endereço, patrimônio inicial"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com placeholders"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline por campo; banner de erro geral se falha de rede"
+          }
+        ],
+        "data": [
+          {
+            "field": "cpf",
+            "source": "api:/v1/pf",
+            "format": "CPF (000.000.000-00)",
+            "editable": true
+          },
+          {
+            "field": "nome",
+            "source": "api:/v1/pf",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "data_nascimento",
+            "source": "api:/v1/pf",
+            "format": "data (YYYY-MM-DD)",
+            "editable": true
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/pf",
+            "format": "objeto JSON (logradouro, numero, bairro, cidade, estado, cep)",
+            "editable": true
+          },
+          {
+            "field": "patrimonio_inicial",
+            "source": "api:/v1/pf",
+            "format": "decimal",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/pf com cpf, nome, data_nascimento, endereco, patrimonio_inicial",
+            "result": "cria PF e redireciona para /pf/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /pf",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0003.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0004",
+      "slug": "pf-edit",
+      "title": "Editar Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de edição de pessoa física existente"
+        }
+      ],
+      "surface": {
+        "route": "/pf/:id/edit",
+        "name": "Editar Pessoa Física",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos com nome, data_nascimento, endereço, patrimônio inicial (CPF somente leitura)"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Registro não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "nome",
+            "source": "api:/v1/pf/:id",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "data_nascimento",
+            "source": "api:/v1/pf/:id",
+            "format": "data (YYYY-MM-DD)",
+            "editable": true
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/pf/:id",
+            "format": "objeto JSON",
+            "editable": true
+          },
+          {
+            "field": "patrimonio_inicial",
+            "source": "api:/v1/pf/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "cpf",
+            "source": "api:/v1/pf/:id",
+            "format": "CPF formatado",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pf/:id",
+            "result": "pré-preenche os campos com os dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/pf/:id com nome, data_nascimento, endereco, patrimonio_inicial",
+            "result": "atualiza PF e redireciona para /pf/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /pf/:id",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0004.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0005",
+      "slug": "pf-detail",
+      "title": "Detalhe da Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "visualização completa dos dados da pessoa física"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "relates_to",
+          "note": "obrigações fiscais vinculadas à PF listadas na aba de obrigações"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0004",
+          "relation": "relates_to",
+          "note": "tarefas vinculadas à PF listadas na aba de tarefas"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "relates_to",
+          "note": "receitas/despesas e patrimônio líquido exibidos na aba financeira"
+        }
+      ],
+      "surface": {
+        "route": "/pf/:id",
+        "name": "Detalhe da Pessoa Física",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "abas — Dados Cadastrais, Ativos, Passivos, Documentos, Obrigações Fiscais, Tarefas, Financeiro"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e nas abas"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Pessoa física não encontrada\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "nome",
+            "source": "api:/v1/pf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cpf",
+            "source": "api:/v1/pf/:id",
+            "format": "CPF formatado",
+            "editable": false
+          },
+          {
+            "field": "data_nascimento",
+            "source": "api:/v1/pf/:id",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/pf/:id",
+            "format": "endereço formatado",
+            "editable": false
+          },
+          {
+            "field": "patrimonio_inicial",
+            "source": "api:/v1/pf/:id",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "assets",
+            "source": "api:/v1/pf/:id",
+            "format": "lista de ativos (tipo, descricao, valor)",
+            "editable": false
+          },
+          {
+            "field": "liabilities",
+            "source": "api:/v1/pf/:id",
+            "format": "lista de passivos (tipo, descricao, valor, recorrente)",
+            "editable": false
+          },
+          {
+            "field": "patrimonio_liquido",
+            "source": "api:/v1/dashboard/pf/:id",
+            "format": "moeda BRL (calculado)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pf/:id",
+            "result": "exibe dados completos da PF com ativos e passivos"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /pf/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "clicar em \"Adicionar Ativo\"",
+            "action": "POST /v1/pf/:id/assets com tipo, descricao, valor",
+            "result": "adiciona ativo à lista"
+          },
+          {
+            "trigger": "clicar em \"Remover Ativo\"",
+            "action": "DELETE /v1/pf/:id/assets/:assetId",
+            "result": "remove ativo da lista"
+          },
+          {
+            "trigger": "clicar em \"Adicionar Passivo\"",
+            "action": "POST /v1/pf/:id/liabilities com tipo, descricao, valor, recorrente",
+            "result": "adiciona passivo à lista"
+          },
+          {
+            "trigger": "clicar em \"Remover Passivo\"",
+            "action": "DELETE /v1/pf/:id/liabilities/:liabilityId",
+            "result": "remove passivo da lista"
+          },
+          {
+            "trigger": "acessar aba \"Financeiro\"",
+            "action": "GET /v1/dashboard/pf/:id",
+            "result": "exibe patrimônio líquido, receitas/despesas e evolução patrimonial"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0005.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0006",
+      "slug": "pj-list",
+      "title": "Pessoas Jurídicas",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "listagem de pessoas jurídicas cadastradas"
+        }
+      ],
+      "surface": {
+        "route": "/pj",
+        "name": "Pessoas Jurídicas",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com colunas razão social, CNPJ, regime tributário, CNAE, data de cadastro e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma PJ cadastrada",
+            "ui": "mensagem \"Nenhuma empresa cadastrada\" com botão \"Cadastrar\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/pj",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "razao_social",
+            "source": "api:/v1/pj",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/pj",
+            "format": "CNPJ formatado (00.000.000/0000-00)",
+            "editable": false
+          },
+          {
+            "field": "regime_tributario",
+            "source": "api:/v1/pj",
+            "format": "enum (simples|lucro_presumido|lucro_real)",
+            "editable": false
+          },
+          {
+            "field": "cnae",
+            "source": "api:/v1/pj",
+            "format": "código CNAE",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em \"Nova Pessoa Jurídica\"",
+            "action": "navega para /pj/new",
+            "result": "abre formulário de cadastro"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /pj/:id",
+            "result": "abre detalhe da PJ"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /pj/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pj",
+            "result": "popula a tabela com as PJs do tenant"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0006.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0007",
+      "slug": "pj-create",
+      "title": "Nova Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de cadastro de pessoa jurídica"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "relates_to",
+          "note": "CNPJ pode ser consultado via gateway RFB para auto-preenchimento"
+        }
+      ],
+      "surface": {
+        "route": "/pj/new",
+        "name": "Nova Pessoa Jurídica",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos CNPJ, razão social, inscrição estadual, inscrição municipal, regime tributário, CNAE, dados bancários"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento ou consulta RFB em progresso",
+            "ui": "botão \"Salvar\" desabilitado com spinner; campos bloqueados durante consulta RFB"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com placeholders"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "cnpj",
+            "source": "api:/v1/pj",
+            "format": "CNPJ (00.000.000/0000-00)",
+            "editable": true
+          },
+          {
+            "field": "razao_social",
+            "source": "api:/v1/pj",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/pj",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/pj",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "regime_tributario",
+            "source": "api:/v1/pj",
+            "format": "enum (simples|lucro_presumido|lucro_real)",
+            "editable": true
+          },
+          {
+            "field": "cnae",
+            "source": "api:/v1/pj",
+            "format": "código CNAE",
+            "editable": true
+          },
+          {
+            "field": "dados_bancarios",
+            "source": "api:/v1/pj",
+            "format": "objeto JSON (banco, agencia, conta)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "digitar CNPJ e clicar em \"Consultar RFB\"",
+            "action": "GET /v1/gateways/rfb/cadastral/:cnpj",
+            "result": "auto-preenche razão social e dados cadastrais via gateway RFB"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/pj com cnpj, razao_social, inscricao_estadual, inscricao_municipal, regime_tributario, cnae, dados_bancarios",
+            "result": "cria PJ e redireciona para /pj/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /pj",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0007.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0008",
+      "slug": "pj-edit",
+      "title": "Editar Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de edição de pessoa jurídica existente"
+        }
+      ],
+      "surface": {
+        "route": "/pj/:id/edit",
+        "name": "Editar Pessoa Jurídica",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos (CNPJ somente leitura, demais editáveis)"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Registro não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "razao_social",
+            "source": "api:/v1/pj/:id",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/pj/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/pj/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "regime_tributario",
+            "source": "api:/v1/pj/:id",
+            "format": "enum (simples|lucro_presumido|lucro_real)",
+            "editable": true
+          },
+          {
+            "field": "cnae",
+            "source": "api:/v1/pj/:id",
+            "format": "código CNAE",
+            "editable": true
+          },
+          {
+            "field": "dados_bancarios",
+            "source": "api:/v1/pj/:id",
+            "format": "objeto JSON",
+            "editable": true
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/pj/:id",
+            "format": "CNPJ formatado",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pj/:id",
+            "result": "pré-preenche os campos com os dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/pj/:id com razao_social, inscricao_estadual, inscricao_municipal, regime_tributario, cnae, dados_bancarios",
+            "result": "atualiza PJ e redireciona para /pj/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /pj/:id",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0008.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0009",
+      "slug": "pj-detail",
+      "title": "Detalhe da Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "visualização completa dos dados da pessoa jurídica"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "relates_to",
+          "note": "obrigações fiscais vinculadas à PJ (por regime tributário)"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "relates_to",
+          "note": "contas a pagar/receber vinculadas à PJ"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "relates_to",
+          "note": "notas fiscais emitidas pela PJ"
+        }
+      ],
+      "surface": {
+        "route": "/pj/:id",
+        "name": "Detalhe da Pessoa Jurídica",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "abas — Dados Cadastrais, Sócios, Obrigações Fiscais, Contas, Notas Fiscais"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e nas abas"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Empresa não encontrada\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "razao_social",
+            "source": "api:/v1/pj/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/pj/:id",
+            "format": "CNPJ formatado",
+            "editable": false
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/pj/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/pj/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "regime_tributario",
+            "source": "api:/v1/pj/:id",
+            "format": "enum (simples|lucro_presumido|lucro_real)",
+            "editable": false
+          },
+          {
+            "field": "cnae",
+            "source": "api:/v1/pj/:id",
+            "format": "código CNAE",
+            "editable": false
+          },
+          {
+            "field": "socios",
+            "source": "api:/v1/pj/:id",
+            "format": "lista de sócios (nome, cpf, participacao_pct)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/pj/:id",
+            "result": "exibe dados completos da PJ com sócios"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /pj/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "clicar em \"Adicionar Sócio\"",
+            "action": "POST /v1/pj/:id/partners com nome, cpf, participacao_pct",
+            "result": "adiciona sócio à lista"
+          },
+          {
+            "trigger": "clicar em \"Remover Sócio\"",
+            "action": "DELETE /v1/pj/:id/partners/:partnerId",
+            "result": "remove sócio da lista"
+          },
+          {
+            "trigger": "clicar em \"Gerar Obrigações\"",
+            "action": "POST /v1/pj/:id/fiscal-obligations/generate",
+            "result": "gera obrigações fiscais pelo regime tributário da PJ"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0009.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0010",
+      "slug": "documents-list",
+      "title": "Documentos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "listagem de documentos com filtros por tipo, status, mês e ano"
+        }
+      ],
+      "surface": {
+        "route": "/documents",
+        "name": "Documentos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com colunas tipo, status, mês/ano, entidade vinculada, versões e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum documento encontrado com os filtros aplicados",
+            "ui": "mensagem \"Nenhum documento encontrado\" com botão \"Enviar Documento\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/documents",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "tipo",
+            "source": "api:/v1/documents",
+            "format": "texto (tipo do documento)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/documents",
+            "format": "enum (pendente|aprovado|rejeitado)",
+            "editable": false
+          },
+          {
+            "field": "mes",
+            "source": "api:/v1/documents",
+            "format": "número (1-12)",
+            "editable": false
+          },
+          {
+            "field": "ano",
+            "source": "api:/v1/documents",
+            "format": "número (AAAA)",
+            "editable": false
+          },
+          {
+            "field": "version_count",
+            "source": "api:/v1/documents",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/documents",
+            "format": "texto (pf|pj)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/documents",
+            "result": "popula tabela com os documentos do tenant"
+          },
+          {
+            "trigger": "aplicar filtro de tipo",
+            "action": "GET /v1/documents?tipo=<valor>",
+            "result": "filtra documentos pelo tipo"
+          },
+          {
+            "trigger": "aplicar filtro de status",
+            "action": "GET /v1/documents?status=<valor>",
+            "result": "filtra documentos pelo status"
+          },
+          {
+            "trigger": "clicar em \"Enviar Documento\"",
+            "action": "navega para /documents/new",
+            "result": "abre formulário de envio"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /documents/:id",
+            "result": "abre detalhe do documento"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0010.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0011",
+      "slug": "documents-create",
+      "title": "Enviar Documento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de envio/upload de novo documento"
+        }
+      ],
+      "surface": {
+        "route": "/documents/new",
+        "name": "Enviar Documento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos tipo, entidade (PF/PJ), mês, ano, status, arquivo (filename, content_type, file_size)"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Enviar\" desabilitado com barra de progresso"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com placeholders"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "tipo",
+            "source": "api:/v1/documents",
+            "format": "texto livre (tipo do documento)",
+            "editable": true
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/documents",
+            "format": "texto (pf|pj)",
+            "editable": true
+          },
+          {
+            "field": "entity_id",
+            "source": "api:/v1/documents",
+            "format": "número (ID da entidade vinculada)",
+            "editable": true
+          },
+          {
+            "field": "mes",
+            "source": "api:/v1/documents",
+            "format": "número (1-12)",
+            "editable": true
+          },
+          {
+            "field": "ano",
+            "source": "api:/v1/documents",
+            "format": "número (AAAA)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/documents",
+            "format": "enum (pendente|aprovado|rejeitado)",
+            "editable": true
+          },
+          {
+            "field": "filename",
+            "source": "api:/v1/documents",
+            "format": "nome do arquivo",
+            "editable": true
+          },
+          {
+            "field": "content_type",
+            "source": "api:/v1/documents",
+            "format": "MIME type",
+            "editable": true
+          },
+          {
+            "field": "file_size",
+            "source": "api:/v1/documents",
+            "format": "número (bytes)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/documents com tipo, entity_type, entity_id, mes, ano, status, filename, content_type, file_size",
+            "result": "cria documento e redireciona para /documents/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /documents",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0011.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0012",
+      "slug": "documents-detail",
+      "title": "Detalhe do Documento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "visualização do documento com histórico de versões"
+        }
+      ],
+      "surface": {
+        "route": "/documents/:id",
+        "name": "Detalhe do Documento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "documento carregado com sucesso",
+            "ui": "cabeçalho com tipo/status/entidade e aba de versões com histórico de uploads"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e na lista de versões"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Documento não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "tipo",
+            "source": "api:/v1/documents/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/documents/:id",
+            "format": "enum (pendente|aprovado|rejeitado)",
+            "editable": false
+          },
+          {
+            "field": "mes",
+            "source": "api:/v1/documents/:id",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "ano",
+            "source": "api:/v1/documents/:id",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/documents/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "entity_id",
+            "source": "api:/v1/documents/:id",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "versions",
+            "source": "api:/v1/documents/:id",
+            "format": "lista de versões (version, filename, content_type, file_size, uploaded_by, created_at)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/documents/:id",
+            "result": "exibe dados do documento e histórico de versões"
+          },
+          {
+            "trigger": "clicar em \"Nova Versão\"",
+            "action": "POST /v1/documents/:id/versions com filename, content_type, file_size",
+            "result": "adiciona nova versão ao documento"
+          },
+          {
+            "trigger": "visualizar histórico de versões",
+            "action": "GET /v1/documents/:id/versions",
+            "result": "exibe lista completa de versões com metadados"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0012.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0013",
+      "slug": "fiscal-obligations-list",
+      "title": "Obrigações Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "implements",
+          "note": "listagem de obrigações fiscais com alertas de vencimento"
+        }
+      ],
+      "surface": {
+        "route": "/fiscal-obligations",
+        "name": "Obrigações Fiscais",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com tipo, entidade, vencimento, periodicidade, status, nível de alerta e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma obrigação cadastrada",
+            "ui": "mensagem \"Nenhuma obrigação fiscal cadastrada\" com botão \"Cadastrar\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "tipo",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (IRPF|IRPJ|ICMS|ISS|DARF|ECF|ECD|e-Social|CAGED|Simples DAS|PER|DIRF|RRA|outro)",
+            "editable": false
+          },
+          {
+            "field": "data_vencimento",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "periodicidade",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (mensal|trimestral|anual)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)",
+            "editable": false
+          },
+          {
+            "field": "nivel_alerta",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (critico|vermelho|laranja|amarelo|null)",
+            "editable": false
+          },
+          {
+            "field": "entidade_tipo",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (PF|PJ)",
+            "editable": false
+          },
+          {
+            "field": "valor_estimado",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "moeda BRL",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/fiscal-obligations",
+            "result": "popula tabela com obrigações do tenant ordenadas por vencimento"
+          },
+          {
+            "trigger": "filtrar por status",
+            "action": "GET /v1/fiscal-obligations?status=<valor>",
+            "result": "filtra obrigações pelo status"
+          },
+          {
+            "trigger": "filtrar por tipo",
+            "action": "GET /v1/fiscal-obligations?tipo=<valor>",
+            "result": "filtra obrigações pelo tipo"
+          },
+          {
+            "trigger": "clicar em \"Nova Obrigação\"",
+            "action": "navega para /fiscal-obligations/new",
+            "result": "abre formulário de cadastro"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /fiscal-obligations/:id",
+            "result": "abre detalhe da obrigação"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0013.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0014",
+      "slug": "fiscal-obligations-create",
+      "title": "Nova Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "implements",
+          "note": "formulário de cadastro de nova obrigação fiscal"
+        }
+      ],
+      "surface": {
+        "route": "/fiscal-obligations/new",
+        "name": "Nova Obrigação Fiscal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos tipo, data de vencimento, periodicidade, entidade (PF/PJ), status, descrição, valor estimado"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valores padrão (status=pendente, periodicidade=mensal)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "tipo",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (IRPF|IRPJ|ICMS|ISS|DARF|ECF|ECD|e-Social|CAGED|Simples DAS|PER|DIRF|RRA|outro)",
+            "editable": true
+          },
+          {
+            "field": "data_vencimento",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "data (YYYY-MM-DD)",
+            "editable": true
+          },
+          {
+            "field": "periodicidade",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (mensal|trimestral|anual)",
+            "editable": true
+          },
+          {
+            "field": "entidade_tipo",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (PF|PJ)",
+            "editable": true
+          },
+          {
+            "field": "entidade_id",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "número (ID da PF ou PJ)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "valor_estimado",
+            "source": "api:/v1/fiscal-obligations",
+            "format": "decimal",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/fiscal-obligations com tipo, data_vencimento, periodicidade, entidade_tipo, entidade_id, status, descricao, valor_estimado",
+            "result": "cria obrigação e redireciona para /fiscal-obligations/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /fiscal-obligations",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0014.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0015",
+      "slug": "fiscal-obligations-edit",
+      "title": "Editar Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "implements",
+          "note": "formulário de edição de obrigação fiscal existente"
+        }
+      ],
+      "surface": {
+        "route": "/fiscal-obligations/:id/edit",
+        "name": "Editar Obrigação Fiscal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos (tipo, data_vencimento, periodicidade, status, descrição, valor estimado)"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Registro não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "tipo",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (IRPF|IRPJ|ICMS|ISS|DARF|ECF|ECD|e-Social|CAGED|Simples DAS|PER|DIRF|RRA|outro)",
+            "editable": true
+          },
+          {
+            "field": "data_vencimento",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "data (YYYY-MM-DD)",
+            "editable": true
+          },
+          {
+            "field": "periodicidade",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (mensal|trimestral|anual)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "texto livre",
+            "editable": true
+          },
+          {
+            "field": "valor_estimado",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "entidade_tipo",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (PF|PJ)",
+            "editable": false
+          },
+          {
+            "field": "entidade_id",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "número",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/fiscal-obligations/:id",
+            "result": "pré-preenche os campos com os dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/fiscal-obligations/:id com tipo, data_vencimento, periodicidade, status, descricao, valor_estimado",
+            "result": "atualiza obrigação e redireciona para /fiscal-obligations/:id"
+          },
+          {
+            "trigger": "alterar status via seletor rápido",
+            "action": "PATCH /v1/fiscal-obligations/:id/status com novo_status",
+            "result": "atualiza apenas o status da obrigação"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /fiscal-obligations/:id",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0015.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0016",
+      "slug": "fiscal-obligations-detail",
+      "title": "Detalhe da Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0003",
+          "relation": "implements",
+          "note": "visualização completa da obrigação fiscal com histórico de alertas"
+        }
+      ],
+      "surface": {
+        "route": "/fiscal-obligations/:id",
+        "name": "Detalhe da Obrigação Fiscal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "cabeçalho com tipo/status/vencimento, nível de alerta em destaque, histórico de alertas"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e no histórico"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Obrigação não encontrada\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "tipo",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (IRPF|IRPJ|ICMS|ISS|DARF|...)",
+            "editable": false
+          },
+          {
+            "field": "data_vencimento",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "periodicidade",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (mensal|trimestral|anual)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)",
+            "editable": false
+          },
+          {
+            "field": "nivel_alerta",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "enum (critico|vermelho|laranja|amarelo|null)",
+            "editable": false
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "valor_estimado",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "historico_alertas",
+            "source": "api:/v1/fiscal-obligations/:id",
+            "format": "lista de alertas (nivel, created_at)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/fiscal-obligations/:id",
+            "result": "exibe dados completos da obrigação com histórico de alertas"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /fiscal-obligations/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "clicar em \"Marcar como Pago\"",
+            "action": "PATCH /v1/fiscal-obligations/:id/status com novo_status=pago",
+            "result": "atualiza status para pago"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0016.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0017",
+      "slug": "tasks-list",
+      "title": "Tarefas",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0004",
+          "relation": "implements",
+          "note": "listagem de tarefas com filtros e indicadores de prazo"
+        }
+      ],
+      "surface": {
+        "route": "/tasks",
+        "name": "Tarefas",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com título, responsável, prazo, prioridade, status, nível de alerta e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma tarefa encontrada",
+            "ui": "mensagem \"Nenhuma tarefa encontrada\" com botão \"Nova Tarefa\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/tasks",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "title",
+            "source": "api:/v1/tasks",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "assignee",
+            "source": "api:/v1/tasks",
+            "format": "texto (nome do responsável)",
+            "editable": false
+          },
+          {
+            "field": "due_at",
+            "source": "api:/v1/tasks",
+            "format": "data/hora",
+            "editable": false
+          },
+          {
+            "field": "priority",
+            "source": "api:/v1/tasks",
+            "format": "enum (baixa|media|alta|critica)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/tasks",
+            "format": "enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)",
+            "editable": false
+          },
+          {
+            "field": "nivel_alerta",
+            "source": "api:/v1/tasks",
+            "format": "enum (critico|vermelho|laranja|amarelo|null)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/tasks",
+            "result": "popula tabela com as tarefas do tenant"
+          },
+          {
+            "trigger": "filtrar por status",
+            "action": "GET /v1/tasks?status=<valor>",
+            "result": "filtra tarefas pelo status"
+          },
+          {
+            "trigger": "filtrar por prioridade",
+            "action": "GET /v1/tasks?priority=<valor>",
+            "result": "filtra tarefas pela prioridade"
+          },
+          {
+            "trigger": "clicar em \"Nova Tarefa\"",
+            "action": "navega para /tasks/new",
+            "result": "abre formulário de criação"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /tasks/:id",
+            "result": "abre detalhe da tarefa"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0017.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0018",
+      "slug": "tasks-create",
+      "title": "Nova Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0004",
+          "relation": "implements",
+          "note": "formulário de criação de nova tarefa"
+        }
+      ],
+      "surface": {
+        "route": "/tasks/new",
+        "name": "Nova Tarefa",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos título, descrição, responsável, papel do responsável, prazo, prioridade, status, entidade vinculada"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valores padrão (priority=media, status=aberta)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "title",
+            "source": "api:/v1/tasks",
+            "format": "texto livre (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "description",
+            "source": "api:/v1/tasks",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "assignee",
+            "source": "api:/v1/tasks",
+            "format": "texto (e-mail ou nome do responsável)",
+            "editable": true
+          },
+          {
+            "field": "assignee_role",
+            "source": "api:/v1/tasks",
+            "format": "texto (member|manager|admin)",
+            "editable": true
+          },
+          {
+            "field": "due_at",
+            "source": "api:/v1/tasks",
+            "format": "data/hora (ISO 8601)",
+            "editable": true
+          },
+          {
+            "field": "priority",
+            "source": "api:/v1/tasks",
+            "format": "enum (baixa|media|alta|critica)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/tasks",
+            "format": "enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)",
+            "editable": true
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/tasks",
+            "format": "texto (pf|pj|fiscal-obligation)",
+            "editable": true
+          },
+          {
+            "field": "entity_id",
+            "source": "api:/v1/tasks",
+            "format": "número",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/tasks com title, description, assignee, assignee_role, due_at, priority, status, entity_type, entity_id",
+            "result": "cria tarefa e redireciona para /tasks/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /tasks",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0018.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0019",
+      "slug": "tasks-edit",
+      "title": "Editar Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0004",
+          "relation": "implements",
+          "note": "formulário de edição de tarefa existente com validação de transições de status"
+        }
+      ],
+      "surface": {
+        "route": "/tasks/:id/edit",
+        "name": "Editar Tarefa",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos; seletor de status exibe apenas transições válidas a partir do status atual"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Tarefa não encontrada\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "transição de status inválida ou falha de rede",
+            "ui": "mensagem de erro sobre transição inválida; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "title",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "description",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "assignee",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "assignee_role",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "due_at",
+            "source": "api:/v1/tasks/:id",
+            "format": "data/hora",
+            "editable": true
+          },
+          {
+            "field": "priority",
+            "source": "api:/v1/tasks/:id",
+            "format": "enum (baixa|media|alta|critica)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/tasks/:id",
+            "format": "enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/tasks/:id",
+            "result": "pré-preenche os campos com os dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PATCH /v1/tasks/:id com title, description, assignee, assignee_role, due_at, priority, status",
+            "result": "atualiza tarefa (com validação de transição de status) e redireciona para /tasks/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /tasks/:id",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0019.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0020",
+      "slug": "tasks-detail",
+      "title": "Detalhe da Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0004",
+          "relation": "implements",
+          "note": "visualização completa da tarefa com comentários e anexos"
+        }
+      ],
+      "surface": {
+        "route": "/tasks/:id",
+        "name": "Detalhe da Tarefa",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "cabeçalho com título/status/prazo/alerta, abas — Detalhes, Comentários, Anexos"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e nas abas"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Tarefa não encontrada\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "title",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "description",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto longo",
+            "editable": false
+          },
+          {
+            "field": "assignee",
+            "source": "api:/v1/tasks/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "due_at",
+            "source": "api:/v1/tasks/:id",
+            "format": "data/hora",
+            "editable": false
+          },
+          {
+            "field": "priority",
+            "source": "api:/v1/tasks/:id",
+            "format": "enum (baixa|media|alta|critica)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/tasks/:id",
+            "format": "enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)",
+            "editable": false
+          },
+          {
+            "field": "nivel_alerta",
+            "source": "api:/v1/tasks/:id",
+            "format": "enum (critico|vermelho|laranja|amarelo|null)",
+            "editable": false
+          },
+          {
+            "field": "comments",
+            "source": "api:/v1/tasks/:id",
+            "format": "lista de comentários (author, content, created_at, metadata)",
+            "editable": false
+          },
+          {
+            "field": "attachments",
+            "source": "api:/v1/tasks/:id",
+            "format": "lista de anexos (version, filename, content_type, file_size, uploaded_by)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/tasks/:id",
+            "result": "exibe dados completos com comentários e anexos"
+          },
+          {
+            "trigger": "adicionar comentário",
+            "action": "POST /v1/tasks/:id/comments com content",
+            "result": "adiciona comentário à thread"
+          },
+          {
+            "trigger": "editar comentário próprio",
+            "action": "PATCH /v1/tasks/:id/comments/:cid com content",
+            "result": "atualiza o conteúdo do comentário"
+          },
+          {
+            "trigger": "adicionar anexo",
+            "action": "POST /v1/tasks/:id/attachments com filename, content_type, file_size",
+            "result": "adiciona nova versão de anexo"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /tasks/:id/edit",
+            "result": "abre formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0020.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0021",
+      "slug": "accounts-payable-list",
+      "title": "Contas a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "listagem de contas a pagar (despesas pendentes)"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-payable",
+        "name": "Contas a Pagar",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com fornecedor, valor, data, categoria, centro de custo, forma de pagamento, status e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma conta a pagar",
+            "ui": "mensagem \"Nenhuma conta a pagar\" com botão \"Nova Conta\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/accounts-payable",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto (nome do fornecedor)",
+            "editable": false
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-payable",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-payable",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "centro_custo",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "forma_pagamento",
+            "source": "api:/v1/accounts-payable",
+            "format": "enum (cheque|TED|cartão|boleto|dinheiro)",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-payable",
+            "format": "enum (pendente|pago|vencido|cancelado)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/accounts-payable",
+            "result": "popula tabela com as despesas do tenant"
+          },
+          {
+            "trigger": "filtrar por status",
+            "action": "GET /v1/accounts-payable?status=<valor>",
+            "result": "filtra contas pelo status"
+          },
+          {
+            "trigger": "clicar em \"Nova Conta a Pagar\"",
+            "action": "navega para /accounts-payable/new",
+            "result": "abre formulário de criação"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /accounts-payable/:id/edit",
+            "result": "abre formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0021.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0022",
+      "slug": "accounts-payable-create",
+      "title": "Nova Conta a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "formulário de criação de nova conta a pagar (despesa)"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-payable/new",
+        "name": "Nova Conta a Pagar",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos fornecedor, valor, data, categoria, centro de custo, forma de pagamento, recorrência, status"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valor padrão (status=pendente)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto (nome do fornecedor — obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-payable",
+            "format": "decimal (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-payable",
+            "format": "data YYYY-MM-DD (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "centro_custo",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "forma_pagamento",
+            "source": "api:/v1/accounts-payable",
+            "format": "enum (cheque|TED|cartão|boleto|dinheiro)",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/accounts-payable",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "recorrencia_tipo",
+            "source": "api:/v1/accounts-payable",
+            "format": "texto (mensal|quinzenal|semanal)",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-payable",
+            "format": "enum (pendente|pago|vencido|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/accounts-payable",
+            "format": "URL",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/accounts-payable com contraparte, valor, data, categoria, descricao, centro_custo, forma_pagamento, recorrente, status",
+            "result": "cria conta a pagar e redireciona para /accounts-payable"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /accounts-payable",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0022.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0023",
+      "slug": "accounts-payable-edit",
+      "title": "Editar Conta a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "formulário de edição de conta a pagar existente"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-payable/:id/edit",
+        "name": "Editar Conta a Pagar",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos com todos os campos editáveis"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Registro não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "data",
+            "editable": true
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "centro_custo",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "forma_pagamento",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "enum (cheque|TED|cartão|boleto|dinheiro)",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "enum (pendente|pago|vencido|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "data_pagamento_realizado",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "data",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/accounts-payable/:id",
+            "format": "URL",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/accounts-payable/:id",
+            "result": "pré-preenche campos com dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/accounts-payable/:id com campos atualizados",
+            "result": "atualiza conta a pagar e redireciona para /accounts-payable"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /accounts-payable",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0023.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0024",
+      "slug": "accounts-receivable-list",
+      "title": "Contas a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "listagem de contas a receber (receitas pendentes)"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-receivable",
+        "name": "Contas a Receber",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com cliente, valor, data, categoria, forma de recebimento, status e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma conta a receber",
+            "ui": "mensagem \"Nenhuma conta a receber\" com botão \"Nova Conta\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/accounts-receivable",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto (nome do cliente)",
+            "editable": false
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-receivable",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-receivable",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "forma_recebimento",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-receivable",
+            "format": "enum (pendente|recebido|vencido|cancelado)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/accounts-receivable",
+            "result": "popula tabela com as receitas pendentes do tenant"
+          },
+          {
+            "trigger": "filtrar por status",
+            "action": "GET /v1/accounts-receivable?status=<valor>",
+            "result": "filtra contas pelo status"
+          },
+          {
+            "trigger": "clicar em \"Nova Conta a Receber\"",
+            "action": "navega para /accounts-receivable/new",
+            "result": "abre formulário de criação"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /accounts-receivable/:id/edit",
+            "result": "abre formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0024.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0025",
+      "slug": "accounts-receivable-create",
+      "title": "Nova Conta a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "formulário de criação de nova conta a receber (receita)"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-receivable/new",
+        "name": "Nova Conta a Receber",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos cliente, valor, data, categoria, forma de recebimento, recorrência, status"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valor padrão (status=pendente)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto (nome do cliente — obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-receivable",
+            "format": "decimal (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-receivable",
+            "format": "data YYYY-MM-DD (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "forma_recebimento",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto (PIX|TED|boleto|dinheiro|cartão)",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/accounts-receivable",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "recorrencia_tipo",
+            "source": "api:/v1/accounts-receivable",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-receivable",
+            "format": "enum (pendente|recebido|vencido|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/accounts-receivable",
+            "format": "URL",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/accounts-receivable com contraparte, valor, data, categoria, descricao, forma_recebimento, recorrente, status",
+            "result": "cria conta a receber e redireciona para /accounts-receivable"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /accounts-receivable",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0025.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0026",
+      "slug": "accounts-receivable-edit",
+      "title": "Editar Conta a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "formulário de edição de conta a receber existente"
+        }
+      ],
+      "surface": {
+        "route": "/accounts-receivable/:id/edit",
+        "name": "Editar Conta a Receber",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos com todos os campos editáveis"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Registro não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "contraparte",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "data",
+            "editable": true
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "forma_recebimento",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "enum (pendente|recebido|vencido|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/accounts-receivable/:id",
+            "format": "URL",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/accounts-receivable/:id",
+            "result": "pré-preenche campos com dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/accounts-receivable/:id com campos atualizados",
+            "result": "atualiza conta a receber e redireciona para /accounts-receivable"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /accounts-receivable",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0026.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0027",
+      "slug": "cash-flow",
+      "title": "Fluxo de Caixa",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "visualização do fluxo de caixa com projeção por horizonte de dias"
+        }
+      ],
+      "surface": {
+        "route": "/cash-flow",
+        "name": "Fluxo de Caixa",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "card de saldo atual, gráfico de linha com projeção diária, resumo para 30/60/90 dias"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no card de saldo e no gráfico"
+          },
+          {
+            "name": "empty",
+            "when": "sem lançamentos cadastrados",
+            "ui": "gráfico vazio com saldo zero e orientação para cadastrar receitas/despesas"
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "saldo_atual",
+            "source": "api:/v1/cash-flow",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "saldo_previsto_final",
+            "source": "api:/v1/cash-flow",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "horizon",
+            "source": "api:/v1/cash-flow",
+            "format": "número (1-90 dias)",
+            "editable": true
+          },
+          {
+            "field": "dias",
+            "source": "api:/v1/cash-flow",
+            "format": "lista de dias (dia, entradas, saidas, saldo_dia, saldo_acumulado)",
+            "editable": false
+          },
+          {
+            "field": "resumo_saldo",
+            "source": "api:/v1/cash-flow",
+            "format": "objeto com saldos projetados para 30, 60 e 90 dias",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/cash-flow",
+            "result": "exibe fluxo com horizonte padrão de 30 dias"
+          },
+          {
+            "trigger": "alterar horizonte de projeção",
+            "action": "GET /v1/cash-flow?horizon=<N>",
+            "result": "recarrega o gráfico com o novo horizonte (1-90 dias)"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0027.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0028",
+      "slug": "financial-reports",
+      "title": "Relatórios Financeiros",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "relatório financeiro com DRE simplificado, despesas por categoria e por centro de custo"
+        }
+      ],
+      "surface": {
+        "route": "/reports/financial",
+        "name": "Relatórios Financeiros",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "relatório gerado com sucesso",
+            "ui": "cards de resumo (total receitas, despesas, saldo líquido), gráficos de despesas por categoria e centro de custo, tabela de linhas"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton nos cards e nos gráficos"
+          },
+          {
+            "name": "empty",
+            "when": "sem lançamentos no período",
+            "ui": "mensagem informando sem dados para o período selecionado"
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "periodo",
+            "source": "api:/v1/reports/financial",
+            "format": "objeto (start, end)",
+            "editable": false
+          },
+          {
+            "field": "total_receitas",
+            "source": "api:/v1/reports/financial",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "total_despesas",
+            "source": "api:/v1/reports/financial",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "saldo_liquido",
+            "source": "api:/v1/reports/financial",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "despesas_por_categoria",
+            "source": "api:/v1/reports/financial",
+            "format": "objeto chave-valor (categoria -> total)",
+            "editable": false
+          },
+          {
+            "field": "despesas_por_centro_custo",
+            "source": "api:/v1/reports/financial",
+            "format": "objeto chave-valor (centro_custo -> total)",
+            "editable": false
+          },
+          {
+            "field": "linhas",
+            "source": "api:/v1/reports/financial",
+            "format": "lista (tipo, categoria, centro_custo, status, total, count)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/reports/financial",
+            "result": "gera relatório para o mês corrente"
+          },
+          {
+            "trigger": "selecionar período",
+            "action": "GET /v1/reports/financial?period_start=<data>&period_end=<data>",
+            "result": "recarrega relatório para o período selecionado"
+          },
+          {
+            "trigger": "exportar CSV",
+            "action": "GET /v1/reports/financial?format=csv",
+            "result": "baixa arquivo CSV com o relatório"
+          },
+          {
+            "trigger": "gerar exportação assíncrona",
+            "action": "POST /v1/reports/financial/generate com period_start, period_end, format",
+            "result": "enfileira geração e retorna jobKey"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0028.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0029",
+      "slug": "nf-clients-list",
+      "title": "Clientes NF",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "listagem de clientes cadastrados para emissão de nota fiscal"
+        }
+      ],
+      "surface": {
+        "route": "/nf-clients",
+        "name": "Clientes NF",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com razão social, CNPJ, tipo de cliente, inscrição estadual e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum cliente NF cadastrado",
+            "ui": "mensagem \"Nenhum cliente cadastrado\" com botão \"Novo Cliente\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/nf-clients",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "razao_social",
+            "source": "api:/v1/nf-clients",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/nf-clients",
+            "format": "CNPJ formatado",
+            "editable": false
+          },
+          {
+            "field": "tipo_cliente",
+            "source": "api:/v1/nf-clients",
+            "format": "enum (empresa|consumidor_final|orgao_publico)",
+            "editable": false
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/nf-clients",
+            "format": "texto",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf-clients",
+            "result": "popula tabela com os clientes NF do tenant"
+          },
+          {
+            "trigger": "filtrar por tipo",
+            "action": "GET /v1/nf-clients?tipo_cliente=<valor>",
+            "result": "filtra pelo tipo de cliente"
+          },
+          {
+            "trigger": "clicar em \"Novo Cliente NF\"",
+            "action": "navega para /nf-clients/new",
+            "result": "abre formulário de cadastro"
+          },
+          {
+            "trigger": "clicar em cliente",
+            "action": "navega para /nf-clients/:id",
+            "result": "abre detalhe do cliente NF"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0029.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0030",
+      "slug": "nf-clients-create",
+      "title": "Novo Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "formulário de cadastro de cliente para emissão de NF"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "relates_to",
+          "note": "CNPJ pode ser consultado via gateway RFB para auto-preenchimento"
+        }
+      ],
+      "surface": {
+        "route": "/nf-clients/new",
+        "name": "Novo Cliente NF",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos razão social, CNPJ, inscrição estadual, inscrição municipal, endereço, contato, tipo de cliente"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento ou consulta RFB em progresso",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valor padrão (tipo_cliente=empresa)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "razao_social",
+            "source": "api:/v1/nf-clients",
+            "format": "texto (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/nf-clients",
+            "format": "CNPJ (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/nf-clients",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/nf-clients",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/nf-clients",
+            "format": "objeto JSON (logradouro, numero, bairro, cidade, estado, cep)",
+            "editable": true
+          },
+          {
+            "field": "contato",
+            "source": "api:/v1/nf-clients",
+            "format": "objeto JSON (telefone, email)",
+            "editable": true
+          },
+          {
+            "field": "tipo_cliente",
+            "source": "api:/v1/nf-clients",
+            "format": "enum (empresa|consumidor_final|orgao_publico)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "digitar CNPJ e clicar em \"Consultar RFB\"",
+            "action": "GET /v1/gateways/rfb/cadastral/:cnpj",
+            "result": "auto-preenche razão social e endereço via gateway RFB"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/nf-clients com razao_social, cnpj, inscricao_estadual, inscricao_municipal, endereco, contato, tipo_cliente",
+            "result": "cria cliente NF e redireciona para /nf-clients/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /nf-clients",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0030.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0031",
+      "slug": "nf-clients-edit",
+      "title": "Editar Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "formulário de edição de cliente NF existente"
+        }
+      ],
+      "surface": {
+        "route": "/nf-clients/:id/edit",
+        "name": "Editar Cliente NF",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos (CNPJ somente leitura, demais editáveis)"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Cliente não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "razao_social",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "objeto JSON",
+            "editable": true
+          },
+          {
+            "field": "contato",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "objeto JSON",
+            "editable": true
+          },
+          {
+            "field": "tipo_cliente",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "enum (empresa|consumidor_final|orgao_publico)",
+            "editable": true
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "CNPJ formatado",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf-clients/:id",
+            "result": "pré-preenche campos com dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/nf-clients/:id com razao_social, inscricao_estadual, inscricao_municipal, endereco, contato, tipo_cliente",
+            "result": "atualiza cliente NF e redireciona para /nf-clients/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /nf-clients/:id",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0031.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0032",
+      "slug": "nf-clients-detail",
+      "title": "Detalhe do Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "visualização completa do cliente NF com histórico de NFs emitidas"
+        }
+      ],
+      "surface": {
+        "route": "/nf-clients/:id",
+        "name": "Detalhe do Cliente NF",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "cabeçalho com razão social/CNPJ/tipo, endereço, contato e lista de NFs emitidas para este cliente"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e na lista de NFs"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Cliente não encontrado\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "razao_social",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "cnpj",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "CNPJ formatado",
+            "editable": false
+          },
+          {
+            "field": "tipo_cliente",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "enum (empresa|consumidor_final|orgao_publico)",
+            "editable": false
+          },
+          {
+            "field": "inscricao_estadual",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "inscricao_municipal",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "endereco",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "objeto endereço",
+            "editable": false
+          },
+          {
+            "field": "contato",
+            "source": "api:/v1/nf-clients/:id",
+            "format": "objeto contato (telefone, email)",
+            "editable": false
+          },
+          {
+            "field": "notas_emitidas",
+            "source": "api:/v1/nf",
+            "format": "lista de NFs (filtradas por nf_client_id)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf-clients/:id",
+            "result": "exibe dados completos do cliente"
+          },
+          {
+            "trigger": "carregar NFs do cliente",
+            "action": "GET /v1/nf?nf_client_id=<id>",
+            "result": "lista as NFs emitidas para este cliente"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /nf-clients/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "clicar em \"Emitir NF\"",
+            "action": "navega para /nf/new com nf_client_id pré-selecionado",
+            "result": "abre formulário de emissão de NF"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0032.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0033",
+      "slug": "nf-products-list",
+      "title": "Produtos / Serviços NF",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "listagem de produtos e serviços cadastrados para emissão de NF"
+        }
+      ],
+      "surface": {
+        "route": "/nf-products",
+        "name": "Produtos / Serviços NF",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com código, descrição, valor unitário, CFOP, NCM/NBS, alíquotas e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum produto/serviço cadastrado",
+            "ui": "mensagem \"Nenhum produto cadastrado\" com botão \"Novo Produto\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/nf-products",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "codigo",
+            "source": "api:/v1/nf-products",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/nf-products",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "valor_unitario",
+            "source": "api:/v1/nf-products",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "cfop",
+            "source": "api:/v1/nf-products",
+            "format": "código CFOP",
+            "editable": false
+          },
+          {
+            "field": "ncm_nbs",
+            "source": "api:/v1/nf-products",
+            "format": "código NCM/NBS",
+            "editable": false
+          },
+          {
+            "field": "aliquota_icms",
+            "source": "api:/v1/nf-products",
+            "format": "percentual",
+            "editable": false
+          },
+          {
+            "field": "aliquota_iss",
+            "source": "api:/v1/nf-products",
+            "format": "percentual",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf-products",
+            "result": "popula tabela com os produtos/serviços do tenant"
+          },
+          {
+            "trigger": "clicar em \"Novo Produto / Serviço\"",
+            "action": "navega para /nf-products/new",
+            "result": "abre formulário de cadastro"
+          },
+          {
+            "trigger": "clicar em \"Editar\"",
+            "action": "navega para /nf-products/:id/edit",
+            "result": "abre formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0033.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0034",
+      "slug": "nf-products-create",
+      "title": "Novo Produto / Serviço",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "formulário de cadastro de produto ou serviço para emissão de NF"
+        }
+      ],
+      "surface": {
+        "route": "/nf-products/new",
+        "name": "Novo Produto / Serviço",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "campos código, descrição, valor unitário, CFOP, NCM/NBS, alíquotas ICMS/ISS/PIS/COFINS"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valor padrão (cfop=5102, alíquotas zeradas)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "codigo",
+            "source": "api:/v1/nf-products",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/nf-products",
+            "format": "texto (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "valor_unitario",
+            "source": "api:/v1/nf-products",
+            "format": "decimal (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "cfop",
+            "source": "api:/v1/nf-products",
+            "format": "código CFOP (padrão 5102)",
+            "editable": true
+          },
+          {
+            "field": "ncm_nbs",
+            "source": "api:/v1/nf-products",
+            "format": "código NCM/NBS",
+            "editable": true
+          },
+          {
+            "field": "aliquota_icms",
+            "source": "api:/v1/nf-products",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_iss",
+            "source": "api:/v1/nf-products",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_pis",
+            "source": "api:/v1/nf-products",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_cofins",
+            "source": "api:/v1/nf-products",
+            "format": "percentual decimal",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/nf-products com codigo, descricao, valor_unitario, cfop, ncm_nbs, aliquota_icms, aliquota_iss, aliquota_pis, aliquota_cofins",
+            "result": "cria produto/serviço e redireciona para /nf-products"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /nf-products",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0034.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0035",
+      "slug": "nf-products-edit",
+      "title": "Editar Produto / Serviço",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "formulário de edição de produto ou serviço NF existente"
+        }
+      ],
+      "surface": {
+        "route": "/nf-products/:id/edit",
+        "name": "Editar Produto / Serviço",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos com todos os campos editáveis"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Produto não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "codigo",
+            "source": "api:/v1/nf-products/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/nf-products/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "valor_unitario",
+            "source": "api:/v1/nf-products/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "cfop",
+            "source": "api:/v1/nf-products/:id",
+            "format": "código CFOP",
+            "editable": true
+          },
+          {
+            "field": "ncm_nbs",
+            "source": "api:/v1/nf-products/:id",
+            "format": "código NCM/NBS",
+            "editable": true
+          },
+          {
+            "field": "aliquota_icms",
+            "source": "api:/v1/nf-products/:id",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_iss",
+            "source": "api:/v1/nf-products/:id",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_pis",
+            "source": "api:/v1/nf-products/:id",
+            "format": "percentual decimal",
+            "editable": true
+          },
+          {
+            "field": "aliquota_cofins",
+            "source": "api:/v1/nf-products/:id",
+            "format": "percentual decimal",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf-products/:id",
+            "result": "pré-preenche campos com dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/nf-products/:id com codigo, descricao, valor_unitario, cfop, ncm_nbs, aliquota_icms, aliquota_iss, aliquota_pis, aliquota_cofins",
+            "result": "atualiza produto/serviço e redireciona para /nf-products"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /nf-products",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0035.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0036",
+      "slug": "nf-list",
+      "title": "Notas Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "listagem de notas fiscais com status SEFAZ e rastreamento"
+        }
+      ],
+      "surface": {
+        "route": "/nf",
+        "name": "Notas Fiscais",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com número, série, destinatário, data de emissão, total, status e ações"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma NF emitida",
+            "ui": "mensagem \"Nenhuma nota fiscal emitida\" com botão \"Emitir NF\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/nf",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "numero_nf",
+            "source": "api:/v1/nf",
+            "format": "texto (número padded)",
+            "editable": false
+          },
+          {
+            "field": "serie",
+            "source": "api:/v1/nf",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "destinatario_razao_social",
+            "source": "api:/v1/nf",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "destinatario_cnpj",
+            "source": "api:/v1/nf",
+            "format": "CNPJ formatado",
+            "editable": false
+          },
+          {
+            "field": "data_emissao",
+            "source": "api:/v1/nf",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "total_nf",
+            "source": "api:/v1/nf",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/nf",
+            "format": "enum (rascunho|processando|emitida|cancelada|rejeitada)",
+            "editable": false
+          },
+          {
+            "field": "chave_acesso",
+            "source": "api:/v1/nf",
+            "format": "chave de 44 dígitos",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf",
+            "result": "popula tabela com as NFs do tenant"
+          },
+          {
+            "trigger": "filtrar por status",
+            "action": "GET /v1/nf?status=<valor>",
+            "result": "filtra por status"
+          },
+          {
+            "trigger": "filtrar por período",
+            "action": "GET /v1/nf?period_start=<data>&period_end=<data>",
+            "result": "filtra por período de emissão"
+          },
+          {
+            "trigger": "clicar em \"Emitir Nota Fiscal\"",
+            "action": "navega para /nf/new",
+            "result": "abre formulário de emissão"
+          },
+          {
+            "trigger": "clicar em linha da tabela",
+            "action": "navega para /nf/:id",
+            "result": "abre detalhe da NF"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0036.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0037",
+      "slug": "nf-create",
+      "title": "Emitir Nota Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "formulário de emissão de NF-e com cálculo de impostos"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "relates_to",
+          "note": "submissão à SEFAZ via gateway fiscal com auditoria centralizada"
+        }
+      ],
+      "surface": {
+        "route": "/nf/new",
+        "name": "Emitir Nota Fiscal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "seletor de cliente NF, série, data de emissão, observações e tabela de itens com cálculo de impostos em tempo real"
+          },
+          {
+            "name": "loading",
+            "when": "envio/submissão em andamento",
+            "ui": "botão \"Emitir\" desabilitado com spinner; mensagem \"Enviando para SEFAZ...\""
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "cliente não selecionado, tabela de itens vazia"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou gateway SEFAZ retornou erro",
+            "ui": "mensagem de erro tipada (SefazError com código e motivo); campos em erro destacados"
+          }
+        ],
+        "data": [
+          {
+            "field": "nf_client_id",
+            "source": "api:/v1/nf",
+            "format": "número (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "serie",
+            "source": "api:/v1/nf",
+            "format": "texto (padrão \"001\")",
+            "editable": true
+          },
+          {
+            "field": "data_emissao",
+            "source": "api:/v1/nf",
+            "format": "data YYYY-MM-DD",
+            "editable": true
+          },
+          {
+            "field": "observacoes",
+            "source": "api:/v1/nf",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "itens",
+            "source": "api:/v1/nf",
+            "format": "lista de itens (nf_product_id, descricao, quantidade, valor_unitario, cfop, aliquotas)",
+            "editable": true
+          },
+          {
+            "field": "total_nf",
+            "source": "api:/v1/nf",
+            "format": "moeda BRL (calculado no frontend)",
+            "editable": false
+          },
+          {
+            "field": "total_impostos",
+            "source": "api:/v1/nf",
+            "format": "moeda BRL (calculado no frontend)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "selecionar produto nos itens",
+            "action": "GET /v1/nf-products/:id",
+            "result": "preenche automaticamente alíquotas e valor unitário do produto"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/nf com nf_client_id, serie, data_emissao, observacoes, itens[]",
+            "result": "cria NF (status processando), enfileira submissão SEFAZ, redireciona para /nf/:id"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /nf",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0037.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0038",
+      "slug": "nf-detail",
+      "title": "Detalhe da Nota Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "visualização completa da NF com XML, PDF, chave de acesso e protocolo SEFAZ"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "relates_to",
+          "note": "rastreamento de status SEFAZ e consulta via gateway"
+        }
+      ],
+      "surface": {
+        "route": "/nf/:id",
+        "name": "Detalhe da Nota Fiscal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "NF carregada com sucesso",
+            "ui": "cabeçalho com número/série/status/chave, itens, totais com impostos discriminados, botões PDF/XML"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no cabeçalho e nos itens"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Nota fiscal não encontrada\" com botão \"Voltar para lista\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede ou SEFAZ indisponível",
+            "ui": "banner de erro com status da consulta SEFAZ"
+          }
+        ],
+        "data": [
+          {
+            "field": "numero_nf",
+            "source": "api:/v1/nf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "serie",
+            "source": "api:/v1/nf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/nf/:id",
+            "format": "enum (rascunho|processando|emitida|cancelada|rejeitada)",
+            "editable": false
+          },
+          {
+            "field": "chave_acesso",
+            "source": "api:/v1/nf/:id",
+            "format": "chave de 44 dígitos",
+            "editable": false
+          },
+          {
+            "field": "data_emissao",
+            "source": "api:/v1/nf/:id",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "data_autorizacao_sefaz",
+            "source": "api:/v1/nf/:id",
+            "format": "data/hora",
+            "editable": false
+          },
+          {
+            "field": "sefaz_protocolo",
+            "source": "api:/v1/nf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "sefaz_motivo",
+            "source": "api:/v1/nf/:id",
+            "format": "texto (motivo de rejeição/cancelamento)",
+            "editable": false
+          },
+          {
+            "field": "total_nf",
+            "source": "api:/v1/nf/:id",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "total_impostos",
+            "source": "api:/v1/nf/:id",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "emitente_razao_social",
+            "source": "api:/v1/nf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "destinatario_razao_social",
+            "source": "api:/v1/nf/:id",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "itens",
+            "source": "api:/v1/nf/:id",
+            "format": "lista de itens (descricao, quantidade, valor_unitario, valor_total, impostos discriminados)",
+            "editable": false
+          },
+          {
+            "field": "xml",
+            "source": "api:/v1/nf/:id",
+            "format": "XML da NF-e",
+            "editable": false
+          },
+          {
+            "field": "pdf_base64",
+            "source": "api:/v1/nf/:id",
+            "format": "PDF em base64",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf/:id",
+            "result": "exibe dados completos da NF com itens e informações SEFAZ"
+          },
+          {
+            "trigger": "clicar em \"Baixar PDF\"",
+            "action": "GET /v1/nf/:id/pdf",
+            "result": "baixa o PDF da NF"
+          },
+          {
+            "trigger": "clicar em \"Cancelar NF\"",
+            "action": "POST /v1/nf/:id/cancel com motivo",
+            "result": "cancela a NF (somente status emitida|processando)"
+          },
+          {
+            "trigger": "clicar em \"Consultar SEFAZ\"",
+            "action": "POST /v1/gateways/sefaz/consultar com chave_acesso",
+            "result": "consulta o status atual da NF na SEFAZ"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0038.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0039",
+      "slug": "nf-report",
+      "title": "Relatório de Notas Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0006",
+          "relation": "implements",
+          "note": "relatório consolidado de NFs emitidas com totais de impostos e exportação CSV"
+        }
+      ],
+      "surface": {
+        "route": "/nf/report",
+        "name": "Relatório de Notas Fiscais",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "relatório gerado com sucesso",
+            "ui": "resumo (total NFs, emitidas, canceladas, total faturado, total impostos), tabela de notas"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton no resumo e na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma NF no período",
+            "ui": "mensagem \"Nenhuma nota fiscal no período selecionado\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "total_nfs",
+            "source": "api:/v1/nf/report",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "emitidas",
+            "source": "api:/v1/nf/report",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "canceladas",
+            "source": "api:/v1/nf/report",
+            "format": "número inteiro",
+            "editable": false
+          },
+          {
+            "field": "total_emitido",
+            "source": "api:/v1/nf/report",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "total_impostos",
+            "source": "api:/v1/nf/report",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "notas",
+            "source": "api:/v1/nf/report",
+            "format": "lista de NFs resumidas (id, serie, numero_nf, status, data_emissao, cliente, total_nf)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/nf/report",
+            "result": "gera relatório completo de NFs"
+          },
+          {
+            "trigger": "filtrar por período",
+            "action": "GET /v1/nf/report?period_start=<data>&period_end=<data>",
+            "result": "filtra NFs pelo período de emissão"
+          },
+          {
+            "trigger": "filtrar por cliente",
+            "action": "GET /v1/nf/report?nf_client_id=<id>",
+            "result": "filtra NFs pelo cliente específico"
+          },
+          {
+            "trigger": "exportar CSV",
+            "action": "GET /v1/nf/report?format=pdf",
+            "result": "baixa arquivo CSV com o relatório de NFs"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0039.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0040",
+      "slug": "assistant",
+      "title": "Assistente Contábil IA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0007",
+          "relation": "implements",
+          "note": "interface de chat com o assistente contábil IA com suporte a RAG e upload de arquivos"
+        }
+      ],
+      "surface": {
+        "route": "/assistant",
+        "name": "Assistente Contábil IA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "assistente IA disponível e pronto para uso",
+            "ui": "área de chat com histórico de mensagens, campo de entrada, botão de upload de arquivos e indicador de citações RAG"
+          },
+          {
+            "name": "loading",
+            "when": "aguardando resposta do assistente",
+            "ui": "indicador de \"digitando...\" no chat"
+          },
+          {
+            "name": "empty",
+            "when": "sem histórico de conversa",
+            "ui": "mensagem de boas-vindas com sugestões de perguntas frequentes (IRPF, obrigações, patrimônio)"
+          },
+          {
+            "name": "error",
+            "when": "IA desabilitada (503) ou falha de rede",
+            "ui": "banner \"Assistente temporariamente indisponível — consulte seu contador\""
+          }
+        ],
+        "data": [
+          {
+            "field": "answer",
+            "source": "api:/v1/assistant",
+            "format": "texto (resposta da IA)",
+            "editable": false
+          },
+          {
+            "field": "citations",
+            "source": "api:/v1/assistant",
+            "format": "lista de citações RAG (fonte, trecho)",
+            "editable": false
+          },
+          {
+            "field": "draft",
+            "source": "api:/v1/assistant",
+            "format": "objeto rascunho proposto pela IA (para confirmação)",
+            "editable": false
+          },
+          {
+            "field": "tools_used",
+            "source": "api:/v1/assistant",
+            "format": "lista de ferramentas utilizadas",
+            "editable": false
+          },
+          {
+            "field": "conversation_id",
+            "source": "api:/v1/assistant",
+            "format": "texto (identificador da conversa)",
+            "editable": false
+          },
+          {
+            "field": "ai_status",
+            "source": "api:/v1/assistant/health",
+            "format": "booleano (ai: true|false)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "enviar mensagem",
+            "action": "POST /v1/assistant com message, conversation_id, history",
+            "result": "retorna resposta da IA com citações e rascunhos opcionais"
+          },
+          {
+            "trigger": "enviar arquivo(s)",
+            "action": "POST /v1/assistant com multipart/form-data (message + files[])",
+            "result": "IA analisa os arquivos e responde contextualmente"
+          },
+          {
+            "trigger": "confirmar rascunho proposto pela IA",
+            "action": "POST /v1/assistant/confirm-draft com draft_id, draft_type, draft_data",
+            "result": "persiste o rascunho confirmado como documento"
+          },
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/assistant/health",
+            "result": "verifica se a IA está disponível antes de renderizar o chat"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0040.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0041",
+      "slug": "income-expenses-list",
+      "title": "Receitas e Despesas",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "listagem unificada de lançamentos de receitas e despesas por entidade"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "controle financeiro com visão consolidada de receitas e despesas"
+        }
+      ],
+      "surface": {
+        "route": "/income-expenses",
+        "name": "Receitas e Despesas",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista carregada com registros",
+            "ui": "tabela com tipo (receita/despesa), categoria, entidade, valor, data, status e ações; totalizadores no topo"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela e dos totalizadores"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum lançamento encontrado",
+            "ui": "mensagem \"Nenhum lançamento encontrado\" com botão \"Novo Lançamento\""
+          },
+          {
+            "name": "error",
+            "when": "falha na requisição",
+            "ui": "mensagem de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/income-expenses",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "tipo",
+            "source": "api:/v1/income-expenses",
+            "format": "enum (receita|despesa)",
+            "editable": false
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/income-expenses",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/income-expenses",
+            "format": "data DD/MM/AAAA",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/income-expenses",
+            "format": "enum (pendente|pago|cancelado)",
+            "editable": false
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/income-expenses",
+            "format": "texto (pf|pj)",
+            "editable": false
+          },
+          {
+            "field": "contraparte",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/income-expenses",
+            "result": "popula tabela com os lançamentos do tenant"
+          },
+          {
+            "trigger": "filtrar por tipo",
+            "action": "GET /v1/income-expenses?tipo=receita ou GET /v1/income-expenses?tipo=despesa",
+            "result": "filtra apenas receitas ou despesas"
+          },
+          {
+            "trigger": "filtrar por entidade",
+            "action": "GET /v1/income-expenses?entity_type=pf&entity_id=<id>",
+            "result": "filtra lançamentos de uma PF específica"
+          },
+          {
+            "trigger": "clicar em \"Novo Lançamento\"",
+            "action": "navega para /income-expenses/new",
+            "result": "abre formulário de cadastro"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0041.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0042",
+      "slug": "income-expenses-create",
+      "title": "Novo Lançamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de cadastro de novo lançamento de receita ou despesa"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "registro de entrada/saída financeira vinculada a entidade PF ou PJ"
+        }
+      ],
+      "surface": {
+        "route": "/income-expenses/new",
+        "name": "Novo Lançamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulário pronto para preenchimento",
+            "ui": "seletor de tipo (receita/despesa), entidade (PF/PJ), categoria, descrição, valor, data, recorrência, status"
+          },
+          {
+            "name": "loading",
+            "when": "envio em andamento",
+            "ui": "botão \"Salvar\" desabilitado com spinner"
+          },
+          {
+            "name": "empty",
+            "when": "formulário recém-aberto",
+            "ui": "campos vazios com valor padrão (status=pendente)"
+          },
+          {
+            "name": "error",
+            "when": "validação falhou ou erro de API",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "entity_type",
+            "source": "api:/v1/income-expenses",
+            "format": "texto (pf|pj — obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "entity_id",
+            "source": "api:/v1/income-expenses",
+            "format": "número (ID da entidade — obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "tipo",
+            "source": "api:/v1/income-expenses",
+            "format": "enum (receita|despesa — obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "categoria",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/income-expenses",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/income-expenses",
+            "format": "decimal (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/income-expenses",
+            "format": "data YYYY-MM-DD (obrigatório)",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/income-expenses",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "centro_custo",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "contraparte",
+            "source": "api:/v1/income-expenses",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/income-expenses",
+            "format": "enum (pendente|pago|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/income-expenses",
+            "format": "URL",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter formulário",
+            "action": "POST /v1/income-expenses com entity_type, entity_id, tipo, categoria, descricao, valor, data, recorrente, status",
+            "result": "cria lançamento e redireciona para /income-expenses"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /income-expenses",
+            "result": "descarta o formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0042.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0043",
+      "slug": "income-expenses-edit",
+      "title": "Editar Lançamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0002",
+          "relation": "implements",
+          "note": "formulário de edição de lançamento de receita ou despesa existente"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0005",
+          "relation": "implements",
+          "note": "atualização de lançamento financeiro vinculado a entidade PF ou PJ"
+        }
+      ],
+      "surface": {
+        "route": "/income-expenses/:id/edit",
+        "name": "Editar Lançamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados para edição",
+            "ui": "campos pré-preenchidos com tipo (somente leitura), entidade (somente leitura) e demais campos editáveis"
+          },
+          {
+            "name": "loading",
+            "when": "carregando dados ou enviando atualização",
+            "ui": "skeleton nos campos; botão \"Salvar\" com spinner durante envio"
+          },
+          {
+            "name": "empty",
+            "when": "ID não encontrado (404)",
+            "ui": "mensagem \"Lançamento não encontrado\" com botão \"Voltar\""
+          },
+          {
+            "name": "error",
+            "when": "erro de validação ou falha de rede",
+            "ui": "mensagens de erro inline; banner de erro geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "categoria",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "descricao",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "texto longo",
+            "editable": true
+          },
+          {
+            "field": "valor",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "decimal",
+            "editable": true
+          },
+          {
+            "field": "data",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "data",
+            "editable": true
+          },
+          {
+            "field": "recorrente",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "booleano",
+            "editable": true
+          },
+          {
+            "field": "centro_custo",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "contraparte",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "texto",
+            "editable": true
+          },
+          {
+            "field": "status",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "enum (pendente|pago|cancelado)",
+            "editable": true
+          },
+          {
+            "field": "comprovante_url",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "URL",
+            "editable": true
+          },
+          {
+            "field": "tipo",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "enum (receita|despesa)",
+            "editable": false
+          },
+          {
+            "field": "entity_type",
+            "source": "api:/v1/income-expenses/:id",
+            "format": "texto (pf|pj)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/income-expenses/:id",
+            "result": "pré-preenche campos com os dados existentes"
+          },
+          {
+            "trigger": "submeter formulário",
+            "action": "PUT /v1/income-expenses/:id com categoria, descricao, valor, data, recorrente, status",
+            "result": "atualiza lançamento e redireciona para /income-expenses"
+          },
+          {
+            "trigger": "clicar em \"Cancelar\"",
+            "action": "navega para /income-expenses",
+            "result": "descarta alterações"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0043.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0044",
+      "slug": "gateways-audit",
+      "title": "Auditoria de Integrações",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "implements",
+          "note": "trilha de auditoria centralizada de todas as chamadas aos gateways externos (SEFAZ, RFB, e-Social)"
+        }
+      ],
+      "surface": {
+        "route": "/admin/gateways",
+        "name": "Auditoria de Integrações",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "dados carregados com sucesso",
+            "ui": "cards de status dos gateways (SEFAZ, RFB, e-Social — modo sandbox/real), tabela de log de auditoria"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton nos cards e na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum registro de auditoria",
+            "ui": "mensagem \"Nenhuma chamada de gateway registrada\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "sefaz_mode",
+            "source": "api:/v1/gateways/health",
+            "format": "enum (sandbox|real)",
+            "editable": false
+          },
+          {
+            "field": "rfb_mode",
+            "source": "api:/v1/gateways/health",
+            "format": "enum (sandbox|real)",
+            "editable": false
+          },
+          {
+            "field": "esocial_mode",
+            "source": "api:/v1/gateways/health",
+            "format": "enum (sandbox|real)",
+            "editable": false
+          },
+          {
+            "field": "id",
+            "source": "api:/v1/gateways/audit",
+            "format": "número",
+            "editable": false
+          },
+          {
+            "field": "gateway",
+            "source": "api:/v1/gateways/audit",
+            "format": "texto (sefaz|rfb|esocial)",
+            "editable": false
+          },
+          {
+            "field": "method",
+            "source": "api:/v1/gateways/audit",
+            "format": "texto (HTTP method)",
+            "editable": false
+          },
+          {
+            "field": "endpoint",
+            "source": "api:/v1/gateways/audit",
+            "format": "texto (URL do gateway externo)",
+            "editable": false
+          },
+          {
+            "field": "response_status",
+            "source": "api:/v1/gateways/audit",
+            "format": "número (HTTP status)",
+            "editable": false
+          },
+          {
+            "field": "duration_ms",
+            "source": "api:/v1/gateways/audit",
+            "format": "número (milissegundos)",
+            "editable": false
+          },
+          {
+            "field": "attempts",
+            "source": "api:/v1/gateways/audit",
+            "format": "número (tentativas com retry)",
+            "editable": false
+          },
+          {
+            "field": "error_code",
+            "source": "api:/v1/gateways/audit",
+            "format": "texto (código de erro tipado)",
+            "editable": false
+          },
+          {
+            "field": "logged_at",
+            "source": "api:/v1/gateways/audit",
+            "format": "data/hora ISO",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/gateways/health",
+            "result": "exibe status dos três gateways (modo e credenciais)"
+          },
+          {
+            "trigger": "carregar log de auditoria",
+            "action": "GET /v1/gateways/audit",
+            "result": "exibe as últimas chamadas aos gateways com detalhes"
+          },
+          {
+            "trigger": "paginar log",
+            "action": "GET /v1/gateways/audit?limit=<N>",
+            "result": "carrega mais registros do log"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0044.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0045",
+      "slug": "assistant-audit",
+      "title": "Auditoria do Assistente IA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "contaviva-360",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0007",
+          "relation": "implements",
+          "note": "log de auditoria das interações com o assistente IA (perguntas, respostas, arquivos, rascunhos confirmados)"
+        },
+        {
+          "requirement_id": "REQ-CONTAVIVA360-0009",
+          "relation": "relates_to",
+          "note": "trilha de auditoria centralizada inclui interações do assistente IA"
+        }
+      ],
+      "surface": {
+        "route": "/admin/assistant-audit",
+        "name": "Auditoria do Assistente IA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "log carregado com sucesso",
+            "ui": "tabela com pergunta, resposta resumida, ferramentas usadas, arquivos processados, rascunhos confirmados, duração e data"
+          },
+          {
+            "name": "loading",
+            "when": "requisição em andamento",
+            "ui": "skeleton de tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma interação registrada",
+            "ui": "mensagem \"Nenhuma interação com o assistente registrada\""
+          },
+          {
+            "name": "error",
+            "when": "falha de rede",
+            "ui": "banner de erro com botão \"Tentar novamente\""
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/v1/assistant/health",
+            "format": "número",
+            "contract": "proposed",
+            "editable": false
+          },
+          {
+            "field": "conversation_id",
+            "source": "api:/v1/assistant",
+            "format": "texto (identificador da conversa)",
+            "editable": false
+          },
+          {
+            "field": "question",
+            "source": "api:/v1/assistant",
+            "format": "texto (pergunta — truncada em 4000 chars)",
+            "editable": false
+          },
+          {
+            "field": "answer",
+            "source": "api:/v1/assistant",
+            "format": "texto (resposta — truncada em 4000 chars)",
+            "editable": false
+          },
+          {
+            "field": "tools_used",
+            "source": "api:/v1/assistant",
+            "format": "lista de ferramentas utilizadas",
+            "editable": false
+          },
+          {
+            "field": "files_manifest",
+            "source": "api:/v1/assistant",
+            "format": "lista de arquivos processados (path, type, status)",
+            "editable": false
+          },
+          {
+            "field": "duration_ms",
+            "source": "api:/v1/assistant",
+            "format": "número (milissegundos)",
+            "editable": false
+          },
+          {
+            "field": "created_at",
+            "source": "api:/v1/assistant/health",
+            "format": "data/hora ISO",
+            "contract": "proposed",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "carregar página",
+            "action": "GET /v1/assistant/health",
+            "result": "verifica disponibilidade da IA e exibe status"
+          },
+          {
+            "trigger": "carregar log de auditoria",
+            "action": "GET /v1/admin/assistant-audit",
+            "contract": "proposed",
+            "result": "lista os registros de auditoria do assistente IA (endpoint a criar)"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/contaviva-360/product.json",
+          "apps/contaviva-360/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0045.yaml"
+    },
     {
       "id": "REF-GYMOPS-0001",
       "slug": "ref-gymops-0001",

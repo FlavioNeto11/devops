@@ -1,0 +1,88 @@
+id: REF-CONTAVIVA360-0010
+slug: documents-list
+title: Documentos
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: listagem de documentos com filtros por tipo, status, mês e ano
+
+surface:
+  route: /documents
+  name: Documentos
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com colunas tipo, status, mês/ano, entidade vinculada, versões e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhum documento encontrado com os filtros aplicados
+      ui: mensagem "Nenhum documento encontrado" com botão "Enviar Documento"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/documents
+      format: número
+      editable: false
+    - field: tipo
+      source: api:/v1/documents
+      format: texto (tipo do documento)
+      editable: false
+    - field: status
+      source: api:/v1/documents
+      format: enum (pendente|aprovado|rejeitado)
+      editable: false
+    - field: mes
+      source: api:/v1/documents
+      format: número (1-12)
+      editable: false
+    - field: ano
+      source: api:/v1/documents
+      format: número (AAAA)
+      editable: false
+    - field: version_count
+      source: api:/v1/documents
+      format: número inteiro
+      editable: false
+    - field: entity_type
+      source: api:/v1/documents
+      format: texto (pf|pj)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/documents
+      result: popula tabela com os documentos do tenant
+    - trigger: aplicar filtro de tipo
+      action: GET /v1/documents?tipo=<valor>
+      result: filtra documentos pelo tipo
+    - trigger: aplicar filtro de status
+      action: GET /v1/documents?status=<valor>
+      result: filtra documentos pelo status
+    - trigger: clicar em "Enviar Documento"
+      action: navega para /documents/new
+      result: abre formulário de envio
+    - trigger: clicar em linha da tabela
+      action: navega para /documents/:id
+      result: abre detalhe do documento
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

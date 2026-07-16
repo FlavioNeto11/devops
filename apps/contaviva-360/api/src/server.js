@@ -23,6 +23,7 @@ import { registerNfRoutes } from './routes/nf.js';
 import { registerAssistantRoutes } from './routes/assistant.js';
 import { registerRoleDashboardRoutes } from './routes/role-dashboards.js';
 import { registerGatewayRoutes } from './routes/gateway-routes.js';
+import { registerSubEntityRoutes } from './routes/sub-entities.js';
 import { broadcast } from './events.js';
 
 const app = Fastify({ logger: false });
@@ -30,7 +31,12 @@ app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tena
 // GET / é CONTRATO do gate forge-tests: o CI confere {"app":"contaviva-360"} antes dos testes LOCKED.
 app.get('/', async () => ({ app: 'contaviva-360', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
-app.get('/me', async (req) => ({ role: req.role, user: req.user, tenantId: req.tenantId }));
+app.get('/me', async (req) => {
+  const email = req.headers['x-auth-request-email'] || null;
+  const name = req.headers['x-auth-request-preferred-username'] || req.headers['x-auth-request-user'] || null;
+  const role = req.headers['x-auth-request-groups'] || null;
+  return { email, name, role };
+});
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));
 
 // Hook de broadcast para real-time (REQ-CONTAVIVA360-0008 AC6)
@@ -101,6 +107,10 @@ registerRoleDashboardRoutes(app);
 
 // Gateway centralizado SEFAZ/RFB/e-Social + auditoria (REQ-CONTAVIVA360-0009)
 registerGatewayRoutes(app);
+
+// Entidades secundárias com endpoints de topo próprios (REQ-CONTAVIVA360-0002/0004/0007/0009)
+// pf-assets, pf-liabilities, pj-partners, task-comments, task-attachments, assistant-audit, gateway-audit
+registerSubEntityRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

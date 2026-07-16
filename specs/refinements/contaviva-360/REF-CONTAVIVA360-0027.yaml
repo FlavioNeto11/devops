@@ -1,0 +1,71 @@
+id: REF-CONTAVIVA360-0027
+slug: cash-flow
+title: Fluxo de Caixa
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: visualização do fluxo de caixa com projeção por horizonte de dias
+
+surface:
+  route: /cash-flow
+  name: Fluxo de Caixa
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: card de saldo atual, gráfico de linha com projeção diária, resumo para 30/60/90 dias
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no card de saldo e no gráfico
+    - name: empty
+      when: sem lançamentos cadastrados
+      ui: gráfico vazio com saldo zero e orientação para cadastrar receitas/despesas
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: saldo_atual
+      source: api:/v1/cash-flow
+      format: moeda BRL
+      editable: false
+    - field: saldo_previsto_final
+      source: api:/v1/cash-flow
+      format: moeda BRL
+      editable: false
+    - field: horizon
+      source: api:/v1/cash-flow
+      format: número (1-90 dias)
+      editable: true
+    - field: dias
+      source: api:/v1/cash-flow
+      format: lista de dias (dia, entradas, saidas, saldo_dia, saldo_acumulado)
+      editable: false
+    - field: resumo_saldo
+      source: api:/v1/cash-flow
+      format: objeto com saldos projetados para 30, 60 e 90 dias
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/cash-flow
+      result: exibe fluxo com horizonte padrão de 30 dias
+    - trigger: alterar horizonte de projeção
+      action: GET /v1/cash-flow?horizon=<N>
+      result: recarrega o gráfico com o novo horizonte (1-90 dias)
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

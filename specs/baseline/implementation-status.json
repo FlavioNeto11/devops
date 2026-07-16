@@ -8,9 +8,9 @@
       "done": 52
     },
     "refinements": {
-      "total": 63,
+      "total": 108,
       "by_status": {
-        "not_started": 35,
+        "not_started": 80,
         "pr_open": 16,
         "deployed": 12
       }
@@ -2277,6 +2277,186 @@
     }
   },
   "refinement_items": {
+    "REF-CONTAVIVA360-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0012": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0013": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0014": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0015": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0016": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0017": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0018": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0019": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0020": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0021": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0022": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0023": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0024": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0025": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0026": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0027": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0028": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0029": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0030": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0032": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0033": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0034": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0035": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0036": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0037": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0038": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0039": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0040": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0041": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0042": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0043": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0044": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-CONTAVIVA360-0045": {
+      "status": "not_started",
+      "req_revision": 1
+    },
     "REF-GYMOPS-0001": {
       "status": "not_started",
       "req_revision": 1,

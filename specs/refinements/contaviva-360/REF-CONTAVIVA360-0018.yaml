@@ -1,0 +1,87 @@
+id: REF-CONTAVIVA360-0018
+slug: tasks-create
+title: Nova Tarefa
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0004
+    relation: implements
+    note: formulário de criação de nova tarefa
+
+surface:
+  route: /tasks/new
+  name: Nova Tarefa
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos título, descrição, responsável, papel do responsável, prazo, prioridade, status, entidade vinculada
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valores padrão (priority=media, status=aberta)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: title
+      source: api:/v1/tasks
+      format: texto livre (obrigatório)
+      editable: true
+    - field: description
+      source: api:/v1/tasks
+      format: texto longo
+      editable: true
+    - field: assignee
+      source: api:/v1/tasks
+      format: texto (e-mail ou nome do responsável)
+      editable: true
+    - field: assignee_role
+      source: api:/v1/tasks
+      format: texto (member|manager|admin)
+      editable: true
+    - field: due_at
+      source: api:/v1/tasks
+      format: data/hora (ISO 8601)
+      editable: true
+    - field: priority
+      source: api:/v1/tasks
+      format: enum (baixa|media|alta|critica)
+      editable: true
+    - field: status
+      source: api:/v1/tasks
+      format: enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)
+      editable: true
+    - field: entity_type
+      source: api:/v1/tasks
+      format: texto (pf|pj|fiscal-obligation)
+      editable: true
+    - field: entity_id
+      source: api:/v1/tasks
+      format: número
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/tasks com title, description, assignee, assignee_role, due_at, priority, status, entity_type, entity_id
+      result: cria tarefa e redireciona para /tasks/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /tasks
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

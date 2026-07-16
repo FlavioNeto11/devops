@@ -1,0 +1,95 @@
+id: REF-CONTAVIVA360-0022
+slug: accounts-payable-create
+title: Nova Conta a Pagar
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: formulário de criação de nova conta a pagar (despesa)
+
+surface:
+  route: /accounts-payable/new
+  name: Nova Conta a Pagar
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos fornecedor, valor, data, categoria, centro de custo, forma de pagamento, recorrência, status
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valor padrão (status=pendente)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: contraparte
+      source: api:/v1/accounts-payable
+      format: texto (nome do fornecedor — obrigatório)
+      editable: true
+    - field: valor
+      source: api:/v1/accounts-payable
+      format: decimal (obrigatório)
+      editable: true
+    - field: data
+      source: api:/v1/accounts-payable
+      format: data YYYY-MM-DD (obrigatório)
+      editable: true
+    - field: categoria
+      source: api:/v1/accounts-payable
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/accounts-payable
+      format: texto longo
+      editable: true
+    - field: centro_custo
+      source: api:/v1/accounts-payable
+      format: texto
+      editable: true
+    - field: forma_pagamento
+      source: api:/v1/accounts-payable
+      format: enum (cheque|TED|cartão|boleto|dinheiro)
+      editable: true
+    - field: recorrente
+      source: api:/v1/accounts-payable
+      format: booleano
+      editable: true
+    - field: recorrencia_tipo
+      source: api:/v1/accounts-payable
+      format: texto (mensal|quinzenal|semanal)
+      editable: true
+    - field: status
+      source: api:/v1/accounts-payable
+      format: enum (pendente|pago|vencido|cancelado)
+      editable: true
+    - field: comprovante_url
+      source: api:/v1/accounts-payable
+      format: URL
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/accounts-payable com contraparte, valor, data, categoria, descricao, centro_custo, forma_pagamento, recorrente, status
+      result: cria conta a pagar e redireciona para /accounts-payable
+    - trigger: clicar em "Cancelar"
+      action: navega para /accounts-payable
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

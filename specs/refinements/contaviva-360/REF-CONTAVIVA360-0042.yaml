@@ -1,0 +1,102 @@
+id: REF-CONTAVIVA360-0042
+slug: income-expenses-create
+title: Novo Lançamento
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de cadastro de novo lançamento de receita ou despesa
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: registro de entrada/saída financeira vinculada a entidade PF ou PJ
+
+surface:
+  route: /income-expenses/new
+  name: Novo Lançamento
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: seletor de tipo (receita/despesa), entidade (PF/PJ), categoria, descrição, valor, data, recorrência, status
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valor padrão (status=pendente)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: entity_type
+      source: api:/v1/income-expenses
+      format: texto (pf|pj — obrigatório)
+      editable: true
+    - field: entity_id
+      source: api:/v1/income-expenses
+      format: número (ID da entidade — obrigatório)
+      editable: true
+    - field: tipo
+      source: api:/v1/income-expenses
+      format: enum (receita|despesa — obrigatório)
+      editable: true
+    - field: categoria
+      source: api:/v1/income-expenses
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/income-expenses
+      format: texto longo
+      editable: true
+    - field: valor
+      source: api:/v1/income-expenses
+      format: decimal (obrigatório)
+      editable: true
+    - field: data
+      source: api:/v1/income-expenses
+      format: data YYYY-MM-DD (obrigatório)
+      editable: true
+    - field: recorrente
+      source: api:/v1/income-expenses
+      format: booleano
+      editable: true
+    - field: centro_custo
+      source: api:/v1/income-expenses
+      format: texto
+      editable: true
+    - field: contraparte
+      source: api:/v1/income-expenses
+      format: texto
+      editable: true
+    - field: status
+      source: api:/v1/income-expenses
+      format: enum (pendente|pago|cancelado)
+      editable: true
+    - field: comprovante_url
+      source: api:/v1/income-expenses
+      format: URL
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/income-expenses com entity_type, entity_id, tipo, categoria, descricao, valor, data, recorrente, status
+      result: cria lançamento e redireciona para /income-expenses
+    - trigger: clicar em "Cancelar"
+      action: navega para /income-expenses
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

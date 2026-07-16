@@ -1,0 +1,101 @@
+id: REF-CONTAVIVA360-0043
+slug: income-expenses-edit
+title: Editar Lançamento
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de edição de lançamento de receita ou despesa existente
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: atualização de lançamento financeiro vinculado a entidade PF ou PJ
+
+surface:
+  route: /income-expenses/:id/edit
+  name: Editar Lançamento
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos com tipo (somente leitura), entidade (somente leitura) e demais campos editáveis
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Lançamento não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: categoria
+      source: api:/v1/income-expenses/:id
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/income-expenses/:id
+      format: texto longo
+      editable: true
+    - field: valor
+      source: api:/v1/income-expenses/:id
+      format: decimal
+      editable: true
+    - field: data
+      source: api:/v1/income-expenses/:id
+      format: data
+      editable: true
+    - field: recorrente
+      source: api:/v1/income-expenses/:id
+      format: booleano
+      editable: true
+    - field: centro_custo
+      source: api:/v1/income-expenses/:id
+      format: texto
+      editable: true
+    - field: contraparte
+      source: api:/v1/income-expenses/:id
+      format: texto
+      editable: true
+    - field: status
+      source: api:/v1/income-expenses/:id
+      format: enum (pendente|pago|cancelado)
+      editable: true
+    - field: comprovante_url
+      source: api:/v1/income-expenses/:id
+      format: URL
+      editable: true
+    - field: tipo
+      source: api:/v1/income-expenses/:id
+      format: enum (receita|despesa)
+      editable: false
+    - field: entity_type
+      source: api:/v1/income-expenses/:id
+      format: texto (pf|pj)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/income-expenses/:id
+      result: pré-preenche campos com os dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/income-expenses/:id com categoria, descricao, valor, data, recorrente, status
+      result: atualiza lançamento e redireciona para /income-expenses
+    - trigger: clicar em "Cancelar"
+      action: navega para /income-expenses
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

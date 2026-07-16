@@ -1,0 +1,91 @@
+id: REF-CONTAVIVA360-0025
+slug: accounts-receivable-create
+title: Nova Conta a Receber
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: formulário de criação de nova conta a receber (receita)
+
+surface:
+  route: /accounts-receivable/new
+  name: Nova Conta a Receber
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos cliente, valor, data, categoria, forma de recebimento, recorrência, status
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valor padrão (status=pendente)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: contraparte
+      source: api:/v1/accounts-receivable
+      format: texto (nome do cliente — obrigatório)
+      editable: true
+    - field: valor
+      source: api:/v1/accounts-receivable
+      format: decimal (obrigatório)
+      editable: true
+    - field: data
+      source: api:/v1/accounts-receivable
+      format: data YYYY-MM-DD (obrigatório)
+      editable: true
+    - field: categoria
+      source: api:/v1/accounts-receivable
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/accounts-receivable
+      format: texto longo
+      editable: true
+    - field: forma_recebimento
+      source: api:/v1/accounts-receivable
+      format: texto (PIX|TED|boleto|dinheiro|cartão)
+      editable: true
+    - field: recorrente
+      source: api:/v1/accounts-receivable
+      format: booleano
+      editable: true
+    - field: recorrencia_tipo
+      source: api:/v1/accounts-receivable
+      format: texto
+      editable: true
+    - field: status
+      source: api:/v1/accounts-receivable
+      format: enum (pendente|recebido|vencido|cancelado)
+      editable: true
+    - field: comprovante_url
+      source: api:/v1/accounts-receivable
+      format: URL
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/accounts-receivable com contraparte, valor, data, categoria, descricao, forma_recebimento, recorrente, status
+      result: cria conta a receber e redireciona para /accounts-receivable
+    - trigger: clicar em "Cancelar"
+      action: navega para /accounts-receivable
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

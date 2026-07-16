@@ -1,0 +1,81 @@
+id: REF-CONTAVIVA360-0039
+slug: nf-report
+title: Relatório de Notas Fiscais
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: relatório consolidado de NFs emitidas com totais de impostos e exportação CSV
+
+surface:
+  route: /nf/report
+  name: Relatório de Notas Fiscais
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: relatório gerado com sucesso
+      ui: resumo (total NFs, emitidas, canceladas, total faturado, total impostos), tabela de notas
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no resumo e na tabela
+    - name: empty
+      when: nenhuma NF no período
+      ui: mensagem "Nenhuma nota fiscal no período selecionado"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: total_nfs
+      source: api:/v1/nf/report
+      format: número inteiro
+      editable: false
+    - field: emitidas
+      source: api:/v1/nf/report
+      format: número inteiro
+      editable: false
+    - field: canceladas
+      source: api:/v1/nf/report
+      format: número inteiro
+      editable: false
+    - field: total_emitido
+      source: api:/v1/nf/report
+      format: moeda BRL
+      editable: false
+    - field: total_impostos
+      source: api:/v1/nf/report
+      format: moeda BRL
+      editable: false
+    - field: notas
+      source: api:/v1/nf/report
+      format: lista de NFs resumidas (id, serie, numero_nf, status, data_emissao, cliente, total_nf)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf/report
+      result: gera relatório completo de NFs
+    - trigger: filtrar por período
+      action: GET /v1/nf/report?period_start=<data>&period_end=<data>
+      result: filtra NFs pelo período de emissão
+    - trigger: filtrar por cliente
+      action: GET /v1/nf/report?nf_client_id=<id>
+      result: filtra NFs pelo cliente específico
+    - trigger: exportar CSV
+      action: GET /v1/nf/report?format=pdf
+      result: baixa arquivo CSV com o relatório de NFs
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

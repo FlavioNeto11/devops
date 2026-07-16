@@ -1,0 +1,85 @@
+id: REF-CONTAVIVA360-0028
+slug: financial-reports
+title: Relatórios Financeiros
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: relatório financeiro com DRE simplificado, despesas por categoria e por centro de custo
+
+surface:
+  route: /reports/financial
+  name: Relatórios Financeiros
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: relatório gerado com sucesso
+      ui: cards de resumo (total receitas, despesas, saldo líquido), gráficos de despesas por categoria e centro de custo, tabela de linhas
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton nos cards e nos gráficos
+    - name: empty
+      when: sem lançamentos no período
+      ui: mensagem informando sem dados para o período selecionado
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: periodo
+      source: api:/v1/reports/financial
+      format: objeto (start, end)
+      editable: false
+    - field: total_receitas
+      source: api:/v1/reports/financial
+      format: moeda BRL
+      editable: false
+    - field: total_despesas
+      source: api:/v1/reports/financial
+      format: moeda BRL
+      editable: false
+    - field: saldo_liquido
+      source: api:/v1/reports/financial
+      format: moeda BRL
+      editable: false
+    - field: despesas_por_categoria
+      source: api:/v1/reports/financial
+      format: objeto chave-valor (categoria -> total)
+      editable: false
+    - field: despesas_por_centro_custo
+      source: api:/v1/reports/financial
+      format: objeto chave-valor (centro_custo -> total)
+      editable: false
+    - field: linhas
+      source: api:/v1/reports/financial
+      format: lista (tipo, categoria, centro_custo, status, total, count)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/reports/financial
+      result: gera relatório para o mês corrente
+    - trigger: selecionar período
+      action: GET /v1/reports/financial?period_start=<data>&period_end=<data>
+      result: recarrega relatório para o período selecionado
+    - trigger: exportar CSV
+      action: GET /v1/reports/financial?format=csv
+      result: baixa arquivo CSV com o relatório
+    - trigger: gerar exportação assíncrona
+      action: POST /v1/reports/financial/generate com period_start, period_end, format
+      result: enfileira geração e retorna jobKey
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

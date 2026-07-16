@@ -1,0 +1,82 @@
+id: REF-CONTAVIVA360-0012
+slug: documents-detail
+title: Detalhe do Documento
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: visualização do documento com histórico de versões
+
+surface:
+  route: /documents/:id
+  name: Detalhe do Documento
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: documento carregado com sucesso
+      ui: cabeçalho com tipo/status/entidade e aba de versões com histórico de uploads
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e na lista de versões
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Documento não encontrado" com botão "Voltar"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: tipo
+      source: api:/v1/documents/:id
+      format: texto
+      editable: false
+    - field: status
+      source: api:/v1/documents/:id
+      format: enum (pendente|aprovado|rejeitado)
+      editable: false
+    - field: mes
+      source: api:/v1/documents/:id
+      format: número
+      editable: false
+    - field: ano
+      source: api:/v1/documents/:id
+      format: número
+      editable: false
+    - field: entity_type
+      source: api:/v1/documents/:id
+      format: texto
+      editable: false
+    - field: entity_id
+      source: api:/v1/documents/:id
+      format: número
+      editable: false
+    - field: versions
+      source: api:/v1/documents/:id
+      format: lista de versões (version, filename, content_type, file_size, uploaded_by, created_at)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/documents/:id
+      result: exibe dados do documento e histórico de versões
+    - trigger: clicar em "Nova Versão"
+      action: POST /v1/documents/:id/versions com filename, content_type, file_size
+      result: adiciona nova versão ao documento
+    - trigger: visualizar histórico de versões
+      action: GET /v1/documents/:id/versions
+      result: exibe lista completa de versões com metadados
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

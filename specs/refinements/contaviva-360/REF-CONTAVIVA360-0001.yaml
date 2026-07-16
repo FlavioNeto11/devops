@@ -1,0 +1,70 @@
+id: REF-CONTAVIVA360-0001
+slug: dashboard-home
+title: Painel Principal
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0008
+    relation: implements
+    note: painel central com KPIs e visão geral da plataforma
+
+surface:
+  route: /
+  name: Painel Principal
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: cards de KPI (obrigações fiscais, tarefas pendentes, saldo de caixa), lista de alertas recentes
+    - name: loading
+      when: requisições em andamento
+      ui: skeletons nos cards de KPI e lista de alertas
+    - name: empty
+      when: sem dados cadastrados ainda
+      ui: mensagem de boas-vindas com chamadas para cadastrar PF/PJ ou obrigações
+    - name: error
+      when: erro de rede ou API indisponível
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: obrigacoes_pendentes
+      source: api:/v1/fiscal-obligations
+      format: número inteiro
+      editable: false
+    - field: tarefas_abertas
+      source: api:/v1/tasks
+      format: número inteiro
+      editable: false
+    - field: saldo_atual
+      source: api:/v1/cash-flow
+      format: moeda BRL
+      editable: false
+    - field: alertas_fiscais
+      source: api:/v1/dashboard/obligations
+      format: lista resumida
+      editable: false
+  interactions:
+    - trigger: clicar em card de obrigações
+      action: navega para /fiscal-obligations
+      result: abre lista de obrigações fiscais
+    - trigger: clicar em card de tarefas
+      action: navega para /tasks
+      result: abre lista de tarefas
+    - trigger: clicar em alerta fiscal
+      action: navega para /fiscal-obligations/:id
+      result: abre detalhe da obrigação
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

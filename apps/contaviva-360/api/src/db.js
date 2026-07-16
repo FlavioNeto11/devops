@@ -50,4 +50,52 @@ export async function migrate() {
       console.log('[migrate] ' + v); }
   } finally { await c.query('SELECT pg_advisory_unlock(66021)').catch(() => {}); c.release(); }
 }
-export async function seed() { const { rows } = await pool.query('SELECT count(*)::int n FROM records'); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`); }
+export async function seed() {
+  // records
+  const { rows: rr } = await pool.query('SELECT count(*)::int n FROM records');
+  if (rr[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`);
+
+  // pf_assets / pf_liabilities: seed se houver ao menos 1 PF mas nenhum asset/liability
+  const { rows: pfr } = await pool.query('SELECT id FROM physical_persons LIMIT 1');
+  if (pfr[0]) {
+    const pfId = pfr[0].id;
+    const { rows: ar } = await pool.query('SELECT count(*)::int n FROM pf_assets WHERE pf_id=$1', [pfId]);
+    if (ar[0].n === 0) {
+      await pool.query(`INSERT INTO pf_assets(pf_id,tipo,descricao,valor) VALUES ($1,'imovel','Apartamento 70m² Zona Sul',320000),($1,'carro','Volkswagen Polo 2022',65000),($1,'aplicacao','CDB Banco Inter',50000)`, [pfId]);
+    }
+    const { rows: lr } = await pool.query('SELECT count(*)::int n FROM pf_liabilities WHERE pf_id=$1', [pfId]);
+    if (lr[0].n === 0) {
+      await pool.query(`INSERT INTO pf_liabilities(pf_id,tipo,descricao,valor,recorrente) VALUES ($1,'financiamento','Financiamento imóvel',1850,true),($1,'cartao','Cartão de crédito',650,false)`, [pfId]);
+    }
+  }
+
+  // pj_partners: seed se houver ao menos 1 PJ mas nenhum parceiro
+  const { rows: pjr } = await pool.query('SELECT id FROM legal_persons LIMIT 1');
+  if (pjr[0]) {
+    const pjId = pjr[0].id;
+    const { rows: pr } = await pool.query('SELECT count(*)::int n FROM pj_partners WHERE pj_id=$1', [pjId]);
+    if (pr[0].n === 0) {
+      await pool.query(`INSERT INTO pj_partners(pj_id,nome,cpf,participacao_pct) VALUES ($1,'Ana Beatriz Costa','111.222.333-44',60),($1,'Carlos Menezes Silva','555.666.777-88',40)`, [pjId]);
+    }
+  }
+
+  // task_comments / task_attachments: seed se houver ao menos 1 task mas nenhum comment
+  const { rows: tr } = await pool.query('SELECT id FROM tasks LIMIT 1');
+  if (tr[0]) {
+    const tId = tr[0].id;
+    const { rows: cr } = await pool.query('SELECT count(*)::int n FROM task_comments WHERE task_id=$1', [tId]);
+    if (cr[0].n === 0) {
+      await pool.query(`INSERT INTO task_comments(task_id,author,content) VALUES ($1,'contador','Aguardando envio dos documentos do mês.'),($1,'cliente','Documentos enviados por e-mail hoje.')`, [tId]);
+    }
+    const { rows: atr } = await pool.query('SELECT count(*)::int n FROM task_attachments WHERE task_id=$1', [tId]);
+    if (atr[0].n === 0) {
+      await pool.query(`INSERT INTO task_attachments(task_id,version,filename,content_type,file_size) VALUES ($1,1,'extrato_jan_2026.pdf','application/pdf',204800),($1,1,'nota_fiscal_001.xml','application/xml',8192)`, [tId]);
+    }
+  }
+
+  // gateway_audit_log: seed se vazio
+  const { rows: gr } = await pool.query('SELECT count(*)::int n FROM gateway_audit_log');
+  if (gr[0].n === 0) {
+    await pool.query(`INSERT INTO gateway_audit_log(gateway,method,endpoint,response_status,duration_ms,attempts) VALUES ('sefaz','POST','/nfe/v4/NFeAutorizacao4',200,430,1),('rfb','GET','/cadastral/12345678000100',200,210,1),('esocial','POST','/eventos/S-1000',200,550,1)`);
+  }
+}

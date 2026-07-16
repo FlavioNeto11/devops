@@ -1,0 +1,71 @@
+id: REF-CONTAVIVA360-0003
+slug: pf-create
+title: Nova Pessoa Física
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de cadastro de pessoa física
+
+surface:
+  route: /pf/new
+  name: Nova Pessoa Física
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos CPF, nome, data de nascimento, endereço, patrimônio inicial
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com placeholders
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline por campo; banner de erro geral se falha de rede
+  data:
+    - field: cpf
+      source: api:/v1/pf
+      format: CPF (000.000.000-00)
+      editable: true
+    - field: nome
+      source: api:/v1/pf
+      format: texto livre
+      editable: true
+    - field: data_nascimento
+      source: api:/v1/pf
+      format: data (YYYY-MM-DD)
+      editable: true
+    - field: endereco
+      source: api:/v1/pf
+      format: objeto JSON (logradouro, numero, bairro, cidade, estado, cep)
+      editable: true
+    - field: patrimonio_inicial
+      source: api:/v1/pf
+      format: decimal
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/pf com cpf, nome, data_nascimento, endereco, patrimonio_inicial
+      result: cria PF e redireciona para /pf/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /pf
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
