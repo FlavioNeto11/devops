@@ -174,6 +174,9 @@ const MIGRATIONS = [
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
+  // REF-NEUROEVOLUI-0048: progresso (0-100) e timestamp de conclusão para monitoramento de jobs
+  `ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE async_jobs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`,
 ];
 export async function migrate() {
   const c = await pool.connect();
