@@ -63,6 +63,7 @@ Trilha comercial do produto (planos, preços, custos e benchmark) em `docs/20-co
 - [docs/20-comercial/plano-comercial-sicat.xlsx](20-comercial/plano-comercial-sicat.xlsx) — calculadora (4 abas) + CSVs espelho para diff.
 - [docs/20-comercial/one-pager-plano-comercial-sicat.pdf](20-comercial/one-pager-plano-comercial-sicat.pdf) — resumo executivo A4.
 - [docs/20-comercial/tools/README.md](20-comercial/tools/README.md) — fonte única (`premissas.json`) + geradores versionados (xlsx/PDF) + golden check.
+- [docs/20-comercial/vendas/README.md](20-comercial/vendas/README.md) — **kit de vendas**: deck cliente (pptx), battlecard interno do vendedor (PDF), deck SICAT Embedded para parcerias B2B2B (pptx) e one-pager de parceria (PDF) — todos gerados da fonte única, com a identidade visual do app.
 
 ## Estrutura atual
 
