@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "titulo": "Plano comercial SICAT — fonte única de números",
+    "updated": "2026-07-16",
+    "moeda": "BRL",
+    "nota": "Todo número marcado confianca=premissa é PONTO DE PARTIDA a calibrar (pesquisa de mercado + pilotos). Este arquivo alimenta gen_xlsx.py e gen_pdf.py — editar AQUI e regenerar, nunca editar xlsx/pdf na mão."
+  },
+  "globais": {
+    "cambio_usd_brl": { "valor": 5.10, "confianca": "alta", "fonte": "PTAX venda 5,0975 em 16/07/2026 (olinda.bcb.gov.br), arredondado para 5,10" },
+    "k_extra": { "valor": 1.10, "confianca": "premissa", "fonte": "excedentes + add-on IA ≈ +10% sobre mensalidade base" },
+    "churn_mensal": { "valor": 0.025, "confianca": "premissa", "fonte": "benchmark SaaS PME BR" },
+    "cac_brl": { "min": 400, "max": 900, "confianca": "premissa", "fonte": "conteúdo + parceiros, sem mídia paga" },
+    "desconto_anual_meses_gratis": { "valor": 2, "confianca": "premissa", "fonte": "12 pelo preço de 10" }
+  },
+  "ia": {
+    "modelo_ref": "claude-haiku-4-5",
+    "preco_input_usd_mtok": { "valor": 1.00, "confianca": "alta", "fonte": "tabela oficial Anthropic (referência API, acesso 2026-07-16)" },
+    "preco_output_usd_mtok": { "valor": 5.00, "confianca": "alta", "fonte": "tabela oficial Anthropic (referência API, acesso 2026-07-16)" },
+    "cache_read_mult": { "valor": 0.1, "confianca": "alta", "fonte": "prompt caching Anthropic: leitura ~0,1x do preço de input" },
+    "cache_write_mult": { "valor": 1.25, "confianca": "alta", "fonte": "prompt caching Anthropic: escrita 1,25x (TTL 5min)" },
+    "cache_hit": { "valor": 0.70, "confianca": "premissa", "fonte": "system prompt + 20 tools estáveis = prefixo cacheável grande" },
+    "tokens_input_turno": { "valor": 22000, "confianca": "premissa", "fonte": "system+tools+histórico do chat SICAT — medir em produção (P-02)" },
+    "tokens_output_turno": { "valor": 800, "confianca": "premissa", "fonte": "resposta média do chat operacional" },
+    "tokens_ingestao_arquivo": { "valor": 50000, "confianca": "premissa", "fonte": "PDF/DOCX médio no pipeline multimodal" },
+    "nota_router": "O SICAT roteia agent=modelo-mini e synthesis=modelo-mini com escalation p/ modelo maior (~30% dos turnos) — economia já implementada de 60-70% vs baseline (docs/handoffs/chat-sicat-cost-optimization). O custo/turno aqui modela o cenário classe-Haiku/mini equivalente."
+  },
+  "planos": [
+    {
+      "id": "essencial",
+      "nome": "Essencial",
+      "porte": "Micro/Autônomo",
+      "mensalidade_brl": { "min": 99, "max": 149, "partida": 129 },
+      "franquia_dos_mes": 30,
+      "excedente_por_do_brl": 1.50,
+      "contas_cetesb": 1,
+      "usuarios": 2,
+      "unidades_cnpj": 1,
+      "ia_interacoes_mes": 100,
+      "ia_ingestoes_mes": 10,
+      "sso": false,
+      "rbac_custom": false,
+      "retencao_auditoria_meses": 3,
+      "retencao_documentos_meses": 12,
+      "suporte": "e-mail",
+      "onboarding_horas": 0,
+      "suporte_horas_mes": 0.25
+    },
+    {
+      "id": "profissional",
+      "nome": "Profissional",
+      "porte": "PME",
+      "mensalidade_brl": { "min": 299, "max": 399, "partida": 349 },
+      "franquia_dos_mes": 300,
+      "excedente_por_do_brl": 1.00,
+      "contas_cetesb": 3,
+      "usuarios": 5,
+      "unidades_cnpj": 3,
+      "ia_interacoes_mes": 500,
+      "ia_ingestoes_mes": 50,
+      "sso": false,
+      "rbac_custom": true,
+      "retencao_auditoria_meses": 12,
+      "retencao_documentos_meses": 24,
+      "suporte": "e-mail + chat D+1",
+      "onboarding_horas": 1,
+      "suporte_horas_mes": 1.0
+    },
+    {
+      "id": "operacional",
+      "nome": "Operacional (Pro)",
+      "porte": "Operação intensiva",
+      "mensalidade_brl": { "min": 799, "max": 1099, "partida": 899 },
+      "franquia_dos_mes": 1500,
+      "excedente_por_do_brl": 0.70,
+      "contas_cetesb": 10,
+      "usuarios": 15,
+      "unidades_cnpj": 10,
+      "ia_interacoes_mes": 2000,
+      "ia_ingestoes_mes": 200,
+      "sso": true,
+      "rbac_custom": true,
+      "retencao_auditoria_meses": 24,
+      "retencao_documentos_meses": 60,
+      "suporte": "prioridade 8x5",
+      "onboarding_horas": 4,
+      "suporte_horas_mes": 2.0
+    },
+    {
+      "id": "enterprise",
+      "nome": "Enterprise",
+      "porte": "Grande operação",
+      "mensalidade_brl": { "min": 1990, "max": 4990, "partida": 1990 },
+      "franquia_dos_mes": 5000,
+      "excedente_por_do_brl": 0.45,
+      "contas_cetesb": -1,
+      "usuarios": -1,
+      "unidades_cnpj": -1,
+      "ia_interacoes_mes": 5000,
+      "ia_ingestoes_mes": 500,
+      "sso": true,
+      "rbac_custom": true,
+      "retencao_auditoria_meses": 60,
+      "retencao_documentos_meses": -1,
+      "suporte": "SLA contratual + CSM",
+      "onboarding_horas": 16,
+      "suporte_horas_mes": 5.0
+    }
+  ],
+  "custos": {
+    "custo_hora_suporte_brl": { "valor": 60, "confianca": "premissa", "fonte": "custo carregado CS/suporte BR" },
+    "infra_fixa_mes_brl": {
+      "lancamento": { "min": 150, "max": 800, "clientes_ate": 30, "confianca": "alta", "fonte": "cloud nacional em R$ (Magalu BV2/BV4 R$83-150 + storage no free tier do Cloudflare R2) até AWS sa-east-1 gerenciada (EC2 t3.large + RDS ≈ R$785) — pesquisa 2026-07-16" },
+      "crescimento": { "min": 1800, "max": 3500, "clientes_ate": 150, "confianca": "media", "fonte": "2 nós + Postgres gerenciado HA + monitoração" },
+      "escala": { "min": 4000, "max": 8000, "clientes_ate": 999999, "confianca": "baixa", "fonte": "cluster gerenciado + réplica leitura + DR" }
+    },
+    "custo_fixo_operacao_mes_brl": { "valor": 10000, "confianca": "premissa", "fonte": "infra 800 (teto da fase lançamento) + suporte/CS 0,5 FTE 4000 + ferramentas/contab 1200 + marketing 4000 (sem folha core); com infra de crescimento, sobe ~1-2,7 mil" },
+    "custo_folha_core_mes_brl": { "valor": 20000, "confianca": "premissa", "fonte": "1 dev + fundador parcial — linha separada do CF" },
+    "storage_gb_mes_brl": { "valor": 0.20, "confianca": "media", "fonte": "object storage BR ~R$0,10-0,25/GB·mês" },
+    "pdf_kb_medio": { "valor": 150, "confianca": "premissa", "fonte": "PDF MTR/CDF médio" },
+    "custo_db_por_do_brl": { "valor": 0.001, "confianca": "premissa", "fonte": "fila Postgres — custo marginal quase nulo" }
+  },
+  "addon_fiscal": {
+    "nota": "ROADMAP — o SICAT NÃO emite CT-e/MDF-e/CTR/NFS-e hoje. Preços condicionados à construção do módulo (fase 1: API fiscal parceira, 6-10 semanas de dev).",
+    "setup_por_cnpj_brl": { "min": 499, "max": 999, "confianca": "premissa", "fonte": "credenciamento SEFAZ-SP assistido + certificado A1 + CFOPs 5.351/6.351 + homologação" },
+    "mensalidade_cte_mdfe_por_cnpj_brl": { "min": 99, "max": 299, "partida": 179, "confianca": "media", "fonte": "ancorado no benchmark: Bsoft CT-e R$92 / CT-e+MDF-e R$140/mês (preço final ao transportador) — SICAT cobra prêmio pelo vínculo MTR↔CT-e↔MDF-e; teto R$299 p/ multi-CNPJ" },
+    "por_documento_brl": {
+      "faixa_1_ate_200": 0.60,
+      "faixa_2_ate_1000": 0.45,
+      "faixa_3_acima": 0.35,
+      "confianca": "premissa",
+      "fonte": "custo parceiro fiscal + margem 2-4x — ancorar em PlugNotas/Focus NFe bloco B"
+    },
+    "custo_parceiro_por_doc_brl": { "min": 0.10, "max": 0.14, "confianca": "alta", "fonte": "Focus NFe: excedente R$0,10-0,12/doc; efetivo ≈R$0,137 no plano Growth (focusnfe.com.br/precos, 2026-07-16); CT-e/MDF-e inclusos na franquia única" },
+    "mensalidade_parceiro_brl": { "min": 90, "max": 548, "confianca": "alta", "fonte": "Focus NFe: Solo R$89,90 (1 CNPJ, 100 docs) → Growth R$548 (CNPJs ilimitados, 4.000 docs) — sem setup, sem fidelidade" },
+    "nfse_mensalidade_por_cnpj_brl": { "min": 99, "max": 149, "confianca": "premissa", "fonte": "fase 2" },
+    "nfse_por_nota_brl": { "valor": 0.40, "confianca": "premissa", "fonte": "fase 2" },
+    "ctr_sp_regula_mensalidade_brl": { "min": 99, "max": 199, "confianca": "premissa", "fonte": "fase 3 — gatilho: 10 clientes pedindo" },
+    "dev_fase1_api_parceira": { "semanas_min": 6, "semanas_max": 10, "custo_brl_min": 40000, "custo_brl_max": 70000, "confianca": "premissa", "fonte": "integração + DACTE + telas + vínculo MTR↔CT-e" },
+    "dev_emissor_proprio": { "meses_min": 4, "meses_max": 6, "custo_brl_min": 150000, "custo_brl_max": 300000, "confianca": "baixa", "fonte": "schema CT-e 4.0 + assinatura + contingência + MDF-e + homologação, sobre gateway do ContaViva-360 — só com >30k docs/mês" },
+    "certificado_a1_cliente_brl_ano": { "min": 150, "max": 250, "confianca": "media", "fonte": "custo do CLIENTE, não do SICAT — calibrar bloco B" }
+  },
+  "regras_comerciais": {
+    "ia_escala_bloco_brl": { "valor": 149, "inclui": "1.000 interações + 100 ingestões/mês", "confianca": "premissa", "fonte": "add-on para outliers — ~3-6x o custo marginal" },
+    "trial": { "dias": 14, "dos": 20, "ia_interacoes": 30, "ia_ingestoes": 5, "contas_cetesb": 1, "confianca": "premissa", "fonte": "sem cartão; dados preservados por 60 dias após expirar" },
+    "comissao_canal": { "min": 0.15, "max": 0.20, "confianca": "premissa", "fonte": "consultorias ambientais e transportadoras com carteira" },
+    "alertas_franquia": { "valores": [0.8, 1.0, 1.2], "confianca": "premissa", "fonte": "entregues junto com o metering de DOs (P-05)" },
+    "teto_excedente_x_mensalidade": { "valor": 2, "confianca": "premissa", "fonte": "acima disso, upgrade compulsório na renovação" }
+  },
+  "cenarios_mes12": {
+    "conservador": { "essencial": 15, "profissional": 8, "operacional": 2, "enterprise": 0, "fiscal_cnpjs": 0 },
+    "base": { "essencial": 40, "profissional": 30, "operacional": 8, "enterprise": 2, "fiscal_cnpjs": 0 },
+    "otimista": { "essencial": 80, "profissional": 70, "operacional": 20, "enterprise": 6, "fiscal_cnpjs": 15 },
+    "fiscal_docs_mes_por_cnpj": 350,
+    "fiscal_preco_doc_medio_brl": 0.50
+  },
+  "benchmark": {
+    "nota": "Âncoras verificadas adversarialmente em 2026-07-16 (detalhe completo: 01-pesquisa-mercado.md). Zero divergências em 56 achados acessíveis.",
+    "concorrentes": [
+      { "alvo": "meuResíduo — Gerador Light", "preco": "R$ 160/mês + R$ 1.500 setup (15 saídas/mês)", "confianca": "media", "fonte": "meuresiduo.com (post oficial de 2023 — preço pode estar defasado)", "nota": "único preço público atual do setor — piso de entrada" },
+      { "alvo": "G Solution (BPO humano)", "preco": "R$ 650 / 885,50 / 1.320 / 1.980 por mês (até 10 MTRs/mês)", "confianca": "alta", "fonte": "gsolution.com.br", "nota": "teto de disposição a pagar do serviço que o SICAT substitui" },
+      { "alvo": "VG Resíduos/Vertown (histórico)", "preco": "R$ 680-690/mês por planta do gerador; destinador grátis", "confianca": "baixa", "fonte": "projetodraft.com 2017 / gazetadopovo 2018", "nota": "só ordem de grandeza; VG = Vertown (mesma empresa, rebranding)" },
+      { "alvo": "Vertown, Ambipar, Trashin, InfoHand e +9 players", "preco": "sob consulta", "confianca": "alta", "fonte": "páginas oficiais 2026-07-16", "nota": "padrão do setor = venda consultiva B2B sem preço público; Vertown declara integração 'todos os MTRs estaduais + SINIR' e IA" },
+      { "alvo": "Concorrente zero (portal gratuito)", "preco": "R$ 0 — 'Este serviço é gratuito para o cidadão'", "confianca": "alta", "fonte": "gov.br + manual oficial SIGOR/CETESB vr. 2026-03-30", "nota": "SICAT precifica automação/escala/IA, nunca acesso ao MTR" }
+    ],
+    "emissores_fiscais": [
+      { "alvo": "Focus NFe", "preco": "Solo R$89,90 (1 CNPJ, 100 docs) · Start R$113,90 (3 CNPJs) · Growth R$548 (ilimitado, 4.000 docs); excedente R$0,10-0,12/doc; CT-e/MDF-e inclusos; sem setup", "confianca": "alta", "fonte": "focusnfe.com.br/precos", "nota": "única âncora pública R$/doc — calibra o custo do parceiro fiscal" },
+      { "alvo": "Bsoft (emissor p/ transportador)", "preco": "Promo R$70 · CT-e R$92 · CT-e+MDF-e R$140/mês", "confianca": "alta", "fonte": "bsoft.com.br", "nota": "preço final ao transportador — âncora do add-on fiscal do SICAT" },
+      { "alvo": "PlugNotas/TecnoSpeed e Migrate/InvoiCy", "preco": "sob consulta", "confianca": "alta", "fonte": "páginas oficiais", "nota": "negociam por volume com software houses" },
+      { "alvo": "Bling", "preco": "R$ 60-650/mês (notas ilimitadas) — NÃO emite CT-e/MDF-e", "confianca": "alta", "fonte": "bling.com.br", "nota": "só referência de mensalidade PME" }
+    ],
+    "infra": [
+      { "alvo": "Cloud nacional", "preco": "Magalu BV2 (2vCPU/4GB) R$82,99 · BV4 R$149,99 · Locaweb 4GB R$53,90 · Hostinger KVM R$29,99-119,99 promo", "confianca": "alta", "fonte": "price lists oficiais 2026-07-16" },
+      { "alvo": "Internacional", "preco": "DigitalOcean droplet+PG gerenciado ≈ US$39/mês (~R$200) · AWS sa-east-1 t3.large+RDS small ≈ US$154/mês (~R$785)", "confianca": "alta", "fonte": "price lists oficiais" },
+      { "alvo": "Object storage", "preco": "Cloudflare R2 US$0,015/GB-mês (free tier 10GB, egress grátis) · B2 ~US$0,007/GB · S3 sa-east-1 US$0,0405/GB", "confianca": "alta", "fonte": "price lists oficiais", "nota": "PDFs do SICAT cabem no free tier do R2 no lançamento" }
+    ],
+    "tam": [
+      { "alvo": "SINIR (nacional, até out/2024)", "numero": "474.802 geradores · 73.409 transportadores · 28.614 destinadores · 4.082.726 MTRs em 2023 (~11 mil/dia)", "confianca": "alta", "fonte": "sinir.gov.br" },
+      { "alvo": "SIGOR-SP (out/2021, único público)", "numero": "56 mil empresas · 77 mil usuários · ~2,2 mi MTRs/ano · >380 mil CDFs · >48 mil DMRs", "confianca": "baixa", "fonte": "espelho de notícia CETESB", "nota": "ritmo comparável ao SINIR → SP é mercado ADICIONAL ao nacional" },
+      { "alvo": "CNAE 38.1 (coleta de resíduos)", "numero": "22.976 empresas BR / 5.838 em SP", "confianca": "media", "fonte": "Econodata jun/2026" },
+      { "alvo": "Normas", "numero": "Portaria MMA 280/2020 (MTR nacional desde 01/01/2021) · Decreto Estadual 60.520/2014 (cria SIGOR) · Resolução SIMA 27/2021 (institui MTR-SP; alcança geradores de outros UFs que destinem a SP) · DD CETESB 024/2022/P (fiscalização/aferição)", "confianca": "alta", "fonte": "PDFs oficiais/LegisWeb", "nota": "CORREÇÃO: a norma do MTR-SP é a Res. SIMA 27/2021, NÃO a DD 076/2018/P (logística reversa)" },
+      { "alvo": "Risco datado", "numero": "01/08/2026: login do MTR Nacional (SINIR) passa a ser exclusivo via Gov.br", "confianca": "alta", "fonte": "aviso em mtr.sinir.gov.br", "nota": "impacto em automação de emissão; SIGOR-SP expõe web services oficiais (manual CETESB) — oportunidade de integração oficial" }
+    ]
+  }
+}

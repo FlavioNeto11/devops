@@ -1,0 +1,18 @@
+﻿Premissa,Valor,Unidade,Confiança,Fonte
+Câmbio USD/BRL,5.1,R$/US$,alta,"PTAX venda 5,0975 em 16/07/2026 (olinda.bcb.gov.br), arredondado para 5,10"
+Preço token input (classe Haiku),1.0,US$/MTok,alta,"tabela oficial Anthropic (referência API, acesso 2026-07-16)"
+Preço token output,5.0,US$/MTok,alta,"tabela oficial Anthropic (referência API, acesso 2026-07-16)"
+Multiplicador cache read,0.1,x input,alta,"prompt caching Anthropic: leitura ~0,1x do preço de input"
+Multiplicador cache write (info),1.25,"x input (amortizado, fora da fórmula)",alta,"prompt caching Anthropic: escrita 1,25x (TTL 5min)"
+Cache hit (fração do input),0.7,0-1,premissa,system prompt + 20 tools estáveis = prefixo cacheável grande
+Tokens input por turno,22000,tokens,premissa,system+tools+histórico do chat SICAT — medir em produção (P-02)
+Tokens output por turno,800,tokens,premissa,resposta média do chat operacional
+Tokens por arquivo ingerido,50000,tokens,premissa,PDF/DOCX médio no pipeline multimodal
+Custo hora suporte/CS,60,R$/h,premissa,custo carregado CS/suporte BR
+Custo fixo operação/mês (sem folha),10000,R$/mês,premissa,"infra 800 (teto da fase lançamento) + suporte/CS 0,5 FTE 4000 + ferramentas/contab 1200 + marketing 4000 (sem folha core); com infra de crescimento, sobe ~1-2,7 mil"
+Folha core/mês (linha separada),20000,R$/mês,premissa,1 dev + fundador parcial — linha separada do CF
+k_extra (excedente+add-ons),1.1,x MRR base,premissa,excedentes + add-on IA ≈ +10% sobre mensalidade base
+Churn mensal,0.025,fração,premissa,benchmark SaaS PME BR
+Fiscal: docs/mês por CNPJ,350,docs,premissa,premissa de cenário
+Fiscal: preço médio por doc,0.5,R$/doc,premissa,premissa de cenário
+Fiscal: mensalidade por CNPJ,179,R$/CNPJ·mês,media,ancorado no benchmark: Bsoft CT-e R$92 / CT-e+MDF-e R$140/mês (preço final ao transportador) — SICAT cobra prêmio pelo vínculo MTR↔CT-e↔MDF-e; teto R$299 p/ multi-CNPJ
