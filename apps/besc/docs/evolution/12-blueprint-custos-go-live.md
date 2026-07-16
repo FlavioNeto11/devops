@@ -29,9 +29,11 @@ Este documento responde: **(a) quanto custa** tokenizar os processos de verdade 
 precisa ser configurado/contratado/feito** — em três dimensões de custo (setup, recorrente, por
 processo), um checklist de configuração, e **três cenários lado a lado** para você calibrar.
 
-A planilha irmã [`blueprint-custos-besc.csv`](./blueprint-custos-besc.csv) (e a versão `.xlsx` com
-calculadora) traz as mesmas linhas de custo em formato editável, com totais que recalculam ao mudar
-o número de processos, o funding-alvo e a escolha de custódia.
+A planilha irmã [`blueprint-custos-besc.xlsx`](./blueprint-custos-besc.xlsx) traz as mesmas linhas
+de custo em formato editável **com calculadora**: os totais recalculam ao mudar o número de
+processos, o funding-alvo e a custódia de cada cenário. O
+[`blueprint-custos-besc.csv`](./blueprint-custos-besc.csv) é um espelho plano **apenas das linhas de
+custo** (para diff no git — sem totais nem calculadora).
 
 ## 2. Achado central: o caminho crítico é REGULATÓRIO, não técnico
 
@@ -56,7 +58,7 @@ estiver `granted`, `go_live_enabled=false`.
 
 | # | Chave | O que exige | Quem emite |
 |---|---|---|---|
-| 0 | `needs_regulatory_advisor` (passo 0, não é item do gate) | **Contratar a assessoria** — pré-condição para emitir os 7 pareceres | — |
+| 0 | `needs_regulatory_advisor` (passo 0 — etapa **documental** do processo, não é item do gate em código) | **Contratar a assessoria** — pré-condição para emitir os 7 pareceres | — |
 | 1 | `is_security` | É valor mobiliário? Teste do contrato de investimento coletivo (CVM Parecer de Orientação 40); classifica pela essência econômica | Advogado de mercado de capitais (CVM), OAB |
 | 2 | `offer_registration` | Se é VM: registro de oferta (Res. CVM 160) **ou** crowdfunding (Res. CVM 88) **ou** dispensa; tetos, limites por investidor, risco da circulação secundária | Advogado CVM / assessor de ofertas |
 | 3 | `fidc_structure` | Cabe FIDC (Res. CVM 175)? Direitos creditórios elegíveis/verificáveis; papéis obrigatórios (administrador/gestor/custodiante); cotas sênior/subordinada | Estruturador de fundos + advogado |
@@ -67,8 +69,10 @@ estiver `granted`, `go_live_enabled=false`.
 
 **Como destrava (implementado em `apps/besc/api/src/marketplace/gate.js`):**
 `go_live_enabled = (último ato de aprovação = 'granted') AND todos os 7 itens ∈ {satisfied,
-not_applicable}, cada um com o documento de parecer anexado`. Revogar a aprovação ou reabrir qualquer
-item re-trava na hora.
+not_applicable}`. O anexo do parecer (`opinion_document_ref`) é exigência **operacional/de governança**
+— hoje o código aceita o item sem o anexo, e reabrir um item re-trava o valor derivado do gate mas
+**não** o watermark armazenado até um ato de revogação; **as duas travas em código entram no gap D7**
+(§5). Revogar a aprovação re-trava na hora.
 
 ## 4. Custo — as três dimensões (faixas de mercado, jul/2026)
 
@@ -79,14 +83,18 @@ item re-trava na hora.
 
 | Item | Faixa (R$) | Confiança | Observação |
 |---|---|---|---|
-| Parecer jurídico de enquadramento (`is_security`) | 30 mil – 150 mil | baixa | Cotar escritório de mercado de capitais |
+| Parecer jurídico de enquadramento (`is_security`) | 30 mil – 150 mil | baixa | Cotar escritório de mercado de capitais (RFP-01) |
+| Parecer tributário — 2 receitas + ganho de capital (`taxation`, gate #7) | 20 mil – 100 mil | baixa | Cotado à parte no RFP-01 (tributarista) |
 | Estruturação regulatória da oferta/veículo | 150 mil – 500 mil+ | baixa | Topo da faixa em FIDC-NP + tokenização + oferta |
 | Estruturação inicial de FIDC (se trilho FIDC) | 100 mil – 300 mil+ | média | Créditos judiciais → FIDC-NP (mais caro) |
 | Auditoria de smart contract ERC-3643 (por auditoria) | 55 mil – 275 mil+ | média | Múltiplos contratos (token, IdentityRegistry, compliance) |
 | Programa LGPD (setup) | 20 mil – 80 mil | baixa | Mapeamento, políticas, ROPA, RIPD |
 | Programa PLD-FT/COAF (setup) | 30 mil – 120 mil | baixa | Política, monitoramento, treinamento |
-| Taxa CVM da oferta (Lei 7.940) | 0,03% geral / **0,64% cotas de fundo**, mín. R$ 809 | alta | Ex.: R$ 10M em cotas ≈ **R$ 64 mil** |
+| Taxa CVM da oferta (Lei 7.940, red. Lei 14.317/2022) | **0,03% (alíquota única)**, mín. **R$ 809,16** | alta | Ex.: R$ 10M ≈ **R$ 3 mil**. A antiga tabela por tipo (incl. 0,64% p/ cotas) foi **extinta** pela Lei 14.317/2022 |
 | Elevar contrato `TitleRegistry.sol` → ERC-3643 lite (dev) | esforço interno | — | Fase 3; ver gap D4 (§5) |
+
+> Na planilha, os sufixos "+" viram o **máximo da faixa** (edite ao cotar) e as custas cartorárias
+> assumem teto de R$ 2 mil/ato — premissas editáveis.
 
 ### 4.2 RECORRENTE (mensal / anual)
 
@@ -101,7 +109,7 @@ item re-trava na hora.
 | DPO as a service | R$ 2,5 mil – 6,5 mil/mês | média | DPO interno pleno: R$ 8–20 mil/mês |
 | Compliance PLD-FT (monitoramento) + KYC (mensalidade) | R$ 2 mil – 13 mil/mês somados | baixa | KYC exige RFP com seu volume |
 | Seguro E&O + Cyber (+ D&O) | R$ 8 mil – 50 mil/ano | média | Cyber pode ser exigido; cotar corretora |
-| Carimbo de tempo ICP-Brasil (RFC 3161) — pacote por volume | cotar | baixa | Serpro/Certisign/Valid; ancoragem externa da trilha |
+| Carimbo de tempo ICP-Brasil (RFC 3161) — pacote mensal por volume | cotar (RFP-06) | baixa | Serpro/Certisign/Valid; ancoragem externa da trilha. Tem **linha própria (vazia) na planilha** — preencha com a cotação e ela entra nos totais |
 
 ### 4.3 VARIÁVEL (por processo — "quanto custa tokenizar cada processo")
 
@@ -132,10 +140,10 @@ Organizado em quatro faixas paralelizáveis. A faixa A (regulatória) é o camin
 | **D1** | Besu `--network=dev` **single-node** | **QBFT permissionado, genesis próprio, 4+ validadores (3f+1)** |
 | **D2** | RPC/CORS/host-allowlist abertos (dev) | APIs de permissionamento + CORS/allowlist restritos |
 | **D3** | **Sem custódia** (chave seria a conta dev pública do Besu) | Hot wallet omnibus em Sealed Secret (Fase 3) → **HSM/KMS + segregação emissor≠compliance≠operador** (consórcio) |
-| **D4** | `TitleRegistry.sol` = registro custom (não ERC-20, sem IdentityRegistry/ModularCompliance, **não auditado**) | **Suíte ERC-3643 lite** (TitleToken + IdentityRegistry + ModularCompliance) **auditada** |
+| **D4** | `TitleRegistry.sol` = registro custom com **whitelist de identidade embutida** (não ERC-20, sem a suíte ERC-3643 em contratos separados, **não auditado**) | **Suíte ERC-3643 lite** (TitleToken + IdentityRegistry + ModularCompliance separados) **auditada** |
 | **D5** | `LEDGER_ADAPTER=simulated` (Besu no ar é espelho desarmado) | `LEDGER_ADAPTER=besu` apontando para a rede QBFT após o gate |
-| **D6** | Script/runbook de deploy de contrato **ausente** | Automação de deploy/bootstrap versionada |
-| **D7** | Enforcement do gate é **soft** (só watermark) | **Trava fail-closed 403 (`requireGoLive()`)** recusando as 4 operações: marcar investidor apto, remover watermark, faturar fora do piloto, emitir on-chain real |
+| **D6** | `scripts/besu-deploy-contract.ps1` automatiza o deploy **no nó dev** (chave dev, endereço novo a cada run) | **Bootstrap de produção QBFT** versionado: genesis próprio, chave real via Sealed Secret, endereço estável + runbook |
+| **D7** | Enforcement do gate é **soft** (só watermark; o item aceita `satisfied` **sem** parecer anexado e reabrir item não re-trava o watermark armazenado) | **Trava fail-closed 403 (`requireGoLive()`)** recusando as 4 operações (marcar investidor apto, remover watermark, faturar fora do piloto, emitir on-chain real) + validação do `opinion_document_ref` + re-trave imediato ao reabrir item |
 | **D8** | Sem ancoragem externa | **Carimbo RFC 3161/ICP-Brasil** ligado ao `anchorAuditRoot` |
 
 ### Faixa C — Compliance operacional
@@ -152,31 +160,36 @@ certeza/exigibilidade**, **custódia documental**, **cessão admissível**. O mo
 
 ## 6. Três cenários lado a lado
 
-> Totais são **ordens de grandeza** compostas das faixas do §4; a planilha recalcula ao mudar as
-> premissas. `N` = número de processos; funding = valor total captado.
+> Os números abaixo **saem da calculadora da planilha** com as premissas default (`N` = 14 processos,
+> funding = R$ 10 mi, custódia Enxuto = KMS, Completo = HSM) — mude as premissas lá e os totais
+> recalculam. Continuam sendo **faixas de estimativa**, não cotações.
 
 | | **Piloto técnico** | **Regulado enxuto (CVM 88)** | **Regulado completo (FIDC-NP)** |
 |---|---|---|---|
 | Objetivo | Provar a operação on-chain, **sem valor real** (gate fechado, watermark) | Oferta real pequena, **funding ≤ R$ 15 mi** | Escala maior, veículo de fundo |
-| Trilho regulatório | nenhum (demonstração) | crowdfunding CVM 88 | FIDC-NP (Res. 175) + oferta |
+| Trilho regulatório | nenhum (demonstração) | crowdfunding CVM 88 | FIDC-NP (Res. 175) — cotas **exclusivas de investidor profissional** |
 | Pareceres do gate | não (fica demonstração) | sim (os 7) | sim (os 7) + estruturação de fundo |
 | Blockchain | Besu permissionado de teste + ERC-3643 lite **não auditado** | + **auditoria** do contrato | + auditoria + custódia robusta |
-| Custódia de chaves | Sealed Secret (hot wallet) | **KMS** | **HSM dedicado** |
-| **Setup (uma vez)** | ~R$ 0 regulatório + esforço interno | **~R$ 300 mil – 700 mil** | **~R$ 500 mil – 1,5 mi** |
-| **Recorrente** | **~R$ 2 mil – 5 mil/mês** (infra) | **~R$ 15 mil – 35 mil/mês** | **~R$ 40 mil – 90 mil/mês** + taxa adm. (% do PL) |
+| Custódia de chaves | Sealed Secret (hot wallet) | **KMS** (toggle B6) | **HSM dedicado** (toggle B7) |
+| **Setup (uma vez)** | ~R$ 0 regulatório + esforço interno | **~R$ 305 mil – 1,23 mi** | **~R$ 405 mil – 1,53 mi** |
+| **Recorrente mensal** | **~R$ 2 mil – 7 mil/mês** (infra) | **~R$ 9,5 mil – 35 mil/mês** (+ anuais: seguro) | **~R$ 16 mil – 47,5 mil/mês** (+ anuais: auditoria FIDC, seguro, taxa adm.) |
 | **Por processo** | — | ~R$ 5 mil – 30 mil × N | ~R$ 5 mil – 30 mil × N |
+| **TOTAL ANO 1** (N=14, R$ 10 mi) | **~R$ 24 mil – 84 mil** | **~R$ 490 mil – 2,08 mi** | **~R$ 814 mil – 2,92 mi** |
 | Risco legal | nenhum (nada de valor real) | médio (depende dos pareceres) | médio/alto (estrutura complexa) |
 
 > **Alerta VASP/BCB:** se o enquadramento cair em "ativo virtual / VASP" em vez de valor mobiliário, o
-> **capital mínimo (R$ 10,8 mi – 37,2 mi)** domina todo o orçamento. **Provavelmente NÃO se aplica** —
-> valor mobiliário vai para a CVM, e a Lei 14.478 exclui VM do escopo VASP. Mas é **a** decisão jurídica
-> que move o orçamento em dezenas de milhões, e é justamente o parecer #4 (`vasp_bcb`) do gate.
+> **capital mínimo (R$ 10,8 mi – 37,2 mi**, formalmente na Res. Conjunta 14 + Res. BCB 517**)** domina
+> todo o orçamento. **Provavelmente NÃO se aplica** — valor mobiliário vai para a CVM, e a Lei 14.478
+> exclui VM do escopo VASP. Mas é **a** decisão jurídica que move o orçamento em dezenas de milhões, e
+> é justamente o parecer #4 (`vasp_bcb`) do gate — cotado como a opinião de fronteira do **RFP-01**
+> (se cair em VASP, abre-se RFP dedicado a advogado bancário/criptoativos).
 
 ## 7. RFPs a disparar já (para transformar faixa em número real)
 
 Peça orçamento imediatamente a:
 1. **Escritório de advocacia de mercado de capitais** — parecer de enquadramento (`is_security`) +
-   estruturação da oferta/veículo. *(destrava o caminho crítico)*
+   estruturação da oferta/veículo + **parecer tributário (`taxation`, cotado à parte)** + opinião de
+   fronteira CVM×BCB (`vasp_bcb`). *(destrava o caminho crítico)*
 2. **Administrador fiduciário de FIDC** — custo all-in por prestador (admin/gestor/custodiante/auditor),
    taxa de administração, montagem. *(só se o trilho for FIDC)*
 3. **2–3 provedores de KYC/PLD** (idwall, Unico, Serpro Datavalid, BigDataCorp, Serasa, Caf) — com o
@@ -196,7 +209,9 @@ Peça orçamento imediatamente a:
 
 ## 8. Sequência recomendada (sem gastar antes da hora)
 
-1. **Hoje:** dispare os RFPs #1 e #3–#6; contrate a assessoria (A0). Custo baixo, destrava tudo.
+1. **Hoje:** dispare os RFPs #1, #3, #5 e #6 e contrate a assessoria (A0) — custo baixo, destrava
+   tudo. O RFP #4 (auditoria) pode ser **cotado** já, mas deixe claro que a auditoria em si só roda
+   quando a suíte ERC-3643 lite estiver pronta (gap D4).
 2. **Em paralelo (opcional, barato):** rode o **piloto técnico** (Besu permissionado + ERC-3643 lite,
    gate fechado) para provar a operação on-chain sem risco legal — ~R$ 2–5 mil/mês de infra.
 3. **Com os pareceres em mãos:** escolha o trilho (CVM 88 vs FIDC), feche os custos reais (as faixas
@@ -211,8 +226,9 @@ Regulatório: [CVM Res. 88 consolidada](https://conteudo.cvm.gov.br/export/sites
 [CVM — consulta reforma da 88 (24/09/2025)](https://www.gov.br/cvm/pt-br/assuntos/noticias/2025/cvm-lanca-consulta-publica-sobre-a-reforma-da-resolucao-cvm-88) ·
 [CVM Res. 160 consolidada](https://conteudo.cvm.gov.br/export/sites/cvm/legislacao/resolucoes/anexos/100/resol160consolid.pdf) ·
 [CVM Res. 175 consolidada](https://conteudo.cvm.gov.br/export/sites/cvm/legislacao/resolucoes/anexos/100/resol175consolid.pdf) ·
-[Taxa de fiscalização/oferta — Lei 7.940 (esclarecimentos CVM)](https://cepeda.law/cvm-divulga-oficio-circular-com-esclarecimentos-sobre-taxa-de-fiscalizacao/) ·
-[Tabelas de taxas CVM](https://sistemas.cvm.gov.br/port/taxas/tabelas_site.htm) ·
+[Taxa de oferta — Lei 7.940 consolidada, Anexo IV: 0,03% mín. R$ 809,16 (Câmara)](https://www2.camara.leg.br/legin/fed/lei/1989/lei-7940-20-dezembro-1989-365560-normaatualizada-pl.html) ·
+[Unificação das alíquotas pela Lei 14.317/2022 (Mattos Filho)](https://www.mattosfilho.com.br/unico/cvm-taxa-fiscalizacao/) ·
+[Tabelas legadas de taxas CVM (regime antigo, extinto — não usar)](https://sistemas.cvm.gov.br/port/taxas/tabelas_site.htm) ·
 [BCB VASP / Res. 519 (Machado Meyer)](https://www.machadomeyer.com.br/pt/inteligencia-juridica/publicacoes-ij/bancario-seguros-e-financeiro-ij/bcb-regulamenta-o-mercado-de-ativos-virtuais-no-brasil) ·
 [Capital mínimo PSAV (NDM)](https://ndmadvogados.com.br/artigo/capital-social-minimo-psav-e-exchange/).
 
