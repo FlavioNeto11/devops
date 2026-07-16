@@ -1,20 +1,22 @@
 ﻿Item,Categoria,Mín (R$),Máx (R$),Confiança,Fonte,Piloto,Enxuto (88),Completo (FIDC)
-Parecer jurídico de enquadramento (is_security),Setup,30000,150000,baixa,Escritório mercado de capitais (cotar),0,1,1
-Estruturação regulatória da oferta/veículo,Setup,150000,500000,baixa,Advogado CVM (cotar),0,1,1
-Estruturação inicial de FIDC,Setup,100000,300000,média,bankme.tech,0,0,1
-Auditoria de smart contract ERC-3643,Setup,55000,275000,média,Ulam / Tokeny,0,1,1
-Programa LGPD (setup),Setup,20000,80000,baixa,inferência de mercado,0,1,1
-Programa PLD-FT/COAF (setup),Setup,30000,120000,baixa,Compliance Brazil,0,1,1
-Nós Besu permissionados (1–4 validadores),Recorrente-mês,2000,7000,média,AWS / Besu docs,1,1,1
-Infra de produção (k8s + Postgres + backups),Recorrente-mês,3000,8000,média,AWS pricing,0,1,1
-DPO as a service,Recorrente-mês,2500,6500,média,The Big Insights,0,1,1
-Compliance PLD-FT + KYC (mensalidade),Recorrente-mês,2000,13000,baixa,inferência / RFP,0,1,1
-Auditoria anual do FIDC,Recorrente-ano,50000,150000,baixa,cotar,0,0,1
-Seguro E&O + Cyber + D&O,Recorrente-ano,8000,50000,média,BrSeguro / Rio Rubio,0,1,1
-Laudo / perícia de avaliação do direito,Por-processo,2000,15000,média/baixa,CNJ Res. 232 / perito,0,1,1
-Parecer de certeza / exigibilidade (por caso),Por-processo,2000,10000,baixa,cotar,0,1,1
-Custas cartorárias das cártulas,Por-processo,150,2000,média/alta,ANOREG-SP 2025,0,1,1
-KYC do titular / investidor (por verificação),Por-processo,2,8,baixa,RFP (idwall/Unico/Serpro),0,1,1
-Certificado ICP-Brasil (por titular/ano),Por-processo,120,350,alta,Omie 2026,0,1,1
-Custódia — KMS (referência p/ o toggle),Referência,50,300,alta,AWS KMS,0,0,0
-"Custódia — HSM dedicado (referência, ×2 HA)",Referência,6500,13000,alta,AWS CloudHSM,0,0,0
+Parecer jurídico de enquadramento (is_security),Setup,30000,150000,baixa,Escritório mercado de capitais (RFP-01),0,1,1
+Parecer tributário — 2 receitas + ganho de capital (gate #7),Setup,20000,100000,baixa,Tributarista — cotado à parte no RFP-01,0,1,1
+Estruturação regulatória da oferta/veículo,Setup,150000,500000,baixa,Advogado CVM (RFP-01),0,1,1
+Estruturação inicial de FIDC,Setup,100000,300000,média,bankme.tech (RFP-02),0,0,1
+Auditoria de smart contract ERC-3643,Setup,55000,275000,média,Ulam / Tokeny (RFP-04),0,1,1
+Programa LGPD (setup),Setup,20000,80000,baixa,inferência de mercado (RFP-08),0,1,1
+Programa PLD-FT/COAF (setup),Setup,30000,120000,baixa,Compliance Brazil (RFP-03),0,1,1
+Nós Besu permissionados (1–4 validadores),Recorrente-mês,2000,7000,média,AWS / Besu docs (calculadora do provedor),1,1,1
+Infra de produção (k8s + Postgres + backups),Recorrente-mês,3000,8000,média,AWS pricing (calculadora do provedor),0,1,1
+DPO as a service,Recorrente-mês,2500,6500,média,The Big Insights (RFP-08),0,1,1
+Compliance PLD-FT + KYC (mensalidade),Recorrente-mês,2000,13000,baixa,inferência / RFP-03,0,1,1
+Carimbo de tempo RFC 3161 — pacote mensal (PREENCHER com a cotação do RFP-06),Recorrente-mês,,,a cotar,Serpro/Certisign/Valid (RFP-06),0,1,1
+Auditoria anual do FIDC,Recorrente-ano,50000,150000,baixa,cotar (RFP-02),0,0,1
+Seguro E&O + Cyber + D&O,Recorrente-ano,8000,50000,média,BrSeguro / Rio Rubio (RFP-05),0,1,1
+Laudo / perícia de avaliação do direito,Por-processo,2000,15000,média/baixa,CNJ Res. 232 / perito (caso a caso),0,1,1
+Parecer de certeza / exigibilidade (por caso),Por-processo,2000,10000,baixa,cotar (RFP-01),0,1,1
+Custas cartorárias das cártulas (teto R$ 2 mil/ato assumido),Por-processo,150,2000,média/alta,ANOREG-SP 2025,0,1,1
+KYC do titular / investidor (por verificação),Por-processo,2,8,baixa,RFP-03 (idwall/Unico/Serpro),0,1,1
+Certificado ICP-Brasil (por titular/ano),Por-processo,120,350,alta,Omie 2026 (RFP-06),0,1,1
+Custódia — KMS (referência p/ o toggle),Referência,50,300,alta,AWS KMS (RFP-07),0,0,0
+"Custódia — HSM dedicado (referência, ×2 HA)",Referência,6500,13000,alta,AWS CloudHSM (RFP-07),0,0,0

@@ -38,33 +38,39 @@ Célula = onde atualizar na aba **"Linhas de custo"** (mín em coluna **C**, má
 
 | RFP | Serviço / destinatário | Item do gate / gap | Linha(s) de custo | Célula(s) |
 |---|---|---|---|---|
-| [01](./rfp-01-mercado-de-capitais.md) | Assessoria jurídica de mercado de capitais | #1 `is_security`, #2 `offer_registration`, fronteira #4 `vasp_bcb` | Parecer de enquadramento · Estruturação da oferta/veículo · Parecer de certeza/exigibilidade (por caso) | C2/D2 · C3/D3 · C15/D15 |
-| [02](./rfp-02-fidc.md) | Estruturação e administração de FIDC-NP | #3 `fidc_structure` | Estruturação inicial de FIDC · Auditoria anual do FIDC · (Taxa de adm. = % do PL, calculada na aba Cenários) | C4/D4 · C12/D12 |
-| [03](./rfp-03-kyc-pld.md) | KYC/onboarding + PLD-FT/COAF | #5 `kyc_aml_pldft` | PLD-FT/COAF (setup) · Compliance PLD-FT + KYC (mensalidade) · KYC por verificação | C7/D7 · C11/D11 · C17/D17 |
-| [04](./rfp-04-auditoria-smart-contract.md) | Auditoria de smart contract (ERC-3643 lite) | técnico — gap **D4** | Auditoria de smart contract ERC-3643 | C5/D5 |
-| [05](./rfp-05-seguros.md) | Seguros E&O + Cyber + D&O | compliance — Faixa C | Seguro E&O + Cyber + D&O | C13/D13 |
-| [06](./rfp-06-carimbo-tempo-icp.md) | Carimbo do tempo ICP-Brasil (RFC 3161) + certificados | técnico — gap **D8** | Certificado ICP-Brasil (por titular/ano) · Carimbo RFC 3161 (pacote por volume, sem célula fixa) | C18/D18 |
-| [07](./rfp-07-custodia-hsm.md) | Custódia de chaves — KMS vs HSM dedicado | técnico — gap **D3** | Custódia KMS · Custódia HSM dedicado (alimentam o toggle de custódia) | C19/D19 · C20/D20 |
-| [08](./rfp-08-lgpd-dpo.md) | Programa LGPD + DPO as a service | #6 `lgpd` | Programa LGPD (setup) · DPO as a service | C6/D6 · C10/D10 |
+| [01](./rfp-01-mercado-de-capitais.md) | Assessoria jurídica de mercado de capitais | #1 `is_security`, #2 `offer_registration`, **#7 `taxation`** (cotado à parte), fronteira #4 `vasp_bcb` | Parecer de enquadramento · **Parecer tributário** · Estruturação da oferta/veículo · Parecer de certeza/exigibilidade (por caso) | C2/D2 · C3/D3 · C4/D4 · C17/D17 |
+| [02](./rfp-02-fidc.md) | Estruturação e administração de FIDC-NP | #3 `fidc_structure` | Estruturação inicial de FIDC · Auditoria anual do FIDC · (Taxa de adm. = % do PL, calculada na aba Cenários) | C5/D5 · C14/D14 |
+| [03](./rfp-03-kyc-pld.md) | KYC/onboarding + PLD-FT/COAF | #5 `kyc_aml_pldft` | PLD-FT/COAF (setup) · Compliance PLD-FT + KYC (mensalidade) · KYC por verificação | C8/D8 · C12/D12 · C19/D19 |
+| [04](./rfp-04-auditoria-smart-contract.md) | Auditoria de smart contract (ERC-3643 lite) | técnico — gap **D4** | Auditoria de smart contract ERC-3643 | C6/D6 |
+| [05](./rfp-05-seguros.md) | Seguros E&O + Cyber + D&O | compliance — Faixa C | Seguro E&O + Cyber + D&O | C15/D15 |
+| [06](./rfp-06-carimbo-tempo-icp.md) | Carimbo do tempo ICP-Brasil (RFC 3161) + certificados | técnico — gap **D8** | Carimbo RFC 3161 (linha **vazia** — preencha com a cotação e ela entra nos totais) · Certificado ICP-Brasil (por titular/ano) | C13/D13 · C20/D20 |
+| [07](./rfp-07-custodia-hsm.md) | Custódia de chaves — KMS vs HSM dedicado | técnico — gap **D3** | Custódia KMS · Custódia HSM dedicado (alimentam os toggles de custódia B6/B7) | C21/D21 · C22/D22 |
+| [08](./rfp-08-lgpd-dpo.md) | Programa LGPD + DPO as a service | #6 `lgpd` | Programa LGPD (setup) · DPO as a service | C7/D7 · C11/D11 |
 
 > Os RFPs **01–07** são os sete listados no [blueprint §7](../12-blueprint-custos-go-live.md#7-rfps-a-disparar-já-para-transformar-faixa-em-número-real). O **08 (LGPD/DPO)** é
 > complementar, incluído para tornar cotáveis as linhas de LGPD/DPO da planilha (o item #6 do gate).
+> O **parecer tributário (gate #7)** é cotado dentro do RFP-01 como item à parte — escritórios de
+> mercado de capitais full-service têm prática tributária; se preferir tributarista independente,
+> reutilize a seção correspondente do RFP-01 como RFP avulso. O parecer **#4 `vasp_bcb`** é coberto
+> pela opinião de fronteira do RFP-01; **se** o enquadramento cair em VASP, abre-se RFP dedicado
+> (advogado bancário/criptoativos).
 
 ## Linhas de custo que NÃO têm RFP (e por quê)
 
 | Linha de custo | Como cotar |
 |---|---|
-| Nós Besu permissionados · Infra de produção (C8/D8 · C9/D9) | **Provisionamento em nuvem** com preço público — use a calculadora do provedor (AWS/Azure/GCP), não um RFP de fornecedor. |
-| Laudo/perícia · Custas cartorárias (C14/D14 · C16/D16) | **Por processo** (Faixa D): perícia segue a tabela do perito (CNJ Res. 232/2016); custas seguem a tabela pública do cartório. Cotadas **caso a caso**, não por um RFP único. |
-| Taxa CVM da oferta | Definida por **lei** (Lei 7.940); já é **calculada** na aba Cenários a partir do funding. |
+| Nós Besu permissionados · Infra de produção (C9/D9 · C10/D10) | **Provisionamento em nuvem** com preço público — use a calculadora do provedor (AWS/Azure/GCP), não um RFP de fornecedor. |
+| Laudo/perícia · Custas cartorárias (C16/D16 · C18/D18) | **Por processo** (Faixa D): perícia segue a tabela do perito (CNJ Res. 232/2016); custas seguem a tabela pública do cartório. Cotadas **caso a caso**, não por um RFP único. |
+| Taxa CVM da oferta | Definida por **lei** (Lei 7.940, red. Lei 14.317/2022 — **0,03% único**, mín. R$ 809,16); já é **calculada** na aba Cenários a partir do funding. |
 | Taxa de administração do FIDC | **% do PL** — cotada dentro do **RFP-02** e calculada na aba Cenários. |
 
 ## Sequência recomendada
 
-Dispare **hoje** os RFPs **01 e 03–06** e contrate a assessoria (passo A0) — custo baixo, destrava o
-caminho crítico. O **RFP-02 (FIDC)** só se o trilho escolhido for FIDC-NP. O **RFP-04 (auditoria)** e o
-**RFP-07 (custódia)** entram quando o contrato ERC-3643 lite estiver pronto para auditar e a exigência
-de custódia (KMS vs HSM) tiver sido apurada nos pareceres #5/#6. Detalhe em
+Dispare **hoje** os RFPs **01, 03, 05 e 06** e contrate a assessoria (passo A0) — custo baixo,
+destrava o caminho crítico. O **RFP-04 (auditoria)** pode ser **cotado** desde já, mas deixe claro ao
+fornecedor que a auditoria em si só roda quando a suíte ERC-3643 lite estiver pronta (gap D4). O
+**RFP-02 (FIDC)** só se o trilho escolhido for FIDC-NP. O **RFP-07 (custódia)** entra quando a
+exigência (KMS vs HSM) tiver sido apurada nos pareceres #5/#6. Detalhe em
 [12-blueprint §8](../12-blueprint-custos-go-live.md#8-sequência-recomendada-sem-gastar-antes-da-hora).
 
 ---
