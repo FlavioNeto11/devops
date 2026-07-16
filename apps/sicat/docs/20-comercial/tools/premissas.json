@@ -139,11 +139,62 @@
     "dev_emissor_proprio": { "meses_min": 4, "meses_max": 6, "custo_brl_min": 150000, "custo_brl_max": 300000, "confianca": "baixa", "fonte": "schema CT-e 4.0 + assinatura + contingência + MDF-e + homologação, sobre gateway do ContaViva-360 — só com >30k docs/mês" },
     "certificado_a1_cliente_brl_ano": { "min": 150, "max": 250, "confianca": "media", "fonte": "custo do CLIENTE, não do SICAT — calibrar bloco B" }
   },
+  "contrato_recebimento": {
+    "nota": "[PREMISSA] Formas de contrato e recebimento — billing é EXTERNO hoje (P-05): fatura manual até o metering/billing embutido existir.",
+    "contrato": [
+      { "modalidade": "Mensal", "condicao": "sem fidelidade — cancela quando quiser; aceite eletrônico do contrato padrão" },
+      { "modalidade": "Anual", "condicao": "2 meses grátis (12 pelo preço de 10); à vista ou 12x no cartão" },
+      { "modalidade": "Enterprise", "condicao": "12–24 meses, reajuste IPCA, cláusula de repactuação de cota de IA; SLA contratual" }
+    ],
+    "recebimento": [
+      { "forma": "Pix ou boleto", "aplicacao": "fatura mensal com NFS-e (todos os planos)" },
+      { "forma": "Cartão de crédito recorrente", "aplicacao": "Essencial e Profissional" },
+      { "forma": "Faturamento 15/30 dias com PO/empenho", "aplicacao": "Enterprise e órgãos/grandes contas" },
+      { "forma": "Setup do add-on fiscal", "aplicacao": "50% na contratação + 50% na ativação em produção" }
+    ],
+    "excedente_faturamento": "medido no mês, faturado no mês seguinte; teto de 2x a mensalidade"
+  },
+  "canal_parceria": {
+    "nota": "[PREMISSA] SICAT Embedded — conformidade documental como componente de produto maior (ex.: seguro de transporte de resíduos). Preço por Documento Conforme (DC = DO emitido/validado via API do parceiro, com trilha de auditoria).",
+    "por_documento_brl": [
+      { "faixa": "até 5.000 docs/mês", "preco": 0.90 },
+      { "faixa": "5.001–25.000", "preco": 0.60 },
+      { "faixa": "25.001–100.000", "preco": 0.40 },
+      { "faixa": "acima de 100.000", "preco": 0.25 }
+    ],
+    "minimo_mensal_brl": 2500,
+    "setup_integracao_brl": { "min": 15000, "max": 40000, "nota": "onboarding técnico, sandbox dedicado, homologação e go-live assistido" },
+    "white_label_mes_brl": 3000,
+    "rev_share_alternativo": { "min": 0.10, "max": 0.20, "nota": "alternativa ao por-documento: % do componente documental no produto do parceiro" },
+    "sandbox_dias_gratis": 90,
+    "sla": "99,5% de disponibilidade da plataforma + reprocessamento automático na fila; exclusão contratual de indisponibilidade do portal CETESB (mesmo SLA honesto do B2B direto)",
+    "disponivel_hoje": [
+      "API interna contract-first (OpenAPI) com operações assíncronas 202+jobId",
+      "fila resiliente com retry/DLQ e idempotência",
+      "auditoria fim-a-fim por correlationId (trilha exportável)",
+      "multi-conta CETESB e RBAC para segregar clientes do parceiro",
+      "dashboards operacionais e health de contas/sessões"
+    ],
+    "roadmap_integracao": [
+      { "item": "API pública de parceiro (chaves, quotas, versionamento)", "prazo_semanas": "4–6" },
+      { "item": "Webhooks de eventos de status em tempo real (emitido/recebido/falhou/reprocessado)", "prazo_semanas": "4–6" },
+      { "item": "Painel white-label do parceiro (monitoramento + relatórios)", "prazo_semanas": "6–8" },
+      { "item": "Metering/billing por documento (mesmo motor da medição de DOs do B2B direto)", "prazo_semanas": "2–3" }
+    ],
+    "exemplo_seguradora": {
+      "nota": "[PREMISSA] exemplo ilustrativo usado nos materiais",
+      "cargas_mes": 20000,
+      "custo_sicat_por_doc": 0.60,
+      "preco_no_pacote_por_doc": 3.50,
+      "leitura": "a seguradora embute conformidade documental na apólice: cada carga segurada sai com MTR válido e monitorado; sinistro nasce com trilha auditável"
+    }
+  },
   "regras_comerciais": {
     "ia_escala_bloco_brl": { "valor": 149, "inclui": "1.000 interações + 100 ingestões/mês", "confianca": "premissa", "fonte": "add-on para outliers — ~3-6x o custo marginal" },
     "trial": { "dias": 14, "dos": 20, "ia_interacoes": 30, "ia_ingestoes": 5, "contas_cetesb": 1, "confianca": "premissa", "fonte": "sem cartão; dados preservados por 60 dias após expirar" },
     "comissao_canal": { "min": 0.15, "max": 0.20, "confianca": "premissa", "fonte": "consultorias ambientais e transportadoras com carteira" },
     "alertas_franquia": { "valores": [0.8, 1.0, 1.2], "confianca": "premissa", "fonte": "entregues junto com o metering de DOs (P-05)" },
+    "piloto_fundador": { "desconto": 0.50, "meses": 6, "max_clientes": 5, "confianca": "premissa", "fonte": "alçada padrão do vendedor sem aprovação (pilotos P-01); acima disso, aprovação do fundador" },
     "teto_excedente_x_mensalidade": { "valor": 2, "confianca": "premissa", "fonte": "acima disso, upgrade compulsório na renovação" }
   },
   "cenarios_mes12": {
