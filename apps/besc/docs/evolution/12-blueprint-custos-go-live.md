@@ -188,6 +188,12 @@ Peça orçamento imediatamente a:
 7. **Provedor de custódia/HSM** — KMS vs CloudHSM (ou custodiante terceirizado), conforme exigência de
    compliance apurada no parecer #5/#6.
 
+> **Pacote de RFPs prontos para envio:** [`rfp/README.md`](./rfp/README.md) — um documento por RFP
+> (01–08, incl. um complementar de LGPD/DPO), cada um pedindo exatamente os dados que preenchem a
+> planilha, com o mapeamento RFP → item do gate → célula da planilha e a
+> [matriz de intake das cotações](./rfp/matriz-cotacoes.csv). Ao receber a proposta, o número real
+> substitui a faixa e a calculadora recalcula sozinha.
+
 ## 8. Sequência recomendada (sem gastar antes da hora)
 
 1. **Hoje:** dispare os RFPs #1 e #3–#6; contrate a assessoria (A0). Custo baixo, destrava tudo.
