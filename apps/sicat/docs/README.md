@@ -2,7 +2,7 @@
 title: "Documentação SICAT — Índice"
 status: reference
 applies_to: [sicat]
-updated: 2026-06-09
+updated: 2026-07-16
 language: pt-BR
 ---
 
@@ -54,9 +54,20 @@ Checkpoints da cadeia (em `docs/handoffs/centro-operacional-sicat/`):
 - [09-qa-validation.md](handoffs/centro-operacional-sicat/09-qa-validation.md)
 - [10-documentation-final.md](handoffs/centro-operacional-sicat/10-documentation-final.md)
 
+## Comercial (pricing e go-to-market)
+
+Trilha comercial do produto (planos, preços, custos e benchmark) em `docs/20-comercial/`:
+
+- [docs/20-comercial/00-plano-comercial-pricing.md](20-comercial/00-plano-comercial-pricing.md) — doc-mãe: modelo híbrido (assinatura + franquia de DOs + excedente), planos por porte, add-on fiscal (roadmap), cenários e riscos.
+- [docs/20-comercial/01-pesquisa-mercado.md](20-comercial/01-pesquisa-mercado.md) — benchmark verificado (concorrentes, emissores fiscais, infra/IA, TAM/regulatório) com fonte + data + confiança.
+- [docs/20-comercial/plano-comercial-sicat.xlsx](20-comercial/plano-comercial-sicat.xlsx) — calculadora (4 abas) + CSVs espelho para diff.
+- [docs/20-comercial/one-pager-plano-comercial-sicat.pdf](20-comercial/one-pager-plano-comercial-sicat.pdf) — resumo executivo A4.
+- [docs/20-comercial/tools/README.md](20-comercial/tools/README.md) — fonte única (`premissas.json`) + geradores versionados (xlsx/PDF) + golden check.
+
 ## Estrutura atual
 
 - cetesb/: evidencias reais e HARs da CETESB.
+- 20-comercial/: plano comercial de pricing (doc-mãe, benchmark, calculadora, one-pager, geradores).
 - copilot/: trilha canônica de contexto, decisoes, guias e artefatos de governanca Copilot.
 - handoffs/: checkpoints versionados por work_id.
 - legado/: guias, relatórios e notas preservados por historico, fora da trilha canônica atual.
