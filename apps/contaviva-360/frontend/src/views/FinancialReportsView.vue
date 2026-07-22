@@ -12,7 +12,7 @@
       <div class="filters">
         <UiFormField label="Período">
           <template #default>
-            <select v-model="filters.period_type" class="filter-select">
+            <select v-model="filters.period_type">
               <option value="month">Mês atual</option>
               <option value="quarter">Trimestre atual</option>
               <option value="year">Ano atual</option>
@@ -138,7 +138,8 @@ onMounted(load);
 <style scoped>
 .report-actions { display: flex; gap: var(--ui-space-2); }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ui-space-3); }
-.filter-select { width: 100%; padding: var(--ui-space-1) var(--ui-space-2); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); }
+/* O <select> de período é estilizado pelo UiFormField (borda/raio do kit); a antiga regra
+   .filter-select referenciava tokens inexistentes (--ui-border cru, --ui-radius) — removida (UX-CV360-006). */
 .report-layout { display: flex; flex-direction: column; gap: var(--ui-space-4); }
 .report-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ui-space-4); }
 .report-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ui-space-4); }

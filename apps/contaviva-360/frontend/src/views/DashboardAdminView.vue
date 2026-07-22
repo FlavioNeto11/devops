@@ -56,10 +56,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiButton, UiModal, UiEmptyState } from '../ui/index.js';
-import { dashboardRoleAdmin, concludeObligation, dashboardEvents } from '../api.js';
+import { dashboardRoleAdmin, dashboardEvents } from '../api.js';
+import { useObligation } from '../composables/useObligation.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);
-const selectedObrigacao = ref(null), concluding = ref(false);
+const selectedObrigacao = ref(null);
+// Confirmação + feedback de erro centralizados (UX-CV360-003); fecha o modal só em sucesso.
+const { concluding, conclude } = useObligation({ onDone: load });
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
 const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
@@ -80,14 +83,7 @@ const jobCols = [
 function openObrigacao(row) { selectedObrigacao.value = row; }
 
 async function concludeObrig() {
-  if (!selectedObrigacao.value) return;
-  concluding.value = true;
-  try {
-    await concludeObligation(selectedObrigacao.value.id);
-    selectedObrigacao.value = null;
-    await load();
-  } catch {}
-  finally { concluding.value = false; }
+  if (await conclude(selectedObrigacao.value)) selectedObrigacao.value = null;
 }
 
 async function load() {

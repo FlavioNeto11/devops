@@ -210,7 +210,9 @@ onMounted(r.load);
 </script>
 <style scoped>
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--ui-space-3); margin-bottom: var(--ui-space-4); }
-.filter-select, .filter-input { padding: var(--ui-space-1) var(--ui-space-2); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); font-size: var(--ui-text-sm); }
+/* Os filtros usam UiFormField (rótulo + input estilizado pelo kit com borda/raio corretos); a antiga
+   regra .filter-select/.filter-input referenciava tokens inexistentes (--ui-border cru, --ui-radius)
+   e virou CSS morto após a rotulagem acessível — removida (UX-CV360-006). */
 .modal-form { display: flex; flex-direction: column; gap: var(--ui-space-3); }
 .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--ui-space-2); }
 .fa-spacer { flex: 1 1 auto; }

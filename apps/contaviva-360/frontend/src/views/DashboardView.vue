@@ -36,8 +36,11 @@ async function detectRole() {
     const meData = await me();
     view.value = ROLE_MAP[meData.role] || DashboardClientePfView;
   } catch (e) {
+    // NÃO cair no painel PF em silêncio: mostrar o estado de erro com "Tentar de novo" (UX-CV360-004).
+    // Antes o catch setava view = DashboardClientePfView, tornando o UiErrorState código morto e
+    // exibindo a visão de Cliente PF a um admin/contador sem qualquer aviso de que o perfil falhou.
+    view.value = null;
     roleError.value = e;
-    view.value = DashboardClientePfView;
   }
 }
 

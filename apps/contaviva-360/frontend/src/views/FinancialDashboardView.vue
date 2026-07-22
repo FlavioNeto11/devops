@@ -80,7 +80,9 @@ onMounted(load);
 </script>
 <style scoped>
 .period-filter { display: flex; gap: var(--ui-space-2); }
-.filter-input { padding: var(--ui-space-1) var(--ui-space-2); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); font-size: var(--ui-text-sm); }
+/* Os campos De/Até usam UiFormField (rótulo + input estilizado pelo kit); a antiga regra .filter-input
+   referenciava tokens inexistentes (--ui-border cru, --ui-radius) e virou CSS morto — removida
+   (UX-CV360-006). */
 .fd-layout { display: flex; flex-direction: column; gap: var(--ui-space-4); }
 .fd-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ui-space-4); }
 .fd-tables { display: flex; flex-direction: column; gap: var(--ui-space-4); }
