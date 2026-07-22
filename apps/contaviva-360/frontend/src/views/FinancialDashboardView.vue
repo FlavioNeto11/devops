@@ -2,8 +2,16 @@
   <UiPageLayout title="Dashboard Financeiro" subtitle="Visão consolidada do fluxo de caixa." :loading="loading" :error="error" @retry="load">
     <template #actions>
       <div class="period-filter">
-        <input v-model="filters.period_start" type="date" @change="load" class="filter-input" placeholder="De" />
-        <input v-model="filters.period_end" type="date" @change="load" class="filter-input" placeholder="Até" />
+        <UiFormField label="De">
+          <template #default="{ id }">
+            <input :id="id" v-model="filters.period_start" type="date" @change="load" />
+          </template>
+        </UiFormField>
+        <UiFormField label="Até">
+          <template #default="{ id }">
+            <input :id="id" v-model="filters.period_end" type="date" @change="load" />
+          </template>
+        </UiFormField>
       </div>
     </template>
 
@@ -36,7 +44,7 @@
 </template>
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { UiPageLayout, UiCard, UiMetricCard, UiDataTable } from '../ui/index.js';
+import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiFormField } from '../ui/index.js';
 import { financialDashboard } from '../api.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);

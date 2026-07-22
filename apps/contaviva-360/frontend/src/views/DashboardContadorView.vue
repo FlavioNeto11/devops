@@ -15,7 +15,12 @@
           :key="c.tipo + c.id"
           class="cliente-card"
           :class="'status-' + c.status_fiscal"
+          role="button"
+          tabindex="0"
+          :aria-label="'Ver documentos pendentes de ' + c.nome"
           @click="openClienteDocs(c)"
+          @keydown.enter.self="openClienteDocs(c)"
+          @keydown.space.self.prevent="openClienteDocs(c)"
         >
           <div class="cliente-nome">{{ c.nome }}</div>
           <div class="cliente-meta">
@@ -40,7 +45,15 @@
       </template>
       <div v-if="data?.documentos_por_cliente?.length" class="doc-groups">
         <div v-for="grp in docPreview" :key="grp.entity_type + grp.entity_id" class="doc-group">
-          <div class="doc-group-header" @click="showDocsForGroup(grp)">
+          <div
+            class="doc-group-header"
+            role="button"
+            tabindex="0"
+            :aria-label="'Ver documentos de ' + grp.entity_type + ' #' + grp.entity_id"
+            @click="showDocsForGroup(grp)"
+            @keydown.enter.self="showDocsForGroup(grp)"
+            @keydown.space.self.prevent="showDocsForGroup(grp)"
+          >
             <span>{{ grp.entity_type }} #{{ grp.entity_id }}</span>
             <span class="doc-count">{{ grp.docs.length }} doc(s)</span>
           </div>

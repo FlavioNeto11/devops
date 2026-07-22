@@ -5,16 +5,32 @@
     </template>
 
     <div class="filters">
-      <select v-model="r.filters.status" @change="r.load" class="filter-select">
-        <option value="">Todos os status</option>
-        <option value="pendente">Pendente</option>
-        <option value="recebido">Recebido</option>
-        <option value="vencido">Vencido</option>
-        <option value="cancelado">Cancelado</option>
-      </select>
-      <input v-model="r.filters.categoria" @change="r.load" placeholder="Categoria" class="filter-input" />
-      <input v-model="r.filters.period_start" type="date" @change="r.load" class="filter-input" />
-      <input v-model="r.filters.period_end" type="date" @change="r.load" class="filter-input" />
+      <UiFormField label="Status">
+        <template #default="{ id }">
+          <select :id="id" v-model="r.filters.status" @change="r.load">
+            <option value="">Todos os status</option>
+            <option value="pendente">Pendente</option>
+            <option value="recebido">Recebido</option>
+            <option value="vencido">Vencido</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </template>
+      </UiFormField>
+      <UiFormField label="Categoria">
+        <template #default="{ id }">
+          <input :id="id" v-model="r.filters.categoria" @change="r.load" placeholder="Categoria" />
+        </template>
+      </UiFormField>
+      <UiFormField label="Período — início">
+        <template #default="{ id }">
+          <input :id="id" v-model="r.filters.period_start" type="date" @change="r.load" />
+        </template>
+      </UiFormField>
+      <UiFormField label="Período — fim">
+        <template #default="{ id }">
+          <input :id="id" v-model="r.filters.period_end" type="date" @change="r.load" />
+        </template>
+      </UiFormField>
     </div>
 
     <UiCard title="Lançamentos">
@@ -133,7 +149,7 @@ async function save() {
 onMounted(r.load);
 </script>
 <style scoped>
-.filters { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; margin-bottom: var(--ui-space-4); }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--ui-space-3); margin-bottom: var(--ui-space-4); }
 .filter-select, .filter-input { padding: var(--ui-space-1) var(--ui-space-2); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); font-size: var(--ui-text-sm); }
 .modal-form { display: flex; flex-direction: column; gap: var(--ui-space-3); }
 .form-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); }
