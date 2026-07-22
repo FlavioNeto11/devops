@@ -358,6 +358,7 @@ const routes = [
     meta: {
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: false,
+      requiresAdminAccess: true,
       audience: 'system',
       breadcrumb: ['Dev', 'Componentes Sicat']
     }

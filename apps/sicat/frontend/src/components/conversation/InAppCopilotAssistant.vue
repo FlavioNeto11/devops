@@ -19,6 +19,7 @@ const {
   togglePanel,
   resetConversation,
   sendMessage,
+  cancelCurrent,
   sendFeedback,
   handleAction,
   downloadArtifact
@@ -26,7 +27,54 @@ const {
 
 const threadRef = ref(null);
 const composerRef = ref(null);
+const panelRef = ref(null);
 const panelLabelId = 'inapp-copilot-title';
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(', ');
+
+// WCAG 2.4.3: <dialog open> não cria focus trap nativo (só showModal() faz).
+// Contemos o ciclo de Tab dentro do painel para o foco não escapar para o
+// conteúdo sob o backdrop enquanto o copiloto está aberto.
+function getPanelFocusable() {
+  const root = panelRef.value;
+  if (!root || typeof root.querySelectorAll !== 'function') {
+    return [];
+  }
+  return Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    (el) => el instanceof globalThis.HTMLElement && el.offsetParent !== null
+  );
+}
+
+function handlePanelKeydown(event) {
+  if (event.key !== 'Tab') {
+    return;
+  }
+  const focusable = getPanelFocusable();
+  if (focusable.length === 0) {
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = globalThis.document?.activeElement || null;
+  const insidePanel = Boolean(active && panelRef.value?.contains(active));
+
+  if (event.shiftKey) {
+    if (!insidePanel || active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (!insidePanel || active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
 
 const launcherLabel = computed(() => (isOpen.value ? 'Fechar copiloto contextual' : 'Abrir copiloto contextual'));
 const launcherTitle = computed(() => `${launcherLabel.value} · arraste para reposicionar`);
@@ -256,9 +304,11 @@ onUnmounted(() => {
     <transition name="copilot-panel-transition">
       <dialog
         v-if="isOpen"
+        ref="panelRef"
         open
         class="copilot-panel"
         :aria-labelledby="panelLabelId"
+        @keydown="handlePanelKeydown"
       >
         <header class="copilot-panel-header">
           <div class="copilot-panel-header-main">
@@ -391,8 +441,18 @@ onUnmounted(() => {
           />
 
           <div class="copilot-composer-footer">
-            <span class="copilot-composer-hint">Consulta contexto da rota atual, respeitando conta ativa e policy consultiva.</span>
-            <v-btn color="primary" :loading="isSubmitting" :disabled="!draft.trim()" type="submit">
+            <span class="copilot-composer-hint">Respostas geradas por IA podem conter erros — confira antes de agir. Usa o contexto da tela atual e a sua conta ativa.</span>
+            <v-btn
+              v-if="isSubmitting"
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-stop"
+              type="button"
+              @click="cancelCurrent"
+            >
+              Parar
+            </v-btn>
+            <v-btn v-else color="primary" :disabled="!draft.trim()" type="submit">
               Enviar
             </v-btn>
           </div>

@@ -60,7 +60,7 @@ const props = defineProps({
   /** Descrição secundária exibida no header do wizard. */
   pageDescription: {
     type: String,
-    default: 'Fluxo inspirado no checkout wizard do Vuexy: etapas claras, revisão final e navegação guiada sem alterar o payload existente.'
+    default: 'Emissão guiada em quatro passos: contexto da viagem, participantes, resíduo e revisão final antes de criar.'
   }
 });
 

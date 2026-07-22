@@ -125,14 +125,6 @@ async function resolvePartnerInfoFromLogin() {
   }
 }
 
-function formatDate(value) {
-  if (!value) {
-    return '—';
-  }
-
-  return formatDateTimeBr(value);
-}
-
 function accountTypeLabel(accountType) {
   const labels = {
     generator: 'Gerador',
@@ -308,7 +300,7 @@ onMounted(async () => {
         <div class="account-selection-panel-toolbar">
           <div class="text-caption text-medium-emphasis">Passo 2 de 2</div>
           <div class="account-selection-toolbar-actions">
-            <v-tooltip location="bottom" text="Ir para a home publica">
+            <v-tooltip location="bottom" text="Ir para a home pública">
               <template #activator="{ props: tooltipProps }">
                 <v-btn
                   v-bind="tooltipProps"
@@ -317,7 +309,7 @@ onMounted(async () => {
                   variant="tonal"
                   color="primary"
                   size="small"
-                  aria-label="Voltar para a home publica"
+                  aria-label="Voltar para a home pública"
                   @click="goToPublicHome"
                 >
                   <v-icon size="18">mdi-home-import-outline</v-icon>
@@ -362,7 +354,7 @@ onMounted(async () => {
           </div>
           <div class="account-metric-item">
             <span>Em uso</span>
-            <strong class="account-metric-active-value">{{ activeAccountId || 'Nenhuma' }}</strong>
+            <strong class="account-metric-active-value">{{ activeAccountLabel }}</strong>
           </div>
         </div>
 
@@ -537,7 +529,6 @@ onMounted(async () => {
         </div>
 
         <div class="text-caption text-medium-emphasis mt-3">Conta ativa: {{ activeAccountLabel }}</div>
-        <div class="text-caption text-medium-emphasis">Ultima referencia de horario: {{ formatDate(new Date().toISOString()) }}</div>
       </v-sheet>
     </div>
 
@@ -828,7 +819,7 @@ onMounted(async () => {
 
 .account-metric-active-value {
   overflow-wrap: anywhere;
-  word-break: break-all;
+  word-break: normal;
   line-height: 1.2;
 }
 

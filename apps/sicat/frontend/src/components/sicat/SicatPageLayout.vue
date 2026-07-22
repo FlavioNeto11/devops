@@ -46,7 +46,9 @@ useProvidesPageHeader(() => Boolean(slots.header));
       <slot name="actions" />
     </div>
 
-    <main class="sicat-page-layout__body">
+    <!-- Não usar <main> aqui: o landmark único e o alvo do skip-link vivem no
+         SicatAppShell. Um <main> aninhado geraria dois landmarks main na página. -->
+    <div class="sicat-page-layout__body">
       <SicatLoadingState v-if="loading" :title="loadingMessage" />
       <SicatErrorState
         v-else-if="error"
@@ -56,7 +58,7 @@ useProvidesPageHeader(() => Boolean(slots.header));
         @retry="emit('retry')"
       />
       <slot v-else />
-    </main>
+    </div>
 
     <footer v-if="$slots.footer" class="sicat-page-layout__footer">
       <slot name="footer" />

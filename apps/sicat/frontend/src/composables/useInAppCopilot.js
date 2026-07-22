@@ -466,6 +466,10 @@ export function useInAppCopilot() {
   const conversationSessionId = ref('');
   const messages = ref([]);
 
+  // AbortController do turno em andamento (botão Parar). Não-reativo de propósito:
+  // cancela a ESPERA do cliente — o backend conclui o turno em segundo plano.
+  let activeAbortController = null;
+
   const currentScreenContext = computed(() => buildConversationScreenContext({
     route,
     activeAccount: authStore.activeAccount.value || null,
@@ -588,7 +592,7 @@ export function useInAppCopilot() {
       options: {
         allowActions: true
       }
-    });
+    }, { signal: options.signal });
 
     conversationSessionId.value = toTrimmedString(response?.conversationSessionId);
 
@@ -717,22 +721,41 @@ export function useInAppCopilot() {
     }
 
     isSubmitting.value = true;
+    const controller = new AbortController();
+    activeAbortController = controller;
 
     try {
-      await sendToBackend(userInput);
+      await sendToBackend(userInput, { signal: controller.signal });
     } catch (requestError) {
-      const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
-      error.value = message;
-      appendMessage(createMessage({
-        role: 'assistant',
-        text: 'Nao consegui falar com o backend conversacional agora.',
-        source: 'local',
-        status: 'failed',
-        facts: [message]
-      }));
+      if (controller.signal.aborted) {
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Consulta interrompida. Se a operação já tinha começado, o backend a conclui em segundo plano.',
+          source: 'local',
+          status: 'blocked'
+        }));
+      } else {
+        const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
+        error.value = message;
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Nao consegui falar com o backend conversacional agora.',
+          source: 'local',
+          status: 'failed',
+          facts: [message]
+        }));
+      }
     } finally {
+      if (activeAbortController === controller) {
+        activeAbortController = null;
+      }
       isSubmitting.value = false;
     }
+  }
+
+  // Botão Parar: cancela a ESPERA do cliente (o turno no backend não é morto).
+  function cancelCurrent() {
+    activeAbortController?.abort();
   }
 
   async function handleAction(action) {
@@ -821,6 +844,7 @@ export function useInAppCopilot() {
     togglePanel,
     resetConversation,
     sendMessage,
+    cancelCurrent,
     sendFeedback,
     handleAction,
     downloadArtifact

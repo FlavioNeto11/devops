@@ -2056,6 +2056,7 @@ onUnmounted(() => {
                     :title="`Abrir manifesto ${manifest.manifestNumber || resolveManifestIdentifier(manifest) || ''}`"
                     @click="openManifestFromRow(manifest)"
                     @keydown.enter.prevent="openManifestFromRow(manifest)"
+                    @keydown.space.prevent="openManifestFromRow(manifest)"
                   >
                     {{ manifest.manifestNumber || resolveManifestIdentifier(manifest) || '-' }}
                   </a>
