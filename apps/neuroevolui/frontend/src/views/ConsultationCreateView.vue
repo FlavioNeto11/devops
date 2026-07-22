@@ -400,6 +400,10 @@ const bootState = ref('loading'); // loading | ok | denied | error
 const deniedMessage = ref(
   'Você não tem permissão para criar agendamentos. Fale com um administrador.',
 );
+// UX-NEURO-007: sessão expirada (401) ≠ falta de permissão (403). No 401 a faixa global já
+// oferece "Entrar novamente"; a mensagem do corpo acompanha, sem mandar "falar com um administrador".
+const SESSION_EXPIRED_MESSAGE =
+  'Sua sessão expirou. Use "Entrar novamente" na faixa acima para retomar o agendamento.';
 
 // ---- Catálogos (fail-soft) --------------------------------------------------
 const patientOptions = ref([]);
@@ -642,8 +646,10 @@ function handleSubmitError(e) {
 
   if (status === 401 || status === 403) {
     bootState.value = 'denied';
-    deniedMessage.value = (e && e.message) || deniedMessage.value;
-    toast.error('Sem permissão para agendar.');
+    deniedMessage.value = status === 401
+      ? SESSION_EXPIRED_MESSAGE
+      : (e && e.message) || deniedMessage.value;
+    toast.error(status === 401 ? 'Sessão expirada. Entre novamente.' : 'Sem permissão para agendar.');
     return;
   }
 
@@ -719,7 +725,9 @@ async function bootstrap() {
     const status = e && e.status;
     if (status === 401 || status === 403) {
       bootState.value = 'denied';
-      deniedMessage.value = (e && e.message) || deniedMessage.value;
+      deniedMessage.value = status === 401
+        ? SESSION_EXPIRED_MESSAGE
+        : (e && e.message) || deniedMessage.value;
     } else {
       bootState.value = 'error';
     }
