@@ -82,6 +82,17 @@ export function healthFromStatus(status) {
   if (status === 404 || status >= 500) return 'down';
   return 'up'; // 2xx/3xx/401/403 = roteado/alcançável
 }
+// saúde a partir da Response do probe (fetch { redirect: 'manual' }). Uma superfície atrás do
+// gate SSO responde 3xx cross-origin: com redirect manual o browser NÃO o segue e devolve um
+// "opaque redirect" (type 'opaqueredirect', status 0) — isso significa ROTEADO/alcançável, logo
+// 'up'. Sem o redirect manual, o fetch seguiria o 302 até outro domínio, morreria em CORS e
+// cairia no catch como 'down' (falso-negativo do UX-NAV-002). Aceita também um objeto simples
+// { type, status } para ser testável sem DOM.
+export function healthFromResponse(res) {
+  if (!res) return 'unknown';
+  if (res.type === 'opaqueredirect') return 'up'; // redirect cross-origin não seguido = roteado
+  return healthFromStatus(typeof res.status === 'number' ? res.status : null);
+}
 // agrupa os surfaces preservando a ordem dos grupos de aparição.
 export function groupSurfaces(surfaces) {
   const order = [];
@@ -148,7 +159,7 @@ class PlatformShell extends Base {
   _render() {
     const bar = el('div', { class: 'pshell', role: 'navigation', 'aria-label': 'Navegação da plataforma' });
     // launcher button
-    this.launchBtn = el('button', { class: 'pshell-launch', type: 'button', 'aria-label': 'Abrir o menu de aplicações', 'aria-expanded': 'false', onclick: (e) => { e.stopPropagation(); this._toggleLauncher(); } },
+    this.launchBtn = el('button', { class: 'pshell-launch', type: 'button', 'aria-label': 'Abrir o menu de aplicações', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => { e.stopPropagation(); this._toggleLauncher(); } },
       el('span', { class: 'pshell-grid', 'aria-hidden': 'true' }));
     // brand
     const brand = el('a', { class: 'pshell-brand', href: this.brandHref, 'aria-label': 'NovaIT — início da plataforma' },
@@ -164,8 +175,9 @@ class PlatformShell extends Base {
     this.identitySlot = el('div', { class: 'pshell-identity' });
     const right = el('div', { class: 'pshell-right' }, this.themeBtn, this.identitySlot);
     bar.append(this.launchBtn, brand, chip || document.createTextNode(''), this.ctxSlot, el('span', { class: 'pshell-spacer' }), right);
-    // launcher panel (oculto)
+    // launcher panel (oculto). role=menu → teclado de menu ARIA (setas/Home/End/Esc) em _onLauncherKeydown.
     this.launcher = el('div', { class: 'pshell-launcher', hidden: 'hidden', role: 'menu', 'aria-label': 'Aplicações da plataforma' });
+    this.launcher.addEventListener('keydown', (e) => this._onLauncherKeydown(e));
     this._fillLauncher();
     this.replaceChildren(bar, this.launcher);
     this._syncTheme();
@@ -223,8 +235,27 @@ class PlatformShell extends Base {
     }
   }
 
-  _toggleLauncher() { this._launcherOpen = !this._launcherOpen; this.launcher.hidden = !this._launcherOpen; this.launchBtn.setAttribute('aria-expanded', this._launcherOpen ? 'true' : 'false'); if (this._launcherOpen) { this._menuOpen = false; const first = this.launcher.querySelector('.pshell-app'); if (first) first.focus(); } }
-  _closeAll() { if (this._launcherOpen) { this._launcherOpen = false; this.launcher.hidden = true; this.launchBtn.setAttribute('aria-expanded', 'false'); } const m = this.identitySlot.querySelector('.pshell-menu'); if (m) m.hidden = true; this._menuOpen = false; }
+  _toggleLauncher() { this._launcherOpen ? this._closeLauncher(true) : this._openLauncher(); }
+  _openLauncher() { this._launcherOpen = true; this.launcher.hidden = false; this.launchBtn.setAttribute('aria-expanded', 'true'); this._menuOpen = false; const first = this.launcher.querySelector('.pshell-app'); if (first) first.focus(); }
+  // fecha o launcher; restoreFocus devolve o foco ao gatilho (Esc/toggle) — no click-outside NÃO (o foco vai p/ onde o usuário clicou).
+  _closeLauncher(restoreFocus) { if (!this._launcherOpen) return; this._launcherOpen = false; this.launcher.hidden = true; this.launchBtn.setAttribute('aria-expanded', 'false'); if (restoreFocus && this.launchBtn) this.launchBtn.focus(); }
+  _closeAll() { this._closeLauncher(false); const m = this.identitySlot.querySelector('.pshell-menu'); if (m) m.hidden = true; if (this.identityBtn) this.identityBtn.setAttribute('aria-expanded', 'false'); this._menuOpen = false; }
+  // teclado do padrão ARIA menu no launcher: setas/Home/End movem o foco entre itens; Esc fecha e
+  // devolve o foco ao botão (stopPropagation p/ o handler global de Esc não fechar duas vezes).
+  _onLauncherKeydown(e) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this._closeLauncher(true); return; }
+    if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+    const items = Array.from(this.launcher.querySelectorAll('.pshell-app'));
+    if (!items.length) return;
+    e.preventDefault();
+    const cur = items.indexOf(document.activeElement);
+    let next;
+    if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = cur < 0 ? 0 : (cur + 1) % items.length;
+    else next = cur < 0 ? items.length - 1 : (cur - 1 + items.length) % items.length;
+    items[next].focus();
+  }
 
   // ----- tema: [data-theme] + .dark no <html>, chave única nvit-theme -----
   _currentTheme() {
@@ -304,9 +335,11 @@ class PlatformShell extends Base {
     try {
       const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const t = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
-      const r = await fetch(path, { method: 'HEAD', signal: ctrl ? ctrl.signal : undefined });
+      // redirect: 'manual' → NÃO segue o 302 do gate SSO até outro domínio (que morreria em CORS).
+      // A resposta vira um "opaque redirect" (status 0) e healthFromResponse a lê como 'up' (roteado).
+      const r = await fetch(path, { method: 'HEAD', redirect: 'manual', signal: ctrl ? ctrl.signal : undefined });
       if (t) clearTimeout(t);
-      return healthFromStatus(r.status);
+      return healthFromResponse(r);
     } catch { return 'down'; }
   }
 }
