@@ -2,25 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import {
-  Banner, SkeletonList, HelpCallout, LegalStatusBadge, formatBRL,
+  Banner, SkeletonList, HelpCallout, LegalStatusBadge, ContractStatusBadge, formatBRL, friendly,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { useInvestorMode, DemoWatermark } from '../investor.jsx';
-
-// Rótulos e cores dos status de contrato (espelham api/src/marketplace/states.js).
-const CONTRACT_STATUS = {
-  active: { l: 'Ativo', c: 'b-green' },
-  suspended: { l: 'Suspenso', c: 'b-amber' },
-  substituted: { l: 'Substituído', c: 'b-blue' },
-  written_off: { l: 'Baixado', c: 'b-red' },
-  settled: { l: 'Liquidado', c: 'b-grey' },
-  terminated: { l: 'Encerrado', c: 'b-grey' },
-};
-
-function ContractStatusBadge({ status }) {
-  const s = CONTRACT_STATUS[status] || { l: status || '—', c: 'b-grey' };
-  return <span className={`badge ${s.c}`}>{s.l}</span>;
-}
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -36,7 +21,7 @@ export default function InvestidorCarteira() {
   const mode = useInvestorMode();
 
   useEffect(() => {
-    api.investor.wallet().then(setData).catch((e) => setError(e.message));
+    api.investor.wallet().then(setData).catch((e) => setError(friendly(e.message)));
   }, []);
 
   const contracts = (data && data.contracts) || [];

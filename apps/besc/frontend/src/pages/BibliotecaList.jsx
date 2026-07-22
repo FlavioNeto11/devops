@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useMeta, useLabel, useEnum, SkeletonList, Banner, formatBytes } from '../ui.jsx';
+import { useMeta, useLabel, useEnum, SkeletonList, Banner, formatBytes, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const KIND_ICON = { fundamento: 'shield', historia: 'clock', base_legal: 'scale', modelo: 'file', atualizacao_monetaria: 'report', laudo: 'report', video: 'video', outro: 'file' };
@@ -14,7 +14,7 @@ export default function BibliotecaList() {
   const label = useLabel();
   const kinds = useEnum('library_kind');
 
-  useEffect(() => { api.library().then(setItems).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { api.library().then(setItems).catch((e) => setError(friendly(e.message))); }, []);
 
   const filtered = useMemo(() => {
     if (!items) return [];

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { useLabel, SkeletonList, Banner, OutcomeBadge, CountBar } from '../ui.jsx';
+import { useLabel, SkeletonList, Banner, OutcomeBadge, CountBar, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const FACETS = [
@@ -30,7 +30,7 @@ export default function JurisprudenciaList() {
   const [groupBy, setGroupBy] = useState(false);
   const label = useLabel();
 
-  useEffect(() => { api.jurisprudence().then(setItems).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { api.jurisprudence().then(setItems).catch((e) => setError(friendly(e.message))); }, []);
 
   const q = params.get('q') || '';
   const state = useMemo(() => {
