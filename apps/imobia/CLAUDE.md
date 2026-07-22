@@ -2,7 +2,7 @@
 title: "imobia — Ecossistema Imobiliário + IA (Manual para Claude Code)"
 status: canonical
 applies_to: [imobia]
-updated: 2026-07-02
+updated: 2026-07-21
 language: pt-BR
 ---
 
@@ -27,13 +27,18 @@ lógica/function-calling · **Claude** = redação/análise · **Gemini** = docu
 
 | Aspecto | Decisão |
 |---|---|
-| Frontend | Vue 3 + Vite + Pinia + Vue Router (kit `ui-vue` sincronizado em F3+), nginx, base `/imobia/`, sem strip, priority 10 |
+| Frontend | Vue 3 + Vite + Pinia + Vue Router (**DS próprio: tokens `--im-*` em `src/styles.css`** — o kit `ui-vue`/`--ui-*` **não** foi adotado), nginx, base `/imobia/`, sem strip, priority 10 |
 | API | Node 20 + **Fastify** + TypeScript via **tsx** (ESM), rotas na raiz (Traefik faz strip de `/imobia/api`), priority 30 |
 | Worker | **mesma imagem da api**, comando `npm run worker` (padrão SICAT/GymOps) — filas BullMQ |
 | Persistência | **Postgres 16 / pgvector** (Prisma) + **Redis/BullMQ** + PVC `imobia-files` (uploads/PDFs) — entram em F1 |
 | IA | `@flavioneto11/ai-core` (grafo router→especialistas + tools + memória pgvector) + **adaptador Gemini** (F2); multimodal via `file-ingest-kit` |
 | Auth | local (JWT via `oidc-kit`) + **Keycloak SSO** realm `nvit` (F1) |
 | Deploy | `apps/imobia/k8s` (Argo CD auto-sync) · imagens `:local` no laboratório |
+
+> **Design system (decisão):** o imobia mantém um **DS próprio** com tokens `--im-*` (definidos em
+> `frontend/src/styles.css`) — a paleta imobiliária/fintech do produto. O kit central `ui-vue`/`--ui-*`
+> **não** é dependência do frontend (`frontend/package.json` só traz `vue`/`pinia`/`vue-router`). Uma
+> eventual convergência para `ui-vue` é trabalho futuro, não um fato entregue.
 
 ## Fases (roadmap) — TODAS ENTREGUES e no ar (`:local`, verificadas)
 
@@ -47,8 +52,10 @@ multi-modelo (Cortex/GPT/Claude/Gemini) fail-soft. **Para acender a IA:** o oper
 `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` no Secret `imobia-config` (Sealed Secrets)
 — até lá as IAs ficam dormentes e todos os módulos funcionam manualmente.
 
-> **GitOps:** o app roda via `kubectl apply` (`:local`). Para entrar sob Argo (auto-sync), commitar
-> `apps/imobia/**` + `platform/argocd/apps/imobia.yaml` na `main` (pendente de aprovação do operador).
+> **GitOps:** o app **já vive sob Argo CD** (Application `platform/argocd/apps/imobia.yaml` com
+> `automated: { prune, selfHeal }`). Logo, **manifesto** (`apps/imobia/k8s/**`, env/mem/secret) muda
+> **pelo git** — `kubectl apply` solto é revertido pelo `selfHeal`. Só o **código** vai por
+> `docker build :local` + recriar o pod (ver Armadilhas). Sequência: build → commit → push → sync.
 
 ## Rodar / publicar
 
@@ -57,7 +64,9 @@ multi-modelo (Cortex/GPT/Claude/Gemini) fail-soft. **Para acender a IA:** o oper
 # Frontend local:    npm --prefix apps/imobia/frontend install; npm --prefix apps/imobia/frontend run dev  (proxy /imobia/api -> :8080)
 docker build -t imobia-api:local apps/imobia/api
 docker build -t imobia-frontend:local apps/imobia/frontend
-kubectl apply -f apps/imobia/k8s
+# Código (nova imagem :local): recriar os pods para puxá-la (com aprovação):
+kubectl rollout restart deploy/imobia-api deploy/imobia-frontend -n apps
+# Manifesto (k8s/**): vai pelo GIT — o Argo (selfHeal) sincroniza; `kubectl apply` solto é revertido.
 ```
 
 Validar: `http://nvit.localhost/imobia` (SPA) e `http://nvit.localhost/imobia/api/health` (API pós-strip).

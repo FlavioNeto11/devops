@@ -1,12 +1,12 @@
 # =============================================================================
-# ZapBridge — app web (Expo/react-native-web) + landing, servido por nginx sob
-# /zapbridge (Traefik SEM strip, priority 10). A rota /zapbridge entra no MESMO
+# ZapBridge — app web (React 18 + Vite, em apps/zapbridge/web), servido por nginx
+# sob /zapbridge (Traefik SEM strip, priority 10). A rota /zapbridge entra no MESMO
 # IngressRoute `zapbridge` (ver zapbridge.yaml): /zapbridge/api (30) e
 # /zapbridge/socket.io (40) têm priority MAIOR e vão para o backend; o resto de
-# /zapbridge cai aqui (frontend).
-# Imagem local: zapbridge-web:local (build a partir de apps/zapbridge/)
-#   cd apps/zapbridge/app && npm run build:web     (gera apps/zapbridge/app/dist)
-#   docker build -f apps/zapbridge/app/Dockerfile.web -t zapbridge-web:local apps/zapbridge/app
+# /zapbridge cai aqui (frontend). O Expo em apps/zapbridge/app é legado/aposentado.
+# Imagem local: zapbridge-web:local (build a partir de apps/zapbridge/web)
+#   cd apps/zapbridge/web && npm run build          (Vite → gera apps/zapbridge/web/dist)
+#   docker build -f apps/zapbridge/web/Dockerfile.web -t zapbridge-web:local apps/zapbridge/web
 # =============================================================================
 apiVersion: apps/v1
 kind: Deployment

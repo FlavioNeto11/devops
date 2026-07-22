@@ -1,6 +1,6 @@
 # Contrato da esteira DevOps para o ZapBridge (cliente de mensageria via Baileys).
 # Ver C:\devops\docs\new-project-contract.md e docs/standards/hard-constraints.md (regra de ouro).
-# basePath /zapbridge ; frontend (app web Expo) SEM strip ; api (backend) COM strip.
+# basePath /zapbridge ; frontend (web/ React 18 + Vite) SEM strip ; api (backend) COM strip.
 # Rota extra de WebSocket /zapbridge/socket.io (priority 40, SEM strip) aponta para o MESMO
 # backend `api` — declarada diretamente na IngressRoute (k8s/zapbridge.yaml), pois o contrato
 # so modela frontend/api/api2/worker. Persistencia: PVC RWO (SQLite + auth Baileys + midia),
@@ -21,8 +21,8 @@ services:
     stripPrefix: false
     priority: 10
     build:
-      context: app
-      dockerfile: Dockerfile.web        # exige `npm run build:web` antes (gera app/dist)
+      context: web
+      dockerfile: Dockerfile.web        # exige `npm run build` (Vite) antes → gera web/dist (o Expo em app/ é legado)
     health:
       path: /healthz
   server:
