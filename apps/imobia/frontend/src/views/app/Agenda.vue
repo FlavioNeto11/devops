@@ -14,6 +14,7 @@ const nlText = ref('');
 const nlBusy = ref(false);
 const nlMsg = ref('');
 const saving = ref(false);
+const formError = ref('');
 const form = ref({ title: '', kind: 'visita', startAt: '', location: '', notes: '' });
 
 async function load() {
@@ -23,9 +24,9 @@ async function load() {
   finally { loading.value = false; }
 }
 async function save() {
-  saving.value = true;
+  saving.value = true; formError.value = '';
   try { await api.create('agenda', { ...form.value, startAt: new Date(form.value.startAt).toISOString() }); showForm.value = false; form.value = { title: '', kind: 'visita', startAt: '', location: '', notes: '' }; await load(); }
-  catch (e) { alert(e.message); } finally { saving.value = false; }
+  catch (e) { formError.value = e.message; } finally { saving.value = false; }
 }
 async function nlAdd() {
   if (!nlText.value.trim()) return;
@@ -42,7 +43,7 @@ onMounted(load);
   <div class="ap-page">
     <div class="ap-page-head ap-head-row">
       <div><h1><Icon name="calendar" :size="22" /> Agenda e Eventos</h1><p>Visitas, vistorias e renovações. {{ items.length }} compromissos.</p></div>
-      <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Novo</button>
+      <button class="im-btn-primary" @click="showForm = true; formError = ''"><Icon name="plus" :size="16" /> Novo</button>
     </div>
 
     <div class="ap-nlbar">
@@ -70,6 +71,7 @@ onMounted(load);
         <label class="full">Local<input v-model="form.location" /></label>
         <label class="full">Notas<textarea v-model="form.notes" rows="2" /></label>
       </div>
+      <p v-if="formError" class="im-notice err" style="margin-top:12px">{{ formError }}</p>
       <template #footer>
         <button class="im-linkbtn" @click="showForm = false">Cancelar</button>
         <button class="im-btn-primary" :disabled="saving || !form.title || !form.startAt" @click="save">{{ saving ? 'Salvando…' : 'Agendar' }}</button>

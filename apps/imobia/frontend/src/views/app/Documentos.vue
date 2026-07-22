@@ -11,6 +11,7 @@ const loadError = ref('');
 const uploading = ref(false);
 const docType = ref('rg');
 const msg = ref('');
+const msgErr = ref(false);
 const fileInput = ref(null);
 
 async function load() {
@@ -22,14 +23,14 @@ async function load() {
 async function onFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  uploading.value = true; msg.value = '';
+  uploading.value = true; msg.value = ''; msgErr.value = false;
   try {
     const r = await api.upload('documentos', file, { type: docType.value });
     msg.value = r.ai?.dormant ? 'Enviado. Validação por IA dormente (configure GOOGLE_API_KEY).' : `Enviado e validado: ${r.data.validation}.`;
     await load();
-  } catch (err) { msg.value = err.message; } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
+  } catch (err) { msg.value = err.message; msgErr.value = true; } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
 }
-async function revalidate(id) { try { await api.create(`documentos/${id}/validate`, {}); await load(); } catch (e) { alert(e.message); } }
+async function revalidate(id) { msg.value = ''; msgErr.value = false; try { await api.create(`documentos/${id}/validate`, {}); await load(); } catch (e) { msg.value = e.message; msgErr.value = true; } }
 onMounted(load);
 </script>
 
@@ -49,7 +50,7 @@ onMounted(load);
         <input ref="fileInput" type="file" hidden :disabled="uploading" @change="onFile" accept="image/*,application/pdf" />
       </label>
     </div>
-    <p v-if="msg" class="im-notice" style="margin-bottom:14px">{{ msg }}</p>
+    <p v-if="msg" class="im-notice" :class="{ err: msgErr }" style="margin-bottom:14px">{{ msg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
     <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>

@@ -14,6 +14,12 @@ const creating = ref(false);
 const formError = ref('');
 const form = ref({ kind: 'entrada', scheduledAt: '' });
 const detail = ref(null);
+const detailOpen = ref(false);
+const detailLoading = ref(false);
+const detailError = ref('');
+const detailId = ref(null);
+const detailMsg = ref('');
+const detailMsgErr = ref(false);
 const uploading = ref(false);
 const laudoBusy = ref(false);
 const fileInput = ref(null);
@@ -29,17 +35,28 @@ async function create() {
   try { await api.create('vistorias', { ...form.value, scheduledAt: form.value.scheduledAt ? new Date(form.value.scheduledAt).toISOString() : undefined }); showForm.value = false; await load(); }
   catch (e) { formError.value = e.message; } finally { creating.value = false; }
 }
-async function open(id) { const r = await api.get('vistorias', id); detail.value = { ...r.data, timeline: r.timeline }; }
+async function open(id) {
+  detailId.value = id; detailOpen.value = true; detailLoading.value = true; detailError.value = '';
+  detail.value = null; detailMsg.value = ''; detailMsgErr.value = false;
+  try { const r = await api.get('vistorias', id); detail.value = { ...r.data, timeline: r.timeline }; }
+  catch (e) { detailError.value = e.message || 'Falha ao abrir a vistoria.'; }
+  finally { detailLoading.value = false; }
+}
+async function refreshDetail() {
+  try { const r = await api.get('vistorias', detailId.value); detail.value = { ...r.data, timeline: r.timeline }; }
+  catch { /* mantem o detalhe atual */ }
+}
+function closeDetail() { detailOpen.value = false; detail.value = null; detailError.value = ''; detailMsg.value = ''; }
 async function onPhoto(e) {
   const file = e.target.files?.[0]; if (!file || !detail.value) return;
-  uploading.value = true;
-  try { await api.upload(`vistorias/${detail.value.id}/fotos`, file, {}); await open(detail.value.id); }
-  catch (err) { alert(err.message); } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
+  uploading.value = true; detailMsg.value = ''; detailMsgErr.value = false;
+  try { await api.upload(`vistorias/${detail.value.id}/fotos`, file, {}); await refreshDetail(); }
+  catch (err) { detailMsg.value = err.message; detailMsgErr.value = true; } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
 }
 async function laudo() {
-  laudoBusy.value = true;
-  try { const r = await api.create(`vistorias/${detail.value.id}/laudo`, {}); if (r.dormant) alert(r.message); await open(detail.value.id); await load(); }
-  catch (e) { alert(e.message); } finally { laudoBusy.value = false; }
+  laudoBusy.value = true; detailMsg.value = ''; detailMsgErr.value = false;
+  try { const r = await api.create(`vistorias/${detail.value.id}/laudo`, {}); if (r.dormant) { detailMsg.value = r.message; detailMsgErr.value = false; } await refreshDetail(); await load(); }
+  catch (e) { detailMsg.value = e.message; detailMsgErr.value = true; } finally { laudoBusy.value = false; }
 }
 onMounted(load);
 </script>
@@ -71,8 +88,13 @@ onMounted(load);
       <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="creating" @click="create">{{ creating ? 'Criando…' : 'Criar' }}</button></template>
     </Modal>
 
-    <Modal :open="!!detail" :title="detail ? `Vistoria de ${detail.kind}` : ''" @close="detail = null">
-      <div v-if="detail">
+    <Modal :open="detailOpen" :title="detail ? `Vistoria de ${detail.kind}` : 'Vistoria'" @close="closeDetail">
+      <div v-if="detailLoading" class="im-notice">Carregando…</div>
+      <div v-else-if="detailError" class="im-notice err ap-error">
+        <span>{{ detailError }}</span>
+        <button class="im-btn-primary" @click="open(detailId)">Tentar novamente</button>
+      </div>
+      <div v-else-if="detail">
         <div class="ap-detail-row"><StatusBadge :status="detail.status" />
           <label class="im-linkbtn" :class="{ busy: uploading }" style="margin-left:auto">
             {{ uploading ? 'Analisando…' : '+ Foto (IA)' }}
@@ -80,6 +102,7 @@ onMounted(load);
           </label>
           <button class="im-btn-primary" :disabled="laudoBusy" @click="laudo">{{ laudoBusy ? 'Gerando…' : 'Gerar laudo (IA)' }}</button>
         </div>
+        <p v-if="detailMsg" class="im-notice" :class="{ err: detailMsgErr }" style="margin-bottom:14px">{{ detailMsg }}</p>
         <div v-if="detail.photos?.length" class="ap-photos">
           <div v-for="ph in detail.photos" :key="ph.id" class="ap-photo">
             <img :src="api.fileUrl(ph.storageKey)" alt="foto" />

@@ -15,7 +15,13 @@ const formError = ref('');
 const scoring = ref('');
 const detail = ref(null);
 const detailTimeline = ref([]);
+const detailOpen = ref(false);
+const detailLoading = ref(false);
+const detailError = ref('');
+const detailId = ref(null);
 const aiStatus = ref(null);
+const aiMsg = ref('');
+const aiErr = ref(false);
 
 const empty = () => ({ name: '', phone: '', email: '', interest: 'compra', budgetMin: null, budgetMax: null, sourceChannel: '', notes: '' });
 const form = ref(empty());
@@ -38,18 +44,28 @@ async function save() {
   } catch (e) { formError.value = e.message; } finally { saving.value = false; }
 }
 async function score(id) {
-  scoring.value = id;
+  scoring.value = id; aiMsg.value = ''; aiErr.value = false;
   try {
     const r = await api.create(`leads/${id}/score`, {});
-    if (r.dormant) alert(r.message);
+    if (r.dormant) { aiMsg.value = r.message; aiErr.value = false; }
     await load();
-    if (detail.value?.id === id) await openDetail(id);
-  } catch (e) { alert(e.message); } finally { scoring.value = ''; }
+    if (detail.value?.id === id) await refreshDetail();
+  } catch (e) { aiMsg.value = e.message; aiErr.value = true; } finally { scoring.value = ''; }
 }
 async function openDetail(id) {
-  const r = await api.get('leads', id);
-  detail.value = r.data; detailTimeline.value = r.timeline || [];
+  detailId.value = id; detailOpen.value = true; detailLoading.value = true; detailError.value = '';
+  detail.value = null; detailTimeline.value = [];
+  try {
+    const r = await api.get('leads', id);
+    detail.value = r.data; detailTimeline.value = r.timeline || [];
+  } catch (e) { detailError.value = e.message || 'Falha ao abrir o lead.'; }
+  finally { detailLoading.value = false; }
 }
+async function refreshDetail() {
+  try { const r = await api.get('leads', detailId.value); detail.value = r.data; detailTimeline.value = r.timeline || []; }
+  catch { /* mantem o detalhe atual */ }
+}
+function closeDetail() { detailOpen.value = false; detail.value = null; detailError.value = ''; }
 // Só abre o detalhe quando o teclado age sobre a própria linha (ignora o botão de score aninhado).
 function onRowKey(e, id) {
   if (e.target !== e.currentTarget) return;
@@ -69,6 +85,8 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
       <button class="im-btn-primary" @click="showForm = true; form = empty()"><Icon name="plus" :size="16" /> Novo lead</button>
     </div>
 
+    <p v-if="aiMsg" class="im-notice" :class="{ err: aiErr }" style="margin-bottom:14px">{{ aiMsg }}</p>
+
     <div v-if="loading" class="im-notice">Carregando…</div>
     <div v-else-if="loadError" class="im-notice err ap-error">
       <span>{{ loadError }}</span>
@@ -83,7 +101,7 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
       <table class="ap-table">
         <thead><tr><th>Nome</th><th>Interesse</th><th>Estágio</th><th>Orçamento</th><th>Score</th><th></th></tr></thead>
         <tbody>
-          <tr v-for="l in items" :key="l.id" role="button" tabindex="0" :aria-label="`Abrir lead ${l.name}`" @click="openDetail(l.id)" @keydown.enter="onRowKey($event, l.id)" @keydown.space="onRowKey($event, l.id)">
+          <tr v-for="l in items" :key="l.id" class="is-clickable" role="button" tabindex="0" :aria-label="`Abrir lead ${l.name}`" @click="openDetail(l.id)" @keydown.enter="onRowKey($event, l.id)" @keydown.space="onRowKey($event, l.id)">
             <td><strong>{{ l.name }}</strong><br /><small>{{ l.email || l.phone || '—' }}</small></td>
             <td>{{ l.interest }}</td>
             <td><StatusBadge :status="l.stage" /></td>
@@ -113,8 +131,13 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
       </template>
     </Modal>
 
-    <Modal :open="!!detail" :title="detail?.name" @close="detail = null">
-      <div v-if="detail">
+    <Modal :open="detailOpen" :title="detail?.name || 'Lead'" @close="closeDetail">
+      <div v-if="detailLoading" class="im-notice">Carregando…</div>
+      <div v-else-if="detailError" class="im-notice err ap-error">
+        <span>{{ detailError }}</span>
+        <button class="im-btn-primary" @click="openDetail(detailId)">Tentar novamente</button>
+      </div>
+      <div v-else-if="detail">
         <div class="ap-detail-row"><StatusBadge :status="detail.stage" /> <span>Score <b>{{ detail.score }}/100</b></span>
           <button class="im-linkbtn" style="margin-left:auto" :disabled="scoring === detail.id" @click="score(detail.id)">{{ scoring === detail.id ? '…' : 'Pontuar com IA ⚡' }}</button>
         </div>
