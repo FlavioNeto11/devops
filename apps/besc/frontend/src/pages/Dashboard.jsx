@@ -92,7 +92,17 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.id} className="clickable" onClick={() => navigate(`/cases/${c.id}`)}>
+                <tr
+                  key={c.id}
+                  className="clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/cases/${c.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${c.id}`); }
+                  }}
+                >
                   <td>
                     <div style={{ fontWeight: 600 }}>{c.holder_name || <span className="muted">(sem titular)</span>}</div>
                     <div className="small muted">{c.holder_tax_id || '—'} · {label('holder_type', c.holder_type)}</div>

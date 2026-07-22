@@ -62,7 +62,17 @@ export default function Auditoria() {
               </thead>
               <tbody>
                 {titles.map((t) => (
-                  <tr key={t.id} className="clickable" onClick={() => navigate(`/auditoria/titulos/${t.id}`)}>
+                  <tr
+                    key={t.id}
+                    className="clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/auditoria/titulos/${t.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/auditoria/titulos/${t.id}`); }
+                    }}
+                  >
                     <td><div style={{ fontWeight: 600 }}>{t.label}</div></td>
                     <td><LegalStatusBadge status={t.legal_status} /></td>
                     <td><ListingBadge status={t.listing_status} /></td>

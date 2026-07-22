@@ -78,7 +78,17 @@ export default function GestaoTitulos() {
                 {titles.map((t) => {
                   const total = totalSupply(t);
                   return (
-                    <tr key={t.id} className="clickable" onClick={() => navigate(`/gestao/titulos/${t.id}`)}>
+                    <tr
+                      key={t.id}
+                      className="clickable"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/gestao/titulos/${t.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/gestao/titulos/${t.id}`); }
+                      }}
+                    >
                       <td><div style={{ fontWeight: 600 }}>{t.label}</div></td>
                       <td>{label('share_class', t.share_class)}</td>
                       <td><LegalStatusBadge status={t.legal_status} /></td>
