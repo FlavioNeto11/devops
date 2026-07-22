@@ -1063,8 +1063,9 @@ body {
 .checklist__status {
   appearance: none;
   flex: none;
-  width: 22px;
-  height: 22px;
+  /* Alvo de toque >= 24px (WCAG 2.5.8); 28px dá folga sem inflar a linha. */
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg-elev);
@@ -1369,6 +1370,7 @@ body {
 .topbar__heading { margin: 0; font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: 0.2px; }
 .topbar__desc { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); }
 .topbar__actions { display: flex; align-items: center; gap: 10px; }
+.topbar__live { display: inline-flex; align-items: center; }
 .topbar__icon { color: var(--text-muted); }
 
 .icon-btn {

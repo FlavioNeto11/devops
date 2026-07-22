@@ -135,7 +135,7 @@ export default function Health({ streamData, streamStatus }) {
 
   if (loading && pods.length === 0 && deployments.length === 0) {
     return (
-      <section className="health" aria-label="Saude do cluster">
+      <section className="health" aria-label="Saúde do cluster">
         <h2 className="section-title">Pods</h2>
         <TableSkeleton rows={6} cols={7} />
         <h2 className="section-title">Deployments</h2>
@@ -145,18 +145,21 @@ export default function Health({ streamData, streamStatus }) {
   }
 
   return (
-    <section className="health" aria-label="Saude do cluster">
+    <section className="health" aria-label="Saúde do cluster">
       {error && (
         <div className="state state--error" role="alert">
-          Erro ao carregar saude: {error}
+          Erro ao carregar saúde: {error}
           {streamStatus === 'open' && ' (aguardando proximo frame em tempo real…)'}
+          <button type="button" className="btn" style={{ marginLeft: 12 }} onClick={() => load()}>
+            Tentar de novo
+          </button>
         </div>
       )}
 
       <div className="health-summary" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="badge badge-ok">{summary.ok} saudaveis</span>
-        <span className="badge badge-warn">{summary.warn} atencao</span>
-        <span className="badge badge-err">{summary.err} criticos</span>
+        <span className="badge badge-ok">{summary.ok} saudáveis</span>
+        <span className="badge badge-warn">{summary.warn} atenção</span>
+        <span className="badge badge-err">{summary.err} críticos</span>
         {streamStatus && streamStatus !== 'open' && (
           <span className="muted" style={{ fontSize: '.8rem' }}>tempo real indisponível — dados podem estar defasados</span>
         )}
@@ -170,7 +173,7 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <SortableTh label="Saude" sortKey="health" sort={podSort} />
+              <SortableTh label="Saúde" sortKey="health" sort={podSort} />
               <SortableTh label="Nome" sortKey="name" sort={podSort} />
               <SortableTh label="Namespace" sortKey="namespace" sort={podSort} />
               <SortableTh label="Fase" sortKey="phase" sort={podSort} />
@@ -180,7 +183,7 @@ export default function Health({ streamData, streamStatus }) {
             </tr>
           </thead>
           <tbody>
-            {evaluated.length === 0 && (
+            {!error && evaluated.length === 0 && (
               <tr>
                 <td colSpan={7} className="table__empty">
                   Nenhum pod encontrado.
@@ -237,7 +240,7 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <SortableTh label="Saude" sortKey="health" sort={depSort} />
+              <SortableTh label="Saúde" sortKey="health" sort={depSort} />
               <SortableTh label="Nome" sortKey="name" sort={depSort} />
               <SortableTh label="Tipo" sortKey="type" sort={depSort} />
               <SortableTh label="Namespace" sortKey="namespace" sort={depSort} />
@@ -245,7 +248,7 @@ export default function Health({ streamData, streamStatus }) {
             </tr>
           </thead>
           <tbody>
-            {deployments.length === 0 && (
+            {!error && deployments.length === 0 && (
               <tr>
                 <td colSpan={5} className="table__empty">
                   Nenhum deployment encontrado.
@@ -389,7 +392,7 @@ function podHealth(p) {
 
 /** Rotulo acessivel para cada estado de saude. */
 function healthLabel(h) {
-  if (h === 'ok') return 'Saudavel';
-  if (h === 'warn') return 'Atencao';
-  return 'Critico';
+  if (h === 'ok') return 'Saudável';
+  if (h === 'warn') return 'Atenção';
+  return 'Crítico';
 }
