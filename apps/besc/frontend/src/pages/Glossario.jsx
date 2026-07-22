@@ -39,7 +39,7 @@ export default function Glossario() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-head">
               <span style={{ display: 'inline-flex', color: 'var(--muted)' }}><Icon name="search" size={15} /></span>
-              <input placeholder="Buscar termo…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
+              <input aria-label="Buscar termo no glossário" placeholder="Buscar termo…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
               <div className="spacer" style={{ flex: 1 }} />
               <span className="small muted">{filtered.length} termos</span>
             </div>

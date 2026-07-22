@@ -319,6 +319,7 @@ function GrantAccessPanel() {
               {grants === null && <p className="small muted">Carregando…</p>}
               {Array.isArray(grants) && activeGrants.length === 0 && <p className="small muted">Nenhum acesso concedido para este título.</p>}
               {activeGrants.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
                 <table className="data">
                   <thead><tr><th>Auditor</th><th>Finalidade</th><th>Concedido em</th><th></th></tr></thead>
                   <tbody>
@@ -334,6 +335,7 @@ function GrantAccessPanel() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           )}

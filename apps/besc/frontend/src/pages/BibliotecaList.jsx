@@ -49,8 +49,8 @@ export default function BibliotecaList() {
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="card-head">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><Icon name="search" size={15} /></span>
-            <input placeholder="Buscar na biblioteca…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
-            <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ maxWidth: 240 }}>
+            <input aria-label="Buscar na biblioteca" placeholder="Buscar na biblioteca…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
+            <select aria-label="Filtrar por tipo de documento" value={kind} onChange={(e) => setKind(e.target.value)} style={{ maxWidth: 240 }}>
               <option value="">Todos os tipos</option>
               {Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>

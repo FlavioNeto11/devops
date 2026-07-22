@@ -126,7 +126,7 @@ export default function JurisprudenciaList() {
         <div className="facet-layout">
           <aside className="facet-rail">
             <div className="field" style={{ marginBottom: 14 }}>
-              <input placeholder="Buscar no acervo…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input aria-label="Buscar no acervo de jurisprudência" placeholder="Buscar no acervo…" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             {FACETS.map((f) => (
               (facetOptions[f.key] || []).length > 0 && (

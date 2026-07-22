@@ -91,7 +91,7 @@ export function formatBRL(n) {
 export function Progress({ pct }) {
   return (
     <div className="row" style={{ gap: 8 }}>
-      <div className="progress" style={{ flex: 1 }}><span style={{ width: `${pct || 0}%` }} /></div>
+      <div className="progress" style={{ flex: 1 }} role="progressbar" aria-label="Documentação concluída" aria-valuenow={pct || 0} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${pct || 0}%` }} /></div>
       <span className="small muted" style={{ minWidth: 34, textAlign: 'right' }}>{pct || 0}%</span>
     </div>
   );

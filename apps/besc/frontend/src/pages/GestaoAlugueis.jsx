@@ -283,7 +283,7 @@ function LeaseCard({ lease, canWrite, onError }) {
         )}
 
         {accruals.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
             <table className="data">
               <thead><tr><th>Competência</th><th style={{ textAlign: 'right' }}>Dias do período</th><th style={{ textAlign: 'right' }}>Dias cobráveis</th><th style={{ textAlign: 'right' }}>Valor</th><th>Fatura</th></tr></thead>
               <tbody>
