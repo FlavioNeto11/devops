@@ -65,10 +65,11 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue';
-import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast } from '../ui/index.js';
+import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast, useConfirm } from '../ui/index.js';
 import { assistant, assistantHealth, health as apiHealth } from '../api.js';
 
 const toast = useToast();
+const confirm = useConfirm();
 const health = ref('checking'); // checking | online | offline | error
 const healthLabel = computed(() => ({ checking: 'Verificando…', online: 'IA no ar', offline: 'IA desligada', error: 'IA com erro' }[health.value] || 'IA'));
 const messages = ref([]);
@@ -126,7 +127,11 @@ function errMsg(e) {
   return e.message || 'Falha ao falar com o assistente.';
 }
 
-function clearAll() { messages.value = []; }
+async function clearAll() {
+  if (!messages.value.length) return;
+  const ok = await confirm({ title: 'Apagar conversa', message: 'Apagar toda a conversa e as análises de anexos? Isso não pode ser desfeito.', confirmLabel: 'Apagar', danger: true });
+  if (ok) messages.value = [];
+}
 
 onMounted(checkHealth);
 </script>

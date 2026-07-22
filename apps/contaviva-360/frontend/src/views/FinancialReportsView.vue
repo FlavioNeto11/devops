@@ -2,8 +2,8 @@
   <UiPageLayout title="Relatórios Financeiros" subtitle="Análise por período, categoria e centro de custo." :loading="loading" :error="error" @retry="load">
     <template #actions>
       <div class="report-actions">
-        <UiButton variant="ghost" @click="exportFile('csv')">Exportar CSV</UiButton>
-        <UiButton variant="ghost" @click="exportFile('xlsx')">Exportar XLSX</UiButton>
+        <UiButton variant="ghost" :loading="exportingFmt === 'csv'" :disabled="!!exportingFmt" @click="exportFile('csv')">Exportar CSV</UiButton>
+        <UiButton variant="ghost" :loading="exportingFmt === 'xlsx'" :disabled="!!exportingFmt" @click="exportFile('xlsx')">Exportar XLSX</UiButton>
         <UiButton @click="load">Gerar relatório</UiButton>
       </div>
     </template>
@@ -77,6 +77,7 @@ import { financialReport, financialReportExport } from '../api.js';
 
 const toast = useToast();
 const loading = ref(false), error = ref(null), data = ref(null);
+const exportingFmt = ref(''); // '' | 'csv' | 'xlsx' — trava o duplo-clique e sinaliza qual botão gera
 const filters = reactive({ period_type: 'month', period_start: '', period_end: '', categoria: '', centro_custo: '' });
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
@@ -109,13 +110,27 @@ async function load() {
 }
 
 async function exportFile(format) {
+  if (exportingFmt.value) return; // anti-duplo-submit
+  exportingFmt.value = format;
   try {
-    const url = financialReportExport({ ...filters, format });
+    const res = await fetch(financialReportExport({ ...filters, format }));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Só baixa depois de confirmar que a resposta é o arquivo (não um JSON de erro).
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = href;
     a.download = `relatorio-financeiro.${format}`;
+    document.body.appendChild(a);
     a.click();
-  } catch (e) { toast.error(e.message); }
+    a.remove();
+    URL.revokeObjectURL(href);
+    toast.success('Relatório exportado (' + format.toUpperCase() + ').');
+  } catch (e) {
+    toast.error('Não foi possível exportar: ' + (e.message || 'erro desconhecido') + '.');
+  } finally {
+    exportingFmt.value = '';
+  }
 }
 
 onMounted(load);

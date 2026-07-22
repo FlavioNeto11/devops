@@ -35,9 +35,10 @@
       <template #actions>
         <UiButton v-if="docCount" variant="ghost" @click="showDocs = true">Ver todos</UiButton>
       </template>
+      <!-- A prévia não é clicável por linha: o clique abria a lista completa ignorando a linha
+           (UX-CV360-019). Para ver/agir sobre os documentos, use "Ver todos". -->
       <UiDataTable :columns="docCols" :rows="docsPreview" row-key="id"
-        :empty="{ title: 'Nenhum documento pendente', description: 'Todos os documentos estão em dia.' }"
-        clickable-rows @row-click="openDoc" />
+        :empty="{ title: 'Nenhum documento pendente', description: 'Todos os documentos estão em dia.' }" />
     </UiCard>
 
     <!-- Alertas de Vencimento -->
@@ -131,7 +132,6 @@ const irBarTone = computed(() => {
   return 'bar-warn';
 });
 
-function openDoc(row) { selectedObrigacao.value = null; showDocs.value = true; }
 function openObrigacao(row) { selectedObrigacao.value = row; }
 
 async function concludeObrig() {

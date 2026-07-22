@@ -31,10 +31,12 @@
         <div class="fd-tops">
           <UiCard title="Top 5 Fornecedores (a pagar)">
             <UiDataTable :columns="topCols" :rows="data.top5_fornecedores" row-key="contraparte"
+              :sort="sortForn" @update:sort="s => (sortForn = s)"
               :empty="{ title: 'Nenhum fornecedor', description: 'Sem contas a pagar pendentes.' }" />
           </UiCard>
           <UiCard title="Top 5 Clientes (a receber)">
             <UiDataTable :columns="topCols" :rows="data.top5_clientes" row-key="contraparte"
+              :sort="sortCli" @update:sort="s => (sortCli = s)"
               :empty="{ title: 'Nenhum cliente', description: 'Sem contas a receber pendentes.' }" />
           </UiCard>
         </div>
@@ -49,6 +51,9 @@ import { financialDashboard } from '../api.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);
 const filters = reactive({ period_start: '', period_end: '' });
+// Ordenação client-side por tabela (UX-CV360-011): o cabeçalho "Nome" marcado como sortable passa a
+// reordenar as linhas já carregadas de cada Top 5, sem depender de sort no backend.
+const sortForn = ref(null), sortCli = ref(null);
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
 
