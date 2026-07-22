@@ -1,11 +1,11 @@
 // repositories/audit-repo.js — trilha de auditoria (quem, quando, valor, status, gateway).
 import { pool } from '../db.js';
 
-export async function insertAuditLog({ tenantId, entityType, entityId, action, actor, amountCents, paymentStatus, gateway, metadata }) {
+export async function insertAuditLog({ tenantId, entityType, entityId, action, actor, amountCents, paymentStatus, gateway, metadata, ipAddress }) {
   await pool.query(
-    `INSERT INTO audit_logs(tenant_id, entity_type, entity_id, action, actor, amount_cents, payment_status, gateway, metadata)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
-    [tenantId || 1, entityType, entityId ?? null, action, actor ?? null, amountCents ?? null, paymentStatus ?? null, gateway ?? null, JSON.stringify(metadata || {})]
+    `INSERT INTO audit_logs(tenant_id, entity_type, entity_id, action, actor, amount_cents, payment_status, gateway, metadata, ip_address)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)`,
+    [tenantId || 1, entityType, entityId ?? null, action, actor ?? null, amountCents ?? null, paymentStatus ?? null, gateway ?? null, JSON.stringify(metadata || {}), ipAddress ?? null]
   );
 }
 
