@@ -759,6 +759,9 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ed-section.ed-adv > summary { cursor: pointer; padding: 11px 16px; font-size: 13px; color: var(--fg-1); }
 .ed-section.ed-adv .ed-grid { padding: 0 16px 14px; }
 .ed-hint { margin: 2px 6px 11px; font-size: 12px; color: var(--muted); }
+/* (UX-REQHUB-006) a ajuda do token traz um comando kubectl longo — quebra o inline code para não
+   estourar a largura em telas estreitas (375px). */
+.asst-token-help code { overflow-wrap: anywhere; word-break: break-word; }
 .ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; }
 @media (max-width: 620px) { .ed-grid { grid-template-columns: 1fr; } }
 .ed-grid .fld.wide { grid-column: 1 / -1; }
@@ -988,6 +991,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .btn.danger:hover { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); border-color: var(--danger, #dc2626); }
 .forge-danger { margin-top: 28px; padding: 16px; border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--danger, #dc2626) 5%, transparent); }
 .forge-danger h4 { margin: 0 0 6px; color: var(--danger, #dc2626); }
+/* (UX-REQHUB-012) variante PROTEGIDA: informativa, não alarmante — a exclusão está indisponível
+   pela plataforma, então neutraliza o vermelho e mantém só a explicação da salvaguarda. */
+.forge-danger.is-protected { border-color: var(--line-2, var(--line)); background: color-mix(in srgb, var(--muted) 6%, transparent); }
+.forge-danger.is-protected h4 { color: var(--muted); }
 /* Indicador VIVO do build (tela Build) */
 .forge-build-status { margin: 10px 0 6px; }
 .fbuild-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--fg-1); padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
