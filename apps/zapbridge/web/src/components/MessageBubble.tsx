@@ -18,11 +18,20 @@ function quotedTypeLabel(type: string): string {
 }
 
 function StatusTick({ status }: { status: Message['status'] }) {
-  if (status === 'pending') return <span className="text-muted text-[11px]"> 🕓</span>;
-  if (status === 'error') return <span className="text-danger text-[11px]"> ⚠️</span>;
+  // Status também por texto (title/aria-label), não só por cor — daltônicos e leitores
+  // de tela distinguem enviada/entregue/lida. (WCAG 1.4.1)
+  if (status === 'pending')
+    return <span role="img" aria-label="Enviando" title="Enviando" className="text-muted text-[11px]"> 🕓</span>;
+  if (status === 'error')
+    return <span role="img" aria-label="Falha ao enviar" title="Falha ao enviar" className="text-danger text-[11px]"> ⚠️</span>;
   const isRead = status === 'read';
   const isDouble = status === 'delivered' || isRead;
-  return <span className={`text-[11px] ${isRead ? 'text-link' : 'text-white/50'}`}>{isDouble ? ' ✓✓' : ' ✓'}</span>;
+  const label = isRead ? 'Lida' : isDouble ? 'Entregue' : 'Enviada';
+  return (
+    <span role="img" aria-label={label} title={label} className={`text-[11px] ${isRead ? 'text-link' : 'text-white/75'}`}>
+      {isDouble ? ' ✓✓' : ' ✓'}
+    </span>
+  );
 }
 
 function ReactionBadge({ reactions }: { reactions: NonNullable<Message['reactions']> }) {
@@ -46,6 +55,7 @@ function ReactionBadge({ reactions }: { reactions: NonNullable<Message['reaction
 function BubbleActions({
   open,
   hovered,
+  copied,
   onToggle,
   onReply,
   onCopy,
@@ -54,6 +64,7 @@ function BubbleActions({
 }: {
   open: boolean;
   hovered: boolean;
+  copied: boolean;
   onToggle: () => void;
   onReply: () => void;
   onCopy: () => void;
@@ -93,8 +104,14 @@ function BubbleActions({
               ↪
             </button>
           )}
-          <button type="button" onClick={onCopy} className={btn} aria-label="Copiar" title="Copiar">
-            📋
+          <button
+            type="button"
+            onClick={onCopy}
+            className={btn}
+            aria-label={copied ? 'Copiado' : 'Copiar'}
+            title={copied ? 'Copiado' : 'Copiar'}
+          >
+            {copied ? '✓' : '📋'}
           </button>
         </div>
       )}
@@ -127,6 +144,7 @@ export function MessageBubble({
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [copied, setCopied] = useState(false);
   const reactions = message.reactions ?? [];
 
   const pickReaction = (emoji: string) => {
@@ -136,7 +154,14 @@ export function MessageBubble({
     onReact?.(message, mineReaction === emoji ? '' : emoji);
   };
   const handleCopy = () => {
-    if (message.text && navigator?.clipboard) navigator.clipboard.writeText(message.text).catch(() => undefined);
+    if (message.text && navigator?.clipboard)
+      navigator.clipboard
+        .writeText(message.text)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        })
+        .catch(() => undefined);
   };
   const closeMenus = () => {
     setMenuOpen(false);
@@ -147,6 +172,7 @@ export function MessageBubble({
     <BubbleActions
       open={menuOpen}
       hovered={hovered}
+      copied={copied}
       onToggle={() => setMenuOpen((v) => !v)}
       onReply={() => {
         onReply(message);
@@ -225,12 +251,14 @@ export function MessageBubble({
           )}
 
           {uri && !expired && message.type === 'image' && (
-            <img
-              src={uri}
+            <button
+              type="button"
               onClick={() => onOpenMedia?.(message)}
-              className="w-60 max-w-full rounded mb-1 cursor-pointer object-cover"
-              alt=""
-            />
+              aria-label="Abrir imagem"
+              className="block mb-1 rounded overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <img src={uri} className="w-60 max-w-full object-cover" alt="" />
+            </button>
           )}
           {uri && !expired && message.type === 'video' && (
             <video src={uri} controls className="w-full max-w-[320px] rounded mb-1 bg-black block" />
@@ -253,10 +281,14 @@ export function MessageBubble({
           {!!message.text && <div className="text-white text-[15px] whitespace-pre-wrap break-words">{message.text}</div>}
 
           <div className="flex justify-end items-center mt-0.5">
-            <span className="text-white/50 text-[11px]">{formatTime(message.timestamp)}</span>
+            <span className="text-white/75 text-[11px]">{formatTime(message.timestamp)}</span>
             {mine && <StatusTick status={message.status} />}
           </div>
         </div>
+
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? 'Mensagem copiada' : ''}
+        </span>
 
         {mine && message.status === 'error' && onRetry && (
           <div className="mt-0.5 flex items-center gap-1.5 text-[12px]">

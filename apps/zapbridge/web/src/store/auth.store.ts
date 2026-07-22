@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { api, setToken, clearToken, errorMessage } from '../api/client';
+import { disconnectSocket } from '../realtime/socket';
+import { useChatsStore } from './chats.store';
 import { User } from '../types';
 
 interface AuthState {
@@ -63,6 +65,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     clearToken();
+    // Derruba o socket autenticado com o token antigo e limpa os chats em memória,
+    // para que um próximo login não herde o tempo real nem os dados da conta anterior.
+    disconnectSocket();
+    useChatsStore.getState().clearChats();
     set({ user: null });
   },
 

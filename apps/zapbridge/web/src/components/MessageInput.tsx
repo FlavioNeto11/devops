@@ -42,11 +42,14 @@ export function MessageInput({
   const [recSecs, setRecSecs] = useState(0);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [rewriteBusy, setRewriteBusy] = useState(false);
+  const [rewriteError, setRewriteError] = useState<string | null>(null);
   const [variants, setVariants] = useState<string[]>([]);
+  const [micError, setMicError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const cancelRef = useRef(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
@@ -69,11 +72,13 @@ export function MessageInput({
   const runRewrite = async (mode: string) => {
     if (!onRewrite || !value.trim()) return;
     setRewriteBusy(true);
+    setRewriteError(null);
     setVariants([]);
     try {
       setVariants(await onRewrite(value.trim(), mode));
     } catch {
       setVariants([]);
+      setRewriteError('Não foi possível reescrever agora. Tente de novo.');
     } finally {
       setRewriteBusy(false);
     }
@@ -82,13 +87,16 @@ export function MessageInput({
   const toggleRecord = async () => {
     if (!onSendAudio) return;
     if (recording) {
+      // Parar = enviar; descartar é uma ação separada (cancelRecord).
       recorderRef.current?.stop();
       return;
     }
+    setMicError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
+      cancelRef.current = false;
       mr.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
@@ -96,7 +104,10 @@ export function MessageInput({
         if (tickRef.current) clearInterval(tickRef.current);
         setRecording(false);
         setRecSecs(0);
-        if (blob.size > 0) onSendAudio(blob, 'audio.webm');
+        const cancelled = cancelRef.current;
+        cancelRef.current = false;
+        // Só envia quando o usuário confirmou parar; descartar não envia nada.
+        if (!cancelled && blob.size > 0) onSendAudio(blob, 'audio.webm');
       };
       recorderRef.current = mr;
       mr.start();
@@ -105,7 +116,14 @@ export function MessageInput({
       setRecording(true);
     } catch {
       setRecording(false);
+      setMicError('Não foi possível acessar o microfone. Verifique a permissão do navegador e tente de novo.');
     }
+  };
+
+  // Descarta a gravação atual sem enviar (marca o cancelamento e para o recorder).
+  const cancelRecord = () => {
+    cancelRef.current = true;
+    recorderRef.current?.stop();
   };
 
   const canRecord = !!onSendAudio;
@@ -147,11 +165,16 @@ export function MessageInput({
                 {label}
               </button>
             ))}
-            <button onClick={() => { setRewriteOpen(false); setVariants([]); }} className="bg-surface rounded px-3 py-2 text-muted text-[13px]">
+            <button onClick={() => { setRewriteOpen(false); setVariants([]); setRewriteError(null); }} className="bg-surface rounded px-3 py-2 text-muted text-[13px]">
               Fechar
             </button>
           </div>
           {rewriteBusy && <div className="text-muted text-sm mt-2">Reescrevendo…</div>}
+          {rewriteError && !rewriteBusy && (
+            <div role="alert" className="text-danger text-sm mt-2">
+              {rewriteError}
+            </div>
+          )}
           {variants.map((v, i) => (
             <button key={i} onClick={() => { setValue(v); setRewriteOpen(false); setVariants([]); }} className="block w-full text-left bg-surface rounded p-3 mt-2 text-sm text-white">
               {v}
@@ -160,7 +183,24 @@ export function MessageInput({
         </div>
       )}
 
+      {micError && (
+        <div role="alert" className="px-3 py-2 bg-header border-t border-line text-danger text-sm">
+          {micError}
+        </div>
+      )}
+
       <div className="flex items-end gap-2 p-2 bg-header border-t border-line" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
+        {recording && (
+          <button
+            type="button"
+            onClick={cancelRecord}
+            aria-label="Descartar gravação"
+            title="Descartar gravação"
+            className="w-10 h-10 grid place-items-center text-danger text-xl shrink-0"
+          >
+            🗑
+          </button>
+        )}
         {!recording && (
           <div className="relative">
             <button
@@ -232,10 +272,11 @@ export function MessageInput({
           <button
             onClick={toggleRecord}
             disabled={disabled}
-            aria-label={recording ? 'Parar gravação' : 'Gravar áudio'}
-            className={`w-11 h-11 rounded-full grid place-items-center shrink-0 text-lg ${recording ? 'bg-danger text-white' : 'bg-primary text-bg'}`}
+            aria-label={recording ? 'Enviar áudio' : 'Gravar áudio'}
+            title={recording ? 'Enviar áudio' : 'Gravar áudio'}
+            className="w-11 h-11 rounded-full grid place-items-center shrink-0 text-lg bg-primary text-bg"
           >
-            {recording ? '■' : '🎤'}
+            {recording ? '➤' : '🎤'}
           </button>
         )}
       </div>

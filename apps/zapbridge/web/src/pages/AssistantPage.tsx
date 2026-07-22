@@ -27,6 +27,7 @@ export function AssistantPage() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [announce, setAnnounce] = useState('');
   const { aiOn, loading: consentLoading, accept } = useAiConsent();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reqIdRef = useRef<string>('');
@@ -81,10 +82,12 @@ export function AssistantPage() {
         ),
       );
       if (res.unlocked) setUnlocked(true);
+      setAnnounce('Resposta do assistente recebida.');
     } catch {
       setMessages((prev) =>
         prev.map((m, i) => (i === idxRef.current ? { ...m, text: m.text || 'Não consegui responder agora.', streaming: false } : m)),
       );
+      setAnnounce('Não foi possível responder agora.');
     } finally {
       setBusy(false);
     }
@@ -148,6 +151,7 @@ export function AssistantPage() {
         <textarea
           className="flex-1 resize-none bg-surface rounded-2xl px-4 py-2.5 min-h-[42px] max-h-[120px] text-[15px] outline-none"
           placeholder="Pergunte ao seu WhatsApp…"
+          aria-label="Pergunta ao assistente"
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -158,10 +162,15 @@ export function AssistantPage() {
             }
           }}
         />
-        <button onClick={() => send(input)} disabled={busy || !input.trim()} className="w-11 h-11 rounded-full bg-primary text-bg grid place-items-center shrink-0 text-lg disabled:opacity-50">
+        <button onClick={() => send(input)} disabled={busy || !input.trim()} aria-label="Enviar pergunta" className="w-11 h-11 rounded-full bg-primary text-bg grid place-items-center shrink-0 text-lg disabled:opacity-50">
           ➤
         </button>
       </div>
+
+      {/* Anúncio de conclusão da resposta para leitores de tela (padrão do ChatPanel). */}
+      <span className="sr-only" role="status" aria-live="polite">
+        {announce}
+      </span>
     </div>
   );
 }

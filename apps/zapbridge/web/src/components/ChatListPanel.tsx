@@ -84,7 +84,8 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
           <IconSearch size={17} className="text-muted" />
           <input
             className="flex-1 bg-transparent outline-none text-[16px] placeholder:text-muted"
-            placeholder="Pergunte à IA ou pesquise"
+            placeholder="Pesquisar conversas"
+            aria-label="Pesquisar conversas"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -98,7 +99,9 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
           return (
             <button
               key={c.key}
+              type="button"
               onClick={() => setFilter(c.key)}
+              aria-pressed={active}
               className={`shrink-0 px-3.5 py-1.5 rounded-2xl text-[13.5px] font-semibold ${
                 active ? 'bg-primary/20 text-primary' : 'bg-surface text-muted'
               }`}
