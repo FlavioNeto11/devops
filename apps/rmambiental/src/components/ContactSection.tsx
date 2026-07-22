@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { MessageCircle, Mail, MapPin, Globe2, Send } from 'lucide-react';
 import { serviceGroups } from '../data/services';
 import { useSite } from '../lib/SiteContext';
@@ -9,6 +9,8 @@ const field =
 
 export default function ContactSection() {
   const { site, whatsappUrl, mailtoUrl } = useSite();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [waFallback, setWaFallback] = useState<string | null>(null);
   const [form, setForm] = useState({
     nome: '',
     empresa: '',
@@ -28,11 +30,24 @@ export default function ContactSection() {
     `${form.mensagem || ''}`;
 
   // Sem backend: o envio abre o WhatsApp (ou e-mail) com a mensagem pré-preenchida.
+  // O submit nativo do form já valida os campos required antes de chegar aqui.
   const onWhatsApp = (e: FormEvent) => {
     e.preventDefault();
-    window.open(whatsappUrl(compose()), '_blank', 'noopener');
+    const url = whatsappUrl(compose());
+    // Abre em nova aba mantendo referência para detectar bloqueio de popup.
+    const win = window.open(url, '_blank');
+    if (win) {
+      // Guarda contra reverse-tabnabbing (equivalente ao antigo `noopener`).
+      try { win.opener = null; } catch { /* cross-origin: navegador já isola */ }
+      setWaFallback(null);
+    } else {
+      // Popup bloqueado pelo navegador: oferece link direto clicável.
+      setWaFallback(url);
+    }
   };
   const onEmail = () => {
+    // Respeita a validação `required` também no caminho de e-mail (bypassava antes).
+    if (formRef.current && !formRef.current.reportValidity()) return;
     window.location.href = mailtoUrl(`Contato — ${form.servico || 'RM Ambiental Brasil'}`, compose());
   };
 
@@ -52,23 +67,24 @@ export default function ContactSection() {
 
         <div className="mt-14 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Formulário */}
-          <form onSubmit={onWhatsApp} className="rounded-3xl border border-brand-text/10 bg-brand-surface/60 p-6 sm:p-8">
+          <form ref={formRef} onSubmit={onWhatsApp} className="rounded-3xl border border-brand-text/10 bg-brand-surface/60 p-6 sm:p-8">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Nome *</label>
-                <input required value={form.nome} onChange={set('nome')} className={field} placeholder="Seu nome" />
+                <label htmlFor="contact-nome" className="mb-1.5 block text-xs font-semibold text-brand-muted">Nome *</label>
+                <input id="contact-nome" required value={form.nome} onChange={set('nome')} className={field} placeholder="Seu nome" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Empresa</label>
-                <input value={form.empresa} onChange={set('empresa')} className={field} placeholder="Sua empresa" />
+                <label htmlFor="contact-empresa" className="mb-1.5 block text-xs font-semibold text-brand-muted">Empresa</label>
+                <input id="contact-empresa" value={form.empresa} onChange={set('empresa')} className={field} placeholder="Sua empresa" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Telefone</label>
-                <input value={form.telefone} onChange={set('telefone')} className={field} placeholder="(11) 90000-0000" />
+                <label htmlFor="contact-telefone" className="mb-1.5 block text-xs font-semibold text-brand-muted">Telefone</label>
+                <input id="contact-telefone" value={form.telefone} onChange={set('telefone')} className={field} placeholder="(11) 90000-0000" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">E-mail *</label>
+                <label htmlFor="contact-email" className="mb-1.5 block text-xs font-semibold text-brand-muted">E-mail *</label>
                 <input
+                  id="contact-email"
                   required
                   type="email"
                   value={form.email}
@@ -78,8 +94,8 @@ export default function ContactSection() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Tipo de serviço</label>
-                <select value={form.servico} onChange={set('servico')} className={field}>
+                <label htmlFor="contact-servico" className="mb-1.5 block text-xs font-semibold text-brand-muted">Tipo de serviço</label>
+                <select id="contact-servico" value={form.servico} onChange={set('servico')} className={field}>
                   <option value="">Selecione…</option>
                   {serviceGroups.map((g) => (
                     <option key={g.id} value={g.title}>
@@ -90,8 +106,9 @@ export default function ContactSection() {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Mensagem *</label>
+                <label htmlFor="contact-mensagem" className="mb-1.5 block text-xs font-semibold text-brand-muted">Mensagem *</label>
                 <textarea
+                  id="contact-mensagem"
                   required
                   rows={4}
                   value={form.mensagem}
@@ -113,6 +130,20 @@ export default function ContactSection() {
             <p className="mt-3 text-xs text-brand-muted/70">
               Ao enviar, abriremos o WhatsApp ou o e-mail com sua mensagem pré-preenchida. Nenhum dado é armazenado neste site.
             </p>
+            {waFallback && (
+              <p role="alert" className="mt-3 rounded-xl border border-brand-neon/30 bg-brand-neon/10 px-4 py-3 text-xs text-brand-text">
+                Seu navegador bloqueou a janela do WhatsApp.{' '}
+                <a
+                  href={waFallback}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-brand-neon underline underline-offset-2"
+                >
+                  Abrir o WhatsApp manualmente
+                </a>
+                .
+              </p>
+            )}
           </form>
 
           {/* Info + mapa estilizado */}
