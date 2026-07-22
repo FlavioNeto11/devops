@@ -3,16 +3,15 @@
   "$comment": "Elementos clicáveis-sem-teclado PRÉ-EXISTENTES tolerados. --check falha só em chaves NOVAS. Ao corrigir (role+tabindex+keydown, ou trocar por <button>), rode --update para reduzir o baseline.",
   "generatedAt": "2026-07-22",
   "counts": {
-    "apps/anarabottini": 5,
-    "apps/rmambiental": 5,
-    "console": 5,
-    "apps/besc": 3,
     "apps/contaviva-360": 3,
-    "apps/contaviva-pro": 3,
-    "apps/gymops": 3,
-    "apps/neuroevolui": 3,
+    "console": 3,
+    "apps/anarabottini": 2,
     "apps/imobia": 2,
-    "apps/zapbridge": 2
+    "apps/rmambiental": 2,
+    "apps/zapbridge": 2,
+    "apps/contaviva-pro": 1,
+    "apps/gymops": 1,
+    "apps/neuroevolui": 1
   },
   "violations": [
     {
@@ -24,52 +23,10 @@
     },
     {
       "file": "apps/anarabottini/src/lib/cmsEdit.tsx",
-      "line": 193,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-frame__bar\" onClick={stop}>"
-    },
-    {
-      "file": "apps/anarabottini/src/lib/cmsEdit.tsx",
-      "line": 221,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-item-ctl\" onClick={stop}>"
-    },
-    {
-      "file": "apps/anarabottini/src/lib/cmsEdit.tsx",
-      "line": 190,
+      "line": 188,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
-    },
-    {
-      "file": "apps/anarabottini/src/lib/cmsEdit.tsx",
-      "line": 280,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className={cn('cms-media', empty && 'cms-media--empty', className)} onClick={(e) => { e.stopPropagation(); if (busy"
-    },
-    {
-      "file": "apps/besc/frontend/src/pages/Auditoria.jsx",
-      "line": 65,
-      "tag": "tr",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<tr key={t.id} className=\"clickable\" onClick={() => navigate(`/auditoria/titulos/${t.id}`)}>"
-    },
-    {
-      "file": "apps/besc/frontend/src/pages/Dashboard.jsx",
-      "line": 95,
-      "tag": "tr",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<tr key={c.id} className=\"clickable\" onClick={() => navigate(`/cases/${c.id}`)}>"
-    },
-    {
-      "file": "apps/besc/frontend/src/pages/GestaoTitulos.jsx",
-      "line": 81,
-      "tag": "tr",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<tr key={t.id} className=\"clickable\" onClick={() => navigate(`/gestao/titulos/${t.id}`)}>"
     },
     {
       "file": "apps/contaviva-360/frontend/src/ui/components/UiAppShell.vue",
@@ -93,20 +50,6 @@
       "snippet": "<div v-if=\"open\" class=\"ui-modal-backdrop\" @click.self=\"onBackdrop\">"
     },
     {
-      "file": "apps/contaviva-pro/frontend/src/ui/components/UiAppShell.vue",
-      "line": 33,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div v-if=\"navOpen\" class=\"ui-scrim\" @click=\"navOpen = false\" />"
-    },
-    {
-      "file": "apps/contaviva-pro/frontend/src/ui/components/UiDataTable.vue",
-      "line": 29,
-      "tag": "tr",
-      "missing": "role",
-      "snippet": "<tr v-for=\"row in viewRows\" :key=\"row[rowKey]\" :data-clickable=\"clickableRows ? 'true' : null\" :tabindex=\"clickableRows "
-    },
-    {
       "file": "apps/contaviva-pro/frontend/src/ui/components/UiModal.vue",
       "line": 4,
       "tag": "div",
@@ -114,22 +57,8 @@
       "snippet": "<div v-if=\"open\" class=\"ui-modal-backdrop\" @click.self=\"onBackdrop\">"
     },
     {
-      "file": "apps/gymops/apps/web/src/app/(app)/settings/import/page.tsx",
-      "line": 230,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 tex"
-    },
-    {
-      "file": "apps/gymops/apps/web/src/components/activities/ActivityDrawer.tsx",
-      "line": 462,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-"
-    },
-    {
       "file": "apps/gymops/apps/web/src/components/layout/sidebar.tsx",
-      "line": 53,
+      "line": 64,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div className=\"fixed inset-0 z-40 bg-black/50 md:hidden\" onClick={onMobileClose} />"
@@ -143,24 +72,10 @@
     },
     {
       "file": "apps/imobia/frontend/src/layouts/AppShell.vue",
-      "line": 49,
+      "line": 57,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div v-if=\"open\" class=\"ap-backdrop\" @click=\"open = false\" />"
-    },
-    {
-      "file": "apps/neuroevolui/frontend/src/ui/components/UiAppShell.vue",
-      "line": 33,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div v-if=\"navOpen\" class=\"ui-scrim\" @click=\"navOpen = false\" />"
-    },
-    {
-      "file": "apps/neuroevolui/frontend/src/ui/components/UiDataTable.vue",
-      "line": 29,
-      "tag": "tr",
-      "missing": "role",
-      "snippet": "<tr v-for=\"row in viewRows\" :key=\"row[rowKey]\" :data-clickable=\"clickableRows ? 'true' : null\" :tabindex=\"clickableRows "
     },
     {
       "file": "apps/neuroevolui/frontend/src/ui/components/UiModal.vue",
@@ -178,31 +93,10 @@
     },
     {
       "file": "apps/rmambiental/src/lib/cmsEdit.tsx",
-      "line": 193,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-frame__bar\" onClick={stop}>"
-    },
-    {
-      "file": "apps/rmambiental/src/lib/cmsEdit.tsx",
-      "line": 221,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-item-ctl\" onClick={stop}>"
-    },
-    {
-      "file": "apps/rmambiental/src/lib/cmsEdit.tsx",
-      "line": 190,
+      "line": 188,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
-    },
-    {
-      "file": "apps/rmambiental/src/lib/cmsEdit.tsx",
-      "line": 280,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className={cn('cms-media', empty && 'cms-media--empty', className)} onClick={(e) => { e.stopPropagation(); if (busy"
     },
     {
       "file": "apps/zapbridge/web/src/components/ConfirmDialog.tsx",
@@ -227,28 +121,14 @@
     },
     {
       "file": "console/site-renderer/src/cmsEdit.jsx",
-      "line": 169,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-frame__bar\" onClick={stop}>"
-    },
-    {
-      "file": "console/site-renderer/src/cmsEdit.jsx",
-      "line": 198,
-      "tag": "div",
-      "missing": "role+teclado+tabindex",
-      "snippet": "<div className=\"cms-item-ctl\" onClick={stop}>"
-    },
-    {
-      "file": "console/site-renderer/src/cmsEdit.jsx",
-      "line": 168,
+      "line": 166,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
     },
     {
       "file": "console/site-renderer/src/cmsEdit.jsx",
-      "line": 248,
+      "line": 246,
       "tag": "div",
       "missing": "role+teclado+tabindex",
       "snippet": "<div className={cn('cms-media', empty && 'cms-media--empty', className)} onClick={(e) => { e.stopPropagation(); if (busy"

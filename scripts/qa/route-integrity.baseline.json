@@ -6,17 +6,8 @@
     "contaviva-360": 0,
     "contaviva-pro": 0,
     "imobia": 0,
-    "neuroevolui": 1,
+    "neuroevolui": 0,
     "sicat": 0
   },
-  "violations": [
-    {
-      "app": "neuroevolui",
-      "kind": "path",
-      "target": "/api-docs",
-      "examples": [
-        "apps/neuroevolui/frontend/src/views/SystemHealthView.vue:23"
-      ]
-    }
-  ]
+  "violations": []
 }
