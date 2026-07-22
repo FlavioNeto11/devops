@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { StatusBadge, RiskBadge, Progress, Loading, Banner, formatMoney, useLabel } from '../ui.jsx';
+import { StatusBadge, RiskBadge, Progress, Loading, Banner, formatMoney, useLabel, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 export default function Dashboard() {
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const label = useLabel();
 
   useEffect(() => {
-    api.list().then(setCases).catch((e) => setError(e.message));
+    api.list().then(setCases).catch((e) => setError(friendly(e.message)));
   }, []);
 
   const filtered = useMemo(() => {

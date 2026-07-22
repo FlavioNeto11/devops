@@ -103,6 +103,13 @@ export default function GestaoUsuarios() {
 
 function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
   const [addRole, setAddRole] = useState('');
+  const [busy, setBusy] = useState(false);
+  // envolve run() com trava anti-duplo-clique: desabilita as ações da linha enquanto em voo
+  const act = async (promise) => {
+    if (busy) return false;
+    setBusy(true);
+    try { return await run(promise); } finally { setBusy(false); }
+  };
   const ap = APPROVAL[user.approval_status] || { l: user.approval_status || '—', c: 'b-grey' };
   const userRoles = Array.isArray(user.roles) ? user.roles : [];
   // 'public' é pseudo-papel do anônimo — nunca atribuível a uma conta
@@ -126,8 +133,9 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
                   type="button"
                   title={`Remover o papel ${roleLabel(k)}`}
                   aria-label={`Remover o papel ${roleLabel(k)}`}
-                  onClick={() => run(api.admin.revokeRole(user.id, k))}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', lineHeight: 1, padding: 0, marginLeft: 2, opacity: 0.7 }}
+                  disabled={busy}
+                  onClick={() => act(api.admin.revokeRole(user.id, k))}
+                  style={{ border: 'none', background: 'none', cursor: busy ? 'default' : 'pointer', color: 'inherit', font: 'inherit', lineHeight: 1, padding: 0, marginLeft: 2, opacity: 0.7 }}
                 >×</button>
               )}
             </span>
@@ -141,9 +149,9 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
             </select>
             <button
               type="button" className={noAccessYet ? 'btn primary sm' : 'btn sm'}
-              disabled={!addRole}
+              disabled={!addRole || busy}
               title={noAccessYet ? 'Conceder este perfil já libera o acesso (aprova a conta)' : undefined}
-              onClick={async () => { const ok = await run(api.admin.grantRole(user.id, addRole)); if (ok) setAddRole(''); }}
+              onClick={async () => { const ok = await act(api.admin.grantRole(user.id, addRole)); if (ok) setAddRole(''); }}
             >{noAccessYet ? 'Conceder acesso' : 'Conceder'}</button>
           </div>
         )}
@@ -156,13 +164,13 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
         {user.approval_status === 'pending_approval' && (
           <>
-            <button className="btn primary sm" onClick={() => run(api.admin.patchUser(user.id, { approvalStatus: 'active' }))}><Icon name="check" size={13} /> Aprovar</button>{' '}
-            <ConfirmButton className="btn sm" label="Rejeitar" confirmLabel="Confirmar rejeição?" onConfirm={() => run(api.admin.patchUser(user.id, { approvalStatus: 'rejected' }))} />{' '}
+            <button className="btn primary sm" disabled={busy} onClick={() => act(api.admin.patchUser(user.id, { approvalStatus: 'active' }))}><Icon name="check" size={13} /> Aprovar</button>{' '}
+            <ConfirmButton className="btn sm" label="Rejeitar" confirmLabel="Confirmar rejeição?" onConfirm={() => act(api.admin.patchUser(user.id, { approvalStatus: 'rejected' }))} />{' '}
           </>
         )}
         {user.is_active
-          ? <ConfirmButton className="btn danger sm" label="Desativar" confirmLabel="Confirmar desativação?" onConfirm={() => run(api.admin.patchUser(user.id, { isActive: false }))} />
-          : <button className="btn sm" onClick={() => run(api.admin.patchUser(user.id, { isActive: true }))}>Ativar</button>}
+          ? <ConfirmButton className="btn danger sm" label="Desativar" confirmLabel="Confirmar desativação?" onConfirm={() => act(api.admin.patchUser(user.id, { isActive: false }))} />
+          : <button className="btn sm" disabled={busy} onClick={() => act(api.admin.patchUser(user.id, { isActive: true }))}>Ativar</button>}
       </td>
     </tr>
   );

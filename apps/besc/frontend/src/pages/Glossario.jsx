@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { Loading, Banner } from '../ui.jsx';
+import { Loading, Banner, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 export default function Glossario() {
@@ -9,7 +9,7 @@ export default function Glossario() {
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
 
-  useEffect(() => { api.glossary().then(setTerms).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { api.glossary().then(setTerms).catch((e) => setError(friendly(e.message))); }, []);
 
   const byKey = useMemo(() => {
     const m = {};

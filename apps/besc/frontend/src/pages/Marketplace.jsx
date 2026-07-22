@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import {
   Banner, SkeletonList, HelpCallout, useLabel,
-  LegalStatusBadge, AvailableBadge, formatBRL,
+  LegalStatusBadge, AvailableBadge, formatBRL, friendly,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { useAuth } from '../auth.jsx';
@@ -19,7 +19,7 @@ export default function Marketplace() {
   const mode = useInvestorMode();
 
   useEffect(() => {
-    api.investor.catalog().then(setItems).catch((e) => setError(e.message));
+    api.investor.catalog().then(setItems).catch((e) => setError(friendly(e.message)));
   }, []);
 
   const canInvest = hasPerm('contracts:read');
@@ -80,9 +80,14 @@ export default function Marketplace() {
                       Ver dossiê <Icon name="chevronRight" size={13} />
                     </Link>
                   ) : (
-                    <Link className="btn primary sm" to={`/entrar?next=${encodeURIComponent(`/marketplace/titulos/${t.id}`)}`}>
-                      <Icon name="login" size={13} /> Entrar para investir
-                    </Link>
+                    <>
+                      <Link className="btn sm" to={`/marketplace/titulos/${t.id}`}>
+                        Ver dossiê <Icon name="chevronRight" size={13} />
+                      </Link>
+                      <Link className="btn primary sm" to={`/entrar?next=${encodeURIComponent(`/marketplace/titulos/${t.id}`)}`}>
+                        <Icon name="login" size={13} /> Entrar para investir
+                      </Link>
+                    </>
                   )}
                   {user && !canInvest && (
                     <span className="small muted">Sua conta ainda não está habilitada a contratar.</span>

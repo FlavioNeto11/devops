@@ -1,14 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { Banner, Loading, HelpCallout, useLabel, LegalStatusBadge, ListingBadge, formatBRL } from '../ui.jsx';
+import { Banner, Loading, HelpCallout, useLabel, LegalStatusBadge, ListingBadge, ContractStatusBadge, formatBRL } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
-
-const CONTRACT_STATUS = {
-  active: { l: 'Ativo', c: 'b-green' }, suspended: { l: 'Suspenso', c: 'b-amber' },
-  substituted: { l: 'Substituído', c: 'b-blue' }, written_off: { l: 'Baixado', c: 'b-red' },
-  settled: { l: 'Liquidado', c: 'b-grey' }, terminated: { l: 'Encerrado', c: 'b-grey' },
-};
 
 function fmtDateTime(s) { if (!s) return '—'; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR'); }
 
@@ -131,19 +125,16 @@ export default function AuditoriaTitulo() {
                 <table className="data">
                   <thead><tr><th>Contrato</th><th>Qtde</th><th>Valor travado</th><th>Total</th><th>Status</th><th>Contratado em</th></tr></thead>
                   <tbody>
-                    {contracts.map((c) => {
-                      const st = CONTRACT_STATUS[c.status] || { l: c.status, c: 'b-grey' };
-                      return (
-                        <tr key={c.id}>
-                          <td><span style={{ fontFamily: 'monospace' }}>{c.contract_number}</span></td>
-                          <td>{Number(c.quantity).toLocaleString('pt-BR')}</td>
-                          <td>{formatBRL(c.unit_face_value_frozen)}</td>
-                          <td>{formatBRL(c.total_face_value)}</td>
-                          <td><span className={`badge ${st.c}`}>{st.l}</span></td>
-                          <td>{fmtDateTime(c.contracted_at)}</td>
-                        </tr>
-                      );
-                    })}
+                    {contracts.map((c) => (
+                      <tr key={c.id}>
+                        <td><span style={{ fontFamily: 'monospace' }}>{c.contract_number}</span></td>
+                        <td>{Number(c.quantity).toLocaleString('pt-BR')}</td>
+                        <td>{formatBRL(c.unit_face_value_frozen)}</td>
+                        <td>{formatBRL(c.total_face_value)}</td>
+                        <td><ContractStatusBadge status={c.status} /></td>
+                        <td>{fmtDateTime(c.contracted_at)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

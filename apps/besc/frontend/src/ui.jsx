@@ -79,6 +79,18 @@ export function AvailableBadge({ available }) {
   return <span className={`badge ${available ? 'b-green' : 'b-grey'}`}>{available ? 'Disponível' : 'Indisponível'}</span>;
 }
 
+// Estado do contrato (espelha api/src/marketplace/states.js) — fonte única de rótulo+cor
+// para carteira, auditoria e gestão (antes duplicado em 3 telas).
+export const CONTRACT_STATUS = {
+  active: { l: 'Ativo', c: 'b-green' }, suspended: { l: 'Suspenso', c: 'b-amber' },
+  substituted: { l: 'Substituído', c: 'b-blue' }, written_off: { l: 'Baixado', c: 'b-red' },
+  settled: { l: 'Liquidado', c: 'b-grey' }, terminated: { l: 'Encerrado', c: 'b-grey' },
+};
+export function ContractStatusBadge({ status }) {
+  const s = CONTRACT_STATUS[status] || { l: status || '—', c: 'b-grey' };
+  return <span className={`badge ${s.c}`}>{s.l}</span>;
+}
+
 // Dinheiro a partir de um NÚMERO (ou string numérica "1234.56", como o Postgres devolve NUMERIC).
 // Diferente de formatMoney(), que faz parse heurístico de texto pt-BR livre (campos do case).
 export function formatBRL(n) {
@@ -166,6 +178,19 @@ export function formatBytes(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1048576) return `${Math.round(n / 1024)} KB`;
   return `${(n / 1048576).toFixed(1)} MB`;
+}
+
+// Mensagem de erro amigável a partir do texto cru de um Error (rede/HTTP). Fonte única para as
+// telas que só precisam do tratamento genérico — nunca exibir e.message cru de rede (UX-BESC-009).
+// Telas com mensagens específicas de domínio (auditoria, aluguéis) mantêm seu próprio friendly().
+export function friendly(msg) {
+  const m = String(msg || '');
+  if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.';
+  if (/404|não encontrad/i.test(m)) return m.replace(/^Erro \d+:?\s*/, '') || 'Não encontramos o que você procurava.';
+  if (/409/.test(m)) return m.replace(/^Erro \d+:?\s*/, '') || 'Esta operação conflita com o estado atual.';
+  if (/403/.test(m)) return m.replace(/^Erro \d+:?\s*/, '') || 'Você não tem permissão para esta ação.';
+  if (/5\d\d/.test(m)) return m.replace(/^Erro \d+:?\s*/, '') || 'O servidor teve um problema. Tente novamente em instantes.';
+  return m.replace(/^Erro \d+:?\s*/, '') || 'Não foi possível concluir a operação.';
 }
 
 export function Banner({ kind = 'err', children }) {
