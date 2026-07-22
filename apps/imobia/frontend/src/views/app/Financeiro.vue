@@ -16,6 +16,8 @@ const formError = ref('');
 const form = ref({ scope: 'pj', kind: 'despesa', category: 'outros', amount: null, description: '' });
 const aiText = ref('');
 const aiBusy = ref(false);
+const aiMsg = ref('');
+const aiErr = ref(false);
 const report = ref('');
 const reportBusy = ref(false);
 
@@ -40,11 +42,11 @@ async function aiCategorize() {
   const m = aiText.value.match(/(\d[\d.,]*)/);
   const amount = m ? Number(m[1].replace(/\./g, '').replace(',', '.')) : 0;
   if (!aiText.value.trim()) return;
-  aiBusy.value = true;
+  aiBusy.value = true; aiMsg.value = ''; aiErr.value = false;
   try {
     const r = await api.create('financeiro/categorize', { description: aiText.value, amount });
-    if (r.dormant) alert(r.message); else { aiText.value = ''; await load(); }
-  } catch (e) { alert(e.message); } finally { aiBusy.value = false; }
+    if (r.dormant) { aiMsg.value = r.message; aiErr.value = false; } else { aiText.value = ''; await load(); }
+  } catch (e) { aiMsg.value = e.message; aiErr.value = true; } finally { aiBusy.value = false; }
 }
 async function genReport() {
   reportBusy.value = true; report.value = '';
@@ -80,6 +82,7 @@ onMounted(load);
       <input v-model="aiText" placeholder="IA: “paguei R$ 350 de anúncios no Instagram”" @keyup.enter="aiCategorize" />
       <button class="im-btn-primary" :disabled="aiBusy || !aiText.trim()" @click="aiCategorize">{{ aiBusy ? '…' : 'Categorizar (GPT)' }}</button>
     </div>
+    <p v-if="aiMsg" class="im-notice" :class="{ err: aiErr }" style="margin-bottom:14px">{{ aiMsg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
     <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>

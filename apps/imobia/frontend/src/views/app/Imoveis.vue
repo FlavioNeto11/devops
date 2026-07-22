@@ -19,6 +19,10 @@ const formError = ref('');
 const owners = ref([]);
 const detail = ref(null);
 const detailTimeline = ref([]);
+const detailOpen = ref(false);
+const detailLoading = ref(false);
+const detailError = ref('');
+const detailId = ref(null);
 
 const empty = () => ({ title: '', type: 'apartamento', purpose: 'venda', status: 'captacao', description: '', priceSale: null, priceRent: null, bedrooms: 0, bathrooms: 0, parking: 0, areaUsable: null, ownerId: '', address: { city: '', district: '', state: '' } });
 const form = ref(empty());
@@ -58,9 +62,15 @@ async function save() {
   } catch (e) { formError.value = e.message; } finally { saving.value = false; }
 }
 async function openDetail(id) {
-  const r = await api.get('imoveis', id);
-  detail.value = r.data; detailTimeline.value = r.timeline || [];
+  detailId.value = id; detailOpen.value = true; detailLoading.value = true; detailError.value = '';
+  detail.value = null; detailTimeline.value = [];
+  try {
+    const r = await api.get('imoveis', id);
+    detail.value = r.data; detailTimeline.value = r.timeline || [];
+  } catch (e) { detailError.value = e.message || 'Falha ao abrir o imóvel.'; }
+  finally { detailLoading.value = false; }
 }
+function closeDetail() { detailOpen.value = false; detail.value = null; detailError.value = ''; }
 onMounted(load);
 </script>
 
@@ -107,6 +117,9 @@ onMounted(load);
         </div>
       </article>
     </div>
+    <p v-if="!loading && !loadError && items.length && items.length < total" class="im-notice" style="margin-top:14px">
+      Mostrando os {{ items.length }} imóveis mais recentes de {{ total }}. Refine a busca para alcançar os demais.
+    </p>
 
     <!-- Form novo imóvel -->
     <Modal :open="showForm" title="Novo imóvel" @close="showForm = false">
@@ -133,8 +146,13 @@ onMounted(load);
     </Modal>
 
     <!-- Detalhe -->
-    <Modal :open="!!detail" :title="detail?.title" @close="detail = null">
-      <div v-if="detail">
+    <Modal :open="detailOpen" :title="detail?.title || 'Imóvel'" @close="closeDetail">
+      <div v-if="detailLoading" class="im-notice">Carregando…</div>
+      <div v-else-if="detailError" class="im-notice err ap-error">
+        <span>{{ detailError }}</span>
+        <button class="im-btn-primary" @click="openDetail(detailId)">Tentar novamente</button>
+      </div>
+      <div v-else-if="detail">
         <div class="ap-detail-row"><StatusBadge :status="detail.status" /> <span class="ap-code">{{ detail.code }}</span></div>
         <div class="ap-detail-grid">
           <div><small>Finalidade</small><b>{{ detail.purpose }}</b></div>

@@ -202,6 +202,13 @@ a { color: inherit; text-decoration: none; }
 /* ===================== Módulos: botões, toolbars, cards, tabelas ===================== */
 .im-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--im-accent), var(--im-accent-2)); color: #0d1418; font-weight: 800; border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; }
 .im-btn-primary:disabled { opacity: 0.55; cursor: default; }
+.im-btn-primary:focus-visible { outline: 2px solid var(--im-accent-2); outline-offset: 2px; }
+/* Acao secundaria (Cancelar, revalidar, IA, +add...). Definida aqui (era usada sem estilo):
+   pilula discreta coerente com o tema escuro, com hover/foco/disabled proprios. */
+.im-linkbtn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--im-border); color: var(--im-muted); font-family: inherit; font-weight: 600; font-size: 13.5px; line-height: 1.2; border-radius: 9px; padding: 8px 12px; cursor: pointer; white-space: nowrap; transition: color .15s, border-color .15s, background .15s; }
+.im-linkbtn:hover { color: var(--im-text); border-color: var(--im-accent); background: var(--im-bg-soft); }
+.im-linkbtn:focus-visible { outline: 2px solid var(--im-accent); outline-offset: 2px; }
+.im-linkbtn:disabled { opacity: 0.55; cursor: default; }
 .ap-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 
 .ap-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
@@ -232,9 +239,11 @@ a { color: inherit; text-decoration: none; }
 .ap-table { width: 100%; border-collapse: collapse; background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); overflow: hidden; }
 .ap-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--im-muted); padding: 12px 14px; border-bottom: 1px solid var(--im-border); }
 .ap-table td { padding: 12px 14px; border-bottom: 1px solid var(--im-border); font-size: 14px; vertical-align: middle; }
-.ap-table tbody tr { cursor: pointer; }
-.ap-table tbody tr:hover { background: var(--im-bg-soft); }
-.ap-table tbody tr:focus-visible { outline: 2px solid var(--im-accent); outline-offset: -2px; background: var(--im-bg-soft); }
+/* Affordance de clique so nas linhas realmente clicaveis (evita cursor/hover enganosos
+   em Documentos/Financeiro, que nao abrem detalhe). */
+.ap-table tbody tr.is-clickable { cursor: pointer; }
+.ap-table tbody tr.is-clickable:hover { background: var(--im-bg-soft); }
+.ap-table tbody tr.is-clickable:focus-visible { outline: 2px solid var(--im-accent); outline-offset: -2px; background: var(--im-bg-soft); }
 .ap-table tbody tr:last-child td { border-bottom: none; }
 .ap-table small { color: var(--im-muted); }
 .ap-score { display: inline-block; width: 70px; height: 6px; background: var(--im-surface-2); border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
@@ -304,3 +313,15 @@ a { color: inherit; text-decoration: none; }
 .ap-inline-form input { flex: 1; min-width: 90px; background: var(--im-bg-soft); border: 1px solid var(--im-border); border-radius: 8px; padding: 8px 10px; color: var(--im-text); font-size: 13.5px; outline: none; }
 .ap-btnrow { display: flex; gap: 8px; margin-bottom: 8px; }
 .ap-simbox { background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); padding: 16px 18px; }
+
+/* Respeita quem pede menos movimento (a11y): remove transicoes/animacoes e o
+   deslizar do drawer/hover-lift, mantendo os estados visiveis. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ap-card:hover, .ap-tile:hover, .im-card:hover { transform: none; }
+}
