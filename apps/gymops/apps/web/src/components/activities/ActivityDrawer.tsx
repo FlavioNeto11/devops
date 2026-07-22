@@ -460,8 +460,17 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                 <TabsContent value="attachments" className="flex-1 overflow-y-auto px-6 pb-6" data-tutorial="activity-drawer-attachments">
                   <div className="space-y-3 pt-4">
                     <div
-                      className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/20"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Enviar anexo: clique, use Enter/Espaço ou arraste o arquivo"
+                      className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => {
                         e.preventDefault();

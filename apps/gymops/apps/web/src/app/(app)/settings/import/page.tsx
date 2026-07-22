@@ -228,8 +228,17 @@ export default function ImportPage() {
 
           {mode === 'json' && (
             <div
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors"
+              role="button"
+              tabIndex={0}
+              aria-label="Selecionar arquivo JSON do Trello"
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               onClick={() => fileRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileRef.current?.click();
+                }
+              }}
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">Clique para selecionar o arquivo JSON do Trello</p>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import Icon from '../components/Icon.vue';
 import { MODULES } from '../nav';
@@ -14,6 +14,14 @@ function logout() {
   auth.logout();
   router.push('/');
 }
+
+// Fechar o drawer mobile por teclado (Esc) — o backdrop é apenas apresentacional
+// (fecha-ao-clicar com o mouse); o Esc dá o equivalente por teclado (WCAG 2.1.1).
+function onKeydown(e) {
+  if (e.key === 'Escape' && open.value) open.value = false;
+}
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
