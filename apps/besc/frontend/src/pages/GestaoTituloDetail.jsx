@@ -119,7 +119,7 @@ export default function GestaoTituloDetail() {
       <div className="detail-layout">
         <nav className="tab-rail">
           {TABS.map((t) => (
-            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+            <button key={t.k} className={tab === t.k ? 'active' : ''} aria-current={tab === t.k ? 'true' : undefined} onClick={() => setTab(t.k)}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
               {counts[t.k] !== undefined && counts[t.k] !== 0 && <span className="tab-count">{counts[t.k]}</span>}

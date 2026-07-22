@@ -100,7 +100,7 @@ export default function CaseDetail() {
       <div className="detail-layout">
         <nav className="tab-rail">
           {tabs.map((t) => (
-            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+            <button key={t.k} className={tab === t.k ? 'active' : ''} aria-current={tab === t.k ? 'true' : undefined} onClick={() => setTab(t.k)}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
               {t.count !== undefined && t.count !== 0 && <span className={`tab-count ${t.warn ? 'warn' : ''}`}>{t.count}</span>}
@@ -636,6 +636,7 @@ function PendenciasTab({ c, goResolve }) {
   return (
     <div className="card">
       <div className="card-head"><h3>Pendências automáticas ({p.length})</h3><span className="small muted" style={{ marginLeft: 8 }}>recalculadas a cada alteração</span></div>
+      <div style={{ overflowX: 'auto' }}>
       <table className="data">
         <thead><tr><th>Severidade</th><th>Pendência</th><th>Validação jurídica</th><th></th></tr></thead>
         <tbody>
@@ -649,6 +650,7 @@ function PendenciasTab({ c, goResolve }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
