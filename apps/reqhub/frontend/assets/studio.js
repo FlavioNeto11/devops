@@ -552,7 +552,7 @@ function renderForgeDetail(body, name) {
       else if (ev.key === 'Home') j = 0; else if (ev.key === 'End') j = keys.length - 1;
       if (j != null) { ev.preventDefault(); forgeStep(keys[j]); const el = document.querySelector('#view-forge .forge-step.is-sel'); if (el) el.focus(); }
     };
-    const btn = h('button', { class: 'forge-step is-' + s.status + (active ? ' is-sel' : ''), type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false', tabindex: active ? '0' : '-1', onclick: () => forgeStep(s.key), onkeydown: onkey },
+    const btn = h('button', { class: 'forge-step is-' + s.status + (active ? ' is-sel' : ''), type: 'button', role: 'tab', id: 'forge-tab-' + s.key, 'aria-controls': 'forge-tabpanel', 'aria-selected': active ? 'true' : 'false', tabindex: active ? '0' : '-1', onclick: () => forgeStep(s.key), onkeydown: onkey },
       h('span', { class: 'forge-step-box' },
         h('span', { class: 'forge-step-num', 'aria-hidden': 'true', text: s.status === 'done' ? '✓' : String(i + 1) }),
         h('span', { class: 'forge-step-tx' }, h('span', { class: 'forge-step-label', text: s.label }), h('span', { class: 'forge-step-detail', text: s.detail }))));
@@ -561,7 +561,10 @@ function renderForgeDetail(body, name) {
   body.append(stepper);
 
   const TWO_COL = ['arquitetura', 'pipeline'];
-  const panel = h('div', { class: 'forge-panel' + (TWO_COL.includes(state.forge.step) ? ' two' : '') });
+  // (UX-REQHUB-009) fecha o padrão ARIA do stepper: o trilho é role=tablist/tab, então o conteúdo é
+  // o tabpanel correspondente à fase selecionada (aria-labelledby aponta ao tab ativo; os tabs têm
+  // aria-controls=forge-tabpanel). Único painel compartilhado que troca de conteúdo por fase.
+  const panel = h('div', { class: 'forge-panel' + (TWO_COL.includes(state.forge.step) ? ' two' : ''), role: 'tabpanel', id: 'forge-tabpanel', 'aria-labelledby': 'forge-tab-' + state.forge.step });
   if (state.forge.step === 'brief') forgeBrief(panel, product);
   else if (state.forge.step === 'requisitos') forgeDefinir(panel, product);
   else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
@@ -573,7 +576,10 @@ function renderForgeDetail(body, name) {
   body.append(panel);
 
   // Zona de risco: apagar o projeto (só p/ produtos NÃO protegidos/adotados; o backend reforça a denylist).
+  // (UX-REQHUB-012) protegidos/adotados NÃO somem em silêncio — a zona aparece EXPLICANDO a proteção
+  // (botão desabilitado), para o operador entender que existe salvaguarda e por que a opção falta aqui.
   if (!FORGE_PROTECTED.includes(name) && product.origin !== 'adopted') body.append(forgeDangerZone(name));
+  else body.append(forgeProtectedZone(product.origin === 'adopted' ? 'adopted' : 'denylist'));
 }
 
 /* ---------- sinais assíncronos do trilho (cache fail-soft por produto) ---------- */
@@ -1015,6 +1021,22 @@ function forgeDangerZone(name) {
     h('h4', { text: '⚠ Zona de risco' }),
     h('p', { class: 'fw-hint', text: 'Apagar remove tudo que depende deste projeto (código, requisitos, baseline, Argo e cluster). Ação irreversível pela UI.' }),
     h('div', { class: 'fw-actions' }, btn, st));
+}
+
+// (UX-REQHUB-012) Zona de risco para produtos PROTEGIDOS: em vez de omitir a opção (esconder sem
+// explicar), mostra a mesma seção com o botão desabilitado e a razão da proteção — educa sobre a
+// salvaguarda e remove a inconsistência percebida entre produtos.
+function forgeProtectedZone(reason) {
+  const adopted = reason === 'adopted';
+  const why = adopted
+    ? 'Produto adotado da plataforma — a exclusão pela UI está indisponível para preservar recursos existentes.'
+    : 'Produto protegido pela plataforma (denylist) — a exclusão pela UI está indisponível.';
+  const btn = h('button', { class: 'btn', type: 'button', disabled: 'disabled', 'aria-disabled': 'true', title: why, text: '🗑 Apagar este projeto' });
+  return h('div', { class: 'forge-danger is-protected' },
+    h('h4', { text: '⚠ Zona de risco' }),
+    h('p', { class: 'fw-hint', text: why }),
+    h('div', { class: 'fw-actions' }, btn,
+      h('span', { class: 'fw-status muted', text: adopted ? 'protegido: adotado' : 'protegido: denylist' })));
 }
 
 async function forgeDelete(name, btn, st) {
