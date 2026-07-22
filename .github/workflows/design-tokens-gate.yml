@@ -35,6 +35,8 @@ jobs:
         run: node packages/platform-shell/build.mjs --check
       - name: Validar sincronia do kit ui-vue (apps da Forja) + CSP
         run: node packages/ui-vue/build.mjs --check
+      - name: Testes de derivação + contraste AA dos tokens (design-tokens)
+        run: node --test packages/design-tokens/forge-brand.test.mjs
       - name: Testes das funções puras da casca
         run: node --test packages/platform-shell/shell.test.js
       - name: Testes das funções puras do kit ui-vue
