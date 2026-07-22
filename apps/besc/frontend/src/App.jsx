@@ -27,7 +27,7 @@ import GateRegulatorio from './pages/GateRegulatorio.jsx';
 import Marketplace from './pages/Marketplace.jsx';
 import TituloDossie from './pages/TituloDossie.jsx';
 import InvestidorCarteira from './pages/InvestidorCarteira.jsx';
-import Entrar, { EntrarCallback, Cadastro } from './pages/Entrar.jsx';
+import Entrar, { EntrarCallback, Cadastro, AceitarConvite } from './pages/Entrar.jsx';
 
 const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
 
@@ -42,6 +42,7 @@ const ROUTE_TITLES = [
   ['/investidor', 'Minha carteira'],
   ['/entrar', 'Entrar'],
   ['/cadastro', 'Criar conta'],
+  ['/convite', 'Aceitar convite'],
   ['/casos', 'Casos'],
   ['/cases', 'Casos'],
   ['/gestao/usuarios', 'Gestão de usuários'],
@@ -217,7 +218,11 @@ export default function App() {
   useMenuAutoClose(topnavRef);
   useDocumentTitle();
   const canSeeCases = hasPerm('cases:read');
-  const canManageTitles = hasPerm('titles:read');
+  // Área de GESTÃO de títulos = capacidade de ESCRITA (titles:create), não de leitura. Advogado/juiz
+  // têm apenas titles:read (escopo linked) para auditoria: eles NÃO devem ver o item "Títulos" nem
+  // abrir /gestao/titulos (só cairiam num 403 ao tentar "Novo título"/transição). Sua superfície é o
+  // Portal de auditoria (read-only, gated abaixo por legal_status:read). Ver UX-BESC-002.
+  const canManageTitles = hasPerm('titles:create');
   const canSeeWallet = hasPerm('contracts:read');
   const canAudit = hasPerm('legal_status:read');
   const canManageUsers = hasPerm('users:manage');
@@ -313,9 +318,10 @@ export default function App() {
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/entrar/callback" element={<EntrarCallback />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/convite/:token" element={<AceitarConvite />} />
           <Route path="/casos" element={<RequireRole perm="cases:read"><Dashboard /></RequireRole>} />
-          <Route path="/gestao/titulos" element={<RequireRole perm="titles:read"><GestaoTitulos /></RequireRole>} />
-          <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:read"><GestaoTituloDetail /></RequireRole>} />
+          <Route path="/gestao/titulos" element={<RequireRole perm="titles:create"><GestaoTitulos /></RequireRole>} />
+          <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:create"><GestaoTituloDetail /></RequireRole>} />
           <Route path="/auditoria" element={<RequireRole perm="titles:read"><Auditoria /></RequireRole>} />
           <Route path="/auditoria/titulos/:id" element={<RequireRole perm="legal_status:read"><AuditoriaTitulo /></RequireRole>} />
           <Route path="/gestao/usuarios" element={<RequireRole perm="users:manage"><GestaoUsuarios /></RequireRole>} />
