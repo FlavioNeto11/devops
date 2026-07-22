@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import Icon from './Icon.jsx';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 
 /**
  * Modal genérico (overlay central). Fecha no Esc e no clique fora; foca o primeiro
- * controle ao abrir. Reusa os tokens/animação do drawer. `footer` é opcional.
+ * controle ao abrir, prende o Tab dentro do diálogo e devolve o foco ao fechar
+ * (via useFocusTrap — mesmo padrão dos drawers). `footer` é opcional.
  */
 export default function Modal({ title, onClose, children, footer, size = 'md' }) {
   const ref = useRef(null);
@@ -18,18 +20,16 @@ export default function Modal({ title, onClose, children, footer, size = 'md' })
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
-    const t = setTimeout(() => {
-      const root = ref.current;
-      if (!root) return;
-      // se algo dentro do modal já tem foco (ex.: input com autoFocus), respeita
-      if (root.contains(document.activeElement)) return;
-      // foca o primeiro controle do CORPO (nunca o X do cabeçalho)
-      const el = root.querySelector('.modal__body input, .modal__body select, .modal__body textarea, .modal__body button')
-        || root.querySelector('.modal__foot button');
-      if (el) el.focus();
-    }, 30);
-    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };
+    return () => document.removeEventListener('keydown', onKey);
   }, []); // monta UMA vez — sem re-foco em re-render
+
+  // Foco inicial no primeiro controle do CORPO (nunca o X do cabeçalho), trap de
+  // Tab e devolução do foco ao controle que abriu o modal.
+  useFocusTrap(ref, {
+    getInitialFocus: (root) =>
+      root.querySelector('.modal__body input, .modal__body select, .modal__body textarea, .modal__body button')
+      || root.querySelector('.modal__foot button'),
+  });
 
   return (
     <div

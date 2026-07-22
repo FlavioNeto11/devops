@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   pmProjects, fetchApps,
   pmCmsSite, pmCmsSaveSite,
@@ -20,19 +20,50 @@ import NewPortalWizard from './cms/NewPortalWizard.jsx';
 import AiAssist from './cms/AiAssist.jsx';
 import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject, pmCmsAiSection, pmCmsAiSite } from '../api.js';
 import { withSiteSkeleton, missingRequired } from '../lib/fieldKit.js';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
   const toast = useToast();
+  const dialogRef = useRef(null);
   const [data, setData] = useState(() => JSON.parse(JSON.stringify(section.data || {})));
   const [anchor, setAnchor] = useState(section.anchor || '');
   const [busy, setBusy] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  // Baseline para o dirty-check. A IA (que já PERSISTE o data) reseta só a parte
+  // de `data`; a âncora só é salva no "Salvar seção", então segue no baseline.
+  const baselineRef = useRef({ data: JSON.stringify(section.data || {}), anchor: section.anchor || '' });
+  const isDirty = () => JSON.stringify(data) !== baselineRef.current.data
+    || (anchor || '') !== (baselineRef.current.anchor || '');
+
+  // Refs com os valores atuais para os listeners (Esc/overlay) não recriarem a
+  // cada tecla nem lerem estado defasado.
+  const dirtyRef = useRef(isDirty);
+  dirtyRef.current = isDirty;
+  const confirmRef = useRef(false);
+  useEffect(() => { confirmRef.current = confirmDiscard; });
+
+  // Fecha pedindo confirmação se houver alterações não salvas (clique-fora/Esc/X/Cancelar).
+  const requestClose = useCallback(() => {
+    if (dirtyRef.current()) setConfirmDiscard(true);
+    else onClose?.();
+  }, [onClose]);
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (confirmRef.current) return; // o ConfirmDialog trata o próprio Esc
+      requestClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [requestClose]);
+
+  // Trap de Tab + foco inicial + devolução do foco ao botão "Editar" que abriu.
+  useFocusTrap(dialogRef, {
+    getInitialFocus: (root) => root.querySelector('.drawer__body input, .drawer__body textarea, .drawer__body select'),
+  });
 
   const save = async () => {
     const missing = missingRequired(data);
@@ -45,23 +76,25 @@ function SectionDrawer({ section, onClose, onSaved }) {
       await pmCmsPatchSection(section.id, { data, anchor: anchor || null });
       toast.ok('Seção salva.');
       await onSaved?.();
-      onClose();
+      onClose(); // salvou: fecha direto, sem passar pelo guard de descarte.
     } catch (e) { toast.err(e.message); } finally { setBusy(false); }
   };
 
   return (
-    <div className="drawer__overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Editar seção">
+    <div className="drawer__overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
+      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Editar seção" ref={dialogRef}>
         <div className="drawer__head">
           <div className="kcard__tags">
             <span className="badge badge-accent">{KIND_LABEL[section.kind] || section.kind}</span>
           </div>
-          <button className="drawer__close" onClick={onClose} aria-label="Fechar"><Icon name="x" size={18} /></button>
+          <button className="drawer__close" onClick={requestClose} aria-label="Fechar"><Icon name="x" size={18} /></button>
         </div>
         <div className="drawer__body">
           <AiAssist onRun={async (instruction) => {
             const next = await pmCmsAiSection(section.id, instruction);
-            setData(JSON.parse(JSON.stringify(next || {})));
+            const nextData = JSON.parse(JSON.stringify(next || {}));
+            setData(nextData);
+            baselineRef.current = { ...baselineRef.current, data: JSON.stringify(nextData) }; // IA já persistiu
             await onSaved?.();
           }} />
           <label className="field">
@@ -71,10 +104,20 @@ function SectionDrawer({ section, onClose, onSaved }) {
           <AutoForm value={data} onChange={setData} projectId={section._projectId} />
         </div>
         <div className="drawer__foot">
-          <button className="btn" onClick={onClose}>Cancelar</button>
+          <button className="btn" onClick={requestClose}>Cancelar</button>
           <button className="btn btn--primary" disabled={busy} onClick={save}>Salvar seção</button>
         </div>
       </aside>
+
+      {confirmDiscard && (
+        <ConfirmDialog
+          title="Descartar alterações?"
+          message="Há alterações não salvas nesta seção. Deseja descartá-las e fechar?"
+          confirmLabel="Descartar" danger
+          onClose={() => setConfirmDiscard(false)}
+          onConfirm={() => { onClose?.(); }}
+        />
+      )}
     </div>
   );
 }
