@@ -3126,7 +3126,7 @@ o mesmo padrão (lotes por app, guiados pela tabela 10.1).
 | PR | Escopo | Itens (IDs) | Arquivos prováveis | Pré-requisito | Validação |
 |---|---|---|---|---|---|
 | PR-01 | **Harness antes de mexer**: smoke Playwright mínimo por papel (molde GymOps) para CV360, CVPro e NeuroEvolui + axe/teclado básico | UX-QA-001 (parcial), base p/ H1/H2/H3 | `apps/*/frontend/tests/` (novos), CI matrix | — | os smokes falham HOJE nos P0 (prova do valor) |
-| PR-02 | ContaViva Pro: autoridade real na borda da API (ForwardAuth como no CV360) | UX-CVPRO-001 | `apps/contaviva-pro/k8s/*.yaml` | — | curl anônimo à API → 401; smoke PR-01 verde |
+| PR-02 | ContaViva Pro: autoridade real na API de records — **NÃO via ForwardAuth de borda** (o app tem JWT próprio; edge-auth Keycloak quebraria o login). Correção = aplicar o `requireAuth` existente + derivar tenant do JWT. **Bloqueado por D9**: colide com teste LOCKED gerado pela Forge → exige mudar o bloco de capability + regenerar | UX-CVPRO-001 | `apps/contaviva-pro/api/src/server.js` + bloco da Forge + `tests/locked/**` (regenerado) | **D9** | curl anônimo à API → 401; teste locked regenerado verde |
 | PR-03 | ContaViva Pro: corrigir edição (UI deixa de chamar PUT inexistente; usa contrato real) + interceptador 401→refresh→login | UX-CVPRO-002, UX-CVPRO-003, UX-CVPRO-004 | `frontend/src/views/records/*`, `frontend/src/api.js` | PR-02; se o contrato exigir novo endpoint, registrar dependência de API | editar registro ponta-a-ponta; sessão expirada → login |
 | PR-04 | ContaViva 360: guard de login + tela de entrada (SSO de borda ou login local — decisão D1) | UX-CV360-001, UX-CV360-003 | `frontend/src/router.js`, `k8s/*.yaml` | D1 | anônimo → login; papéis certos por perfil |
 | PR-05 | NeuroEvolui: idem D1 + remover 18 navegações mortas | UX-NEURO-001, UX-NEURO-002, UX-NEURO-003 | `frontend/src/router.js`, views com links mortos | D1 | anônimo → login; zero 404 internos (H1) |
@@ -3185,6 +3185,36 @@ Aplicando as recomendações da tabela acima para destravar a Onda 0:
 - **D8 = PWA do ZapBridge formalmente aposentado** — docs/contrato apontam o `web/`; reintrodução
   de PWA só com suíte de testes.
 
+### 14.1.2 Decisões descobertas na execução da Onda 0 (bloqueios que viram decisão)
+
+A implementação dos primeiros PRs revelou três bloqueios estruturais que exigem decisão do dono
+antes de prosseguir nos itens correspondentes — nenhum foi contornado com gambiarra:
+
+- **D9 — Exposição de dados nos apps gerados pela Forge (UX-CVPRO-001, e por extensão CV360).**
+  A API de `records` do ContaViva Pro (`apps/contaviva-pro/api/src/server.js:25-28`) não aplica o
+  `requireAuth` que o próprio app já possui e deriva o tenant de um header spoofável
+  (`x-tenant-id`, linha 20). **Porém** o comportamento anônimo está codificado num **teste LOCKED**
+  gerado pela Forge (`tests/locked/capability/redis-bullmq.test.mjs:7` chama `POST /v1/records` sem
+  token e espera sucesso, protegido por hash em `tests/.test-locks.json`) e o manifesto k8s é
+  **compilado** de `devops.yaml` (sem primitiva de auth de borda). Corrigir de forma durável exige
+  mudar o **bloco de capability do gerador** (records passam a exigir auth) + **regenerar** os testes
+  locked + aplicar o guard — mudança de PLATAFORMA que afeta todos os apps com o bloco, não uma
+  edição de app. **Recomendação:** tratar como item de fundação da Forge (estender o bloco +
+  `make-test-suite.mjs`), fora da Onda 0 automática. Até lá o P0 permanece aberto e registrado.
+- **D10 — Edição de registros no ContaViva Pro (UX-CVPRO-002).** O frontend chama `PUT /v1/records/:id`
+  que **não existe** no backend (só há `GET`/`POST`/`submit`). Não é troca de verbo — exige **criar
+  o endpoint de update** (decisão de contrato de API). Até lá, a jornada de edição fica quebrada por
+  design; alternativa de UX mínima (esconder o botão "Editar") reduz função e não foi aplicada.
+- **D11 — Callback SSO do GymOps (UX-GYMOPS-001).** Nenhum endpoint atual resolve
+  organização/papel só a partir do token (`/auth/consume` e `/auth/me` devolvem apenas
+  usuário/token; os demais exigem `organizationId` na entrada). A lógica de resolução existe, mas só
+  dentro do `POST /auth/login`. Corrigir exige **mudar o backend** (expor org/papel no consume/me ou
+  criar `/auth/context`). Decisão de contrato de API.
+
+Itens confirmados como implementáveis sem esses bloqueios (executados nos lotes 1–2): UX-CVPRO-003
+(renovar sessão no 401 — `/auth/refresh` já existe), UX-SICAT-003 (backend de admin já roteado),
+UX-NEURO-002/003 (reapontar links para rotas existentes), UX-GYMOPS-002 (a11y de teclado).
+
 ### 14.2 Dependências técnicas e de produto registradas no backlog
 
 - **Mudanças de API/contrato** (fora do escopo desta auditoria, pré-requisito de itens de UX):
@@ -3203,7 +3233,7 @@ Aplicando as recomendações da tabela acima para destravar a Onda 0:
 |---|---|---|---|
 | Corrigir auth/estados sem rede de testes → regressão silenciosa | alta | alto | PR-01 primeiro (harness H1–H3 mínimos); nenhum PR de Onda 0 sem smoke do app no CI |
 | Re-sync do ui-vue abre drift entre os 3 apps consumidores | média | médio | re-sync no MESMO PR do pacote + drift-gate já existente |
-| Decisões D1–D3 atrasarem e travarem a Onda 0 | média | alto | os 7 P0 que não dependem de decisão (CVPRO-001/002, GYMOPS-001/002, IMOBIA-001, PREC-001 e o sistêmico A11Y-001, iniciado pelo kit) seguem imediatamente |
+| Decisões D1–D3 atrasarem e travarem a Onda 0 | média | alto | os P0 sem dependência de decisão seguem já (GYMOPS-002/teclado, PREC-001/trap, CV360-001+NEURO-001/auth-borda). Ressalva descoberta na execução (§14.1.2): CVPRO-001 depende de D9, CVPRO-002 de D10, GYMOPS-001 de D11 — reclassificados de "livres" para "bloqueados por decisão" |
 | Volume da Onda 1 (137 itens) virar ruído de revisão | média | médio | lotes por app; 1 PR = 1 app; validação automatizada por harness, não por olho |
 | Onda 3 crescer escopo (área do paciente, perfis CV360) | alta | médio | tratar como epics de produto com PRD próprio; esta auditoria só reserva o slot |
 | Divergência docs↔código voltar a crescer após PR-12 | alta | médio | Onda 5: gate de drift documental (checagem `products.json` × `apps/` no CI de specs) |
