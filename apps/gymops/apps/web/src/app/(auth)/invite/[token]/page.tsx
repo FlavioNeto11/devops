@@ -51,7 +51,7 @@ export default function InvitePage() {
     e.preventDefault();
     setFormError('');
     if (!name.trim()) { setFormError('Nome é obrigatório.'); return; }
-    if (password.length < 6) { setFormError('Senha deve ter ao menos 6 caracteres.'); return; }
+    if (password.length < 8) { setFormError('Senha deve ter ao menos 8 caracteres.'); return; }
     if (password !== confirmPassword) { setFormError('As senhas não coincidem.'); return; }
     acceptMutation.mutate();
   };
@@ -143,7 +143,7 @@ export default function InvitePage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 required
               />
             </div>

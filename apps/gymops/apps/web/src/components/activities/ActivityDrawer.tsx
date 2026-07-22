@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Clock, AlertTriangle, CheckSquare, MessageSquare, Paperclip,
@@ -194,12 +195,22 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex">
-        {/* Overlay — hidden on mobile (full screen drawer) */}
-        <div className="hidden flex-1 bg-black/40 md:block" onClick={onClose} />
+      {/* Drawer acessível sobre Radix Dialog: role=dialog + aria-modal, focus
+          trap, Esc para fechar e retorno de foco à origem vêm do primitivo
+          (UX-GYMOPS-004), preservando o visual do painel lateral. */}
+      <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DialogPrimitive.Portal>
+          {/* Overlay — hidden on mobile (full screen drawer) */}
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 hidden bg-black/40 md:block" />
 
-        {/* Drawer panel */}
-        <div className="flex h-full w-full flex-col overflow-hidden border-l bg-background shadow-2xl md:max-w-2xl">
+          {/* Drawer panel */}
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col overflow-hidden border-l bg-background shadow-2xl outline-none md:max-w-2xl"
+          >
+            <DialogPrimitive.Title className="sr-only">
+              {activity?.title ? `Atividade: ${activity.title}` : 'Detalhes da atividade'}
+            </DialogPrimitive.Title>
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b px-6 py-4">
             <div className="min-w-0 flex-1">
@@ -558,8 +569,9 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
               <p className="mt-1 text-sm whitespace-pre-wrap">{activity.description}</p>
             </div>
           )}
-        </div>
-      </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       {/* Share modal */}
       {showShareModal && activityId && organizationId && (
@@ -644,12 +656,16 @@ function RecurrenceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-[60] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto outline-none"
+        >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Configurar recorrência</h3>
+            <DialogPrimitive.Title className="font-semibold">Configurar recorrência</DialogPrimitive.Title>
             <p className="text-xs text-muted-foreground">Gerar atividades automaticamente</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
@@ -753,8 +769,9 @@ function RecurrenceModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -799,12 +816,17 @@ function ShareModal({
   const users = searchRes?.data ?? [];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="fixed left-1/2 top-1/2 z-[60] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto outline-none"
+        >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Compartilhar atividade</h3>
+            <DialogPrimitive.Title className="font-semibold">Compartilhar atividade</DialogPrimitive.Title>
             <p className="text-xs text-muted-foreground">Dê acesso a um usuário desta organização</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
@@ -886,8 +908,9 @@ function ShareModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
