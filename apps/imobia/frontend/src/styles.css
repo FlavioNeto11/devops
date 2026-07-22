@@ -32,6 +32,9 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
+/* Somente para leitores de tela (regioes aria-live, rotulos ocultos). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
 .im-shell { min-height: 100%; display: flex; flex-direction: column; }
 
 /* Topbar */
@@ -185,6 +188,8 @@ a { color: inherit; text-decoration: none; }
 .chat-input input:focus { border-color: var(--im-accent); }
 .chat-input button { background: linear-gradient(135deg, var(--im-accent), var(--im-accent-2)); color: #0d1418; border: none; border-radius: 10px; width: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .chat-input button:disabled { opacity: 0.5; cursor: default; }
+.chat-stop { width: auto !important; padding: 0 14px; background: var(--im-bg-soft) !important; color: var(--im-text) !important; border: 1px solid var(--im-border) !important; font-size: 13.5px; font-weight: 700; }
+.chat-stop:hover { border-color: var(--im-danger) !important; color: var(--im-danger) !important; }
 
 @media (max-width: 860px) {
   .ap-side { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s; }
@@ -204,6 +209,9 @@ a { color: inherit; text-decoration: none; }
 .ap-searchbox input { flex: 1; background: none; border: none; color: var(--im-text); font-size: 14px; outline: none; }
 
 .ap-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 20px; color: var(--im-muted); text-align: center; border: 1px dashed var(--im-border); border-radius: var(--im-radius); }
+/* Estado de erro de carga (distinto do vazio): mensagem acionavel + retry. */
+.ap-error { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.ap-error span { min-width: 0; }
 
 .ap-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
 .ap-card { background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); padding: 16px; cursor: pointer; transition: transform .15s, border-color .15s; }
@@ -218,6 +226,9 @@ a { color: inherit; text-decoration: none; }
 .ap-card-price .rent { font-size: 13px; font-weight: 700; color: var(--im-accent-2); }
 
 /* Tabela */
+/* Contem o scroll horizontal na propria tabela (nao na pagina) em telas estreitas. */
+.ap-table-wrap { width: 100%; overflow-x: auto; border-radius: var(--im-radius); }
+.ap-table-wrap .ap-table { min-width: 560px; }
 .ap-table { width: 100%; border-collapse: collapse; background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); overflow: hidden; }
 .ap-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--im-muted); padding: 12px 14px; border-bottom: 1px solid var(--im-border); }
 .ap-table td { padding: 12px 14px; border-bottom: 1px solid var(--im-border); font-size: 14px; vertical-align: middle; }

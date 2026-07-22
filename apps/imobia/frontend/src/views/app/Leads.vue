@@ -8,6 +8,7 @@ import { brl, dateTimeBr } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
 const saving = ref(false);
 const formError = ref('');
@@ -20,8 +21,10 @@ const empty = () => ({ name: '', phone: '', email: '', interest: 'compra', budge
 const form = ref(empty());
 
 async function load() {
-  loading.value = true;
-  try { items.value = (await api.list('leads')).data; } finally { loading.value = false; }
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('leads')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar os leads.'; }
+  finally { loading.value = false; }
 }
 async function save() {
   saving.value = true; formError.value = '';
@@ -67,24 +70,30 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
     </div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error">
+      <span>{{ loadError }}</span>
+      <button class="im-btn-primary" @click="load">Tentar novamente</button>
+    </div>
     <div v-else-if="!items.length" class="ap-empty">
       <Icon name="users" :size="34" />
       <p>Nenhum lead ainda. Cadastre o primeiro cliente.</p>
       <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Novo lead</button>
     </div>
-    <table v-else class="ap-table">
-      <thead><tr><th>Nome</th><th>Interesse</th><th>Estágio</th><th>Orçamento</th><th>Score</th><th></th></tr></thead>
-      <tbody>
-        <tr v-for="l in items" :key="l.id" role="button" tabindex="0" :aria-label="`Abrir lead ${l.name}`" @click="openDetail(l.id)" @keydown.enter="onRowKey($event, l.id)" @keydown.space="onRowKey($event, l.id)">
-          <td><strong>{{ l.name }}</strong><br /><small>{{ l.email || l.phone || '—' }}</small></td>
-          <td>{{ l.interest }}</td>
-          <td><StatusBadge :status="l.stage" /></td>
-          <td>{{ l.budgetMax ? brl(l.budgetMax) : '—' }}</td>
-          <td><div class="ap-score"><div class="ap-score-bar" :style="{ width: l.score + '%' }" /></div><small>{{ l.score }}</small></td>
-          <td @click.stop><button class="im-linkbtn" :disabled="scoring === l.id" @click="score(l.id)">{{ scoring === l.id ? '…' : 'IA ⚡' }}</button></td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="ap-table-wrap">
+      <table class="ap-table">
+        <thead><tr><th>Nome</th><th>Interesse</th><th>Estágio</th><th>Orçamento</th><th>Score</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="l in items" :key="l.id" role="button" tabindex="0" :aria-label="`Abrir lead ${l.name}`" @click="openDetail(l.id)" @keydown.enter="onRowKey($event, l.id)" @keydown.space="onRowKey($event, l.id)">
+            <td><strong>{{ l.name }}</strong><br /><small>{{ l.email || l.phone || '—' }}</small></td>
+            <td>{{ l.interest }}</td>
+            <td><StatusBadge :status="l.stage" /></td>
+            <td>{{ l.budgetMax ? brl(l.budgetMax) : '—' }}</td>
+            <td><div class="ap-score"><div class="ap-score-bar" :style="{ width: l.score + '%' }" /></div><small>{{ l.score }}</small></td>
+            <td @click.stop><button class="im-linkbtn" :disabled="scoring === l.id" @click="score(l.id)">{{ scoring === l.id ? '…' : 'IA ⚡' }}</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <Modal :open="showForm" title="Novo lead" @close="showForm = false">
       <div class="ap-form">

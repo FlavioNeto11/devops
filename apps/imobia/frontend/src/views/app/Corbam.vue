@@ -8,23 +8,35 @@ import { brl } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
+const creating = ref(false);
+const formError = ref('');
 const form = ref({ personName: '', cpf: '', goal: 'limpa_nome', currentScore: null, targetScore: null });
 const detail = ref(null);
 const sim = ref({ principal: null, installments: 12, interestRate: 2 });
 const restr = ref({ creditor: '', amount: null, bureau: 'serasa' });
 const busy = ref('');
 
-async function load() { loading.value = true; try { items.value = (await api.list('corbam')).data; } finally { loading.value = false; } }
+async function load() {
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('corbam')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar os casos.'; }
+  finally { loading.value = false; }
+}
 async function create() {
+  creating.value = true; formError.value = '';
   try { const b = { ...form.value }; ['currentScore', 'targetScore'].forEach((k) => { if (b[k] == null || b[k] === '') delete b[k]; else b[k] = Number(b[k]); }); if (!b.cpf) delete b.cpf; await api.create('corbam', b); showForm.value = false; await load(); }
-  catch (e) { alert(e.message); }
+  catch (e) { formError.value = e.message; } finally { creating.value = false; }
 }
 async function open(id) { const r = await api.get('corbam', id); detail.value = { ...r.data, timeline: r.timeline }; }
 async function addRestr() {
-  if (!restr.value.creditor || !restr.value.amount) return;
-  await api.create(`corbam/${detail.value.id}/restricoes`, { ...restr.value, amount: Number(restr.value.amount) });
-  restr.value = { creditor: '', amount: null, bureau: 'serasa' }; await open(detail.value.id);
+  if (!restr.value.creditor || !restr.value.amount || busy.value === 'restr') return;
+  busy.value = 'restr';
+  try {
+    await api.create(`corbam/${detail.value.id}/restricoes`, { ...restr.value, amount: Number(restr.value.amount) });
+    restr.value = { creditor: '', amount: null, bureau: 'serasa' }; await open(detail.value.id);
+  } finally { busy.value = ''; }
 }
 async function simulate() {
   if (!sim.value.principal) return;
@@ -44,10 +56,11 @@ onMounted(load);
   <div class="ap-page">
     <div class="ap-page-head ap-head-row">
       <div><h1><Icon name="bank" :size="22" /> Corbam / COBAN</h1><p>Recuperação de crédito: limpa nome, score e rating. GPT simula, Claude redige, Gemini lê Serasa.</p></div>
-      <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Novo caso</button>
+      <button class="im-btn-primary" @click="showForm = true; formError = ''"><Icon name="plus" :size="16" /> Novo caso</button>
     </div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="bank" :size="34" /><p>Nenhum caso de recuperação de crédito.</p></div>
     <div v-else class="ap-cards">
       <article v-for="c in items" :key="c.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir caso de ${c.personName}`" @click="open(c.id)" @keydown.enter="open(c.id)" @keydown.space.prevent="open(c.id)">
@@ -65,7 +78,8 @@ onMounted(load);
         <label>Score atual<input v-model="form.currentScore" type="number" /></label>
         <label>Score alvo<input v-model="form.targetScore" type="number" /></label>
       </div>
-      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="!form.personName" @click="create">Abrir caso</button></template>
+      <p v-if="formError" class="im-notice err" style="margin-top:12px">{{ formError }}</p>
+      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="creating || !form.personName" @click="create">{{ creating ? 'Abrindo…' : 'Abrir caso' }}</button></template>
     </Modal>
 
     <Modal :open="!!detail" :title="detail?.personName" @close="detail = null">
@@ -76,7 +90,7 @@ onMounted(load);
         <div v-for="r in detail.restrictions" :key="r.id" class="ap-line">{{ r.creditor }} — {{ brl(r.amount) }} <small>({{ r.bureau }})</small></div>
         <div class="ap-inline-form">
           <input v-model="restr.creditor" placeholder="Credor" /><input v-model="restr.amount" type="number" placeholder="Valor" />
-          <button class="im-linkbtn" @click="addRestr">+ add</button>
+          <button class="im-linkbtn" :disabled="busy === 'restr'" @click="addRestr">+ add</button>
         </div>
 
         <h4 class="ap-tl-title">Simulação de parcelas</h4>
