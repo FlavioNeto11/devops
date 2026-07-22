@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import { UserAvatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { UnitDTO } from '@gymops/shared';
 
 interface SidebarProps {
@@ -21,6 +21,17 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
   const pathname = usePathname();
   const { user, logout, userRole } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Fechar o drawer mobile por teclado (Esc) — o backdrop é apenas apresentacional
+  // (fecha-ao-clicar com o mouse); o Esc dá o equivalente por teclado (WCAG 2.1.1).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onMobileClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen, onMobileClose]);
 
   const isManagerLevel = userRole === 'owner' || userRole === 'org_manager' || userRole === 'unit_manager' || userRole === 'area_leader';
   // "Painel Geral" (/dashboard) só existe para owner/org_manager — o próprio
