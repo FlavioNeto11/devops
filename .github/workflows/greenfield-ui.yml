@@ -74,7 +74,7 @@ jobs:
       PRODUCT: ${{ github.event.inputs.product }}
       SCOPE: ${{ github.event.inputs.scope }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -246,7 +246,7 @@ jobs:
       # o operador recupera o patch completo sem perder o trabalho.
       - name: Preservar diff do motor (artefato)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: forge-ui-diff
           path: forge-ui-diff.patch

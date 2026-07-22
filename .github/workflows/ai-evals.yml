@@ -78,8 +78,8 @@ jobs:
       run:
         working-directory: packages/ai-core
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       - name: Instalar (ai-kit local via file:)
@@ -94,11 +94,11 @@ jobs:
       run:
         working-directory: apps/gymops
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       - name: Instalar dependencias
@@ -117,8 +117,8 @@ jobs:
       run:
         working-directory: apps/sicat/backend
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       # script dependency-free (node:fs/path) — sem npm ci
@@ -129,8 +129,8 @@ jobs:
     name: portal-contracts (validador + comparador)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       # scripts dependency-free (node:fs/path/crypto) — sem npm ci
@@ -140,7 +140,7 @@ jobs:
         run: node scripts/portal-contracts/validate-portal-contract.mjs
       - name: Comparar SICAT x contrato CETESB (bloqueia so em critical)
         run: node scripts/portal-contracts/compare-sicat-cetesb.mjs --no-write --fail-on critical
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: portal-drift-report
@@ -156,8 +156,8 @@ jobs:
     name: forja (golden briefs determinísticos)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Instalar deps de validação (specs/tools — yaml + ajv)
@@ -185,11 +185,11 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       - name: Instalar dependencias
@@ -220,7 +220,7 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 1
