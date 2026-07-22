@@ -1,3 +1,11 @@
+---
+title: "Plano Mestre de Evolução de UX/UI — Plataforma NovaIT"
+status: reference
+applies_to: [platform]
+updated: 2026-07-22
+language: pt-BR
+---
+
 # Plano Mestre de Evolução de UX/UI — Plataforma NovaIT
 
 > Auditoria completa de experiência do usuário, UI design, acessibilidade, navegação e consistência
