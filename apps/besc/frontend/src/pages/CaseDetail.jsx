@@ -124,12 +124,14 @@ export default function CaseDetail() {
   );
 }
 
-// Ponte caso -> marketplace (só para quem tem titles:read, i.e. Gestor). Se o caso já originou um
-// título, linka para o detalhe do título; se é elegível, permite criar; senão, explica o porquê.
+// Ponte caso -> marketplace (só para quem tem titles:create, i.e. Gestor/admin). Tanto criar o
+// título quanto "Abrir título →" levam à área de GESTÃO (gated por titles:create); auditor com
+// titles:read só de leitura não deve ver esta ponte (cairia em "Acesso restrito"). Ver UX-BESC-002.
+// Se o caso já originou um título, linka para o detalhe; se é elegível, permite criar; senão, explica.
 function MarketplaceBridge({ caseId, c }) {
   const { hasPerm } = useAuth();
   const navigate = useNavigate();
-  const canManage = hasPerm('titles:read');
+  const canManage = hasPerm('titles:create');
   const [title, setTitle] = useState(undefined); // undefined = carregando · null = nenhum
   const [err, setErr] = useState(null);
   const [override, setOverride] = useState(false);

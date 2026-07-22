@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { api } from '../api.js';
 import { Banner, Field, Loading } from '../ui.jsx';
@@ -229,6 +229,103 @@ export function Cadastro() {
       </div>
       <p className="auth-foot">
         Já tem conta? <Link to="/entrar">Entrar</Link> · <Link to="/">Voltar ao início</Link>
+      </p>
+    </div>
+  );
+}
+
+// ---- /convite/:token — resgate de convite (advogado/juiz/gestor). Esses perfis NÃO têm
+// auto-cadastro: o gestor gera o convite (token de uso único) e repassa o link; aqui o convidado
+// define a senha, o papel concedido é ativado e ele entra. Consome POST /auth/invitations/:token/accept
+// (o backend deriva o e-mail do próprio convite). Resolve UX-BESC-001 (fluxo de convite sem tela de resgate). ----
+const INVITE_ROLE_LABELS = { lawyer: 'Advogado (auditoria)', judge: 'Juiz (auditoria)', manager: 'Gestor', investor: 'Investidor' };
+
+export function AceitarConvite() {
+  const { login } = useAuth();
+  const { token } = useParams();
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(null); // { email, roleKey } — mostrado só quando o auto-login não é possível
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (password.length < 8) { setError('A senha deve ter ao menos 8 caracteres.'); return; }
+    if (password !== confirm) { setError('As senhas não conferem.'); return; }
+    setBusy(true); setError(null);
+    try {
+      // o accept devolve {email, roleKey} mas NÃO uma sessão; a conta convidada nasce ativa
+      // (approval_status default), então entramos logo em seguida com o e-mail do convite + a senha nova.
+      const res = await api.auth.acceptInvite(token, { name: name.trim() || undefined, password });
+      try {
+        const u = await login(res.email, password);
+        navigate(homeFor(u), { replace: true });
+      } catch {
+        // conta pré-existente pode manter a senha antiga (o backend não sobrescreve): o papel foi
+        // concedido, mas o login com a senha nova não vale — orienta a entrar com as credenciais dela.
+        setDone({ email: res.email, roleKey: res.roleKey });
+        setBusy(false);
+      }
+    } catch (err) {
+      const m = (err && err.message) || '';
+      setError(/404|inválid|expirad/i.test(m)
+        ? 'Convite inválido ou expirado. Peça um novo convite ao gestor da plataforma.'
+        : /senha|password/i.test(m)
+          ? (m.replace(/^Erro \d+:?\s*/, '') || 'Verifique a senha e tente de novo.')
+          : friendlyError(err, 'Não foi possível aceitar o convite. Tente novamente.'));
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    const roleLabel = INVITE_ROLE_LABELS[done.roleKey] || done.roleKey;
+    return (
+      <div className="auth-wrap">
+        <div className="auth-head">
+          <div className="ah-ic ah-ok"><Icon name="check" size={24} /></div>
+          <h1>Convite aceito!</h1>
+          <p>O papel <strong>{roleLabel}</strong> foi concedido a <strong>{done.email}</strong>. Entre com seu e-mail e senha para acessar sua área.</p>
+        </div>
+        <div className="auth-actions" style={{ justifyContent: 'center' }}>
+          <Link to="/entrar" className="btn primary">Entrar <Icon name="login" size={14} /></Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-head">
+        <div className="ah-ic"><Icon name="gavel" size={24} /></div>
+        <h1>Aceitar convite</h1>
+        <p>Você foi convidado para um perfil qualificado do Portal BESC. Defina sua senha para <strong>ativar o acesso</strong> — o papel concedido pelo gestor já vem vinculado a esta conta.</p>
+      </div>
+      <div className="card auth-card">
+        <div className="card-body">
+          <Banner kind="err">{error}</Banner>
+          <form onSubmit={submit}>
+            <Field label="Nome completo (opcional)">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" autoComplete="name" autoFocus />
+            </Field>
+            <Field label="Senha" hint="Mínimo de 8 caracteres.">
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crie uma senha" autoComplete="new-password" />
+            </Field>
+            <Field label="Confirmar senha">
+              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
+            </Field>
+            <div className="auth-actions">
+              <button type="submit" className="btn primary" disabled={busy}>
+                {busy ? 'Ativando…' : <>Ativar acesso <Icon name="check" size={14} /></>}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <p className="auth-foot">
+        O convite é de uso único e expira. Já ativou? <Link to="/entrar">Entrar</Link> · <Link to="/">Voltar ao início</Link>
       </p>
     </div>
   );
