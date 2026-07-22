@@ -86,7 +86,7 @@ onMounted(load);
       <button class="im-btn-primary" @click="openForm"><Icon name="plus" :size="16" /> Novo imóvel</button>
     </div>
     <div v-else class="ap-cards">
-      <article v-for="p in items" :key="p.id" class="ap-card" @click="openDetail(p.id)">
+      <article v-for="p in items" :key="p.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir detalhes do imóvel ${p.title}`" @click="openDetail(p.id)" @keydown.enter="openDetail(p.id)" @keydown.space.prevent="openDetail(p.id)">
         <div class="ap-card-top">
           <StatusBadge :status="p.status" />
           <span v-if="p.similarity != null" class="ap-sim">{{ Math.round(p.similarity * 100) }}% match</span>

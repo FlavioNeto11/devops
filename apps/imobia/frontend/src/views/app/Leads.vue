@@ -47,6 +47,12 @@ async function openDetail(id) {
   const r = await api.get('leads', id);
   detail.value = r.data; detailTimeline.value = r.timeline || [];
 }
+// Só abre o detalhe quando o teclado age sobre a própria linha (ignora o botão de score aninhado).
+function onRowKey(e, id) {
+  if (e.target !== e.currentTarget) return;
+  e.preventDefault();
+  openDetail(id);
+}
 onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(); } catch { /* noop */ } });
 </script>
 
@@ -69,7 +75,7 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
     <table v-else class="ap-table">
       <thead><tr><th>Nome</th><th>Interesse</th><th>Estágio</th><th>Orçamento</th><th>Score</th><th></th></tr></thead>
       <tbody>
-        <tr v-for="l in items" :key="l.id" @click="openDetail(l.id)">
+        <tr v-for="l in items" :key="l.id" role="button" tabindex="0" :aria-label="`Abrir lead ${l.name}`" @click="openDetail(l.id)" @keydown.enter="onRowKey($event, l.id)" @keydown.space="onRowKey($event, l.id)">
           <td><strong>{{ l.name }}</strong><br /><small>{{ l.email || l.phone || '—' }}</small></td>
           <td>{{ l.interest }}</td>
           <td><StatusBadge :status="l.stage" /></td>

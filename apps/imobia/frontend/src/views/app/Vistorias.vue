@@ -45,7 +45,7 @@ onMounted(load);
     <div v-if="loading" class="im-notice">Carregando…</div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="camera" :size="34" /><p>Nenhuma vistoria ainda.</p></div>
     <div v-else class="ap-cards">
-      <article v-for="v in items" :key="v.id" class="ap-card" @click="open(v.id)">
+      <article v-for="v in items" :key="v.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir vistoria de ${v.kind}`" @click="open(v.id)" @keydown.enter="open(v.id)" @keydown.space.prevent="open(v.id)">
         <div class="ap-card-top"><StatusBadge :status="v.status" /><span class="ap-code">{{ v.photos?.length || 0 }} fotos</span></div>
         <h3>Vistoria de {{ v.kind }}</h3>
         <div class="ap-card-meta">{{ v.laudoText ? 'Laudo gerado' : 'Aguardando laudo' }} · {{ dateTimeBr(v.createdAt) }}</div>
