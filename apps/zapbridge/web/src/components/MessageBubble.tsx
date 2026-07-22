@@ -5,6 +5,13 @@ import { formatTime, senderColor } from '../lib/messageUtils';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+// Aparelhos com ponteiro fino (mouse) recebem o botão de ações discreto, revelado
+// no hover/foco; em touch (sem hover) o botão fica sempre visível para ser tocável.
+const HOVER_CAPABLE =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(hover: hover)').matches
+    : false;
+
 function quotedTypeLabel(type: string): string {
   const l: Record<string, string> = { image: '📷 Imagem', video: '🎬 Vídeo', audio: '🎤 Áudio', document: '📄 Documento' };
   return l[type] ?? 'Mensagem';
@@ -33,24 +40,64 @@ function ReactionBadge({ reactions }: { reactions: NonNullable<Message['reaction
   );
 }
 
-function Actions({
+// Ações da mensagem alcançáveis por teclado e touch (não só por hover): um botão
+// de ações sempre focável abre a régua de ações; cada ação tem nome acessível.
+// O hover continua como atalho no desktop. (WCAG 2.1.1)
+function BubbleActions({
+  open,
+  hovered,
+  onToggle,
   onReply,
   onCopy,
   onReactPress,
   onForward,
 }: {
+  open: boolean;
+  hovered: boolean;
+  onToggle: () => void;
   onReply: () => void;
   onCopy: () => void;
   onReactPress?: () => void;
   onForward?: () => void;
 }) {
-  const btn = 'w-7 h-7 rounded-full bg-surfaceAlt grid place-items-center text-[13px] hover:bg-line';
+  const btn =
+    'w-7 h-7 rounded-full bg-surfaceAlt grid place-items-center text-[13px] hover:bg-line outline-none focus-visible:ring-2 focus-visible:ring-primary';
+  const showRow = open || hovered;
+  // Em touch o gatilho fica visível; no desktop some até hover/foco para não poluir.
+  const triggerVisibility = HOVER_CAPABLE
+    ? `opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${open ? 'opacity-100' : ''}`
+    : 'opacity-100';
   return (
-    <div className="flex items-center gap-1 self-end pb-1.5 opacity-90">
-      {onReactPress && <button onClick={onReactPress} className={btn} title="Reagir">😀</button>}
-      <button onClick={onReply} className={btn} title="Responder">↩</button>
-      {onForward && <button onClick={onForward} className={btn} title="Encaminhar">↪</button>}
-      <button onClick={onCopy} className={btn} title="Copiar">📋</button>
+    <div className="flex items-center gap-1 self-end pb-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label="Ações da mensagem"
+        aria-expanded={showRow}
+        className={`w-7 h-7 rounded-full bg-surfaceAlt grid place-items-center text-muted text-[16px] leading-none hover:bg-line hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary transition-opacity ${triggerVisibility}`}
+      >
+        ⋯
+      </button>
+      {showRow && (
+        <div role="group" aria-label="Ações da mensagem" className="flex items-center gap-1">
+          {onReactPress && (
+            <button type="button" onClick={onReactPress} className={btn} aria-label="Reagir" title="Reagir">
+              😀
+            </button>
+          )}
+          <button type="button" onClick={onReply} className={btn} aria-label="Responder" title="Responder">
+            ↩
+          </button>
+          {onForward && (
+            <button type="button" onClick={onForward} className={btn} aria-label="Encaminhar" title="Encaminhar">
+              ↪
+            </button>
+          )}
+          <button type="button" onClick={onCopy} className={btn} aria-label="Copiar" title="Copiar">
+            📋
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -78,37 +125,58 @@ export function MessageBubble({
   const uri = mediaId ? mediaUrl(mediaId) : undefined;
   const expired = message.media?.expired;
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const reactions = message.reactions ?? [];
 
   const pickReaction = (emoji: string) => {
     setShowPicker(false);
+    setMenuOpen(false);
     const mineReaction = reactions.find((r) => r.fromMe)?.emoji;
     onReact?.(message, mineReaction === emoji ? '' : emoji);
   };
   const handleCopy = () => {
     if (message.text && navigator?.clipboard) navigator.clipboard.writeText(message.text).catch(() => undefined);
   };
+  const closeMenus = () => {
+    setMenuOpen(false);
+    setShowPicker(false);
+  };
 
   const actions = onReply && (
-    <Actions
-      onReply={() => onReply(message)}
-      onCopy={handleCopy}
+    <BubbleActions
+      open={menuOpen}
+      hovered={hovered}
+      onToggle={() => setMenuOpen((v) => !v)}
+      onReply={() => {
+        onReply(message);
+        closeMenus();
+      }}
+      onCopy={() => {
+        handleCopy();
+        setMenuOpen(false);
+      }}
       onReactPress={onReact ? () => setShowPicker((v) => !v) : undefined}
-      onForward={onForward ? () => onForward(message) : undefined}
+      onForward={onForward ? () => { onForward(message); closeMenus(); } : undefined}
     />
   );
 
   return (
     <div
-      className={`px-3 my-[3px] flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
+      className={`group px-3 my-[3px] flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => {
         setHovered(false);
-        setShowPicker(false);
+        closeMenus();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && (menuOpen || showPicker)) {
+          e.stopPropagation();
+          closeMenus();
+        }
       }}
     >
-      {mine && hovered && actions}
+      {mine && actions}
 
       {showSender && (
         <div
@@ -121,13 +189,13 @@ export function MessageBubble({
 
       <div className={`max-w-[78%] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {showPicker && (
-          <div className="mb-1 self-end flex items-center gap-1.5 bg-surfaceAlt rounded-2xl px-2 py-1.5 shadow-lg">
+          <div role="group" aria-label="Escolher reação" className="mb-1 self-end flex items-center gap-1.5 bg-surfaceAlt rounded-2xl px-2 py-1.5 shadow-lg">
             {QUICK_EMOJIS.map((e) => (
-              <button key={e} onClick={() => pickReaction(e)} className="text-[22px] leading-none">
+              <button key={e} type="button" onClick={() => pickReaction(e)} aria-label={`Reagir com ${e}`} className="text-[22px] leading-none outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full">
                 {e}
               </button>
             ))}
-            <button onClick={() => setShowPicker(false)} className="text-muted text-lg ml-0.5">
+            <button type="button" onClick={() => setShowPicker(false)} aria-label="Fechar reações" className="text-muted text-lg ml-0.5 outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full">
               ✕
             </button>
           </div>
@@ -206,7 +274,7 @@ export function MessageBubble({
         {reactions.length > 0 && <ReactionBadge reactions={reactions} />}
       </div>
 
-      {!mine && hovered && actions}
+      {!mine && actions}
     </div>
   );
 }

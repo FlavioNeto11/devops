@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import { useSessionStore } from '../store/session.store';
 import { IconBack, IconChevronRight } from '../components/icons';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 const STATUS_LABEL: Record<string, string> = {
   connected: 'Conectado',
@@ -19,6 +21,26 @@ export function SettingsPage() {
   const phoneNumber = useSessionStore((s) => s.phoneNumber);
   const disconnect = useSessionStore((s) => s.disconnect);
   const connected = status === 'connected';
+
+  // Desconectar é destrutivo (expurga os dados de IA — RN15) e exige confirmação
+  // explícita antes de executar, com feedback de progresso e de erro.
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
+
+  const onConfirmDisconnect = async () => {
+    setDisconnecting(true);
+    setDisconnectError(null);
+    useSessionStore.getState().setError(null);
+    await disconnect();
+    const err = useSessionStore.getState().error;
+    setDisconnecting(false);
+    if (err) {
+      setDisconnectError(err);
+    } else {
+      setConfirmDisconnect(false);
+    }
+  };
 
   const Row = ({ label, value, onClick, danger }: { label: string; value?: string; onClick?: () => void; danger?: boolean }) => (
     <button
@@ -59,7 +81,7 @@ export function SettingsPage() {
           <Row label="Status" value={STATUS_LABEL[status] ?? status} />
           {connected && phoneNumber && <Row label="Número" value={phoneNumber} />}
           {connected ? (
-            <Row label="Desconectar aparelho" danger onClick={() => disconnect()} />
+            <Row label="Desconectar aparelho" danger onClick={() => setConfirmDisconnect(true)} />
           ) : (
             <Row label="Conectar WhatsApp" onClick={() => nav('/connect')} />
           )}
@@ -80,6 +102,26 @@ export function SettingsPage() {
           ZapBridge — seu WhatsApp na web. Uso legítimo: apenas a sua própria conta.
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDisconnect}
+        title="Desconectar aparelho?"
+        confirmLabel="Desconectar"
+        danger
+        busy={disconnecting}
+        error={disconnectError}
+        onCancel={() => {
+          if (!disconnecting) {
+            setConfirmDisconnect(false);
+            setDisconnectError(null);
+          }
+        }}
+        onConfirm={onConfirmDisconnect}
+      >
+        Isto encerra a sessão do WhatsApp e limpa as conversas deste aparelho. Os
+        dados de IA da sua conta (memória, embeddings e base de conhecimento) serão
+        apagados. Para voltar a usar, você precisará ler um novo QR Code.
+      </ConfirmDialog>
     </div>
   );
 }

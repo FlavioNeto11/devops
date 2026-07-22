@@ -6,6 +6,7 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
+  const sessionExpired = useAuthStore((s) => s.sessionExpired);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -21,6 +22,15 @@ export function LoginPage() {
           <div className="text-4xl font-extrabold text-primary tracking-tight">ZapBridge</div>
           <div className="text-muted mt-1 text-sm">Seu WhatsApp na web</div>
         </div>
+
+        {sessionExpired && (
+          <div
+            role="status"
+            className="mb-4 rounded-xl bg-surface border border-line px-4 py-3 text-sm text-white"
+          >
+            Sua sessão expirou. Entre novamente para continuar.
+          </div>
+        )}
 
         <label htmlFor="login-email" className="block text-sm text-muted mb-1">E-mail</label>
         <input
