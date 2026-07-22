@@ -549,7 +549,7 @@ const kpiPatientsHint = computed(() => {
 const recentPatients = computed(() => patients.rows.slice(0, 8));
 const patientsColumns = [
   { key: 'name', label: 'Paciente', sortable: false },
-  { key: 'cpf', label: 'CPF' },
+  { key: 'document', label: 'CPF' },
   { key: 'created_at', label: 'Cadastro', format: 'date' },
   { key: 'status', label: 'Situação', format: 'badge' },
 ];
