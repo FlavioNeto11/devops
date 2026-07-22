@@ -40,7 +40,7 @@ lógica/function-calling · **Claude** = redação/análise · **Gemini** = docu
 > **não** é dependência do frontend (`frontend/package.json` só traz `vue`/`pinia`/`vue-router`). Uma
 > eventual convergência para `ui-vue` é trabalho futuro, não um fato entregue.
 
-## Fases (roadmap) — TODAS ENTREGUES e no ar (`:local`, verificadas)
+## Fases (roadmap) — TODAS ENTREGUES e no ar (`:local`)
 
 `F0` skeleton ✅ · `F1` data plane + auth ✅ · `F2` motor IA + adaptador Gemini (ai-core 0.7.0) ✅ ·
 `F3` Captação/Imóveis + Leads (busca semântica) ✅ · `F4` Agenda + Documentos + Vistoria (uploads) ✅ ·
@@ -51,6 +51,11 @@ lógica/function-calling · **Claude** = redação/análise · **Gemini** = docu
 multi-modelo (Cortex/GPT/Claude/Gemini) fail-soft. **Para acender a IA:** o operador põe
 `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` no Secret `imobia-config` (Sealed Secrets)
 — até lá as IAs ficam dormentes e todos os módulos funcionam manualmente.
+
+> **Dívida técnica — verificação:** as fases foram validadas por **build/typecheck e smoke manual**;
+> **não há suíte de testes automatizados** (o `frontend` só expõe `dev`/`build`/`preview`; a `api`, só
+> `typecheck`). "Entregue" ≠ "coberto por testes" — criar um smoke E2E das jornadas principais é
+> trabalho pendente, não um fato entregue.
 
 > **GitOps:** o app **já vive sob Argo CD** (Application `platform/argocd/apps/imobia.yaml` com
 > `automated: { prune, selfHeal }`). Logo, **manifesto** (`apps/imobia/k8s/**`, env/mem/secret) muda

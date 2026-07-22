@@ -12,6 +12,7 @@ const loadError = ref('');
 const showForm = ref(false);
 const saving = ref(false);
 const formError = ref('');
+const editingId = ref(null);
 const scoring = ref('');
 const detail = ref(null);
 const detailTimeline = ref([]);
@@ -19,12 +20,23 @@ const detailOpen = ref(false);
 const detailLoading = ref(false);
 const detailError = ref('');
 const detailId = ref(null);
+const confirmDel = ref(false);
+const removing = ref(false);
+const actionError = ref('');
 const aiStatus = ref(null);
 const aiMsg = ref('');
 const aiErr = ref(false);
 
 const empty = () => ({ name: '', phone: '', email: '', interest: 'compra', budgetMin: null, budgetMax: null, sourceChannel: '', notes: '' });
+// Mapeia um lead carregado para o shape do form (reuso do form de criacao na edicao; +stage).
+const toForm = (d) => ({
+  name: d.name || '', phone: d.phone || '', email: d.email || '', interest: d.interest || 'compra',
+  stage: d.stage || 'novo', budgetMin: d.budgetMin ?? null, budgetMax: d.budgetMax ?? null,
+  sourceChannel: d.sourceChannel || '', notes: d.notes || '',
+});
 const form = ref(empty());
+
+function openNew() { editingId.value = null; form.value = empty(); formError.value = ''; showForm.value = true; }
 
 async function load() {
   loading.value = true; loadError.value = '';
@@ -32,14 +44,22 @@ async function load() {
   catch (e) { loadError.value = e.message || 'Falha ao carregar os leads.'; }
   finally { loading.value = false; }
 }
+function openEdit() {
+  if (!detail.value) return;
+  editingId.value = detail.value.id;
+  form.value = toForm(detail.value); formError.value = '';
+  detailOpen.value = false;
+  showForm.value = true;
+}
 async function save() {
   saving.value = true; formError.value = '';
   try {
     const body = { ...form.value };
     ['budgetMin', 'budgetMax'].forEach((k) => { if (body[k] === '' || body[k] == null) delete body[k]; else body[k] = Number(body[k]); });
     ['phone', 'email', 'sourceChannel', 'notes'].forEach((k) => { if (!body[k]) delete body[k]; });
-    await api.create('leads', body);
-    showForm.value = false; form.value = empty();
+    if (editingId.value) await api.update('leads', editingId.value, body);
+    else await api.create('leads', body);
+    showForm.value = false; editingId.value = null; form.value = empty();
     await load();
   } catch (e) { formError.value = e.message; } finally { saving.value = false; }
 }
@@ -54,6 +74,7 @@ async function score(id) {
 }
 async function openDetail(id) {
   detailId.value = id; detailOpen.value = true; detailLoading.value = true; detailError.value = '';
+  confirmDel.value = false; actionError.value = '';
   detail.value = null; detailTimeline.value = [];
   try {
     const r = await api.get('leads', id);
@@ -65,7 +86,20 @@ async function refreshDetail() {
   try { const r = await api.get('leads', detailId.value); detail.value = r.data; detailTimeline.value = r.timeline || []; }
   catch { /* mantem o detalhe atual */ }
 }
-function closeDetail() { detailOpen.value = false; detail.value = null; detailError.value = ''; }
+function closeDetail() { detailOpen.value = false; detail.value = null; detailError.value = ''; confirmDel.value = false; actionError.value = ''; }
+function askDelete() { confirmDel.value = true; actionError.value = ''; }
+function cancelDelete() { confirmDel.value = false; }
+async function doDelete() {
+  if (!detail.value) return;
+  removing.value = true; actionError.value = '';
+  try {
+    await api.remove('leads', detail.value.id);
+    confirmDel.value = false;
+    closeDetail();
+    await load();
+  } catch (e) { actionError.value = e.message || 'Falha ao excluir o lead.'; }
+  finally { removing.value = false; }
+}
 // Só abre o detalhe quando o teclado age sobre a própria linha (ignora o botão de score aninhado).
 function onRowKey(e, id) {
   if (e.target !== e.currentTarget) return;
@@ -82,7 +116,7 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
         <h1><Icon name="users" :size="22" /> Clientes / Leads</h1>
         <p>Coleta e qualificação. {{ items.length }} leads · scoring por IA {{ aiStatus && !aiStatus.dormant ? 'ativo' : 'dormente' }}.</p>
       </div>
-      <button class="im-btn-primary" @click="showForm = true; form = empty()"><Icon name="plus" :size="16" /> Novo lead</button>
+      <button class="im-btn-primary" @click="openNew"><Icon name="plus" :size="16" /> Novo lead</button>
     </div>
 
     <p v-if="aiMsg" class="im-notice" :class="{ err: aiErr }" style="margin-bottom:14px">{{ aiMsg }}</p>
@@ -95,7 +129,7 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
     <div v-else-if="!items.length" class="ap-empty">
       <Icon name="users" :size="34" />
       <p>Nenhum lead ainda. Cadastre o primeiro cliente.</p>
-      <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Novo lead</button>
+      <button class="im-btn-primary" @click="openNew"><Icon name="plus" :size="16" /> Novo lead</button>
     </div>
     <div v-else class="ap-table-wrap">
       <table class="ap-table">
@@ -113,9 +147,10 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
       </table>
     </div>
 
-    <Modal :open="showForm" title="Novo lead" @close="showForm = false">
+    <Modal :open="showForm" :title="editingId ? 'Editar lead' : 'Novo lead'" @close="showForm = false">
       <div class="ap-form">
         <label class="full">Nome<input v-model="form.name" placeholder="Nome do cliente" /></label>
+        <label v-if="editingId">Estágio<select v-model="form.stage"><option value="novo">Novo</option><option value="qualificando">Qualificando</option><option value="qualificado">Qualificado</option><option value="negociando">Negociando</option><option value="fechado">Fechado</option><option value="perdido">Perdido</option></select></label>
         <label>Telefone<input v-model="form.phone" /></label>
         <label>E-mail<input v-model="form.email" type="email" /></label>
         <label>Interesse<select v-model="form.interest"><option value="compra">Compra</option><option value="locacao">Locação</option><option value="ambos">Ambos</option></select></label>
@@ -127,7 +162,7 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
       <p v-if="formError" class="im-notice err" style="margin-top:12px">{{ formError }}</p>
       <template #footer>
         <button class="im-linkbtn" @click="showForm = false">Cancelar</button>
-        <button class="im-btn-primary" :disabled="saving || !form.name" @click="save">{{ saving ? 'Salvando…' : 'Cadastrar lead' }}</button>
+        <button class="im-btn-primary" :disabled="saving || !form.name" @click="save">{{ saving ? 'Salvando…' : (editingId ? 'Salvar alterações' : 'Cadastrar lead') }}</button>
       </template>
     </Modal>
 
@@ -156,6 +191,18 @@ onMounted(async () => { await load(); try { aiStatus.value = await api.aiStatus(
             <div><strong>{{ t.title }}</strong><small v-if="t.summary"> — {{ t.summary }}</small><em>{{ dateTimeBr(t.createdAt) }}</em></div>
           </div>
           <p v-if="!detailTimeline.length" class="im-notice">Sem eventos ainda.</p>
+        </div>
+        <p v-if="actionError" class="im-notice err" style="margin-top:14px">{{ actionError }}</p>
+        <div class="ap-detail-actions">
+          <template v-if="!confirmDel">
+            <button class="im-linkbtn danger" @click="askDelete"><Icon name="trash" :size="15" /> Excluir</button>
+            <button class="im-btn-primary" @click="openEdit"><Icon name="edit" :size="15" /> Editar</button>
+          </template>
+          <template v-else>
+            <span class="ap-confirm-msg">Excluir “{{ detail.name }}” permanentemente?</span>
+            <button class="im-linkbtn" :disabled="removing" @click="cancelDelete">Cancelar</button>
+            <button class="im-btn-danger" :disabled="removing" @click="doDelete">{{ removing ? 'Excluindo…' : 'Confirmar exclusão' }}</button>
+          </template>
         </div>
       </div>
     </Modal>
