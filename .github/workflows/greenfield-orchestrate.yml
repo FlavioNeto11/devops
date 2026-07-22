@@ -40,8 +40,8 @@ jobs:
     name: Orquestrar build (dispara waves prontos)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Instalar deps de specs/tools
