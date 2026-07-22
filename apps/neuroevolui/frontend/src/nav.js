@@ -22,7 +22,6 @@ export const nav = [
     items: [
       { label: 'Visão financeira', to: '/financial', icon: '◭' },
       { label: 'Transações', to: '/payment-transactions', icon: '$' },
-      { label: 'Auditoria', to: '/audit-logs', icon: '⚖' },
     ],
   },
   {
@@ -35,6 +34,7 @@ export const nav = [
   {
     group: 'Operações',
     items: [
+      { label: 'Auditoria', to: '/audit-logs', icon: '⚖' },
       { label: 'Jobs assíncronos', to: '/async-jobs', icon: '⟳' },
       { label: 'Notificações', to: '/notification-preferences', icon: '◐' },
       { label: 'Configurações', to: '/settings', icon: '⚙' },

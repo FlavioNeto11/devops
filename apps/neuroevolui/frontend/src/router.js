@@ -58,13 +58,13 @@ export const routes = [
 
   // Pacientes
   { path: '/patients', name: 'patient-list', component: PatientListView },
-  { path: '/patients/new', name: 'patient-create', component: PatientCreateView },
+  { path: '/patients/new', alias: '/patients/novo', name: 'patient-create', component: PatientCreateView },
   { path: '/patients/:id', name: 'patient-detail', component: PatientDetailView, props: true },
   { path: '/patients/:id/edit', name: 'patient-edit', component: PatientEditView, props: true },
 
   // Evoluções clínicas
   { path: '/evolution-notes', name: 'evolution-note-list', component: EvolutionNoteListView },
-  { path: '/evolution-notes/new', name: 'evolution-note-create', component: EvolutionNoteCreateView },
+  { path: '/evolution-notes/new', alias: '/evolution-notes/novo', name: 'evolution-note-create', component: EvolutionNoteCreateView },
   { path: '/evolution-notes/:id/edit', name: 'evolution-note-edit', component: EvolutionNoteEditView, props: true },
   { path: '/evolution-notes/:id', name: 'evolution-note-detail', component: EvolutionNoteDetailView, props: true },
 
@@ -75,13 +75,13 @@ export const routes = [
 
   // Profissionais
   { path: '/professionals', name: 'professional-list', component: ProfessionalListView },
-  { path: '/professionals/new', name: 'professional-create', component: ProfessionalCreateView },
+  { path: '/professionals/new', alias: '/professionals/novo', name: 'professional-create', component: ProfessionalCreateView },
   { path: '/professionals/:id/edit', name: 'professional-edit', component: ProfessionalEditView, props: true },
   { path: '/professionals/:id', name: 'professional-detail', component: ProfessionalDetailView, props: true },
 
   // Relatórios de pacientes
   { path: '/patient-reports', name: 'patient-report-list', component: PatientReportListView },
-  { path: '/patient-reports/new', name: 'patient-report-create', component: PatientReportCreateView },
+  { path: '/patient-reports/new', alias: '/patient-reports/novo', name: 'patient-report-create', component: PatientReportCreateView },
   { path: '/patient-reports/:id', name: 'patient-report-detail', component: PatientReportDetailView, props: true },
 
   // Financeiro
@@ -94,13 +94,13 @@ export const routes = [
 
   // Base de conhecimento
   { path: '/knowledge-sources', name: 'knowledge-source-list', component: KnowledgeSourceListView },
-  { path: '/knowledge-sources/new', name: 'knowledge-source-create', component: KnowledgeSourceCreateView },
+  { path: '/knowledge-sources/new', alias: '/knowledge-sources/novo', name: 'knowledge-source-create', component: KnowledgeSourceCreateView },
   { path: '/knowledge-sources/:id/edit', name: 'knowledge-source-edit', component: KnowledgeSourceEditView, props: true },
   { path: '/knowledge-sources/:id', name: 'knowledge-source-detail', component: KnowledgeSourceDetailView, props: true },
 
   // Preferências de notificação
   { path: '/notification-preferences', name: 'notification-preference-list', component: NotificationPreferenceListView },
-  { path: '/notification-preferences/new', name: 'notification-preference-create', component: NotificationPreferenceCreateView },
+  { path: '/notification-preferences/new', alias: '/notification-preferences/novo', name: 'notification-preference-create', component: NotificationPreferenceCreateView },
   { path: '/notification-preferences/:id/edit', name: 'notification-preference-edit', component: NotificationPreferenceEditView, props: true },
 
   // Auditoria
