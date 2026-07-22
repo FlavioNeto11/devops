@@ -50,7 +50,7 @@ onMounted(load);
     <div v-if="loading" class="im-notice">Carregando…</div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="bank" :size="34" /><p>Nenhum caso de recuperação de crédito.</p></div>
     <div v-else class="ap-cards">
-      <article v-for="c in items" :key="c.id" class="ap-card" @click="open(c.id)">
+      <article v-for="c in items" :key="c.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir caso de ${c.personName}`" @click="open(c.id)" @keydown.enter="open(c.id)" @keydown.space.prevent="open(c.id)">
         <div class="ap-card-top"><StatusBadge :status="c.status" /><span class="ap-code">{{ c.goal }}</span></div>
         <h3>{{ c.personName }}</h3>
         <div class="ap-card-meta">{{ c.restrictions?.length || 0 }} restrições<span v-if="c.currentScore"> · score {{ c.currentScore }}</span></div>

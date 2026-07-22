@@ -57,7 +57,7 @@ onMounted(load);
       <h2 class="im-section-title">Análises (ACM)</h2>
       <div v-if="!runs.length" class="ap-empty"><Icon name="chart" :size="34" /><p>Nenhuma análise ainda.</p></div>
       <div v-else class="ap-cards">
-        <article v-for="r in runs" :key="r.id" class="ap-card" @click="open(r.id)">
+        <article v-for="r in runs" :key="r.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir análise de mercado ${r.avgPricePerM2 ? brl(r.avgPricePerM2) + ' por m²' : 'em aberto'}`" @click="open(r.id)" @keydown.enter="open(r.id)" @keydown.space.prevent="open(r.id)">
           <div class="ap-card-top"><StatusBadge :status="r.status" /><span class="ap-code">{{ r.comparables?.length || 0 }} comp.</span></div>
           <h3>{{ r.avgPricePerM2 ? brl(r.avgPricePerM2) + '/m²' : 'ACM em aberto' }}</h3>
           <div class="ap-card-meta">{{ r.sampleSize }} amostras</div>
@@ -69,7 +69,7 @@ onMounted(load);
       <table v-else class="ap-table">
         <thead><tr><th>Metodologia</th><th>Valor estimado</th><th>Grau</th><th>Status</th><th>Data</th></tr></thead>
         <tbody>
-          <tr v-for="pt in ptams" :key="pt.id" @click="ptamDetail = pt">
+          <tr v-for="pt in ptams" :key="pt.id" role="button" tabindex="0" :aria-label="`Abrir parecer ${pt.methodology}`" @click="ptamDetail = pt" @keydown.enter="ptamDetail = pt" @keydown.space.prevent="ptamDetail = pt">
             <td>{{ pt.methodology }}</td><td>{{ pt.estimatedValue ? brl(pt.estimatedValue) : '—' }}</td>
             <td>{{ pt.confidenceGrade }}</td><td><StatusBadge :status="pt.status === 'generated' ? 'concluido' : 'aberto'" /></td>
             <td><small>{{ dateBr(pt.createdAt) }}</small></td>
