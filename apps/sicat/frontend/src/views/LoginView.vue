@@ -17,6 +17,7 @@ const email = ref(import.meta.env.VITE_LOGIN_EMAIL || '');
 const password = ref('');
 const showPassword = ref(false);
 const formError = ref('');
+const formNotice = ref('');
 const registerMode = ref(false);
 const registerName = ref('');
 const registerEmail = ref('');
@@ -53,6 +54,7 @@ function isValidEmail(value) {
 
 async function handleLogin() {
   formError.value = '';
+  formNotice.value = '';
 
   if (!isValidEmail(email.value)) {
     formError.value = 'Informe um e-mail válido.';
@@ -68,11 +70,13 @@ async function handleLogin() {
 
 async function loginWithKeycloak() {
   formError.value = '';
+  formNotice.value = '';
   await startKeycloakLogin();
 }
 
 function handleForgotPassword() {
-  formError.value = 'Solicite a redefinição de senha com o administrador do SICAT.';
+  formError.value = '';
+  formNotice.value = 'Para redefinir sua senha, procure o administrador do SICAT na sua organização. Se você acessa por SSO, use o botão "Entrar com Keycloak (SSO)" abaixo.';
 }
 
 function toggleRegisterMode() {
@@ -254,6 +258,16 @@ async function handleRegister() {
             density="compact"
           >
             {{ authError }}
+          </v-alert>
+
+          <v-alert
+            v-if="formNotice"
+            type="info"
+            variant="tonal"
+            class="mb-4"
+            density="compact"
+          >
+            {{ formNotice }}
           </v-alert>
 
           <div class="auth-actions mb-4">

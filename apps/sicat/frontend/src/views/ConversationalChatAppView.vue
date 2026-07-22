@@ -338,6 +338,9 @@ onMounted(async () => {
             Consultas operacionais sobre manifestos, jobs, auditoria e dashboard —
             sempre no contexto da conta CETESB ativa.
           </p>
+          <p class="chat-empty-disclosure">
+            Respostas geradas por IA podem conter erros — confira antes de agir.
+          </p>
           <div class="chat-empty-grid">
             <button
               v-for="action in quickActions"
@@ -497,7 +500,7 @@ onMounted(async () => {
       />
       <div class="chat-composer-foot">
         <span class="chat-composer-hint">
-          Enter envia · Shift+Enter quebra linha · ações sensíveis pedem confirmação
+          Respostas geradas por IA podem conter erros — confira antes de agir. · Enter envia · Shift+Enter quebra linha · ações sensíveis pedem confirmação
         </span>
         <div class="chat-composer-buttons">
           <v-btn
@@ -717,6 +720,12 @@ onMounted(async () => {
   margin: 0;
   font-size: 0.88rem;
   color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.chat-empty-disclosure {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .chat-empty-grid {

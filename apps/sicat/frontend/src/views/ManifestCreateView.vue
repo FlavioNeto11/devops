@@ -74,10 +74,8 @@ function goBack() {
           <v-col>
             <div class="text-overline text-primary mb-1">Novo manifesto</div>
             <h2 class="text-h4 font-weight-semibold mb-1">Emissão guiada de MTR</h2>
-            <p class="text-body-2 text-medium-emphasis mb-2">O fluxo agora segue um wizard amplo: contexto, participantes, resíduo e revisão final antes da criação.</p>
+            <p class="text-body-2 text-medium-emphasis mb-2">Emissão em quatro passos: contexto da viagem, participantes, resíduo e revisão final antes de criar.</p>
             <div class="d-flex flex-wrap ga-2 align-center">
-              <v-chip size="small" color="warning" variant="tonal">Em elaboração</v-chip>
-              <v-chip size="small" color="primary" variant="tonal">Wizard checkout-inspired</v-chip>
               <span class="text-caption text-medium-emphasis">Conta ativa: <strong>{{ activeAccountLabel }}</strong></span>
             </div>
           </v-col>
