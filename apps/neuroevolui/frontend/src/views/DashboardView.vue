@@ -48,7 +48,7 @@
         :hint="kpiRevenueHint"
         :loading="revenue.loading"
         clickable
-        @click="go('/revenue')"
+        @click="go('/financial')"
       />
       <UiMetricCard
         label="Pacientes ativos"
@@ -75,7 +75,7 @@
         :hint="kpiJobsHint"
         :loading="asyncJobs.loading"
         clickable
-        @click="go('/jobs')"
+        @click="go('/async-jobs')"
       />
     </section>
 
@@ -85,7 +85,7 @@
       <!-- Gráfico de receita por período -->
       <UiCard title="Receita por período" :subtitle="revenueChartSubtitle">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/revenue">Ver detalhes</UiButton>
+          <UiButton variant="ghost" size="sm" to="/financial">Ver detalhes</UiButton>
         </template>
 
         <UiErrorState
@@ -109,7 +109,7 @@
               icon="chart"
             >
               <template #action>
-                <UiButton variant="ghost" size="sm" to="/transactions">Ver transações</UiButton>
+                <UiButton variant="ghost" size="sm" to="/payment-transactions">Ver transações</UiButton>
               </template>
             </UiEmptyState>
           </template>
@@ -257,7 +257,7 @@
       <!-- Status das filas assíncronas -->
       <UiCard title="Filas assíncronas" subtitle="Status dos jobs em processamento (BullMQ).">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/jobs">Ver monitor</UiButton>
+          <UiButton variant="ghost" size="sm" to="/async-jobs">Ver monitor</UiButton>
         </template>
 
         <UiErrorState
