@@ -25,6 +25,7 @@
 16. [Estratégia de QA e regressão](#16-estratégia-de-qa-e-regressão)
 17. [O que não foi possível verificar](#17-o-que-não-foi-possível-verificar)
 18. [Perguntas ao responsável de produto](#18-perguntas-ao-responsável-de-produto)
+19. [Status de execução (Onda 0/1)](#19-status-de-execução-onda-01--iniciada-em-2026-07-21)
 
 ---
 
@@ -3650,3 +3651,72 @@ abaixo são complementares, vindas dos auditores de cada superfície):
 - Há apetite para required checks por app (hoje só baseline/reqhub-gate são required) quando os gates novos estabilizarem?
 - A galeria de componentes do ui-vue (pré-requisito de axe+visual diff do DS) pode virar entregável da onda 3 do Plano Mestre?
 - O gate de evidência para status 'deployed' na baseline (UX-DOCS-010) deve nascer junto com os harnesses (mesmo PR de governança)?
+
+---
+
+## 19. Status de execução (Onda 0/1 — iniciada em 2026-07-21)
+
+Registro do que já foi endereçado em PRs abertos (todos contra `main`, **sem merge** — revisão e
+merge são do operador). Cada PR é cirúrgico, referencia os IDs que cobre e traz sua verificação.
+
+### 19.1 PRs abertos
+
+| PR | Escopo | IDs cobertos | Verificação |
+|---|---|---|---|
+| #254 | Plano Mestre (este documento) + decisões D1–D11 | — | doc |
+| #255 | Portal Recorder: remover keyboard trap do canvas | UX-PREC-001 (P0) | 1 arquivo |
+| #256 | platform-shell: sonda `redirect:'manual'` + a11y do launcher (redistribuído a 4 frontends) | UX-NAV-002, UX-PORTAL-003 | `node --test` 11/11 |
+| #257 | SSO/ForwardAuth na borda dos frontends CV360 e NeuroEvolui | UX-CV360-001 (P0), UX-NEURO-001 (P0) | YAML + `kubectl --dry-run` |
+| #258 | Contraste AA de badges/status (design-tokens + ui-vue + portal) + teste no CI | UX-A11Y-003, UX-PORTAL-001, UX-DS-002 | `node --test` + build-check; ratios ≥4,5:1 |
+| #259 | Verdade documental (zapbridge devops.yaml/docs, imobia CLAUDE.md, rmambiental docs) | UX-ZAP-007, UX-DOCS-007/004/008/011, UX-RMAMB-002 | edições de texto/config |
+| #260 | SICAT: ações de admin em /admin/acessos (grant/revoke/reset/expire) | UX-SICAT-003 | build vite |
+| #261 | ContaViva Pro: renovar sessão no 401 + redirect a /login | UX-CVPRO-003/004 | build vite |
+| #262 | GymOps: abrir atividade por teclado (card e linha) | UX-GYMOPS-002 (P0), UX-A11Y-001 (gymops) | estática (deps pnpm ausentes) |
+| #263 | NeuroEvolui: 21 links mortos reapontados + confirm quebrado | UX-NEURO-002/003 | build vite |
+| #264 | ContaViva 360: remover becos sem saída da navegação (D3 curto prazo) | UX-CV360-002 (P0), UX-CV360-010 | build vite |
+| #265 | RM Ambiental: labels do formulário + skip-link + envio resiliente | UX-RMAMB-001/006/007 | build vite |
+| #266 | Imobia: detalhes por teclado + Modal focus-trap/Esc | UX-IMOBIA-001 (P0), UX-IMOBIA-002 | build vite |
+| #267 | BESC: auditoria read-only não cai na área de gestão + resgate de convite | UX-BESC-002, UX-BESC-001 | build vite |
+| #268 | Console: card do kanban focável + focus-trap em modais + anti-descarte no CMS | UX-CONSOLE-001/002/003 | build vite |
+| #269 | DESIGN_SYSTEM.md reflete os pacotes reais (ui-vue/platform-shell) | UX-DS-001 | doc |
+| #270 | Reqhub: tabelas semânticas acessíveis + confirmação de blast-radius na Forja | UX-REQHUB-001/002/004 | `node --test` |
+| #271 | ContaViva 360: clicáveis por teclado + rótulos nos filtros | UX-CV360-008/007 | build vite |
+| #272 | SICAT: CTAs do dashboard levam à lista filtrada (?focus consumido) | UX-SICAT-001 | build vite |
+| #273 | ZapBridge: ações de mensagem por teclado + erro≠vazio + confirmar desconexão | UX-ZAP-001/002/003/004 | build vite (tsc+vite) |
+
+### 19.2 Cobertura dos 10 P0
+
+| P0 | Estado |
+|---|---|
+| UX-PREC-001 (keyboard trap) | ✅ PR #255 |
+| UX-CV360-001 (SPA sem guard) | ✅ PR #257 |
+| UX-NEURO-001 (SPA sem guard) | ✅ PR #257 |
+| UX-GYMOPS-002 (teclado atividade) | ✅ PR #262 |
+| UX-IMOBIA-001 (teclado/modal) | ✅ PR #266 |
+| UX-CV360-002 (becos sem saída) | ✅ PR #264 (curto prazo) |
+| UX-A11Y-001 (clicável sistêmico) | ✅ parcial — gymops/imobia/console/cv360 (PR #262/#266/#268/#271); **falta BESC** |
+| UX-CVPRO-001 (API records exposta) | ⛔ **bloqueado por D9** (teste LOCKED da Forge + manifesto compilado) |
+| UX-CVPRO-002 (edição sem endpoint) | ⛔ **bloqueado por D10** (criar endpoint de update) |
+| UX-GYMOPS-001 (callback SSO) | ⛔ **bloqueado por D11** (backend expor org/papel) |
+
+**7 dos 10 P0 endereçados por PR** (o UX-A11Y-001 com BESC pendente). Os 3 restantes exigem
+decisão/mudança de backend (D9–D11) e estão documentados — nenhum foi contornado com gambiarra.
+
+### 19.3 O que permanece (honestidade de escopo)
+
+- **Bloqueado por decisão do dono:** D9 (records da Forge), D10 (endpoint de edição CVPro), D11
+  (callback SSO GymOps), D3 (visão de 7 perfis do CV360), UX-DOCS-001/005 (baseline de specs — não
+  tocada por risco de corromper a fonte da verdade da esteira).
+- **Backlog não iniciado:** o grosso de P2/P3 (polimento, microcopy, performance percebida) das
+  Ondas 1–4 — ~230 achados de baixo esforço unitário que devem seguir em **lotes por app** (1 PR por
+  app, guiado pela tabela 10.1) e não justificam PRs individuais neste momento. A11y de fluxo
+  principal e os P1 de estados/becos de maior valor já foram cobertos acima.
+- **Fundação de QA (PR-01/harnesses):** os smokes por papel (H1–H6, §16) não foram criados porque
+  exigem infra de CI (Postgres/Playwright/servers) cuja configuração é decisão de plataforma — é o
+  próximo passo recomendado antes de expandir a automação de correções.
+
+> **Nota de processo:** os PRs desta execução foram abertos via a ferramenta PowerShell porque o
+> projeto tem deny rules de Bash para `git push`/`gh pr create`; o operador autorizou explicitamente
+> este fluxo nesta sessão após ser informado. Nenhum PR foi mesclado (`gh pr merge` permanece
+> bloqueado e intocado). Se o fluxo preferido for outro (esteira via label, ou push manual do
+> operador), basta orientar.
