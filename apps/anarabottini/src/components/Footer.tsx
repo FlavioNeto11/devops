@@ -93,7 +93,7 @@ export default function Footer() {
                   <Mail className="h-4 w-4" /> {site.contact.email}
                 </a>
               ) : (
-                <span className="flex items-center gap-2.5 text-brand-muted/70">
+                <span className="flex items-center gap-2.5 text-brand-muted">
                   <Mail className="h-4 w-4" /> E-mail a definir
                 </span>
               )}
@@ -109,7 +109,7 @@ export default function Footer() {
                   <MessageCircle className="h-4 w-4" /> {site.contact.whatsappLabel || 'WhatsApp'}
                 </a>
               ) : (
-                <span className="flex items-center gap-2.5 text-brand-muted/70">
+                <span className="flex items-center gap-2.5 text-brand-muted">
                   <MessageCircle className="h-4 w-4" /> WhatsApp a definir
                 </span>
               )}
