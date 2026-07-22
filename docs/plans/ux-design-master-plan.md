@@ -3722,3 +3722,38 @@ gambiarra. Ou seja: **100% dos P0 corrigíveis sem uma decisão do dono estão e
 > este fluxo nesta sessão após ser informado. Nenhum PR foi mesclado (`gh pr merge` permanece
 > bloqueado e intocado). Se o fluxo preferido for outro (esteira via label, ou push manual do
 > operador), basta orientar.
+
+### 19.4 Fechamento — branch de integração e placar final
+
+Com o dono liberando trabalho direto em branch (sem PR por item), toda a Onda 0/1 e o polimento
+viável foram consolidados em **`ux/onda-integration`** (ramificada de `main`, **não mesclada** — merge
+é do operador). As 21 branches de PR + as levas seguintes integraram **sem nenhum conflito**;
+drift-gate (design-tokens + platform-shell) e testes de contraste seguem **verdes** na integração.
+
+**Levas executadas:**
+- Levas 1–4 (20 PRs #255–#274): P0 + P1 de alto valor por superfície.
+- Leva 5: P1 restantes de Portal Recorder, Ana Rabottini, Imobia (estados) e GymOps.
+- Leva 6: varredura P2/P3 nos 12 apps — **96 achados** cobertos, 78 pulados **com motivo** (backend/decisão/risco, não inventados).
+- Leva 7: últimos P1 de frontend (ContaViva 360, NeuroEvolui, Imobia).
+
+**Livro-razão de cobertura (dos 304 achados):**
+
+| Categoria | Qtd | % | Por severidade |
+|---|---|---|---|
+| **Feitos na integração** | 167 | 55% | P0=7 · P1=51 · P2=66 · P3=43 |
+| Bloqueados (decisão/backend) ou pulados com motivo | 78 | 26% | — |
+| Polimento não tocado (baixo valor/risco) | 59 | 19% | P1=11 · P2=29 · P3=19 |
+
+- **P0: 7 de 10** (100% dos corrigíveis sem decisão). Os 3 restantes = D9/D10/D11.
+- **P1: 51 de 77.** Os 11 P1 não feitos são: QA-harnesses UX-QA-001/002/003/004 (precisam de infra
+  de CI), UX-NAV-001 (platform-shell nos apps de produto, arquitetural), UX-NAV-003 (D6, domínio de
+  login), UX-CONSOLE-004/005 (**feitos** sob IDs renumerados 002/003 — falso-negativo do razão),
+  UX-RMAMB-003 (números ilustrativos, decisão de conteúdo), UX-ZAP-006 (revogar consentimento de IA,
+  backend), UX-A11Y-002 (focus-trap sistêmico — coberto na prática pelos modais já corrigidos).
+
+**Estado da branch:** `ux/onda-integration` — 201 arquivos, +9067/−1187 vs `main`.
+
+**Como o operador pode consumir:** (a) mesclar `ux/onda-integration` inteira (após revisar), OU
+(b) mesclar os PRs #255–#274 individualmente (Onda 0/1 núcleo) e cereja-pegar as levas 5–7 depois.
+Em ambos os casos, **#257 (auth de borda) por último e com validação viva** — aplica manifests que o
+Argo sincroniza no cluster. `main` permanece intocada até a decisão do operador.
