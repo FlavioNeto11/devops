@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, follow" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,6 +18,10 @@
     />
     <link rel="stylesheet" href="/assets/platform-tokens.css?v=3" />
     <link rel="stylesheet" href="/assets/styles.css?v=14" />
+    <!-- Aplica o tema persistido pela casca (nvit-theme) — a 404 não carrega o
+         <platform-shell>, então quem fixou tema escuro no toggle veria a 404 clara.
+         Externo p/ passar na CSP `script-src 'self'` sem hash inline. -->
+    <script src="/assets/theme-boot.js?v=1"></script>
   </head>
   <body>
     <div class="bg-grid" aria-hidden="true"></div>
