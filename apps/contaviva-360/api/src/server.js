@@ -54,7 +54,12 @@ app.addHook('onSend', async (req, reply, payload) => {
 
 // Records (base) com idempotência em criação
 app.get('/v1/records', async (req) => ({ data: await listRecords(req.tenantId) }));
-app.post('/v1/records', async (req, reply) => {
+// Guard RBAC no POST (mesmo mecanismo do DELETE :abaixo — requireRole/authContext). LIMITAÇÃO CONHECIDA:
+// o cv360 NÃO tem auth real (JWT) — a identidade vem de header stand-in X-Role (authContext), cujo piso é
+// 'member'. Logo requireRole('member') marca a rota como gated pelo RBAC, mas NÃO bloqueia escrita anônima
+// por si só (requisição sem X-Role já resolve para 'member'). Fechar de verdade exige adotar JWT (padrão
+// requireAuth do contaviva-pro) ou ForwardAuth na borda — trabalho fora deste escopo de blast-radius.
+app.post('/v1/records', { preHandler: requireRole('member') }, async (req, reply) => {
   const b = req.body || {};
   if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; }
   const key = req.headers['idempotency-key'];
