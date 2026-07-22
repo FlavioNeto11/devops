@@ -3778,3 +3778,40 @@ camada Playwright/axe (que precisa de infra de CI). Node puro, sem dependências
 
 **Estado final de `ux/onda-integration`:** 218 arquivos, +10427/−1216 vs `main`; drift-gate, contraste
 e os 2 guardas de QA todos verdes. `main` intocada.
+
+### 19.6 Decisões D9–D11 e D3 — resolvidas em código (na integração)
+
+Com o dono delegando as decisões, foram implementadas na branch de integração (**não mescladas**):
+
+- **D10 — edição no ContaViva Pro (fecha UX-CVPRO-002).** Adicionado `PUT /v1/records/:id`
+  (`apps/contaviva-pro/api/src/server.js`), espelhando o NeuroEvolui: edita `title`/`external_ref`,
+  valida corpo/title vazio (400), escopo por tenant, 404 se não achar, grava audit. O frontend já
+  chamava `PUT`. **Risco baixo, aditivo.**
+- **D9 — exposição de records da Forge (fecha UX-CVPRO-001).** `requireAuth` nas 5 rotas de records
+  do CVPro + tenant derivado do JWT (não mais do header spoofável). Para não recorrer em apps
+  futuros, o **gerador** foi corrigido (`specs/forge/scaffold-gymops.mjs` emite records com auth
+  quando o bloco `contas-acesso` está presente) e o **template do teste locked** passou a autenticar
+  (`specs/tools/make-test-suite.mjs`). A suíte LOCKED do CVPro foi **regenerada pelo caminho
+  sancionado** — `node specs/tools/make-test-suite.mjs --product contaviva-pro` — e o
+  `verify-test-locks` **passa** (9 testes íntegros, o teste regenerado autentica antes de postar). O
+  `integration.mjs` não-locked foi reordenado para autenticar.
+  - ⚠️ **Item nº1 de revisão humana antes do merge de produção:** o gate **`forge-tests` LIVE**
+    (Postgres+Redis, que sobe o app e roda os testes locked de verdade) **não pôde rodar localmente**
+    — roda na sua CI ao abrir o PR. É a validação final desta mudança de blast-radius de plataforma.
+  - **Limitação do ContaViva 360:** ele não tem JWT real (só header stand-in `X-Role`); recebeu
+    `requireRole('member')` no `POST /v1/records`, que é praticamente no-op no nível do app — mas a
+    **API do cv360 já é protegida na borda** (ForwardAuth `console-auth-401`), então não está exposta
+    em produção. Fechar no nível do app exigiria adotar JWT/ForwardAuth próprio (fora deste escopo).
+- **D11 — callback SSO do GymOps (fecha UX-GYMOPS-001).** `GET /auth/me` enriquecido com
+  `organizationId`/`role`/`primaryUnitId`/`isPlatformAdmin` (reusando `resolveUserContext` já
+  existente — zero lógica nova), e o callback OAuth passa a popular o store como o login por senha.
+  **typecheck verde (API + web)**; a vitest de integração só barra por falta de Postgres local.
+- **D3 — visão de 7 perfis do ContaViva 360 (decisão tomada).** Mantêm-se os **3 papéis reais**
+  (admin/manager/member) como fonte da verdade; os 7 perfis da visão mapeiam nesses 3, e os demais
+  ficam como **trabalho futuro** (construir 4 experiências-de-papel especulativas não se justifica
+  sem intake de produto). O curto prazo (remover os becos de navegação) já está feito (§19.1, #264).
+
+**Placar de P0 atualizado:** com D9/D10/D11 em código, **os 10 P0 estão endereçados** (7 nas levas
+anteriores + estes 3). Os 3 últimos carregam a ressalva de validação na CI LIVE (D9) e as limitações
+documentadas acima — por isso o merge de produção, especialmente do D9, deve rodar `forge-tests` LIVE
+e ser revisado por humano.
