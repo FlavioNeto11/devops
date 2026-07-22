@@ -53,22 +53,27 @@
           <UiFileDrop v-model="files" :disabled="thinking || health !== 'online'" hint="PDF, imagem, planilha, doc, csv ou zip — a IA analisa o conteúdo." />
           <div class="aiv-composer-actions">
             <p class="aiv-hint ui-muted">Enter envia · Shift+Enter quebra linha</p>
-            <UiButton type="submit" :loading="thinking" :disabled="!canSend">Perguntar</UiButton>
+            <div class="aiv-composer-btns">
+              <UiButton v-if="thinking" variant="ghost" type="button" @click="cancel">Cancelar</UiButton>
+              <UiButton type="submit" :loading="thinking" :disabled="!canSend">Perguntar</UiButton>
+            </div>
           </div>
         </form>
       </UiCard>
     </div>
 
-    <template #footer><p>Os arquivos são processados só para responder à sua pergunta. Sem chave de IA o assistente fica desligado (fail-closed).</p></template>
+    <template #footer><p>Respostas geradas por IA podem conter erros — confira informações importantes. Os arquivos são processados só para responder à sua pergunta; sem chave de IA o assistente fica desligado (fail-closed).</p></template>
   </UiPageLayout>
 </template>
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue';
-import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast } from '../ui/index.js';
+import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast, useConfirm } from '../ui/index.js';
 import { assistant, assistantHealth, health as apiHealth } from '../api.js';
 
 const toast = useToast();
+const ask = useConfirm();
+let controller = null; // AbortController da pergunta em andamento (permite cancelar)
 const health = ref('checking'); // checking | online | offline | error
 const healthLabel = computed(() => ({ checking: 'Verificando…', online: 'IA no ar', offline: 'IA desligada', error: 'IA com erro' }[health.value] || 'IA'));
 const messages = ref([]);
@@ -107,17 +112,26 @@ async function onAsk() {
   messages.value.push({ id: ++mid, role: 'user', text: label });
   question.value = ''; files.value = [];
   thinking.value = true; scrollEnd();
+  controller = new AbortController();
   try {
-    const r = await assistant(q, fl);
+    const r = await assistant(q, fl, { signal: controller.signal });
     messages.value.push({ id: ++mid, role: 'assistant', text: (r && (r.answer || r.text)) || 'Sem resposta.', files: (r && r.files) || [] });
   } catch (e) {
-    if (e && e.status === 503) health.value = 'offline';
-    messages.value.push({ id: ++mid, role: 'assistant', error: errMsg(e) });
-    toast.error('Não foi possível responder.');
+    if (e && (e.name === 'AbortError' || (controller && controller.signal.aborted))) {
+      // cancelado pelo usuário: registra a interrupção sem tratar como erro (nem toast).
+      messages.value.push({ id: ++mid, role: 'assistant', text: 'Pergunta cancelada.' });
+    } else {
+      if (e && e.status === 503) health.value = 'offline';
+      messages.value.push({ id: ++mid, role: 'assistant', error: errMsg(e) });
+      toast.error('Não foi possível responder.');
+    }
   } finally {
-    thinking.value = false; scrollEnd();
+    thinking.value = false; controller = null; scrollEnd();
   }
 }
+
+// aborta a pergunta em andamento (o fetch rejeita com AbortError, tratado em onAsk).
+function cancel() { if (controller) controller.abort(); }
 
 function errMsg(e) {
   if (!e) return 'Erro desconhecido.';
@@ -126,7 +140,10 @@ function errMsg(e) {
   return e.message || 'Falha ao falar com o assistente.';
 }
 
-function clearAll() { messages.value = []; }
+async function clearAll() {
+  if (messages.value.length && !(await ask({ title: 'Limpar conversa', message: 'Isso apaga toda a conversa atual. Deseja continuar?', danger: true, confirmLabel: 'Limpar' }))) return;
+  messages.value = [];
+}
 
 onMounted(checkHealth);
 </script>
@@ -153,6 +170,7 @@ onMounted(checkHealth);
 .aiv-textarea { width: 100%; background: rgb(var(--ui-bg)); color: rgb(var(--ui-fg)); border: 1px solid rgb(var(--ui-border-strong)); border-radius: var(--ui-radius-sm); padding: 8px 11px; font: inherit; resize: vertical; min-height: 56px; }
 .aiv-textarea:disabled { opacity: .6; cursor: not-allowed; }
 .aiv-composer-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); flex-wrap: wrap; }
+.aiv-composer-btns { display: inline-flex; gap: var(--ui-space-2); }
 .aiv-hint { margin: 0; font-size: var(--ui-text-xs); }
-@media (max-width: 560px) { .aiv-msg-body { max-width: 92%; } .aiv-composer-actions { flex-direction: column; align-items: stretch; } }
+@media (max-width: 560px) { .aiv-msg-body { max-width: 92%; } .aiv-composer-actions { flex-direction: column; align-items: stretch; } .aiv-composer-btns { display: flex; } .aiv-composer-btns > * { flex: 1; } }
 </style>
