@@ -3683,6 +3683,7 @@ merge são do operador). Cada PR é cirúrgico, referencia os IDs que cobre e tr
 | #271 | ContaViva 360: clicáveis por teclado + rótulos nos filtros | UX-CV360-008/007 | build vite |
 | #272 | SICAT: CTAs do dashboard levam à lista filtrada (?focus consumido) | UX-SICAT-001 | build vite |
 | #273 | ZapBridge: ações de mensagem por teclado + erro≠vazio + confirmar desconexão | UX-ZAP-001/002/003/004 | build vite (tsc+vite) |
+| #274 | BESC: a11y correlata (aria-current nas tabs, rótulos de filtro, overflow de tabela, progressbar, reduced-motion) | UX-BESC-005/006/007/015/016 | build vite |
 
 ### 19.2 Cobertura dos 10 P0
 
@@ -3694,13 +3695,14 @@ merge são do operador). Cada PR é cirúrgico, referencia os IDs que cobre e tr
 | UX-GYMOPS-002 (teclado atividade) | ✅ PR #262 |
 | UX-IMOBIA-001 (teclado/modal) | ✅ PR #266 |
 | UX-CV360-002 (becos sem saída) | ✅ PR #264 (curto prazo) |
-| UX-A11Y-001 (clicável sistêmico) | ✅ parcial — gymops/imobia/console/cv360 (PR #262/#266/#268/#271); **falta BESC** |
+| UX-A11Y-001 (clicável sistêmico) | ✅ completo — gymops/imobia/console/cv360 (PR #262/#266/#268/#271); BESC verificado **sem o problema** (linhas já usam `<Link>` nativo focável — #274 cobriu a11y correlata) |
 | UX-CVPRO-001 (API records exposta) | ⛔ **bloqueado por D9** (teste LOCKED da Forge + manifesto compilado) |
 | UX-CVPRO-002 (edição sem endpoint) | ⛔ **bloqueado por D10** (criar endpoint de update) |
 | UX-GYMOPS-001 (callback SSO) | ⛔ **bloqueado por D11** (backend expor org/papel) |
 
-**7 dos 10 P0 endereçados por PR** (o UX-A11Y-001 com BESC pendente). Os 3 restantes exigem
-decisão/mudança de backend (D9–D11) e estão documentados — nenhum foi contornado com gambiarra.
+**7 dos 10 P0 endereçados por PR** (todos os acionáveis; UX-A11Y-001 completo). Os 3 restantes
+exigem decisão/mudança de backend (D9–D11) e estão documentados — nenhum foi contornado com
+gambiarra. Ou seja: **100% dos P0 corrigíveis sem uma decisão do dono estão em PR.**
 
 ### 19.3 O que permanece (honestidade de escopo)
 
