@@ -133,26 +133,33 @@ export async function buildApp() {
   // cai no dashboard sem organização/papel). Aditivo — não altera o shape de /auth/login.
   app.get('/auth/me', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { db } = await import('./lib/prisma.js');
-    const { resolveUserOrganization, resolveUserContext } = await import('./lib/auth-context.js');
     const user = await db.user.findUnique({
       where: { id: request.user.sub },
       select: { id: true, name: true, email: true, avatarUrl: true, isPlatformAdmin: true },
     });
     if (!user) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
 
-    const orgId = await resolveUserOrganization(user.id);
-    const ctx = orgId
-      ? await resolveUserContext(user.id, orgId)
-      : { userRole: null, primaryUnitId: null, organizationId: null };
+    // Enriquecimento de org/papel é BEST-EFFORT: o login (senha e OAuth) depende de /auth/me, então
+    // uma falha ao resolver contexto NUNCA pode derrubar esta rota — degrada para nulos (comportamento
+    // pré-D11) em vez de 500/redirect-para-login.
+    let organizationId: string | null = null;
+    let role: string | null = null;
+    let primaryUnitId: string | null = null;
+    try {
+      const { resolveUserOrganization, resolveUserContext } = await import('./lib/auth-context.js');
+      const orgId = await resolveUserOrganization(user.id);
+      if (orgId) {
+        const ctx = await resolveUserContext(user.id, orgId);
+        organizationId = ctx.organizationId;
+        role = ctx.userRole;
+        primaryUnitId = ctx.primaryUnitId;
+      }
+    } catch (err) {
+      request.log.warn({ err }, '/auth/me: falha ao resolver contexto de org — degradando para nulos');
+    }
 
     return reply.send({
-      data: {
-        ...user,
-        organizationId: ctx.organizationId,
-        role: ctx.userRole,
-        primaryUnitId: ctx.primaryUnitId,
-        isPlatformAdmin: user.isPlatformAdmin,
-      },
+      data: { ...user, organizationId, role, primaryUnitId, isPlatformAdmin: user.isPlatformAdmin },
     });
   });
 

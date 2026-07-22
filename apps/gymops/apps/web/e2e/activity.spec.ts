@@ -41,6 +41,8 @@ test.describe('Activity creation', () => {
     // so the title renders TWICE — ActivityCard <span> in the list + the drawer <h2>.
     // A bare getByText(title) violates strict mode; assert the drawer heading (proves
     // creation AND the post-create drawer), then the list card entry specifically.
-    await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 8_000 });
+    // exact: true — o drawer acessível expõe um <h2 sr-only>"Atividade: {title}"</h2> (nome do
+    // dialog) além do <h2> visível com o título; sem exact, o role=heading casaria os dois.
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible({ timeout: 8_000 });
   });
 });
