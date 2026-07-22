@@ -1,14 +1,18 @@
-import DashboardView from './views/DashboardView.vue';
-import ResourceListView from './views/ResourceListView.vue';
-import ResourceFormView from './views/ResourceFormView.vue';
-import ResourceDetailView from './views/ResourceDetailView.vue';
-import AiAssistantView from './views/AiAssistantView.vue';
-import NotFoundView from './views/NotFoundView.vue';
-import AccountsPayableView from './views/AccountsPayableView.vue';
-import AccountsReceivableView from './views/AccountsReceivableView.vue';
-import CashFlowView from './views/CashFlowView.vue';
-import FinancialDashboardView from './views/FinancialDashboardView.vue';
-import FinancialReportsView from './views/FinancialReportsView.vue';
+// Code-split por rota (UX-CV360-020): cada view vira um chunk carregado sob demanda em vez de
+// importar o app inteiro no primeiro paint. vue-router aceita `component: () => import(...)`
+// nativamente; o custo cresce por módulo novo, não de uma vez só. DashboardView continua sendo a
+// raiz que resolve os painéis por papel (PF/PJ/Contador/Admin) via ROLE_MAP.
+const DashboardView = () => import('./views/DashboardView.vue');
+const ResourceListView = () => import('./views/ResourceListView.vue');
+const ResourceFormView = () => import('./views/ResourceFormView.vue');
+const ResourceDetailView = () => import('./views/ResourceDetailView.vue');
+const AiAssistantView = () => import('./views/AiAssistantView.vue');
+const NotFoundView = () => import('./views/NotFoundView.vue');
+const AccountsPayableView = () => import('./views/AccountsPayableView.vue');
+const AccountsReceivableView = () => import('./views/AccountsReceivableView.vue');
+const CashFlowView = () => import('./views/CashFlowView.vue');
+const FinancialDashboardView = () => import('./views/FinancialDashboardView.vue');
+const FinancialReportsView = () => import('./views/FinancialReportsView.vue');
 
 // Painéis por papel (PF/PJ/Contador/Admin) são resolvidos pela raiz '/' (DashboardView) conforme
 // o perfil retornado por /me. As rotas diretas /dashboard/<papel> eram becos sem saída: deep-links
