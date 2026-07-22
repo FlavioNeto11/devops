@@ -29,7 +29,8 @@
           <slot name="sidebar-footer" />
         </nav>
       </aside>
-      <div v-if="navOpen" class="ui-scrim" @click="navOpen = false" />
+      <div v-if="navOpen" class="ui-scrim" role="button" tabindex="0" aria-label="Fechar menu"
+           @click="navOpen = false" @keydown.enter="navOpen = false" @keydown.space.prevent="navOpen = false" />
       <main class="ui-content"><slot /></main>
     </div>
   </div>
@@ -106,4 +107,5 @@ onMounted(async () => {
   @media (prefers-reduced-motion: reduce) { .ui-sidebar { transition: none; } }
   .ui-scrim { display: block; position: fixed; inset: 56px 0 0 0; background: rgb(2 6 23 / 0.4); z-index: 40; }
 }
+.ui-scrim:focus-visible { outline: 2px solid rgb(var(--ui-accent)); outline-offset: -2px; }
 </style>

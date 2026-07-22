@@ -26,6 +26,7 @@
         </tbody>
         <tbody v-else>
           <tr v-for="row in viewRows" :key="row[rowKey]" :data-clickable="clickableRows ? 'true' : null"
+              :role="clickableRows ? 'button' : null"
               :tabindex="clickableRows ? 0 : null"
               @click="clickableRows && $emit('row-click', row)"
               @keydown.enter.self="clickableRows && $emit('row-click', row)"
