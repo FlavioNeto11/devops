@@ -52,6 +52,21 @@ function clearFilters() {
   const qi = document.getElementById('q'); if (qi) qi.value = '';
   if (RENDER[state.view]) RENDER[state.view]();
 }
+// (UX-REQHUB-001) LINHA DE TABELA ACESSÍVEL. Antes: <tr role="button"> — isso apaga a semântica de
+// tabela para leitores de tela (a linha vira só "Abrir REQ-X, botão" e título/status/prioridade/
+// cobertura ficam inalcançáveis célula a célula). Agora a <tr> volta a ser linha PURA (rows/cells
+// preservados para AT); a ação de abrir vive num <button> REAL na célula do ID (ridOpenCell), que é
+// o único tab-stop da linha e carrega o aria-label. O clique na linha continua como ATALHO DE MOUSE
+// — sem role/tabindex, portanto invisível para AT (que usa o botão). CSP-safe (só addEventListener).
+function ridOpenCell(id, label) {
+  return h('td', {}, h('button', {
+    class: 'rid-open', type: 'button', 'aria-label': label || `Abrir ${id}`,
+    onclick: (ev) => { ev.stopPropagation(); openReq(id); },
+  }, h('span', { class: 'rid', text: id })));
+}
+function openableRow(id, ...cells) {
+  return h('tr', { class: 'row-open', onclick: () => openReq(id) }, ...cells);
+}
 
 /* ---------- Explorer ---------- */
 // Faixa de "recentes" (últimos REQs abertos) — fonte/ação ÚNICAS (RECENTS→openReq), 2 variantes:
@@ -105,9 +120,8 @@ function renderExplorer() {
   for (const { product, items } of groupByProduct(reqs)) {
     tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '7' }, ...prodLabelNodes(product), ' · ' + items.length)));
     for (const r of items) {
-      const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id),
-        onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-        h('td', {}, h('span', { class: 'rid', text: r.id })),
+      const tr = openableRow(r.id,
+        ridOpenCell(r.id),
         h('td', { text: r.title }),
         h('td', {}, badge(r.type === 'non-functional' ? 'NFR' : 'FN', r.type === 'non-functional' ? 'b-nfr' : 'b-fn')),
         h('td', { text: r.status }),
@@ -337,13 +351,13 @@ function renderVersions() {
       const tb = h('tbody');
       for (const it of arr) {
         const r = kind === 'changed'
-          ? h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
-              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: productMeta(it.product).display_name || it.product }),
+          ? openableRow(it.id,
+              ridOpenCell(it.id), h('td', { text: productMeta(it.product).display_name || it.product }),
               h('td', {}, badge(semChangeLabel(it.semantic_change), semChangeCls(it.semantic_change))),
               h('td', { text: (it.fields || []).join(', ') || '—' }),
               h('td', { text: it.impact_delta ? (it.impact_delta > 0 ? '+' : '') + it.impact_delta : '0' }))
-          : h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
-              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: it.product }), h('td', { text: it.type }), h('td', { text: it.title }));
+          : openableRow(it.id,
+              ridOpenCell(it.id), h('td', { text: it.product }), h('td', { text: it.type }), h('td', { text: it.title }));
         tb.append(r);
       }
       t.append(tb); wrap.append(t); card.append(wrap);
@@ -367,8 +381,8 @@ function renderVersions() {
   const tb = h('tbody');
   for (const { product, items } of groupByProduct(reqs)) {
     tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '5' }, ...prodLabelNodes(product), ' · ' + items.length)));
-    for (const r of items) tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
+    for (const r of items) tb.append(openableRow(r.id,
+      ridOpenCell(r.id), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
       h('td', {}, badge(semChangeLabel(r.version.semantic_change), semChangeCls(r.version.semantic_change))), h('td', { text: r.version.change_reason || '—' })));
   }
   t.append(tb); wrap.append(t); body.append(wrap);
@@ -866,8 +880,8 @@ function renderCoverage() {
   for (const r of reqs) {
     const row = coverageRow(r);
     const pct = Math.round(coverageScore(r) * 100);
-    const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id} — ${pct}% de cobertura`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: productMeta(r.scope.product_scope).display_name || r.scope.product_scope }),
+    const tr = openableRow(r.id,
+      ridOpenCell(r.id, `Abrir ${r.id} — ${pct}% de cobertura`), h('td', { text: productMeta(r.scope.product_scope).display_name || r.scope.product_scope }),
       ...cols.map((c) => h('td', { class: row[c[0]] ? 'hit' : 'miss', title: `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, 'aria-label': `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, text: row[c[0]] ? '✓' : '✕' })),
       h('td', {}, badge(pct + '%', pct >= 70 ? 'b-ok' : pct >= 30 ? 'b-high' : 'b-crit')));
     tb.append(tr);
@@ -928,8 +942,8 @@ function renderReprocess() {
   const tb = h('tbody');
   shown.forEach((item, i) => {
     const r = byId(item.id);
-    tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${item.id}`, onclick: () => openReq(item.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(item.id); } } },
-      h('td', { text: String(i + 1) }), h('td', {}, h('span', { class: 'rid', text: item.id })),
+    tb.append(openableRow(item.id,
+      h('td', { text: String(i + 1) }), ridOpenCell(item.id),
       h('td', { text: productMeta(item.product).display_name || item.product }),
       h('td', { text: r ? r.title : '' }),
       h('td', {}, badge(`${r ? r.impact_band : 'low'} (${item.impact_score})`, bandCls(r ? r.impact_band : 'low')), r && r.architectural_significance ? h('span', {}, ' ', badge('ASR', 'b-asr')) : ''),
@@ -984,8 +998,8 @@ function renderDev() {
   const tb = h('tbody');
   const devRow = (id) => {
     const it = st.items[id]; const r = byId(id);
-    return h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(id); } } },
-      h('td', {}, h('span', { class: 'rid', text: id })),
+    return openableRow(id,
+      ridOpenCell(id),
       h('td', { text: r ? r.title : '' }),
       h('td', {}, badge(devStatusLabel(it.status), devStatusCls(it.status))),
       h('td', {}, it.pr ? h('a', { class: 'btn-link', href: it.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' })),

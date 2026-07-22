@@ -8,12 +8,22 @@ language: pt-BR
 
 # Reqhub
 
-Workbench **read-only** da base de requisitos da plataforma (fonte da verdade em `specs/`). Lê a
-baseline gerada (`specs/baseline/*.json`) e renderiza 6 telas: Explorador, Workspace do requisito,
-Versões & mudanças, Mapa de impacto (grafo REQ→REQ), Cobertura (matriz requisito × evidência/alocação)
-e Fila de reprocessamento. Estático (nginx), sob `/reqs`. Contexto e decisão:
+**Workbench + Product Studio (Forja)** da base de requisitos da plataforma (fonte da verdade em
+`specs/`). Lê a baseline gerada (`specs/baseline/*.json`) e renderiza: **Forja** (hub de produtos,
+view default), Explorador, Workspace do requisito, Editor (autoria assistida por IA), Mapa de impacto
+(grafo REQ→REQ), Cobertura (matriz requisito × evidência/alocação) e Mudanças (versões/diff + fila de
+reprocessamento). Estático (nginx), sob `/reqs`. Contexto e decisão:
 [`../../docs/decisions/0002-requirements-as-source-of-truth.md`](../../docs/decisions/0002-requirements-as-source-of-truth.md).
 Manual do Claude: [`CLAUDE.md`](./CLAUDE.md) · fronteiras: [`AGENTS.md`](./AGENTS.md).
+
+> **Sobre o "read-only".** O workbench **não escreve** requisitos direto — a autoria continua no git
+> (`specs/requirements/**` + `/sync-spec` + PR). Mas a **Forja/Studio** tem ações com **efeito
+> colateral** via o backend de autoria (`api`): **launch** (`POST /v1/forge/launch`) cria os
+> requisitos no git e, no modo "Liberar tudo", **auto-mescla** o PR de requisitos e dispara a
+> construção; **delete** (`POST /v1/forge/delete`) remove código + requisitos + baseline + Application
+> do Argo + recursos do cluster. Salvaguardas: **gate de preview** (launch travado até aprovar as
+> telas), **denylist** de produtos protegidos (não apagáveis pela UI) e **confirmação com
+> blast-radius** (o diálogo declara o alcance e exige confirmação explícita antes de mesclar/apagar).
 
 ## Estrutura
 

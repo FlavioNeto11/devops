@@ -23,8 +23,14 @@ language: pt-BR
 
 ## Regras específicas (§8)
 
-1. **Somente-frontend e read-only sobre a base.** O Reqhub **lê** `specs/baseline/*.json`; nunca
-   escreve requisitos. Autoria = `specs/requirements/**` + `/sync-spec` + PR.
+1. **Somente-frontend; read-only sobre a base, MAS com ações de efeito colateral na Forja.** O
+   workbench **lê** `specs/baseline/*.json` e nunca escreve requisitos direto (autoria =
+   `specs/requirements/**` + `/sync-spec` + PR). Porém o **Studio/Forja** dispara, via o backend
+   `api`, **launch** (`POST /v1/forge/launch`: cria requisitos no git; "Liberar tudo" **auto-mescla**
+   o PR e inicia a construção) e **delete** (`POST /v1/forge/delete`: apaga código + requisitos +
+   baseline + Argo + cluster). Salvaguardas: gate de preview, denylist de produtos protegidos e
+   confirmação com blast-radius na UI. Não remover essas salvaguardas nem descrever o app como
+   "somente 6 telas read-only".
 2. **Frontend sem strip, `priority 10`, namespace `apps`.** Não alterar o roteamento (regra de ouro).
 3. **Build com contexto = raiz** (`-f apps/reqhub/Dockerfile .`). Não quebrar isso ao mexer no Dockerfile.
 4. **Sem inline** (script/style) — preserva a CSP. Novas libs de terceiros: evitar (zero-dep é o padrão).

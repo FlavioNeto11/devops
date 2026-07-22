@@ -904,11 +904,110 @@ function forgePublicado(panel, product) {
 // (D2, Forja 4.1) imobia/besc/zapbridge: apps VIVOS com dados que não estavam em nenhuma denylist.
 const FORGE_PROTECTED = ['sicat', 'gymops', 'rmambiental', 'anarabottini', 'imobia', 'besc', 'zapbridge', 'reqhub', 'console', 'portal', 'portal-recorder', 'keycloak', 'langfuse', 'ai-control-plane'];
 
+// (UX-REQHUB-002 / UX-REQHUB-004) Diálogo de CONFIRMAÇÃO com BLAST-RADIUS explícito para as ações
+// destrutivas/irreversíveis da Forja. Substitui o window.confirm genérico (que subestima o alcance:
+// "Liberar tudo" AUTO-MESCLA um PR sem revisão; apagar remove código + requisitos + baseline + Argo +
+// cluster) por um modal acessível que (1) LISTA o que será criado/mesclado/apagado e (2) exige
+// confirmação explícita — digitar o nome exato (delete, padrão GitHub) ou 2 passos deliberados
+// (launch). Espelha o padrão do cmdk (app.js): role=dialog + aria-modal, focus-trap, #app inert,
+// Esc cancela, foco devolvido ao gatilho. CSP-safe (só h()/addEventListener). Retorna Promise<boolean>.
+function blastConfirm(opts) {
+  const o = opts || {};
+  return new Promise((resolve) => {
+    const trigger = document.activeElement;
+    const app = document.getElementById('app');
+    const uid = 'blast-' + Math.random().toString(36).slice(2, 8);
+    let settled = false;
+    const overlay = h('div', { class: 'blast-overlay' });
+    const panel = h('div', { class: 'blast', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': uid });
+    panel.append(h('div', { class: 'blast-head' },
+      h('span', { class: 'blast-ic', 'aria-hidden': 'true', text: o.icon || '⚠' }),
+      h('h3', { class: 'blast-title', id: uid, text: o.title || 'Confirmar ação' })));
+    if (o.intro) panel.append(h('p', { class: 'blast-intro', text: o.intro }));
+    if (Array.isArray(o.items) && o.items.length) {
+      panel.append(h('p', { class: 'blast-legend muted small', text: o.itemsLabel || 'Esta ação vai:' }));
+      const ul = h('ul', { class: 'blast-list' });
+      for (const it of o.items) ul.append(h('li', {}, it));
+      panel.append(ul);
+    }
+    if (o.warn) panel.append(h('p', { class: 'blast-warn', text: o.warn }));
+
+    let input = null, check = null;
+    const confirmBtn = h('button', { class: 'btn ' + (o.tone === 'danger' ? 'danger' : 'primary'), type: 'button', text: o.confirmLabel || 'Confirmar' });
+    const syncEnabled = () => {
+      let ok = true;
+      if (input) ok = ok && input.value === o.requireText;
+      if (check) ok = ok && check.checked;
+      confirmBtn.disabled = !ok;
+    };
+    if (o.requireText) {
+      const fieldId = uid + '-in';
+      panel.append(h('label', { class: 'blast-req', for: fieldId },
+        'Para confirmar, digite ', h('code', { class: 'blast-req-code', text: o.requireText }), ' abaixo:'));
+      input = h('input', { class: 'blast-input', id: fieldId, type: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Digite ' + o.requireText + ' para confirmar' });
+      input.addEventListener('input', syncEnabled);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && input.value === o.requireText) { e.preventDefault(); done(true); } });
+      panel.append(input);
+    }
+    if (o.requireCheck) {
+      const cbId = uid + '-cb';
+      check = h('input', { type: 'checkbox', id: cbId, class: 'blast-check' });
+      check.addEventListener('change', syncEnabled);
+      panel.append(h('label', { class: 'blast-ack', for: cbId }, check, ' ', o.requireCheck));
+    }
+
+    const cancelBtn = h('button', { class: 'btn', type: 'button', text: o.cancelLabel || 'Cancelar' });
+    cancelBtn.addEventListener('click', () => done(false));
+    confirmBtn.addEventListener('click', () => { if (!confirmBtn.disabled) done(true); });
+    panel.append(h('div', { class: 'blast-actions' }, cancelBtn, confirmBtn));
+    syncEnabled();
+
+    overlay.append(panel);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+    panel.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); return; }
+      if (e.key !== 'Tab') return;
+      const f = [...panel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled && el.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    function done(result) {
+      if (settled) return; settled = true;
+      overlay.remove();
+      document.body.classList.remove('blast-on');
+      if (app) { app.removeAttribute('inert'); app.removeAttribute('aria-hidden'); }
+      if (trigger && document.contains(trigger) && trigger.offsetParent !== null && typeof trigger.focus === 'function') trigger.focus();
+      resolve(result);
+    }
+
+    document.body.appendChild(overlay);
+    document.body.classList.add('blast-on');
+    if (app) { app.setAttribute('inert', ''); app.setAttribute('aria-hidden', 'true'); }
+    setTimeout(() => { (input || cancelBtn).focus(); }, 30);
+  });
+}
+
 function forgeDangerZone(name) {
   const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
   const btn = h('button', { class: 'btn danger', type: 'button', text: '🗑 Apagar este projeto' });
-  btn.addEventListener('click', () => {
-    const ok = window.confirm('Apagar o projeto "' + name + '"?\n\nIsto remove TUDO relacionado: código (apps/' + name + '), requisitos, baseline, Application do Argo e recursos no cluster. Ação irreversível pela UI.');
+  btn.addEventListener('click', async () => {
+    const ok = await blastConfirm({
+      title: 'Apagar o projeto "' + name + '"?',
+      tone: 'danger', icon: '🗑',
+      intro: 'Ação IRREVERSÍVEL pela UI. A exclusão dispara a esteira e remove tudo que depende deste projeto:',
+      itemsLabel: 'Serão apagados:',
+      items: [
+        h('span', {}, 'o código em ', h('code', { text: 'apps/' + name })),
+        'os requisitos e a baseline do produto',
+        h('span', {}, 'a Application do Argo (', h('code', { text: name }), ')'),
+        'os recursos no cluster (Deployment / Service / IngressRoute)',
+      ],
+      requireText: name,
+      confirmLabel: '🗑 Apagar definitivamente',
+    });
     if (!ok) return;
     forgeDelete(name, btn, st);
   });
@@ -1066,8 +1165,10 @@ function forgeBuild(panel, product, buildPlan) {
   const tb = h('tbody');
   for (const id of reqIds) {
     const row = reqRow(id, DATA.baseline, DATA.implStatus);
-    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(id); } },
-      h('td', {}, h('span', { class: 'rid', text: id })),
+    // (UX-REQHUB-001) linha semântica pura + <button> real na célula do ID (espelha ridOpenCell do
+    // app.js): preserva rows/cells p/ leitores de tela; a linha segue como atalho de mouse (row-open).
+    tb.append(h('tr', { class: 'row-open', onclick: () => openReq(id) },
+      h('td', {}, h('button', { class: 'rid-open', type: 'button', 'aria-label': `Abrir ${id}`, onclick: (ev) => { ev.stopPropagation(); openReq(id); } }, h('span', { class: 'rid', text: id }))),
       h('td', { text: truncateLabel(row.title, 60) }),
       h('td', {}, badge(row.status, forgeStatusCls(row.status))),
       h('td', {}, row.pr ? h('a', { class: 'btn-link', href: row.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' }))));
@@ -2713,7 +2814,24 @@ function forgeLaunchControls(pname, blueprint, proposed, launchCtx) {
       ' Pular o gate de preview (relançamento sem mudança de telas — o backend exige preview aprovado por padrão)'));
   }
   bPr.addEventListener('click', () => { if (gated) return; forgeLaunch('pr', ctx); });
-  bRel.addEventListener('click', () => { if (gated) return; if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
+  bRel.addEventListener('click', async () => {
+    if (gated) return;
+    const ok = await blastConfirm({
+      title: 'Liberar tudo em "' + pname + '"?',
+      tone: 'primary', icon: '⚡',
+      intro: '"Liberar tudo" vai além de abrir um PR — parte do fluxo é AUTO-MESCLADA sem revisão manual:',
+      itemsLabel: 'Esta ação vai:',
+      items: [
+        h('span', {}, 'criar ' + proposed.length + ' requisito(s) no git (', h('code', { text: 'specs/requirements/' + pname }), ')'),
+        h('span', {}, 'AUTO-MESCLAR o PR de requisitos ', h('strong', { text: 'sem revisão manual' })),
+        'disparar a esteira de construção (build dos serviços)',
+      ],
+      warn: 'Os PRs de implementação (código) ainda passam pela sua validação — só o PR de requisitos é auto-mesclado.',
+      requireCheck: 'Entendo que o PR de requisitos será mesclado automaticamente.',
+      confirmLabel: '⚡ Liberar tudo',
+    });
+    if (ok) forgeLaunch('release', ctx);
+  });
   if (gated) wrap.append(h('p', { class: 'fw-hint', text: '🔒 Aprove o preview das telas (etapa Preview) para liberar a criação.' }));
   wrap.append(h('div', { class: 'ws-actions' }, bPr, bRel, status));
   return wrap;
