@@ -74,10 +74,13 @@ function AreaSection({ area, activities, onCardClick }: {
   onCardClick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const panelId = `area-panel-${area.id}`;
   return (
     <div className="rounded-lg border bg-card">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={panelId}
         className="flex w-full items-center justify-between p-4 text-left"
       >
         <div className="flex items-center gap-2">
@@ -87,7 +90,7 @@ function AreaSection({ area, activities, onCardClick }: {
         </div>
       </button>
       {open && (
-        <div className="border-t p-3 space-y-2">
+        <div id={panelId} className="border-t p-3 space-y-2">
           {activities.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">Nenhuma atividade nesta área</p>
           ) : (
@@ -110,7 +113,7 @@ export default function UnitPage({ params }: { params: { id: string } }) {
   const [filterOverdue, setFilterOverdue] = useState(false);
 
   // Dashboard summary
-  const { data: dashRes } = useQuery({
+  const { data: dashRes, isError: isDashError, refetch: refetchDash } = useQuery({
     queryKey: ['unit-dashboard', params.id],
     queryFn: () => api.get<ApiResponse<UnitDashboard>>(`/units/${params.id}/dashboard`),
     refetchInterval: 60_000,
@@ -193,6 +196,17 @@ export default function UnitPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
+      {/* Falha ao carregar o painel da unidade (KPIs + título): banner com retry
+          em vez de título "..." e KPIs sumidos parecendo carregamento eterno
+          (UX-GYMOPS-017). A lista de atividades tem seu próprio estado de erro. */}
+      {isDashError && !dashboard && (
+        <QueryErrorState
+          className="py-4"
+          title="Não foi possível carregar o painel da unidade"
+          onRetry={() => refetchDash()}
+        />
+      )}
+
       {/* Summary KPIs */}
       {dashboard && (
         <div data-tutorial="unit-summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -207,6 +221,7 @@ export default function UnitPage({ params }: { params: { id: string } }) {
       <div data-tutorial="unit-filters" className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
         <select
+          aria-label="Filtrar por status"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
           className="h-8 rounded border border-input bg-background px-2 text-xs"
@@ -214,6 +229,7 @@ export default function UnitPage({ params }: { params: { id: string } }) {
           {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select
+          aria-label="Filtrar por prioridade"
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
           className="h-8 rounded border border-input bg-background px-2 text-xs"
