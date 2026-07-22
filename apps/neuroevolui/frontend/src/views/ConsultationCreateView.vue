@@ -713,8 +713,16 @@ async function bootstrap() {
       loadOptions(professionals, professionalOptions),
     ]);
     bootState.value = 'ok';
-  } catch (_e) {
-    bootState.value = 'error';
+  } catch (e) {
+    // Sem permissão para listar os catálogos → 'denied' (o retry não resolve).
+    // 'error' fica reservado a falhas de rede/5xx, onde tentar de novo faz sentido.
+    const status = e && e.status;
+    if (status === 401 || status === 403) {
+      bootState.value = 'denied';
+      deniedMessage.value = (e && e.message) || deniedMessage.value;
+    } else {
+      bootState.value = 'error';
+    }
   }
 }
 

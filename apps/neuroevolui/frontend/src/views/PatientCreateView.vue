@@ -366,8 +366,10 @@ const askConfirm = useConfirm();
 // O backend é a fonte da verdade (retorna 401/403 no POST). Aqui fazemos o check
 // preventivo via me() para UX antecipada — se me() falhar com 401/403/404,
 // tratamos como otimista e deixamos o POST ser o guard real.
+// A régua espelha api/src/rbac.js (patient < professional < clinic_manager < owner).
+// Papel reconhecido porém insuficiente (ex.: patient) OU desconhecido → deny.
 const ROLE_RANK = {
-  viewer: 0, member: 1, professional: 2, clinic_manager: 3, manager: 3, admin: 4, owner: 5,
+  patient: 1, professional: 2, clinic_manager: 3, owner: 4,
 };
 const MIN_ROLE = 'professional';
 const authState = ref('loading'); // loading | ok | denied | error
@@ -396,9 +398,11 @@ async function checkAccess() {
     authState.value = 'error';
     return;
   }
+  // Sem role identificável no me() → otimista (o POST é o guard real).
   if (!role) { authState.value = 'ok'; return; }
+  // Role conhecido: aplica a régua. Role desconhecido → deny-by-default.
   const rank = ROLE_RANK[role];
-  if (rank === undefined) { authState.value = 'ok'; return; }
+  if (rank === undefined) { authState.value = 'denied'; return; }
   authState.value = rank >= ROLE_RANK[MIN_ROLE] ? 'ok' : 'denied';
 }
 
