@@ -23,9 +23,13 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
   const [collapsed, setCollapsed] = useState(false);
 
   const isManagerLevel = userRole === 'owner' || userRole === 'org_manager' || userRole === 'unit_manager' || userRole === 'area_leader';
+  // "Painel Geral" (/dashboard) só existe para owner/org_manager — o próprio
+  // dashboard expulsa os demais papéis (UX-GYMOPS-003). O item de menu segue
+  // exatamente o mesmo gate da página, para nunca levar a um redirect silencioso.
+  const canSeeDashboard = userRole === 'owner' || userRole === 'org_manager';
 
   const navItems = [
-    ...(isManagerLevel ? [{
+    ...(canSeeDashboard ? [{
       href: '/dashboard',
       icon: LayoutDashboard,
       label: 'Painel Geral',

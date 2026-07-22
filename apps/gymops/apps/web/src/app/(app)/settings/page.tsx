@@ -31,6 +31,34 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return new Uint8Array([...rawData].map((c) => c.charCodeAt(0))).buffer as ArrayBuffer;
 }
 
+// basePath do app (ex.: "/gymops") — o SW e seu escopo vivem sob ele.
+const APP_BASE_PATH = process.env.NEXT_PUBLIC_APP_BASE_PATH || '';
+
+/**
+ * Garante (idempotente) um service worker de push ativo e retorna seu registration.
+ * Substitui `navigator.serviceWorker.ready`, que trava para sempre quando nenhum
+ * SW foi registrado (UX-GYMOPS-005): aqui registramos sob demanda e corremos a
+ * ativação contra um timeout, para o fluxo sempre terminar em sucesso ou erro.
+ */
+async function ensurePushServiceWorker(): Promise<ServiceWorkerRegistration> {
+  const scope = `${APP_BASE_PATH}/`;
+  const existing = await navigator.serviceWorker.getRegistration(scope);
+  const reg = existing ?? (await navigator.serviceWorker.register(`${APP_BASE_PATH}/sw.js`, { scope }));
+
+  const activated = new Promise<ServiceWorkerRegistration>((resolve) => {
+    if (reg.active) { resolve(reg); return; }
+    const sw = reg.installing ?? reg.waiting;
+    if (!sw) { resolve(reg); return; }
+    sw.addEventListener('statechange', () => {
+      if (sw.state === 'activated') resolve(reg);
+    });
+  });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('SW_TIMEOUT')), 8000),
+  );
+  return Promise.race([activated, timeout]);
+}
+
 const DELIVERY_STATUS_COLORS: Record<string, string> = {
   sent: 'text-green-600',
   failed: 'text-red-600',
@@ -104,7 +132,7 @@ export default function SettingsPage() {
         setPushStatus('denied');
         throw new Error('Permission denied');
       }
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await ensurePushServiceWorker();
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
@@ -114,7 +142,14 @@ export default function SettingsPage() {
     },
     onSuccess: () => toast.success('Notificações push ativadas'),
     onError: (err: Error) => {
-      if (err.message !== 'Permission denied') toast.error('Erro ao ativar notificações push');
+      if (err.message === 'Permission denied') return;
+      // Não deixa o botão preso em "Ativando..." quando o SW não sobe.
+      setPushStatus('idle');
+      if (err.message === 'SW_TIMEOUT') {
+        toast.error('Não foi possível iniciar o serviço de notificações. Tente novamente.');
+        return;
+      }
+      toast.error('Erro ao ativar notificações push');
     },
   });
 
