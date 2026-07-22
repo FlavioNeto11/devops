@@ -547,21 +547,28 @@ function ActivityRow({ activity: a, selected, showSelect, onToggleSelect, onOpen
 }>) {
   return (
     <tr
-      className={`border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer ${selected ? 'bg-primary/5' : ''}`}
-      onClick={onOpenDrawer}
+      className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${selected ? 'bg-primary/5' : ''}`}
     >
       {showSelect && (
-        <td className="py-2 pr-3" onClick={(e) => e.stopPropagation()}>
-          <button onClick={onToggleSelect} aria-label="Selecionar">
+        <td className="py-2 pr-3">
+          <button type="button" onClick={onToggleSelect} aria-label="Selecionar">
             {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
           </button>
         </td>
       )}
       <td className="py-2 pr-4 max-w-[240px]">
-        <div className="flex items-center gap-2">
+        {/* Acessibilidade (WCAG 2.1.1): abrir a atividade fica num <button> real
+            no título — operável por teclado (Tab + Enter/Espaço) e anunciado por
+            leitores de tela — em vez de um `<tr onClick>` só de mouse. O <tr> não
+            vira role=button para não aninhar o botão de seleção acima. */}
+        <button
+          type="button"
+          onClick={onOpenDrawer}
+          className="flex max-w-full items-center gap-2 rounded-sm text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        >
           {a.isOverdue && <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />}
-          <span className="truncate font-medium">{a.title}</span>
-        </div>
+          <span className="min-w-0 truncate">{a.title}</span>
+        </button>
         {a.checklistProgress.total > 0 && (
           <div className="text-xs text-muted-foreground mt-0.5">
             {a.checklistProgress.done}/{a.checklistProgress.total} checklist
