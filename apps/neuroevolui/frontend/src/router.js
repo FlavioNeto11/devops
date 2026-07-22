@@ -53,6 +53,9 @@ import AsyncJobListView from './views/AsyncJobListView.vue';
 import AsyncJobDetailView from './views/AsyncJobDetailView.vue';
 import SettingsView from './views/SettingsView.vue';
 
+// ── Documentação da API (OpenAPI/ReDoc) ──────────────────────────────────────
+import ApiDocsView from './views/ApiDocsView.vue';
+
 export const routes = [
   { path: '/', name: 'dashboard', component: DashboardView },
 
@@ -113,6 +116,9 @@ export const routes = [
 
   // Configurações
   { path: '/settings', name: 'settings', component: SettingsView },
+
+  // Documentação da API (OpenAPI/ReDoc embutido) — alvo de SystemHealthView
+  { path: '/api-docs', name: 'api-docs', component: ApiDocsView },
 
   // Catch-all 404
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
