@@ -8,17 +8,26 @@ import { dateTimeBr } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
+const creating = ref(false);
+const formError = ref('');
 const form = ref({ kind: 'entrada', scheduledAt: '' });
 const detail = ref(null);
 const uploading = ref(false);
 const laudoBusy = ref(false);
 const fileInput = ref(null);
 
-async function load() { loading.value = true; try { items.value = (await api.list('vistorias')).data; } finally { loading.value = false; } }
+async function load() {
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('vistorias')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar as vistorias.'; }
+  finally { loading.value = false; }
+}
 async function create() {
+  creating.value = true; formError.value = '';
   try { await api.create('vistorias', { ...form.value, scheduledAt: form.value.scheduledAt ? new Date(form.value.scheduledAt).toISOString() : undefined }); showForm.value = false; await load(); }
-  catch (e) { alert(e.message); }
+  catch (e) { formError.value = e.message; } finally { creating.value = false; }
 }
 async function open(id) { const r = await api.get('vistorias', id); detail.value = { ...r.data, timeline: r.timeline }; }
 async function onPhoto(e) {
@@ -39,10 +48,11 @@ onMounted(load);
   <div class="ap-page">
     <div class="ap-page-head ap-head-row">
       <div><h1><Icon name="camera" :size="22" /> Vistorias e Laudos</h1><p>Fotos analisadas por IA (Gemini) e laudo redigido por IA (Claude).</p></div>
-      <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Nova vistoria</button>
+      <button class="im-btn-primary" @click="showForm = true; formError = ''"><Icon name="plus" :size="16" /> Nova vistoria</button>
     </div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="camera" :size="34" /><p>Nenhuma vistoria ainda.</p></div>
     <div v-else class="ap-cards">
       <article v-for="v in items" :key="v.id" class="ap-card" role="button" tabindex="0" :aria-label="`Abrir vistoria de ${v.kind}`" @click="open(v.id)" @keydown.enter="open(v.id)" @keydown.space.prevent="open(v.id)">
@@ -57,7 +67,8 @@ onMounted(load);
         <label>Tipo<select v-model="form.kind"><option>entrada</option><option>saida</option><option>periodica</option></select></label>
         <label>Agendada para<input v-model="form.scheduledAt" type="datetime-local" /></label>
       </div>
-      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" @click="create">Criar</button></template>
+      <p v-if="formError" class="im-notice err" style="margin-top:12px">{{ formError }}</p>
+      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="creating" @click="create">{{ creating ? 'Criando…' : 'Criar' }}</button></template>
     </Modal>
 
     <Modal :open="!!detail" :title="detail ? `Vistoria de ${detail.kind}` : ''" @close="detail = null">

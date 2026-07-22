@@ -10,22 +10,32 @@ const runs = ref([]);
 const ptams = ref([]);
 const scraper = ref(false);
 const loading = ref(true);
+const loadError = ref('');
 const detail = ref(null);
 const ptamDetail = ref(null);
 const comp = ref({ portal: 'manual', price: null, areaM2: null, type: 'apartamento' });
 const busy = ref('');
 
 async function load() {
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try { const r = await api.list('acm'); runs.value = r.data; scraper.value = r.scraper; ptams.value = (await api.list('ptam')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar as análises.'; }
   finally { loading.value = false; }
 }
-async function create() { try { await api.create('acm', {}); await load(); } catch (e) { alert(e.message); } }
+async function create() {
+  if (busy.value === 'create') return;
+  busy.value = 'create';
+  try { await api.create('acm', {}); await load(); }
+  catch (e) { alert(e.message); } finally { busy.value = ''; }
+}
 async function open(id) { detail.value = (await api.get('acm', id)).data; }
 async function addComp() {
-  if (!comp.value.price || !comp.value.areaM2) return;
-  await api.create(`acm/${detail.value.id}/comparaveis`, { ...comp.value, price: Number(comp.value.price), areaM2: Number(comp.value.areaM2) });
-  comp.value = { portal: 'manual', price: null, areaM2: null, type: 'apartamento' }; await open(detail.value.id);
+  if (!comp.value.price || !comp.value.areaM2 || busy.value === 'comp') return;
+  busy.value = 'comp';
+  try {
+    await api.create(`acm/${detail.value.id}/comparaveis`, { ...comp.value, price: Number(comp.value.price), areaM2: Number(comp.value.areaM2) });
+    comp.value = { portal: 'manual', price: null, areaM2: null, type: 'apartamento' }; await open(detail.value.id);
+  } finally { busy.value = ''; }
 }
 async function compute() {
   busy.value = 'compute';
@@ -47,12 +57,13 @@ onMounted(load);
   <div class="ap-page">
     <div class="ap-page-head ap-head-row">
       <div><h1><Icon name="chart" :size="22" /> ACM / PTAM</h1><p>Análise de Mercado Comparativa (m² médio) e Parecer Técnico (ABNT NBR 14653) por IA.</p></div>
-      <button class="im-btn-primary" @click="create"><Icon name="plus" :size="16" /> Nova ACM</button>
+      <button class="im-btn-primary" :disabled="busy === 'create'" @click="create"><Icon name="plus" :size="16" /> {{ busy === 'create' ? 'Criando…' : 'Nova ACM' }}</button>
     </div>
 
     <div v-if="!scraper" class="im-notice" style="margin-bottom:16px">🔌 Scraper de portais dormente. Adicione comparáveis manualmente e calcule a média do m²; depois gere o PTAM.</div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <template v-else>
       <h2 class="im-section-title">Análises (ACM)</h2>
       <div v-if="!runs.length" class="ap-empty"><Icon name="chart" :size="34" /><p>Nenhuma análise ainda.</p></div>
@@ -66,16 +77,18 @@ onMounted(load);
 
       <h2 class="im-section-title">Pareceres (PTAM)</h2>
       <div v-if="!ptams.length" class="im-notice">Nenhum PTAM gerado. Abra uma ACM e clique em “Gerar PTAM”.</div>
-      <table v-else class="ap-table">
-        <thead><tr><th>Metodologia</th><th>Valor estimado</th><th>Grau</th><th>Status</th><th>Data</th></tr></thead>
-        <tbody>
-          <tr v-for="pt in ptams" :key="pt.id" role="button" tabindex="0" :aria-label="`Abrir parecer ${pt.methodology}`" @click="ptamDetail = pt" @keydown.enter="ptamDetail = pt" @keydown.space.prevent="ptamDetail = pt">
-            <td>{{ pt.methodology }}</td><td>{{ pt.estimatedValue ? brl(pt.estimatedValue) : '—' }}</td>
-            <td>{{ pt.confidenceGrade }}</td><td><StatusBadge :status="pt.status === 'generated' ? 'concluido' : 'aberto'" /></td>
-            <td><small>{{ dateBr(pt.createdAt) }}</small></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else class="ap-table-wrap">
+        <table class="ap-table">
+          <thead><tr><th>Metodologia</th><th>Valor estimado</th><th>Grau</th><th>Status</th><th>Data</th></tr></thead>
+          <tbody>
+            <tr v-for="pt in ptams" :key="pt.id" role="button" tabindex="0" :aria-label="`Abrir parecer ${pt.methodology}`" @click="ptamDetail = pt" @keydown.enter="ptamDetail = pt" @keydown.space.prevent="ptamDetail = pt">
+              <td>{{ pt.methodology }}</td><td>{{ pt.estimatedValue ? brl(pt.estimatedValue) : '—' }}</td>
+              <td>{{ pt.confidenceGrade }}</td><td><StatusBadge :status="pt.status === 'generated' ? 'concluido' : 'aberto'" /></td>
+              <td><small>{{ dateBr(pt.createdAt) }}</small></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </template>
 
     <Modal :open="!!detail" title="Análise de Mercado Comparativa" @close="detail = null">
@@ -90,7 +103,7 @@ onMounted(load);
         <div v-for="c in detail.comparables" :key="c.id" class="ap-line">{{ c.type || 'imóvel' }} — {{ brl(c.price) }} / {{ c.areaM2 }}m² = <b>{{ brl(c.pricePerM2) }}/m²</b> <small>({{ c.portal }})</small></div>
         <div class="ap-inline-form">
           <input v-model="comp.price" type="number" placeholder="Preço R$" /><input v-model="comp.areaM2" type="number" placeholder="Área m²" />
-          <button class="im-linkbtn" @click="addComp">+ comparável</button>
+          <button class="im-linkbtn" :disabled="busy === 'comp'" @click="addComp">+ comparável</button>
         </div>
       </div>
     </Modal>

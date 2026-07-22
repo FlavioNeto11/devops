@@ -8,6 +8,7 @@ import { dateTimeBr } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
 const nlText = ref('');
 const nlBusy = ref(false);
@@ -15,7 +16,12 @@ const nlMsg = ref('');
 const saving = ref(false);
 const form = ref({ title: '', kind: 'visita', startAt: '', location: '', notes: '' });
 
-async function load() { loading.value = true; try { items.value = (await api.list('agenda')).data; } finally { loading.value = false; } }
+async function load() {
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('agenda')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar a agenda.'; }
+  finally { loading.value = false; }
+}
 async function save() {
   saving.value = true;
   try { await api.create('agenda', { ...form.value, startAt: new Date(form.value.startAt).toISOString() }); showForm.value = false; form.value = { title: '', kind: 'visita', startAt: '', location: '', notes: '' }; await load(); }
@@ -47,6 +53,7 @@ onMounted(load);
     <p v-if="nlMsg" class="im-notice" style="margin-bottom:14px">{{ nlMsg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="calendar" :size="34" /><p>Nenhum compromisso agendado.</p></div>
     <div v-else class="ap-list">
       <div v-for="a in items" :key="a.id" class="ap-listitem">

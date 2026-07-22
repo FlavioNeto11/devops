@@ -9,6 +9,7 @@ import { brl, dateTimeBr } from '../../utils/format';
 const items = ref([]);
 const total = ref(0);
 const loading = ref(true);
+const loadError = ref('');
 const semantic = ref(false);
 const search = ref('');
 const searchMode = ref('');
@@ -23,19 +24,21 @@ const empty = () => ({ title: '', type: 'apartamento', purpose: 'venda', status:
 const form = ref(empty());
 
 async function load() {
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try {
     const r = await api.list('imoveis');
     items.value = r.data; total.value = r.total; semantic.value = r.semantic;
-  } finally { loading.value = false; }
+  } catch (e) { loadError.value = e.message || 'Falha ao carregar os imóveis.'; }
+  finally { loading.value = false; }
 }
 async function doSearch() {
   if (!search.value.trim()) return load();
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try {
     const r = await api.create('imoveis/search', { query: search.value });
     items.value = r.data; total.value = r.data.length; searchMode.value = r.mode;
-  } finally { loading.value = false; }
+  } catch (e) { loadError.value = e.message || 'Falha ao buscar imóveis.'; }
+  finally { loading.value = false; }
 }
 async function openForm() {
   form.value = empty(); formError.value = '';
@@ -80,6 +83,10 @@ onMounted(load);
     </div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error">
+      <span>{{ loadError }}</span>
+      <button class="im-btn-primary" @click="load">Tentar novamente</button>
+    </div>
     <div v-else-if="!items.length" class="ap-empty">
       <Icon name="building" :size="34" />
       <p>Nenhum imóvel ainda. Comece captando o primeiro.</p>

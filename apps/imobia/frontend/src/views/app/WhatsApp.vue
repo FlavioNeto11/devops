@@ -8,6 +8,7 @@ import { dateTimeBr } from '../../utils/format';
 const channels = ref([]);
 const gateway = ref(false);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
 const form = ref({ phoneNumber: '', segment: 'captacao' });
 const simText = ref('');
@@ -17,8 +18,9 @@ const simBusy = ref(false);
 const messages = ref([]);
 
 async function load() {
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try { const r = await api.list('whatsapp/channels'); channels.value = r.data; gateway.value = r.gateway; if (channels.value[0]) simChannel.value = channels.value[0].id; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar os canais.'; }
   finally { loading.value = false; }
 }
 async function create() {
@@ -47,6 +49,7 @@ onMounted(load);
     <div v-if="!gateway" class="im-notice" style="margin-bottom:16px">🔌 Gateway WhatsApp dormente (Baileys/Evolution/Z-API não configurado). Você pode registrar números e <b>simular</b> mensagens para ver a triagem do Cortex.</div>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else class="ap-cards" style="margin-bottom:20px">
       <article v-for="c in channels" :key="c.id" class="ap-card" style="cursor:default">
         <div class="ap-card-top"><span class="ap-scope" :class="c.segment === 'financas' ? 'pf' : 'pj'">{{ c.segment }}</span><span class="ap-code">{{ c.status }}</span></div>

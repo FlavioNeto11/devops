@@ -7,12 +7,18 @@ import { dateTimeBr } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const uploading = ref(false);
 const docType = ref('rg');
 const msg = ref('');
 const fileInput = ref(null);
 
-async function load() { loading.value = true; try { items.value = (await api.list('documentos')).data; } finally { loading.value = false; } }
+async function load() {
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('documentos')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar os documentos.'; }
+  finally { loading.value = false; }
+}
 async function onFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -46,18 +52,21 @@ onMounted(load);
     <p v-if="msg" class="im-notice" style="margin-bottom:14px">{{ msg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="folder" :size="34" /><p>Nenhum documento enviado.</p></div>
-    <table v-else class="ap-table">
-      <thead><tr><th>Arquivo</th><th>Tipo</th><th>Validação</th><th>Enviado</th><th></th></tr></thead>
-      <tbody>
-        <tr v-for="d in items" :key="d.id">
-          <td><a :href="api.fileUrl(d.storageKey)" target="_blank">{{ d.filename }}</a><br /><small v-if="d.validationReason">{{ d.validationReason }}</small></td>
-          <td>{{ d.type }}</td>
-          <td><StatusBadge :status="d.validation" /></td>
-          <td><small>{{ dateTimeBr(d.createdAt) }}</small></td>
-          <td><button class="im-linkbtn" @click="revalidate(d.id)">revalidar</button></td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="ap-table-wrap">
+      <table class="ap-table">
+        <thead><tr><th>Arquivo</th><th>Tipo</th><th>Validação</th><th>Enviado</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="d in items" :key="d.id">
+            <td><a :href="api.fileUrl(d.storageKey)" target="_blank">{{ d.filename }}</a><br /><small v-if="d.validationReason">{{ d.validationReason }}</small></td>
+            <td>{{ d.type }}</td>
+            <td><StatusBadge :status="d.validation" /></td>
+            <td><small>{{ dateTimeBr(d.createdAt) }}</small></td>
+            <td><button class="im-linkbtn" @click="revalidate(d.id)">revalidar</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
