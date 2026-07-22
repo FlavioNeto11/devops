@@ -2,7 +2,7 @@
 title: "ZapBridge — Manual para Claude Code"
 status: canonical
 applies_to: [zapbridge]
-updated: 2026-06-29
+updated: 2026-07-21
 language: pt-BR
 ---
 
@@ -23,8 +23,11 @@ apenas**, sem WhatsApp Business API, sem scraping, sem envio em massa). Full-sta
 
 - **`server/`** — backend Node/TypeScript: Express (REST) + Socket.IO (tempo real) + Prisma/SQLite
   (persistência) + Baileys (sessão WhatsApp). Mantém a sessão viva e persiste conversas/mídia.
-- **`app/`** — cliente Expo/React Native + **react-native-web**: no celular vira app nativo; na web é
-  buildado (`expo export --platform web`) e servido por nginx como SPA sob `/zapbridge/`.
+- **`web/`** — **frontend web atual**: SPA **React 18 + Vite + TypeScript**, buildado com `npm run build`
+  (gera `web/dist/`, base `/zapbridge/`) e servido por nginx sob `/zapbridge/`. É o que a esteira builda
+  e publica na imagem `zapbridge-web:local`.
+- **`app/`** — cliente Expo/React Native **legado/aposentado** (mobile). Mantido só como referência
+  histórica; **não** é mais o build do deploy web (ver Armadilhas §8 — PWA/SW aposentados no `web/`).
 - **`docs/MVP-FUNCIONAL.md`** — documento funcional completo (20 seções, 45 RFs).
 
 Servido na esteira sob `https://dev.nvit.com.br/zapbridge` (e `nvit.localhost` no dev). É um app
@@ -36,7 +39,8 @@ Servido na esteira sob `https://dev.nvit.com.br/zapbridge` (e `nvit.localhost` n
 1. Este arquivo.
 2. [`AGENTS.md`](./AGENTS.md) — fronteiras + matriz de decisão (obrigatório antes de agir).
 3. [`README.md`](./README.md) — visão do produto e como rodar local.
-4. [`server/README.md`](./server/README.md) e [`app/README.md`](./app/README.md) — setup/build/deploy de cada lado.
+4. [`server/README.md`](./server/README.md) — setup/build/deploy do backend. (`app/README.md` cobre o
+   cliente Expo **legado**; o frontend web atual vive em `web/`.)
 5. [`docs/MVP-FUNCIONAL.md`](./docs/MVP-FUNCIONAL.md) — requisitos, telas, API, eventos, fluxos.
 
 ## Stack & decisões de arquitetura
@@ -49,8 +53,9 @@ Servido na esteira sob `https://dev.nvit.com.br/zapbridge` (e `nvit.localhost` n
 | Persistência | Prisma 5 + **SQLite** em PVC (`/data/zapbridge.db`) | estado simples, single-writer |
 | Auth Baileys/mídia | arquivos em `/data/auth` e `/data/media` (PVC) | sessão sobrevive a restart |
 | Auth do app | JWT (`JWT_SECRET` via Secret `zapbridge-config`) | sessão do usuário do ZapBridge |
-| Frontend | Expo 52 + React Native 0.76 + react-native-web | um código → mobile + web (SPA) |
-| Runtime web | nginx:alpine servindo `app/dist/` | imagem mínima, MIME-safe (subpath) |
+| Frontend | **React 18 + Vite + TypeScript** (`web/`) | SPA web sob `/zapbridge/`; base fixada em `vite.config.ts` |
+| Frontend legado | Expo 52 + React Native (`app/`) | **aposentado** — mobile histórico, fora do deploy web |
+| Runtime web | nginx:alpine servindo `web/dist/` | imagem mínima, MIME-safe (subpath) |
 | Deploy | Kubernetes (esteira) + Argo CD | `apps/zapbridge/k8s` via auto-sync |
 
 **Topologia de réplica:** Deployment `Recreate`, **1 réplica** — o socket Baileys mantém estado em
@@ -69,12 +74,13 @@ Um único `IngressRoute` (`k8s/zapbridge.yaml`) com 3 rotas, prioridade do mais 
 ## Armadilhas conhecidas
 
 1. **Socket.IO atrás do subpath** → o cliente e o servidor precisam casar `path=/zapbridge/socket.io`
-   (`app/app.json > extra.socketPath` e env `SOCKET_IO_PATH`). A rota WS **não** leva `compress` nem
-   strip — Socket.IO casa o path inteiro. `socketUrl` no app é a **origem** (`https://dev.nvit.com.br`),
-   não o subpath.
-2. **base path do app web** → o build embute `/zapbridge` via `app.json > experiments.baseUrl`. O
-   `nginx.conf` usa **prefixo + alias estático** para `/_expo/`, `/assets/`, `/icons/` (nunca `alias`
-   com captura de regex — serve `application/octet-stream` e quebra a SPA; ver TROUBLESHOOTING §14).
+   (`web/src/api/client.ts > SOCKET_PATH` e env `SOCKET_IO_PATH` do backend). A rota WS **não** leva
+   `compress` nem strip — Socket.IO casa o path inteiro. `SOCKET_URL` no cliente é a **origem**
+   (`window.location.origin`), não o subpath.
+2. **base path do frontend web** → o build (Vite) embute `/zapbridge/` via `base` no `web/vite.config.ts`.
+   O `nginx.conf` usa **prefixo + alias estático** para `/zapbridge/assets/` (nunca `alias` com captura
+   de regex — serve `application/octet-stream` e quebra a SPA; ver TROUBLESHOOTING §14). Não há env var
+   de build: `API_URL`/`SOCKET_URL` são derivados de `window.location.origin` em `web/src/api/client.ts`.
 3. **Baileys no Alpine** → o backend usa `node:20-slim` (Debian) + `openssl` por causa do Prisma
    (musl/openssl no Alpine dá dor). Não trocar para Alpine sem cuidar disso.
 4. **patch-package** → `server/patches/@whiskeysockets+baileys+*.patch` é aplicado no `postinstall`. O
@@ -91,6 +97,10 @@ Um único `IngressRoute` (`k8s/zapbridge.yaml`) com 3 rotas, prioridade do mais 
    `send_message` nunca silencioso (proposeTools→`/ai/confirm` HMAC). Métricas `:9464`. Tabelas geridas
    pelo ai-core (`ai_chat_threads`/`ai_user_memory`/`knowledge_*`) têm colunas EXATAS conforme
    `packages/ai-core/src/{memory,rag}.js`. Expurgo total no `disconnectSession`.
+8. **PWA/Service Worker aposentados no `web/`** → o frontend atual (Vite) **não** é um PWA e **não**
+   usa service worker. O `web/public/sw.js` é um **kill-switch**: existe só para substituir o SW antigo
+   (do Expo) ainda registrado em navegadores/PWAs instalados — ele limpa os caches, se desregistra e
+   recarrega os clients no app novo. Não reintroduzir SW/manifest esperando offline/instalável.
 
 ## Variáveis de ambiente chave
 
@@ -105,17 +115,19 @@ CORS_ORIGIN=https://dev.nvit.com.br
 JWT_SECRET=<Secret zapbridge-config>    # NUNCA em env/ConfigMap/git
 ```
 
-**App web (build-time, em `app/app.json`):** `experiments.baseUrl=/zapbridge`, `extra.apiUrl`,
-`extra.socketUrl`, `extra.socketPath`.
+**Frontend web (`web/`):** sem variáveis de build. A `base` (`/zapbridge/`) é fixada em
+`web/vite.config.ts`; `API_URL`, `SOCKET_URL` e `SOCKET_PATH` são derivados de `window.location.origin`
+em `web/src/api/client.ts`. (O Expo legado em `app/` usava `app.json > experiments.baseUrl`/`extra.*`.)
 
 ## Como trabalhar aqui
 
 - **Rodar backend local:** `cd server` → `npm install` → `cp .env.example .env` (ajustar `JWT_SECRET`)
   → `npx prisma migrate dev` → `npm run dev` (http://localhost:3000).
-- **Rodar app local:** `cd app` → `npm install` → ajustar `extra.apiUrl` em `app.json` → `npx expo start`.
+- **Rodar frontend web local:** `cd web` → `npm install` → `npm run dev` (http://localhost:5173/zapbridge/;
+  proxy de `/zapbridge/api` e `/zapbridge/socket.io` para `nvit.localhost`).
 - **Build das imagens (lab):**
   - backend: `docker build -t zapbridge-server:local apps/zapbridge/server`
-  - web: `cd apps/zapbridge/app; npm run build:web` → `docker build -f apps/zapbridge/app/Dockerfile.web -t zapbridge-web:local apps/zapbridge/app`
+  - web: `cd apps/zapbridge/web; npm run build` (Vite → gera `web/dist/`) → `docker build -f apps/zapbridge/web/Dockerfile.web -t zapbridge-web:local apps/zapbridge/web`
 - **Publicar/reverter:** commit dos manifests (Argo auto-sync aplica) ou `kubectl rollout restart`
   (com aprovação). Rollback em [`../../docs/runbooks/rollback.md`](../../docs/runbooks/rollback.md).
 - **Debugar:** `kubectl logs -n apps deploy/zapbridge-server` / `deploy/zapbridge-web`;
