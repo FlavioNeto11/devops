@@ -1,0 +1,22 @@
+{
+  "$guard": "route-integrity",
+  "$comment": "Navegações mortas PRÉ-EXISTENTES toleradas. --check falha só em chaves NOVAS. Ao corrigir, rode --update para reduzir o baseline.",
+  "generatedAt": "2026-07-22",
+  "counts": {
+    "contaviva-360": 0,
+    "contaviva-pro": 0,
+    "imobia": 0,
+    "neuroevolui": 1,
+    "sicat": 0
+  },
+  "violations": [
+    {
+      "app": "neuroevolui",
+      "kind": "path",
+      "target": "/api-docs",
+      "examples": [
+        "apps/neuroevolui/frontend/src/views/SystemHealthView.vue:23"
+      ]
+    }
+  ]
+}
