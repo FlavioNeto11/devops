@@ -1119,6 +1119,38 @@ export function listAdminAccessSessions(params = {}) {
   return request(`/v1/admin/access/sessions${toQueryString(params)}`);
 }
 
+export function grantAdminAccessRole(userId, roleId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}/grant`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function revokeAdminAccessRole(userId, roleId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function resetAdminAccessUserPassword(userId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/password/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function expireAdminAccessUserPassword(userId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/password/expire`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 // =============================================================================
 // Centro Operacional SICAT — endpoints operacionais (fase 05-frontend).
 // =============================================================================
