@@ -3,7 +3,7 @@
     <template #sidebar-footer>
       <div v-if="auth.user.value" class="app-userbox">
         <p class="app-userbox-name">{{ auth.user.value.name || auth.user.value.email }}</p>
-        <p class="app-userbox-role ui-muted">{{ auth.user.value.role }}</p>
+        <p class="app-userbox-role ui-muted">{{ roleLabel(auth.user.value.role) }}</p>
         <UiButton variant="ghost" size="sm" block @click="onLogout">Sair</UiButton>
       </div>
       <UiButton v-else variant="ghost" size="sm" block to="/login">Entrar</UiButton>
@@ -19,6 +19,7 @@ import { RouterView, useRouter } from 'vue-router';
 import { UiAppShell, UiButton, UiToast, UiConfirmDialog } from './ui/index.js';
 import { nav } from './nav.js';
 import { useAuth } from './composables/useAuth.js';
+import { roleLabel } from './lib/roles.js';
 const title = 'ContaViva Pro';
 const auth = useAuth();
 const router = useRouter();

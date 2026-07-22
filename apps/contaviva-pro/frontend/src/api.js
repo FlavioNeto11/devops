@@ -93,24 +93,27 @@ export const users = {
 // Assistente de IA (bloco control-ai-por-app). Aceita ARQUIVOS (multimodal): envia multipart/form-data
 // quando há File[] (campo 'files'); senão JSON (retrocompat). NUNCA setamos Content-Type no multipart
 // (o browser põe o boundary). Erros estruturados (status + message) sobem p/ a view.
-export async function assistant(message, files, _retried) {
+// opts: { signal?: AbortSignal } — o signal permite CANCELAR a pergunta em andamento (a view expõe
+// um botão "Cancelar" durante o "Pensando…"). _retried é interno (dedupe do retry pós-refresh).
+export async function assistant(message, files, opts = {}) {
   const list = Array.isArray(files) ? files.filter(Boolean) : [];
   // bloco contas-acesso: anexa o Bearer (sem fixar Content-Type no multipart — o browser põe o boundary).
   const tok = getToken();
   const authHdr = tok ? { Authorization: 'Bearer ' + tok } : {};
+  const signal = opts.signal;
   let res;
   if (list.length) {
     const fd = new FormData();
     fd.append('message', String(message || ''));
     for (const f of list) fd.append('files', f, f.name);
-    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: authHdr, body: fd });
+    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: authHdr, body: fd, signal });
   } else {
-    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHdr }, body: JSON.stringify({ message: String(message || '') }) });
+    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHdr }, body: JSON.stringify({ message: String(message || '') }), signal });
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     // Mesmo tratamento do request(): renova e retenta UMA vez antes de derrubar a sessão.
-    if (!_retried && (await tryRefresh())) return assistant(message, files, true);
+    if (!opts._retried && (await tryRefresh())) return assistant(message, files, { ...opts, _retried: true });
     setToken(null); emitLogout();
   }
   if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }
