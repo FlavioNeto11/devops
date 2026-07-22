@@ -267,6 +267,15 @@ select.input:focus-visible,
   padding: 5px 11px;
   font-size: 0.8rem;
 }
+/* orientação de onde obter o token no 1º acesso (UX-PREC-015) */
+.tokenbar__hint {
+  flex-basis: 100%;
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.tokenbar__hint code {
+  font-size: 0.92em;
+}
 
 /* topbar com cara de produto NovaIT */
 .topbar {
@@ -674,6 +683,17 @@ select.input {
   color: inherit;
   font-weight: 600;
 }
+/* alerta de erro de carregamento com ação de retry (UX-PREC-010) */
+.alert-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.alert-retry .btn {
+  flex: 0 0 auto;
+}
 
 .empty {
   padding: 40px 28px;
@@ -717,6 +737,13 @@ select.input {
   margin: 0;
   font-size: 1.4rem;
   font-weight: 800;
+}
+/* grupo de ações no cabeçalho da view (ex.: Atualizar + Novo portal, UX-PREC-011) */
+.view__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .form-card {
@@ -948,6 +975,10 @@ select.input {
 }
 .panel__actions .btn {
   flex: 1;
+}
+/* confirmação transitória do print (UX-PREC-012) */
+.panel__note {
+  margin: -2px 0 0;
 }
 .panel__steps {
   display: flex;

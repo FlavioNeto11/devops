@@ -54,9 +54,16 @@ export default function PortalsView() {
 
   return (
     <div className="view">
-      <NewPortalForm onCreated={load} />
+      <NewPortalForm onCreated={load} onRefresh={load} refreshing={loading} />
 
-      {error && <div className="alert alert-err" role="alert">{error}</div>}
+      {error && (
+        <div className="alert alert-err alert-retry" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={load}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="empty" role="status">Carregando portais…</div>
@@ -78,7 +85,7 @@ export default function PortalsView() {
   );
 }
 
-function NewPortalForm({ onCreated }) {
+function NewPortalForm({ onCreated, onRefresh, refreshing }) {
   const [open, setOpen] = useState(false);
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
@@ -115,9 +122,22 @@ function NewPortalForm({ onCreated }) {
     return (
       <div className="view__head">
         <h2 className="view__title">Portais externos (captura)</h2>
-        <button className="btn btn-primary" onClick={() => setOpen(true)}>
-          + Novo portal externo
-        </button>
+        <div className="view__head-actions">
+          {onRefresh && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onRefresh}
+              disabled={refreshing}
+              title="Recarrega portais e sessões (o status pode mudar por idle-TTL do browser remoto)"
+            >
+              {refreshing ? 'Atualizando…' : 'Atualizar'}
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => setOpen(true)}>
+            + Novo portal externo
+          </button>
+        </div>
       </div>
     );
   }

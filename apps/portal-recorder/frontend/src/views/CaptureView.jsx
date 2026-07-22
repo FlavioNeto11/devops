@@ -55,8 +55,12 @@ export default function CaptureView({ sessionId }) {
   const [steps, setSteps] = useState([]);
   const [busyStep, setBusyStep] = useState(false);
   const [busyShot, setBusyShot] = useState(false);
+  const [shotCount, setShotCount] = useState(0);
   const [busyStop, setBusyStop] = useState(false);
   const [actionErr, setActionErr] = useState(null);
+  // UX-PREC-009: sessão inexistente (404) recebe estado dedicado, não o overlay
+  // eterno de "Conectando…". Demais erros seguem fail-soft.
+  const [notFound, setNotFound] = useState(false);
 
   // Carrega os metadados da sessao (titulo, started_at). started_at ancora o relogio.
   useEffect(() => {
@@ -70,8 +74,11 @@ export default function CaptureView({ sessionId }) {
           if (!Number.isNaN(t)) sessionStartRef.current = t;
         }
       })
-      .catch(() => {
-        /* sessao pode ainda nao existir no GET; mantem started local */
+      .catch((e) => {
+        if (!alive) return;
+        // 404 = sessão realmente inexistente (link velho / excluída): estado dedicado.
+        // Erros transitórios seguem fail-soft (mantém started local).
+        if (e && e.status === 404) setNotFound(true);
       });
     return () => {
       alive = false;
@@ -323,6 +330,9 @@ export default function CaptureView({ sessionId }) {
     setActionErr(null);
     try {
       await takeScreenshot(sessionId);
+      // UX-PREC-012: confirma o sucesso com um contador visível (o print só aparece
+      // depois, na Revisão) — evita prints repetidos "por garantia".
+      setShotCount((n) => n + 1);
     } catch (e) {
       setActionErr(e.message || String(e));
     } finally {
@@ -331,6 +341,9 @@ export default function CaptureView({ sessionId }) {
   };
 
   const stop = async () => {
+    // UX-PREC-007: encerrar é irreversível (não dá para retomar) — pede confirmação,
+    // no mesmo padrão das exclusões (window.confirm).
+    if (!window.confirm('Encerrar a captura? A sessão não pode ser retomada depois.')) return;
     setBusyStop(true);
     setActionErr(null);
     try {
@@ -341,6 +354,24 @@ export default function CaptureView({ sessionId }) {
       setBusyStop(false);
     }
   };
+
+  if (notFound) {
+    return (
+      <div className="view">
+        <div className="empty">
+          <p style={{ margin: 0 }}>Sessão não encontrada.</p>
+          <p className="muted small" style={{ marginTop: 6 }}>
+            Ela pode ter sido excluída ou o link está desatualizado.
+          </p>
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={() => navigate('#/')}>
+              ← Voltar aos portais
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="capture">
@@ -435,9 +466,15 @@ export default function CaptureView({ sessionId }) {
               {busyStep ? 'Marcando…' : 'Marcar passo'}
             </button>
             <button className="btn btn-ghost" onClick={print} disabled={busyShot}>
-              {busyShot ? 'Printando…' : 'Print'}
+              {busyShot ? 'Printando…' : shotCount > 0 ? `Print (${shotCount})` : 'Print'}
             </button>
           </div>
+
+          {shotCount > 0 && (
+            <div className="panel__note muted small" role="status" aria-live="polite">
+              {shotCount} print{shotCount > 1 ? 's' : ''} salvo{shotCount > 1 ? 's' : ''} nesta sessão — aparece{shotCount > 1 ? 'm' : ''} na Revisão.
+            </div>
+          )}
 
           {actionErr && <div className="alert alert-err" role="alert">{actionErr}</div>}
 
