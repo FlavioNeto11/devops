@@ -35,8 +35,11 @@ export default function App() {
       <ContentProvider>
         <div className="relative min-h-screen bg-brand-bg">
           <ScrollManager />
+          <a href="#main-content" className="skip-link">
+            Pular para o conteúdo
+          </a>
           <Header />
-          <main>
+          <main id="main-content" tabIndex={-1}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/solucoes" element={<Solucoes />} />
