@@ -195,12 +195,22 @@ export default function CaptureView({ sessionId }) {
   // evita o keyDown+char duplicado que digitava torto. Teclas de controle
   // (Backspace/Enter/Tab/setas…) vão por 'down'/'up' com key+code.
   const isPrintable = (e) => e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+  // WCAG 2.1.2 (No Keyboard Trap): Tab/Shift+Tab e Escape NUNCA são engolidos —
+  // são a rota de saída por teclado do canvas. Tab navega para o próximo/anterior
+  // controle da página; Esc devolve o foco ao documento (blur). As demais teclas
+  // seguem sendo encaminhadas ao browser remoto enquanto o canvas tem foco.
+  const isExitKey = (e) => e.key === 'Tab' || e.key === 'Escape';
   const onKeyDown = (e) => {
+    if (isExitKey(e)) {
+      if (e.key === 'Escape') e.currentTarget.blur();
+      return; // sem preventDefault: navegação/saída por teclado seguem normais
+    }
     e.preventDefault();
     if (isPrintable(e)) send({ type: 'key', action: 'char', text: e.key });
     else send({ type: 'key', action: 'down', key: e.key, code: e.code });
   };
   const onKeyUp = (e) => {
+    if (isExitKey(e)) return;
     e.preventDefault();
     if (!isPrintable(e)) send({ type: 'key', action: 'up', key: e.key, code: e.code });
   };
@@ -287,7 +297,7 @@ export default function CaptureView({ sessionId }) {
             className="screencast"
             tabIndex={0}
             role="application"
-            aria-label="Tela do browser remoto — clique para focar; mouse e teclado sao enviados ao portal"
+            aria-label="Tela do browser remoto — clique para focar; mouse e teclado sao enviados ao portal. Pressione Esc para sair do controle por teclado, ou Tab para navegar."
             onMouseMove={onMouseMove}
             onMouseDown={onMouseDown}
             onMouseUp={onMouseUp}
@@ -306,6 +316,8 @@ export default function CaptureView({ sessionId }) {
           <div className="screencast__hint muted small">
             Clique no quadro para focar (borda azul = teclado ativo). O cursor local serve
             de guia; digitação, Enter, Backspace e setas funcionam direto.
+            <br />
+            Pressione <kbd>Esc</kbd> para sair do controle por teclado (ou <kbd>Tab</kbd> para navegar).
           </div>
         </div>
 
