@@ -7,10 +7,15 @@ interface AuthState {
   loading: boolean;
   bootstrapping: boolean;
   error: string | null;
+  // Marca que a sessão expirou (401 em requisição autenticada). O /login exibe
+  // um aviso para o usuário distinguir "sessão caiu" de "primeira visita".
+  sessionExpired: boolean;
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, displayName: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  markSessionExpired: () => void;
+  clearSessionExpired: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -18,6 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: false,
   bootstrapping: true,
   error: null,
+  sessionExpired: false,
 
   // Revalida o token salvo na inicialização.
   bootstrap: async () => {
@@ -34,7 +40,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data } = await api.post('/auth/login', { email, password });
       setToken(data.token);
-      set({ user: data.user, loading: false });
+      set({ user: data.user, loading: false, sessionExpired: false });
       return true;
     } catch (e) {
       set({ error: errorMessage(e), loading: false });
@@ -47,7 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data } = await api.post('/auth/register', { email, password, displayName });
       setToken(data.token);
-      set({ user: data.user, loading: false });
+      set({ user: data.user, loading: false, sessionExpired: false });
       return true;
     } catch (e) {
       set({ error: errorMessage(e), loading: false });
@@ -59,4 +65,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearToken();
     set({ user: null });
   },
+
+  markSessionExpired: () => set({ user: null, sessionExpired: true }),
+  clearSessionExpired: () => set({ sessionExpired: false }),
 }));

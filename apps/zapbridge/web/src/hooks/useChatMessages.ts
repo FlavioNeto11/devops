@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../api/client';
+import { api, errorMessage } from '../api/client';
 import { connectSocket } from '../realtime/socket';
 import { Message } from '../types';
 import { isDevPreview } from '../dev/devPreview';
@@ -38,6 +38,9 @@ type PendingMedia = { file: File | Blob; type: 'image' | 'video' | 'audio' | 'do
 export function useChatMessages(chatId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  // Erro do carregamento inicial do histórico: distingue falha de "sem mensagens".
+  const [error, setError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exhausted, setExhausted] = useState(false);
   const [presence, setPresence] = useState<Presence>({});
@@ -116,11 +119,12 @@ export function useChatMessages(chatId: string) {
     setSendFailureAt((n) => n + 1);
   }, []);
 
-  // Carrega histórico inicial + zera não-lidas.
+  // Carrega histórico inicial + zera não-lidas. reloadTick permite re-tentar após erro.
   useEffect(() => {
     let alive = true;
     setMessages([]);
     setLoading(true);
+    setError(null);
     setExhausted(false);
     setPresence({});
     setSuggestions([]);
@@ -142,8 +146,8 @@ export function useChatMessages(chatId: string) {
         setMessages(data.messages ?? []);
         cursorRef.current = data.nextCursor ?? null;
         setExhausted(!data.nextCursor);
-      } catch {
-        /* silencioso */
+      } catch (e) {
+        if (alive) setError(errorMessage(e));
       } finally {
         if (alive) setLoading(false);
       }
@@ -151,7 +155,9 @@ export function useChatMessages(chatId: string) {
     return () => {
       alive = false;
     };
-  }, [chatId]);
+  }, [chatId, reloadTick]);
+
+  const reload = useCallback(() => setReloadTick((t) => t + 1), []);
 
   // Tempo real.
   useEffect(() => {
@@ -322,6 +328,8 @@ export function useChatMessages(chatId: string) {
   return {
     messages,
     loading,
+    error,
+    reload,
     loadingMore,
     exhausted,
     presence,
