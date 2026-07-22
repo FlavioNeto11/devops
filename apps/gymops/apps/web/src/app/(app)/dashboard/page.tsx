@@ -95,6 +95,40 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     : <ChevronDown className="inline h-3.5 w-3.5 ml-0.5" />;
 }
 
+/**
+ * Cabeçalho ordenável: o clique fica num <button> real (operável por Tab +
+ * Enter/Espaço), enquanto o aria-sort continua no <th> — antes o onClick no
+ * <th> só respondia ao mouse, quebrando a promessa do aria-sort (UX-GYMOPS-010).
+ */
+function SortableTh({
+  col, label, sortCol, sortDir, onSort, align = 'left',
+}: {
+  col: SortCol;
+  label: string;
+  sortCol: SortCol;
+  sortDir: 'asc' | 'desc';
+  onSort: (col: SortCol) => void;
+  align?: 'left' | 'center';
+}) {
+  const active = sortCol === col;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+      className={`p-0 font-medium text-muted-foreground ${active ? 'text-foreground' : ''}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={`flex w-full select-none items-center gap-0.5 px-4 py-3 font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${align === 'center' ? 'justify-center' : 'justify-start'}`}
+      >
+        {label}
+        <SortIcon active={active} dir={sortDir} />
+      </button>
+    </th>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const organizationId = useAuthStore((s) => s.organizationId);
@@ -147,9 +181,6 @@ export default function DashboardPage() {
     }
     return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
   });
-
-  const thCls = (col: SortCol) =>
-    `cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground transition-colors ${sortCol === col ? 'text-foreground' : ''}`;
 
   return (
     <div className="p-3 md:p-6 space-y-6">
@@ -241,21 +272,11 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b bg-muted">
-                  <th scope="col" aria-sort={sortCol === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={thCls('name')} onClick={() => handleSort('name')}>
-                    Unidade <SortIcon active={sortCol === 'name'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'open' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('open')} text-center`} onClick={() => handleSort('open')}>
-                    Abertas <SortIcon active={sortCol === 'open'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'overdue' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('overdue')} text-center`} onClick={() => handleSort('overdue')}>
-                    Atrasadas <SortIcon active={sortCol === 'overdue'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'critical' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('critical')} text-center`} onClick={() => handleSort('critical')}>
-                    Críticas <SortIcon active={sortCol === 'critical'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'unassigned' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('unassigned')} text-center`} onClick={() => handleSort('unassigned')}>
-                    Sem resp. <SortIcon active={sortCol === 'unassigned'} dir={sortDir} />
-                  </th>
+                  <SortableTh col="name" label="Unidade" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                  <SortableTh col="open" label="Abertas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="overdue" label="Atrasadas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="critical" label="Críticas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="unassigned" label="Sem resp." sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
                 </tr>
               </thead>
               <tbody className="divide-y">

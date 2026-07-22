@@ -151,6 +151,9 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
       void qc.invalidateQueries({ queryKey: ['activity', activityId] });
       void qc.invalidateQueries({ queryKey: ['activity-events', activityId] });
     },
+    // Sem onError, a falha desmarcava o item "sozinho" no refetch sem aviso
+    // (UX-GYMOPS-013). O checklist é o registro operacional central.
+    onError: () => toast.error('Não foi possível atualizar o item. Tente novamente.'),
   });
 
   const uploadMutation = useMutation({
@@ -184,6 +187,8 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
       void qc.invalidateQueries({ queryKey: ['activity-attachments', activityId] });
       toast.success('Anexo removido');
     },
+    // Sem onError, o anexo "voltava" no refetch sem explicação (UX-GYMOPS-013).
+    onError: () => toast.error('Erro ao remover anexo'),
   });
 
   const activity = actRes?.data;
@@ -278,8 +283,12 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                       size="sm"
                       className="h-7 gap-1 text-xs"
                       onClick={() => {
-                        patchMutation.mutate({ visibilityMode: 'restricted' });
-                        toast.success('Atividade restrita a membros explícitos');
+                        // Toast de sucesso só após o servidor confirmar — antes ele
+                        // aparecia mesmo quando o PATCH falhava (UX-GYMOPS-012).
+                        patchMutation.mutate(
+                          { visibilityMode: 'restricted' },
+                          { onSuccess: () => toast.success('Atividade restrita a membros explícitos') },
+                        );
                       }}
                     >
                       <Lock className="h-3 w-3" />
@@ -502,7 +511,14 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-500"
-                              onClick={() => deleteAttachmentMutation.mutate(a.id)}
+                              aria-label={`Remover anexo ${a.filename}`}
+                              onClick={() => {
+                                // Exclusão destrutiva sem undo — confirma citando o
+                                // arquivo, como já faz a remoção de checklist (UX-GYMOPS-014).
+                                if (window.confirm(`Remover o anexo "${a.filename}"? Esta ação não pode ser desfeita.`)) {
+                                  deleteAttachmentMutation.mutate(a.id);
+                                }
+                              }}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -1108,7 +1124,7 @@ function ChecklistSection({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-100 md:opacity-0 md:transition-opacity md:group-hover/item:opacity-100"
+                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-100 md:opacity-0 md:transition-opacity md:group-hover/item:opacity-100 md:focus-visible:opacity-100"
                     aria-label={isExpanded ? 'Fechar detalhes do item' : 'Comentar ou anexar arquivo'}
                     onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
                   >
