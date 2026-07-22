@@ -3757,3 +3757,24 @@ drift-gate (design-tokens + platform-shell) e testes de contraste seguem **verde
 (b) mesclar os PRs #255–#274 individualmente (Onda 0/1 núcleo) e cereja-pegar as levas 5–7 depois.
 Em ambos os casos, **#257 (auth de borda) por último e com validação viva** — aplica manifests que o
 Argo sincroniza no cluster. `main` permanece intocada até a decisão do operador.
+
+### 19.5 Fundação de QA (guardas que rodam sem servidor)
+
+Entregue em `scripts/qa/` + CI, para travar as regressões que esta execução corrigiu — **antes** da
+camada Playwright/axe (que precisa de infra de CI). Node puro, sem dependências, sem serviços.
+
+- **`route-integrity.mjs`** — guarda determinístico de navegação morta (a classe do bug UX-NEURO-002).
+  Extrai as rotas registradas dos apps Vue e sinaliza alvos de `to=`/`router.push`/`go()` sem rota.
+  **Dogfooding:** achou 1 dead link real que passou pela integração (NeuroEvolui → `/api-docs`),
+  corrigido. **Estado: 0 navegações mortas.**
+- **`a11y-static.mjs`** — guarda do clicável-sem-teclado (WCAG 2.1.1). Parse de elemento, baixo
+  falso-positivo. Worklist do burndown: **34 → 17** (17 corrigidos; 17 remanescentes são isenções
+  justificadas — backdrops com Esc, wrappers de botões nativos onde `role=button` criaria nested-interactive).
+- **Baseline** (`*.baseline.json`): o CI (`--check`) barra só regressão nova; a dívida conhecida
+  encolhe ao ser corrigida (`--update`). Adoção imediata.
+- **CI**: `.github/workflows/qa-guards.yml` roda os dois guardas em PRs que tocam frontends.
+- **`scripts/qa/README.md`** documenta os guardas e a esteira futura (H1 rota-smoke por papel, H3 axe,
+  H5 visual-diff, H6 sessão/erro) que precisa de Postgres/Playwright no CI.
+
+**Estado final de `ux/onda-integration`:** 218 arquivos, +10427/−1216 vs `main`; drift-gate, contraste
+e os 2 guardas de QA todos verdes. `main` intocada.
