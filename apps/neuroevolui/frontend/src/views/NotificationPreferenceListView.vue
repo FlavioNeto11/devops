@@ -197,7 +197,7 @@
       <template #empty-action>
         <div class="np-empty-actions">
           <UiButton v-if="hasActiveFilters" variant="ghost" @click="clearFilters">Limpar filtros</UiButton>
-          <UiButton variant="primary" to="/notifications">Configurar notificações</UiButton>
+          <UiButton variant="primary" to="/notification-preferences">Configurar notificações</UiButton>
         </div>
       </template>
     </UiDataTable>

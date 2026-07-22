@@ -29,7 +29,7 @@
   >
     <!-- ── AÇÕES DO CABEÇALHO ────────────────────────────────────────────────── -->
     <template #actions>
-      <UiButton variant="ghost" to="/jobs">← Voltar</UiButton>
+      <UiButton variant="ghost" to="/async-jobs">← Voltar</UiButton>
       <UiButton variant="subtle" :loading="refreshing" @click="loadJob">
         Atualizar
       </UiButton>
