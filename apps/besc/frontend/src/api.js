@@ -133,6 +133,9 @@ export const api = {
     refresh: (refreshToken) => req('POST', '/auth/refresh', { refreshToken }),
     logout: (refreshToken) => req('POST', '/auth/logout', { refreshToken }),
     me: () => req('GET', '/auth/me'),
+    // resgate de convite (advogado/juiz/gestor): define a senha e ativa o papel concedido.
+    // NÃO devolve sessão — o resgate loga em seguida com o e-mail do convite + a senha criada.
+    acceptInvite: (token, body) => req('POST', `/auth/invitations/${encodeURIComponent(token)}/accept`, body), // {name?, password} -> {ok, email, roleKey}
   },
 
   // anexos de documentos

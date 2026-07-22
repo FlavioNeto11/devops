@@ -35,10 +35,14 @@ export default function GestaoAlugueis() {
   const { hasPerm } = useAuth();
   const canWrite = hasPerm('fees:write');
   const [error, setError] = useState(null);
-  const [leases, setLeases] = useState([]);
+  const [leases, setLeases] = useState(null); // null = carregando (evita flash de empty state)
 
-  useEffect(() => { api.finance.leases().then(setLeases).catch((e) => setError(e.message)); }, []);
-  const addLease = (l) => setLeases((prev) => [l, ...prev.filter((x) => x.id !== l.id)]);
+  useEffect(() => {
+    api.finance.leases()
+      .then((r) => setLeases(Array.isArray(r) ? r : []))
+      .catch((e) => { setError(friendly(e.message)); setLeases([]); });
+  }, []);
+  const addLease = (l) => setLeases((prev) => [l, ...(prev || []).filter((x) => x.id !== l.id)]);
 
   return (
     <>
@@ -211,20 +215,21 @@ function NewLeasePanel({ onError, onCreated }) {
   );
 }
 
-// ---- Lista de aluguéis (desta sessão) + fechar competência ----
+// ---- Lista de aluguéis (base completa do backend) + fechar competência ----
 function LeaseList({ leases, canWrite, onError }) {
   return (
     <div className="card">
-      <div className="card-head"><h3><Icon name="briefcase" size={15} /> Aluguéis ({leases.length})</h3></div>
+      <div className="card-head"><h3><Icon name="briefcase" size={15} /> Aluguéis ({leases ? leases.length : '…'})</h3></div>
       <div className="card-body">
         <p className="small muted" style={{ marginTop: 0 }}>
-          Esta lista mostra os aluguéis criados <strong>durante esta sessão</strong> — use-os para fechar
-          competências logo após criá-los. (A base de aluguéis completa vive no backend.)
+          Todos os aluguéis cadastrados. Feche a <strong>competência</strong> (mês) de cada um logo após criá-lo
+          para gerar a fatura correspondente.
         </p>
-        {leases.length === 0 && (
-          <div className="empty"><p className="muted">Nenhum aluguel criado nesta sessão. Crie um acima para poder fechar competências.</p></div>
+        {leases === null && <SkeletonList count={2} lines={2} />}
+        {leases && leases.length === 0 && (
+          <div className="empty"><p className="muted">Nenhum aluguel cadastrado ainda. Crie um acima para poder fechar competências.</p></div>
         )}
-        {leases.map((l) => (
+        {(leases || []).map((l) => (
           <LeaseCard key={l.id} lease={l} canWrite={canWrite} onError={onError} />
         ))}
       </div>
@@ -283,7 +288,7 @@ function LeaseCard({ lease, canWrite, onError }) {
         )}
 
         {accruals.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
             <table className="data">
               <thead><tr><th>Competência</th><th style={{ textAlign: 'right' }}>Dias do período</th><th style={{ textAlign: 'right' }}>Dias cobráveis</th><th style={{ textAlign: 'right' }}>Valor</th><th>Fatura</th></tr></thead>
               <tbody>

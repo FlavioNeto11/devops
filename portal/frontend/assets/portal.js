@@ -190,6 +190,19 @@ export function stateMarkup(kind, ctx = {}) {
       '</div>'
     );
   }
+  if (kind === 'expired') {
+    // Sessão do operador expirou (401 após um 200 prévio): aviso leve + CTA de relogin,
+    // em vez de a descoberta sumir em silêncio. O href é montado no chamador (browser).
+    const href = escapeHtml(ctx.loginHref || '/oauth2/start');
+    return (
+      '<div class="state">' +
+      '<div class="state-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></div>' +
+      '<strong>Sua sessão expirou</strong>' +
+      '<span>Entre novamente para ver a descoberta do cluster e as ferramentas de operação.</span>' +
+      `<a class="btn ghost sm" href="${href}">Entrar novamente</a>` +
+      '</div>'
+    );
+  }
   // error
   const msg = escapeHtml(ctx.message || 'não foi possível consultar o cluster agora.');
   return (
@@ -237,6 +250,10 @@ let clusterLoading = false;
 let refreshTimer = 0;
 // Rearme único por 401: evita acumular listeners de focus a cada 401 repetido.
 let focusRetryArmed = false;
+// Houve ao menos um 200 (operador autenticado) NESTA sessão de página? Distingue o
+// visitante anônimo (nunca autorizou) do operador cuja sessão expirou depois — muda o
+// que fazer no 401 (esconder tudo x avisar) e no erro transitório (ocultar x mostrar).
+let wasOperator = false;
 
 /** Observabilidade leve: encaminha eventos a um coletor opcional (config por env). */
 function track(name, data) {
@@ -360,6 +377,7 @@ async function loadClusterApps({ silent = false } = {}) {
   try {
     const data = await fetchWithTimeout(API_URL);
     clearTimeout(loadingTimer);
+    wasOperator = true; // 200 = a API do Console autorizou → operador nesta sessão de página
     const apps = appsInNamespace(parseIngressRoutes(data), 'apps');
     enrichCuratedCards(livePathSet(apps));
 
@@ -389,18 +407,35 @@ async function loadClusterApps({ silent = false } = {}) {
   } catch (err) {
     clearTimeout(loadingTimer);
     track('cluster_apps_error', { message: String((err && err.message) || err) });
-    // Recurso de operador: API restrita (401/403) ⇒ visitante anônimo ⇒ esconde a
-    // descoberta E as ferramentas de operador (site público mostra só o curado) e
-    // PARA o refresh periódico (sem sondar o cluster para sempre). Retomada única
-    // quando a aba recupera o foco — captura o operador que logou em outra aba.
+    // Recurso de operador: API restrita (401/403). As ferramentas de operador sempre
+    // saem e o refresh periódico para (sem sondar o cluster para sempre). O que a seção
+    // de descoberta mostra depende de já ter havido um 200 nesta sessão de página:
+    //   • anônimo (nunca autorizou) ⇒ esconde a descoberta (site público = só o curado);
+    //   • operador cuja sessão EXPIROU ⇒ aviso leve + CTA de relogin (não some em silêncio).
+    // Retomada única quando a aba recupera o foco — captura o operador que logou em outra aba.
     if (isAuthError(err && err.status)) {
-      if (section) section.hidden = true;
       setOperatorUI(false);
-      applySearch(); // recalcula a contagem sem tools/cluster
       if (refreshTimer) {
         clearInterval(refreshTimer);
         refreshTimer = 0;
       }
+      if (wasOperator) {
+        grid.innerHTML = ''; // remove cards de operador da sessão anterior
+        if (section) {
+          section.hidden = false;
+          markRevealed('#cluster-section');
+        }
+        const rd =
+          typeof location !== 'undefined'
+            ? encodeURIComponent(location.pathname + location.search)
+            : '/';
+        stateBox.hidden = false;
+        stateBox.removeAttribute('aria-busy');
+        stateBox.innerHTML = stateMarkup('expired', { loginHref: '/oauth2/start?rd=' + rd });
+      } else if (section) {
+        section.hidden = true;
+      }
+      applySearch(); // recalcula a contagem sem tools/cluster
       // rearma a retomada a CADA 401 (o operador pode logar em outra aba a qualquer momento),
       // sem acumular listeners (flag zerada quando o focus dispara).
       if (!focusRetryArmed) {
@@ -416,19 +451,28 @@ async function loadClusterApps({ silent = false } = {}) {
       }
       return;
     }
-    // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial,
-    // não no refresh silencioso (que não pode estragar uma UI boa anterior).
-    if (!silent) {
+    // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial (não no
+    // refresh silencioso) E só para quem JÁ é operador. A home pública NÃO deve revelar a
+    // seção de operador nem o vocabulário de erro interno a um visitante anônimo quando o
+    // Console está fora — para ele a seção permanece oculta (o curado cobre a jornada).
+    if (!silent && wasOperator) {
       const message =
         err && err.name === 'AbortError'
           ? 'o cluster demorou a responder (timeout).'
           : 'a API do Console não respondeu.';
-      if (section) section.hidden = false;
+      if (section) {
+        section.hidden = false;
+        markRevealed('#cluster-section');
+      }
       stateBox.hidden = false;
       stateBox.removeAttribute('aria-busy');
       stateBox.innerHTML = stateMarkup('error', { message });
       const retry = stateBox.querySelector('[data-retry]');
       if (retry) retry.addEventListener('click', () => loadClusterApps(), { once: true });
+    } else if (!silent) {
+      if (section) section.hidden = true;
+      stateBox.hidden = true;
+      stateBox.removeAttribute('aria-busy');
     }
   } finally {
     clusterLoading = false;

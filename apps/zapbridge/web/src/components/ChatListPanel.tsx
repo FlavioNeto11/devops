@@ -11,7 +11,7 @@ type Filter = 'all' | 'unread' | 'favorites' | 'groups';
 
 export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
   const nav = useNavigate();
-  const { chats, loading, search, setSearch, fetchChats } = useChatsStore();
+  const { chats, loading, error, search, setSearch, fetchChats } = useChatsStore();
   const status = useSessionStore((s) => s.status);
   const [filter, setFilter] = useState<Filter>('all');
   const [archivedCount, setArchivedCount] = useState(0);
@@ -84,7 +84,8 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
           <IconSearch size={17} className="text-muted" />
           <input
             className="flex-1 bg-transparent outline-none text-[16px] placeholder:text-muted"
-            placeholder="Pergunte à IA ou pesquise"
+            placeholder="Pesquisar conversas"
+            aria-label="Pesquisar conversas"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -98,7 +99,9 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
           return (
             <button
               key={c.key}
+              type="button"
               onClick={() => setFilter(c.key)}
+              aria-pressed={active}
               className={`shrink-0 px-3.5 py-1.5 rounded-2xl text-[13.5px] font-semibold ${
                 active ? 'bg-primary/20 text-primary' : 'bg-surface text-muted'
               }`}
@@ -129,6 +132,17 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
         {loading && chats.length === 0 ? (
           <div className="grid place-items-center py-16">
             <Spinner />
+          </div>
+        ) : error && chats.length === 0 ? (
+          <div className="text-center px-6 py-16">
+            <div className="text-white font-semibold">Não foi possível carregar as conversas</div>
+            <div className="text-muted text-sm mt-1">{error}</div>
+            <button
+              onClick={() => fetchChats()}
+              className="mt-4 rounded-full bg-surface hover:bg-surfaceAlt text-primary font-semibold px-5 py-2 text-sm"
+            >
+              Tentar novamente
+            </button>
           </div>
         ) : visible.length === 0 ? (
           <div className="text-center text-muted px-6 py-16">

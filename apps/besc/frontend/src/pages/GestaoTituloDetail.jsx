@@ -3,16 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import {
   Banner, Loading, Field, ConfirmButton, HelpCallout, useLabel,
-  LegalStatusBadge, ListingBadge, AvailableBadge, formatBRL, LEGAL_STATUS_LABEL,
+  LegalStatusBadge, ListingBadge, AvailableBadge, ContractStatusBadge, formatBRL, friendly, LEGAL_STATUS_LABEL,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const PURPOSE_LABEL = { purchase: 'Compra', collateral: 'Caução', lease_backing: 'Lastro de aluguel' };
-const CONTRACT_STATUS = {
-  active: { l: 'Ativo', c: 'b-green' }, suspended: { l: 'Suspenso', c: 'b-amber' },
-  substituted: { l: 'Substituído', c: 'b-blue' }, written_off: { l: 'Baixado', c: 'b-red' },
-  settled: { l: 'Liquidado', c: 'b-grey' }, terminated: { l: 'Encerrado', c: 'b-grey' },
-};
 const PARAM_STATUS = { draft: { l: 'Rascunho', c: 'b-grey' }, active: { l: 'Ativa', c: 'b-green' }, superseded: { l: 'Substituída', c: 'b-grey' } };
 
 function fmtDateTime(s) { if (!s) return '—'; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR'); }
@@ -59,7 +54,7 @@ export default function GestaoTituloDetail() {
     setError(null);
     return Promise.all([api.mkt.title(id), api.mkt.contracts(id).catch(() => [])])
       .then(([t, cs]) => { setTitle(t); setContracts(cs); })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(friendly(e.message)));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
   useEffect(() => { api.mkt.meta().then(setMktMeta).catch(() => setMktMeta({ legalStatuses: LEGAL_STATUS_LABEL, transitions: {} })); }, []);
@@ -67,7 +62,7 @@ export default function GestaoTituloDetail() {
   // ação que salva e recarrega, exibindo erro amigável
   const run = async (promise) => {
     setError(null);
-    try { await promise; await load(); return true; } catch (e) { setError(e.message); return false; }
+    try { await promise; await load(); return true; } catch (e) { setError(friendly(e.message)); return false; }
   };
 
   if (!title) return error ? <Banner>{error}</Banner> : <Loading label="Carregando título…" />;
@@ -119,7 +114,7 @@ export default function GestaoTituloDetail() {
       <div className="detail-layout">
         <nav className="tab-rail">
           {TABS.map((t) => (
-            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+            <button key={t.k} className={tab === t.k ? 'active' : ''} aria-current={tab === t.k ? 'true' : undefined} onClick={() => setTab(t.k)}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
               {counts[t.k] !== undefined && counts[t.k] !== 0 && <span className="tab-count">{counts[t.k]}</span>}
@@ -441,7 +436,6 @@ function ContratosTab({ title, contracts, run }) {
                 <thead><tr><th>Contrato</th><th>Finalidade</th><th>Qtde</th><th>Valor travado</th><th>Total</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   {contracts.map((c) => {
-                    const st = CONTRACT_STATUS[c.status] || { l: c.status, c: 'b-grey' };
                     const resolvable = isDefeated && (c.status === 'suspended' || c.status === 'active');
                     return (
                       <React.Fragment key={c.id}>
@@ -451,7 +445,7 @@ function ContratosTab({ title, contracts, run }) {
                           <td>{Number(c.quantity).toLocaleString('pt-BR')}</td>
                           <td>{formatBRL(c.unit_face_value_frozen)}</td>
                           <td>{formatBRL(c.total_face_value)}</td>
-                          <td><span className={`badge ${st.c}`}>{st.l}</span></td>
+                          <td><ContractStatusBadge status={c.status} /></td>
                           <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {resolvable && (
                               <>

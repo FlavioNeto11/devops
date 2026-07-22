@@ -15,7 +15,12 @@
           :key="c.tipo + c.id"
           class="cliente-card"
           :class="'status-' + c.status_fiscal"
+          role="button"
+          tabindex="0"
+          :aria-label="'Ver documentos pendentes de ' + c.nome"
           @click="openClienteDocs(c)"
+          @keydown.enter.self="openClienteDocs(c)"
+          @keydown.space.self.prevent="openClienteDocs(c)"
         >
           <div class="cliente-nome">{{ c.nome }}</div>
           <div class="cliente-meta">
@@ -40,7 +45,15 @@
       </template>
       <div v-if="data?.documentos_por_cliente?.length" class="doc-groups">
         <div v-for="grp in docPreview" :key="grp.entity_type + grp.entity_id" class="doc-group">
-          <div class="doc-group-header" @click="showDocsForGroup(grp)">
+          <div
+            class="doc-group-header"
+            role="button"
+            tabindex="0"
+            :aria-label="'Ver documentos de ' + grp.entity_type + ' #' + grp.entity_id"
+            @click="showDocsForGroup(grp)"
+            @keydown.enter.self="showDocsForGroup(grp)"
+            @keydown.space.self.prevent="showDocsForGroup(grp)"
+          >
             <span>{{ grp.entity_type }} #{{ grp.entity_id }}</span>
             <span class="doc-count">{{ grp.docs.length }} doc(s)</span>
           </div>
@@ -100,11 +113,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiButton, UiModal, UiEmptyState } from '../ui/index.js';
-import { dashboardRoleContador, concludeObligation, dashboardEvents } from '../api.js';
+import { dashboardRoleContador, dashboardEvents } from '../api.js';
+import { useObligation } from '../composables/useObligation.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);
-const selectedCliente = ref(null), selectedObrigacao = ref(null), concluding = ref(false);
+const selectedCliente = ref(null), selectedObrigacao = ref(null);
 const showAllDocs = ref(false);
+// Confirmação + feedback de erro centralizados (UX-CV360-003); fecha o modal só em sucesso.
+const { concluding, conclude } = useObligation({ onDone: load });
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
 const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
@@ -161,14 +177,7 @@ function showDocsForGroup(grp) {
 function openObrigacao(row) { selectedObrigacao.value = row; }
 
 async function concludeObrig() {
-  if (!selectedObrigacao.value) return;
-  concluding.value = true;
-  try {
-    await concludeObligation(selectedObrigacao.value.id);
-    selectedObrigacao.value = null;
-    await load();
-  } catch {}
-  finally { concluding.value = false; }
+  if (await conclude(selectedObrigacao.value)) selectedObrigacao.value = null;
 }
 
 async function load() {

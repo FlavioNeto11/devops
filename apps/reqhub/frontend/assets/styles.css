@@ -149,6 +149,12 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--bg-1); }
 .group-row td { background: var(--bg-2); font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
 td .rid { font-family: var(--mono); color: var(--fg-1); }
+/* (UX-REQHUB-001) A ação "abrir" da linha vive num <button> REAL na célula do ID — a <tr> voltou a
+   ser linha semântica pura (navegável célula a célula por leitores de tela). O botão herda o visual
+   do ID (mono, via `td .rid`) e ganha o realce de acento no hover/foco; o foco visível reusa o
+   outline global (:focus-visible). A .row-open mantém o cursor/hover de atalho de mouse (tbody tr). */
+.rid-open { display: inline-flex; align-items: center; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.rid-open:hover .rid, .rid-open:focus-visible .rid { color: var(--accent); }
 
 /* badges */
 .b { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line-2); white-space: nowrap; }
@@ -753,6 +759,9 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ed-section.ed-adv > summary { cursor: pointer; padding: 11px 16px; font-size: 13px; color: var(--fg-1); }
 .ed-section.ed-adv .ed-grid { padding: 0 16px 14px; }
 .ed-hint { margin: 2px 6px 11px; font-size: 12px; color: var(--muted); }
+/* (UX-REQHUB-006) a ajuda do token traz um comando kubectl longo — quebra o inline code para não
+   estourar a largura em telas estreitas (375px). */
+.asst-token-help code { overflow-wrap: anywhere; word-break: break-word; }
 .ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; }
 @media (max-width: 620px) { .ed-grid { grid-template-columns: 1fr; } }
 .ed-grid .fld.wide { grid-column: 1 / -1; }
@@ -982,6 +991,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .btn.danger:hover { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); border-color: var(--danger, #dc2626); }
 .forge-danger { margin-top: 28px; padding: 16px; border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--danger, #dc2626) 5%, transparent); }
 .forge-danger h4 { margin: 0 0 6px; color: var(--danger, #dc2626); }
+/* (UX-REQHUB-012) variante PROTEGIDA: informativa, não alarmante — a exclusão está indisponível
+   pela plataforma, então neutraliza o vermelho e mantém só a explicação da salvaguarda. */
+.forge-danger.is-protected { border-color: var(--line-2, var(--line)); background: color-mix(in srgb, var(--muted) 6%, transparent); }
+.forge-danger.is-protected h4 { color: var(--muted); }
 /* Indicador VIVO do build (tela Build) */
 .forge-build-status { margin: 10px 0 6px; }
 .fbuild-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--fg-1); padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
@@ -1138,6 +1151,23 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .cmdk-input { flex: 1; resize: none; background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; min-height: 38px; }
 .cmdk-send { white-space: nowrap; }
 body.cmdk-on { overflow: hidden; }
+
+/* (UX-REQHUB-002/004) diálogo de blast-radius das ações destrutivas da Forja (launch/delete) */
+.blast-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 240; display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px 16px; }
+.blast { width: min(520px, 100%); max-height: 84vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45); padding: 20px 22px; }
+.blast-head { display: flex; align-items: center; gap: 10px; }
+.blast-ic { font-size: 20px; line-height: 1; }
+.blast-title { font-size: 16px; margin: 0; }
+.blast-intro { font-size: 13px; color: var(--fg-1); margin: 0; }
+.blast-legend { margin: 2px 0 0; }
+.blast-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--fg-1); }
+.blast-list code, .blast-req-code { font-family: var(--mono); font-size: 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.blast-warn { font-size: 12.5px; color: var(--fg-1); background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 8px; padding: 8px 11px; margin: 0; }
+.blast-req { font-size: 12.5px; color: var(--muted); display: block; }
+.blast-input { width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; min-height: 40px; font-family: var(--mono); }
+.blast-ack { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--fg-1); }
+.blast-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+body.blast-on { overflow: hidden; }
 
 /* Alvos de toque (telas com ponteiro grosso): chips/botões pequenos sobem p/ ≥40px.
    Só em (pointer: coarse) — não engorda a densidade no desktop com mouse. */

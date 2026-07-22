@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { Loading, Banner } from '../ui.jsx';
+import { Loading, Banner, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 export default function Glossario() {
@@ -9,7 +9,7 @@ export default function Glossario() {
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
 
-  useEffect(() => { api.glossary().then(setTerms).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { api.glossary().then(setTerms).catch((e) => setError(friendly(e.message))); }, []);
 
   const byKey = useMemo(() => {
     const m = {};
@@ -39,7 +39,7 @@ export default function Glossario() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-head">
               <span style={{ display: 'inline-flex', color: 'var(--muted)' }}><Icon name="search" size={15} /></span>
-              <input placeholder="Buscar termo…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
+              <input aria-label="Buscar termo no glossário" placeholder="Buscar termo…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
               <div className="spacer" style={{ flex: 1 }} />
               <span className="small muted">{filtered.length} termos</span>
             </div>

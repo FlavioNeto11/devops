@@ -168,8 +168,6 @@ export function EditableText({
   });
 }
 
-const stop = (e: React.MouseEvent) => e.stopPropagation();
-
 /** Moldura por seção: contorno + barra de ações (mover/ocultar/publicar/excluir/
  *  adicionar) no hover; clique seleciona (abre painel no console). Inerte fora de edição. */
 export function SectionFrame({ section, index, count, children }: {
@@ -190,7 +188,7 @@ export function SectionFrame({ section, index, count, children }: {
       <div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.stopPropagation(); sel(); }}>
         {/* barra sticky de altura 0: gruda abaixo do header fixo do portal e o
             ponteiro nunca precisa cruzar o header para alcançá-la. */}
-        <div className="cms-frame__bar" onClick={stop}>
+        <div className="cms-frame__bar" onClick={(e) => e.stopPropagation()}>
           <div className="cms-frame__bar-pill">
             <span className="cms-frame__tag">{section.kind}</span>
             {draft && <span className="cms-frame__badge">rascunho</span>}
@@ -218,7 +216,7 @@ export function ItemControls({ sectionId, path, index, count }: { sectionId?: st
   const sid = sectionId ?? ctxId;
   if (!active) return null;
   return (
-    <div className="cms-item-ctl" onClick={stop}>
+    <div className="cms-item-ctl" onClick={(e) => e.stopPropagation()}>
       <button title="Editar item" onClick={() => emit('cms:select', { sectionId: sid, path: `${path}.${index}` })}><Pencil size={13} /></button>
       <button title="Subir" disabled={index === 0} onClick={() => emit('cms:intent', { action: 'move-item', sectionId: sid, path, index, dir: -1 })}><ArrowUp size={13} /></button>
       <button title="Descer" disabled={index === count - 1} onClick={() => emit('cms:intent', { action: 'move-item', sectionId: sid, path, index, dir: 1 })}><ArrowDown size={13} /></button>
@@ -276,13 +274,19 @@ export function MediaSlot({
     setBusy(true);
     emit('cms:upload', { ...target, file, name: file.name, mime: file.type, size: file.size });
   };
+  const activate = () => {
+    if (busy) return;
+    if (empty) inp.current?.click(); else emit('cms:select', target);
+  };
   return (
     <div
       className={cn('cms-media', empty && 'cms-media--empty', className)}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (busy) return;
-        if (empty) inp.current?.click(); else emit('cms:select', target);
+      role="button"
+      tabIndex={0}
+      aria-label={empty ? 'Adicionar imagem' : 'Selecionar imagem'}
+      onClick={(e) => { e.stopPropagation(); activate(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); activate(); }
       }}
     >
       {children}
@@ -333,6 +337,7 @@ const CMS_EDIT_CSS = `
 .cms-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; padding: 9px 16px; border: 1px dashed rgba(56,189,248,.65); border-radius: 11px; background: rgba(56,189,248,.1); color: #0ea5e9; font: 600 13px/1 ui-sans-serif,system-ui,sans-serif; cursor: pointer; }
 .cms-add:hover { background: rgba(56,189,248,.2); }
 .cms-media { position: relative; cursor: pointer; }
+.cms-media:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
 .cms-media__hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; visibility: hidden; opacity: 0; transition: opacity .12s ease .3s, visibility 0s linear .45s; background: rgba(2,6,23,.55); color: #fff; font: 600 12px/1 ui-sans-serif,system-ui,sans-serif; border-radius: inherit; z-index: 5; }
 .cms-media:hover > .cms-media__hint, .cms-media--empty > .cms-media__hint { visibility: visible; opacity: 1; transition-delay: 0s, 0s; }
 .cms-media--empty > .cms-media__hint { background: rgba(2,6,23,.35); border: 1px dashed rgba(56,189,248,.6); }

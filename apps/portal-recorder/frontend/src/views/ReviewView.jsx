@@ -171,7 +171,14 @@ export default function ReviewView({ sessionId }) {
       {normalizeErr && <div className="alert alert-err" role="alert">{normalizeErr}</div>}
       {contract && <ContractTable contract={contract} />}
 
-      {error && <div className="alert alert-err" role="alert">{error}</div>}
+      {error && (
+        <div className="alert alert-err alert-retry" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={load}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="empty" role="status">Carregando timeline…</div>

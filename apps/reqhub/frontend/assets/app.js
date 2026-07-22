@@ -3,7 +3,7 @@
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
 import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=62';
 import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=3';
-import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=18';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=19';
 
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 
@@ -42,6 +42,24 @@ function emptyState(opts) {
   if (acts.children.length) card.append(acts);
   return card;
 }
+// (UX-REQHUB-006) ajuda inline do token de operador: diz ONDE o segredo vive (Secret do reqhub-api)
+// e como lê-lo — antes a UI pedia "cole o token" sem origem, e a 1ª sessão de autoria virava
+// tentativa-e-erro. Reutilizado nos dois assistentes (Editor e refinamento de tela).
+function tokenHelpHint() {
+  return h('p', { class: 'ed-hint asst-token-help' }, 'O token é o ', h('code', { text: 'REQHUB_API_TOKEN' }),
+    ' do Secret ', h('code', { text: 'reqhub-api-config' }), ' (namespace ', h('code', { text: 'apps' }), '). Ler: ',
+    h('code', { text: "kubectl -n apps get secret reqhub-api-config -o jsonpath='{.data.REQHUB_API_TOKEN}' | base64 -d" }),
+    '. Fica só neste navegador — nunca é enviado ao git.');
+}
+// (UX-REQHUB-006) dica ACIONÁVEL por status HTTP da resposta da IA — distingue "token ausente/
+// inválido" (401/403) de "IA desligada no servidor" (503), que antes caíam na mesma mensagem crua.
+function aiErrHint(r) {
+  const s = r && r.status;
+  if (s === 401 || s === 403) return 'Token ausente ou inválido — abra “Token de operador (IA)” abaixo e cole o Bearer do Secret reqhub-api-config.';
+  if (s === 503) return 'IA desabilitada no servidor (sem chave configurada) — a validação de duplicatas segue funcionando sem IA.';
+  if (s === 429) return 'Limite de uso da IA atingido no momento — tente novamente em instantes.';
+  return '';
+}
 // há algum filtro/busca ativo? (decide se o vazio é "limpar filtros" ou "começar")
 function hasActiveFilters() { return !!(state.q || Object.values(state.filters || {}).some(Boolean) || (state.devFilter && (state.devFilter.status || state.devFilter.product))); }
 // zera filtros/busca e re-renderiza a tela atual (próximo passo dos estados-vazios filtrados).
@@ -51,6 +69,21 @@ function clearFilters() {
   state.devFilter = { status: '', product: '' };
   const qi = document.getElementById('q'); if (qi) qi.value = '';
   if (RENDER[state.view]) RENDER[state.view]();
+}
+// (UX-REQHUB-001) LINHA DE TABELA ACESSÍVEL. Antes: <tr role="button"> — isso apaga a semântica de
+// tabela para leitores de tela (a linha vira só "Abrir REQ-X, botão" e título/status/prioridade/
+// cobertura ficam inalcançáveis célula a célula). Agora a <tr> volta a ser linha PURA (rows/cells
+// preservados para AT); a ação de abrir vive num <button> REAL na célula do ID (ridOpenCell), que é
+// o único tab-stop da linha e carrega o aria-label. O clique na linha continua como ATALHO DE MOUSE
+// — sem role/tabindex, portanto invisível para AT (que usa o botão). CSP-safe (só addEventListener).
+function ridOpenCell(id, label) {
+  return h('td', {}, h('button', {
+    class: 'rid-open', type: 'button', 'aria-label': label || `Abrir ${id}`,
+    onclick: (ev) => { ev.stopPropagation(); openReq(id); },
+  }, h('span', { class: 'rid', text: id })));
+}
+function openableRow(id, ...cells) {
+  return h('tr', { class: 'row-open', onclick: () => openReq(id) }, ...cells);
 }
 
 /* ---------- Explorer ---------- */
@@ -105,9 +138,8 @@ function renderExplorer() {
   for (const { product, items } of groupByProduct(reqs)) {
     tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '7' }, ...prodLabelNodes(product), ' · ' + items.length)));
     for (const r of items) {
-      const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id),
-        onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-        h('td', {}, h('span', { class: 'rid', text: r.id })),
+      const tr = openableRow(r.id,
+        ridOpenCell(r.id),
         h('td', { text: r.title }),
         h('td', {}, badge(r.type === 'non-functional' ? 'NFR' : 'FN', r.type === 'non-functional' ? 'b-nfr' : 'b-fn')),
         h('td', { text: r.status }),
@@ -130,7 +162,7 @@ function buildExplorerFilters() {
   const wrap = document.getElementById('explorer-filters');
   wrap.replaceChildren();
   const mk = (key, label, values) => {
-    const sel = h('select', { 'aria-label': label, onchange: (e) => { state.filters[key] = e.target.value; renderExplorer(); } },
+    const sel = h('select', { 'aria-label': label, onchange: (e) => { state.filters[key] = e.target.value; renderExplorer(); writeHash(); } },
       h('option', { value: '', text: label }));
     for (const v of values) sel.append(h('option', { value: v, text: v }));
     return h('label', {}, label, sel);
@@ -142,7 +174,7 @@ function buildExplorerFilters() {
     mk('priority', 'Prioridade', uniqueValues(reqs, (r) => r.priority)),
     mk('band', 'Impacto', ['high', 'medium', 'low']),
   );
-  const asr = h('select', { 'aria-label': 'ASR', onchange: (e) => { state.filters.asr = e.target.value; renderExplorer(); } },
+  const asr = h('select', { 'aria-label': 'ASR', onchange: (e) => { state.filters.asr = e.target.value; renderExplorer(); writeHash(); } },
     h('option', { value: '', text: 'ASR (todos)' }), h('option', { value: 'yes', text: 'Só ASR' }), h('option', { value: 'no', text: 'Não-ASR' }));
   wrap.append(h('label', {}, 'ASR', asr),
     h('button', { class: 'btn', type: 'button', onclick: () => openEditor(null), text: '+ Novo requisito' }),
@@ -337,13 +369,13 @@ function renderVersions() {
       const tb = h('tbody');
       for (const it of arr) {
         const r = kind === 'changed'
-          ? h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
-              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: productMeta(it.product).display_name || it.product }),
+          ? openableRow(it.id,
+              ridOpenCell(it.id), h('td', { text: productMeta(it.product).display_name || it.product }),
               h('td', {}, badge(semChangeLabel(it.semantic_change), semChangeCls(it.semantic_change))),
               h('td', { text: (it.fields || []).join(', ') || '—' }),
               h('td', { text: it.impact_delta ? (it.impact_delta > 0 ? '+' : '') + it.impact_delta : '0' }))
-          : h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
-              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: it.product }), h('td', { text: it.type }), h('td', { text: it.title }));
+          : openableRow(it.id,
+              ridOpenCell(it.id), h('td', { text: it.product }), h('td', { text: it.type }), h('td', { text: it.title }));
         tb.append(r);
       }
       t.append(tb); wrap.append(t); card.append(wrap);
@@ -367,8 +399,8 @@ function renderVersions() {
   const tb = h('tbody');
   for (const { product, items } of groupByProduct(reqs)) {
     tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '5' }, ...prodLabelNodes(product), ' · ' + items.length)));
-    for (const r of items) tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
+    for (const r of items) tb.append(openableRow(r.id,
+      ridOpenCell(r.id), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
       h('td', {}, badge(semChangeLabel(r.version.semantic_change), semChangeCls(r.version.semantic_change))), h('td', { text: r.version.change_reason || '—' })));
   }
   t.append(tb); wrap.append(t); body.append(wrap);
@@ -866,8 +898,8 @@ function renderCoverage() {
   for (const r of reqs) {
     const row = coverageRow(r);
     const pct = Math.round(coverageScore(r) * 100);
-    const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id} — ${pct}% de cobertura`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
-      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: productMeta(r.scope.product_scope).display_name || r.scope.product_scope }),
+    const tr = openableRow(r.id,
+      ridOpenCell(r.id, `Abrir ${r.id} — ${pct}% de cobertura`), h('td', { text: productMeta(r.scope.product_scope).display_name || r.scope.product_scope }),
       ...cols.map((c) => h('td', { class: row[c[0]] ? 'hit' : 'miss', title: `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, 'aria-label': `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, text: row[c[0]] ? '✓' : '✕' })),
       h('td', {}, badge(pct + '%', pct >= 70 ? 'b-ok' : pct >= 30 ? 'b-high' : 'b-crit')));
     tb.append(tr);
@@ -928,8 +960,8 @@ function renderReprocess() {
   const tb = h('tbody');
   shown.forEach((item, i) => {
     const r = byId(item.id);
-    tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${item.id}`, onclick: () => openReq(item.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(item.id); } } },
-      h('td', { text: String(i + 1) }), h('td', {}, h('span', { class: 'rid', text: item.id })),
+    tb.append(openableRow(item.id,
+      h('td', { text: String(i + 1) }), ridOpenCell(item.id),
       h('td', { text: productMeta(item.product).display_name || item.product }),
       h('td', { text: r ? r.title : '' }),
       h('td', {}, badge(`${r ? r.impact_band : 'low'} (${item.impact_score})`, bandCls(r ? r.impact_band : 'low')), r && r.architectural_significance ? h('span', {}, ' ', badge('ASR', 'b-asr')) : ''),
@@ -984,8 +1016,8 @@ function renderDev() {
   const tb = h('tbody');
   const devRow = (id) => {
     const it = st.items[id]; const r = byId(id);
-    return h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(id); } } },
-      h('td', {}, h('span', { class: 'rid', text: id })),
+    return openableRow(id,
+      ridOpenCell(id),
       h('td', { text: r ? r.title : '' }),
       h('td', {}, badge(devStatusLabel(it.status), devStatusCls(it.status))),
       h('td', {}, it.pr ? h('a', { class: 'btn-link', href: it.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' })),
@@ -1619,7 +1651,11 @@ function renderReviewForm(body) {
   function showErr(r) {
     const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
     const msg = r.data && r.data.error ? r.data.error.message : '';
-    aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: msg })));
+    const hint = aiErrHint(r);
+    const card = h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }));
+    if (msg) card.append(h('p', { class: 'muted', text: msg }));
+    if (hint) card.append(h('p', { class: 'ed-hint', text: hint }));
+    aiOut.replaceChildren(card);
   }
   async function guard(fn) {
     aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
@@ -1745,6 +1781,7 @@ function renderReviewForm(body) {
     aiOut,
     h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
     h('details', { class: 'asst-token' }, h('summary', { text: 'Token de operador (IA)' }),
+      tokenHelpHint(),
       h('div', { class: 'ws-actions' }, tok, h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo neste navegador.'; } }))));
 
   const formCol = h('section', { class: 'editor-formcol' },
@@ -2057,7 +2094,7 @@ function renderRefineStage(body) {
       genRef();
     }
   }
-  function showErr(r) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); }
+  function showErr(r) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; const hint = aiErrHint(r); const card = h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' })); if (hint) card.append(h('p', { class: 'ed-hint', text: hint })); aiOut.replaceChildren(card); }
   async function guard(fn) { aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede: ' + (e && e.message ? e.message : e) })); } }
   function anchorArray() { return [...anchors].map(([requirement_id, relation]) => ({ requirement_id, relation })); }
   // rascunho RICO via IA (grounded: passa os requisitos do produto p/ a IA herdar convenções/rota/papéis).
@@ -2140,6 +2177,7 @@ function renderRefineStage(body) {
     aiOut,
     h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
     h('details', { class: 'asst-token' }, h('summary', { text: 'Token de operador (IA)' }),
+      tokenHelpHint(),
       h('div', { class: 'ws-actions' }, tok, h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo neste navegador.'; } }))));
 
   // ---- gerar YAML → PR (a UI nunca escreve git) ----
@@ -2258,10 +2296,21 @@ function switchView(view) {
   const meta = VIEW_META[view] || { title: 'Reqhub', sub: '' };
   const t = document.getElementById('page-title'); if (t) t.textContent = meta.title;
   const sub = document.getElementById('page-sub'); if (sub) sub.textContent = meta.sub;
+  syncSearchScope(view);
   const app = document.getElementById('app'); if (app) app.classList.remove('is-open');
   const scrim = document.getElementById('sidebar-scrim'); if (scrim) scrim.hidden = true;
   RENDER[view]();
   writeHash();
+}
+// (UX-REQHUB-008) o campo de busca é onipresente na topbar, mas só filtra AO DIGITAR nas listas
+// (Explorador/Cobertura/Mudanças) e localiza no Mapa; nas demais telas apenas Enter busca na base —
+// digitar não produzia reação e o campo parecia quebrado. Aqui o placeholder/title comunicam o
+// ESCOPO por view (sem inventar comportamento novo: Enter continua sendo a busca global).
+const SEARCH_FILTER_VIEWS = ['explorer', 'versions', 'coverage'];
+function syncSearchScope(view) {
+  const q = document.getElementById('q'); if (!q) return;
+  q.placeholder = SEARCH_FILTER_VIEWS.includes(view) ? 'Filtrar requisitos…' : view === 'impact' ? 'Localizar no mapa…' : 'Buscar na base (Enter)…';
+  q.title = 'Enter busca em toda a base de requisitos. Nas listas (Explorador, Cobertura, Mudanças) filtra enquanto você digita; no Mapa de impacto, localiza o nó.';
 }
 // Hash routing leve: a URL reflete a tela (e o REQ/produto em foco) — torna o estado linkável
 // e permite deep-link DE OUTROS APPS (ex.: o Console abre /reqs#/explorer?product=<app>).
@@ -2272,6 +2321,15 @@ function writeHash() {
     if (state.view === 'workspace' && state.selectedId) qp.push('id=' + encodeURIComponent(state.selectedId));
     if (state.view === 'usability' && state.usabilitySel) qp.push('id=' + encodeURIComponent(state.usabilitySel)); // tela selecionada linkável (mesmo idioma do workspace)
     if (state.filters && state.filters.product && ['explorer', 'coverage'].includes(state.view)) qp.push('product=' + encodeURIComponent(state.filters.product));
+    // (UX-REQHUB-011) o Explorador também serializa a BUSCA e os FILTROS avançados — antes só o
+    // produto ia à URL, então compartilhar/recarregar perdia q + type/status/priority/band/asr e o
+    // destinatário via outra lista. applyHashRoute lê de volta (parser URLSearchParams já existe).
+    if (state.view === 'explorer') {
+      if (state.q) qp.push('q=' + encodeURIComponent(state.q));
+      for (const k of ['type', 'status', 'priority', 'band', 'asr']) {
+        if (state.filters && state.filters[k]) qp.push(k + '=' + encodeURIComponent(state.filters[k]));
+      }
+    }
     // (E1, Forja 4.1) detalhe do produto no Studio é linkável: #/forge?product=<slug> —
     // mesmo formato que a casca global emite (surfaceLink) e que applyHashRoute lê.
     if (state.view === 'forge' && state.forge && state.forge.product && !state.forge.newMode) qp.push('product=' + encodeURIComponent(state.forge.product));
@@ -2296,6 +2354,12 @@ function applyHashRoute() {
     state.forge.product = p || null;
     if (p) { state.forge.newMode = false; state.forge.newKind = null; }
   } else if (params.get('product')) state.filters.product = params.get('product');
+  // (UX-REQHUB-011) restaura busca + filtros avançados do Explorador a partir da URL (F5/link).
+  if (view === 'explorer') {
+    const qv = params.get('q');
+    if (qv != null) { state.q = qv; const qi = document.getElementById('q'); if (qi) qi.value = qv; }
+    for (const k of ['type', 'status', 'priority', 'band', 'asr']) { const v = params.get(k); if (v) state.filters[k] = v; }
+  }
   if (view === 'usability' && params.get('id') && refById(params.get('id'))) state.usabilitySel = params.get('id'); // deep-link de tela (refinamento, não requisito)
   if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
   if (view === 'workspace' && !state.selectedId) return false; // sem REQ → cai no default
@@ -2566,6 +2630,7 @@ function wireSearch() {
     state.q = e.target.value.trim();
     if (['explorer', 'versions', 'coverage'].includes(state.view)) RENDER[state.view]();
     if (state.view === 'impact' && IMPACT.st) { IMPACT.st.query = state.q; locateNode(state.q); }
+    if (state.view === 'explorer') writeHash(); // (UX-REQHUB-011) a busca do Explorador vai à URL (linkável/F5)
   });
   // Enter = busca GLOBAL: abre o REQ se o termo casa um id/título exato, senão vai ao Explorador filtrado.
   q.addEventListener('keydown', (ev) => {
@@ -2798,7 +2863,11 @@ function aiKpi(label, value, sub) {
   return c;
 }
 function aiLiveBlock(provider) {
-  return h('div', { class: 'aiu-live-rates', 'data-prov': provider, role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+  // (UX-REQHUB-005) SEM aria-live. As taxas mudam a cada frame SSE (a cada poucos segundos) — como
+  // região polite, cada atualização era re-anunciada e travava o resto do painel para o leitor de
+  // tela. Aqui vira um grupo estático (legível sob demanda, não auto-anunciado); o que IMPORTA
+  // (cruzar 70/90% de orçamento/limite) já é anunciado por renderAiAlerts (role=alert/status).
+  return h('div', { class: 'aiu-live-rates', 'data-prov': provider, role: 'group', 'aria-label': 'Taxas ao vivo (atualizam continuamente)' },
     h('span', { class: 'aiu-rate' }, h('b', { class: 'r-cost', text: '—' }), ' US$/min'),
     h('span', { class: 'aiu-rate' }, h('b', { class: 'r-tok', text: '—' }), ' tok/min'),
     h('span', { class: 'aiu-rate' }, h('b', { class: 'r-req', text: '—' }), ' req/min'));
@@ -3113,6 +3182,13 @@ async function init() {
   // identidade p/ gating do painel de Uso da IA (a casca não reemite o me). Fail-soft: erro => não-admin.
   try { const r = await fetch('api/v1/me', { headers: { Accept: 'application/json' } }); state.me = r.ok ? await r.json() : null; } catch { state.me = null; }
   applyAdminGating();
+  if (await loadBaselineData()) finishBoot();
+}
+
+// Carrega a baseline + dados opcionais. Retorna true no sucesso; no erro, mostra estado ACIONÁVEL
+// com retry (UX-REQHUB-007) e retorna false. Extraído de init() para ser re-executável no "Tentar
+// de novo" sem re-wire da casca (que duplicaria listeners).
+async function loadBaselineData() {
   try {
     const [b, im, rt] = await Promise.all([
       fetch('data/current-baseline.json').then((r) => { if (!r.ok) throw new Error('baseline ' + r.status); return r.json(); }),
@@ -3126,18 +3202,52 @@ async function init() {
     // (D1, Forja 4.1) snapshot IMUTÁVEL do baked ANTES de qualquer estado vivo: o merge do Studio
     // preenche campos/implStatus a partir daqui (o replace antigo destruía a referência no 1º apply).
     DATA.baked = { products: DATA.products, implStatus: DATA.implStatus };
+    return true;
   } catch (err) {
-    setStatus('Falha ao carregar a base de requisitos: ' + err.message, true);
-    return;
+    showBootError(err);
+    return false;
   }
+}
+
+// (UX-REQHUB-007) falha de carga inicial não é mais um beco sem saída: além do texto de erro, um
+// estado acionável com "Tentar de novo" (refaz o fetch) e "Recarregar a página" (fallback duro).
+function showBootError(err) {
+  setStatus('Falha ao carregar a base de requisitos: ' + (err && err.message ? err.message : err), true);
+  const main = document.getElementById('main'); if (!main) return;
+  const status = document.getElementById('status');
+  const prev = document.getElementById('boot-error'); if (prev) prev.remove();
+  const box = emptyState({
+    title: 'Não foi possível carregar a base de requisitos',
+    text: 'Pode ser uma falha transitória de rede (ou a imagem ainda sem a baseline). Tente de novo — se persistir, recarregue a página.',
+    ctaLabel: 'Tentar de novo', ctaOnClick: retryBoot,
+    altLabel: 'Recarregar a página', altOnClick: () => location.reload(),
+  });
+  box.id = 'boot-error';
+  main.insertBefore(box, status ? status.nextSibling : main.firstChild);
+}
+
+async function retryBoot() {
+  const box = document.getElementById('boot-error'); if (box) box.remove();
+  setStatus('Carregando a base de requisitos…');
+  if (await loadBaselineData()) finishBoot();
+}
+
+// Finalização pós-carga (idempotente): o carimbo do rodapé, filtros e badges podem repintar a cada
+// retry; o wiring do cmdk e o listener de hashchange são de uma vez só (evita duplicar listeners).
+let _bootFinished = false;
+function finishBoot() {
+  const box = document.getElementById('boot-error'); if (box) box.remove();
   setStatus('');
   const c = DATA.baseline.counts;
   document.getElementById('foot-meta').textContent = `${c.total} requisitos · metamodelo ${DATA.baseline.metamodel_version || '?'} · hash ${String(DATA.baseline.baseline_hash).slice(0, 12)}`;
   buildExplorerFilters();
   refreshNavBadges();
-  wireCommandPalette();
+  if (!_bootFinished) {
+    wireCommandPalette();
+    window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
+    _bootFinished = true;
+  }
   if (!applyHashRoute()) switchView('forge'); // deep-link da URL (ex.: vindo do Console) ou padrão: o Studio
-  window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
 }
 init();
 

@@ -22,10 +22,29 @@ app.addHook('onRequest', async (req) => { req.tenantId = Number(req.headers['x-t
 app.get('/', async () => ({ app: 'contaviva-pro', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));
-app.get('/v1/records', async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows }));
-app.post('/v1/records', async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });
-app.get('/v1/records/:id', async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });
-app.post('/v1/records/:id/submit', async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query("UPDATE records SET status='submitting', updated_at=now() WHERE id=$1", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });
+// Records EXIGEM autenticação (bloco contas-acesso): o tenant vem do CLAIM do JWT (req.authUser.tenantId),
+// NÃO do header X-Tenant-Id (spoofável). O hook onRequest ainda seta req.tenantId p/ outras coisas, mas as
+// rotas de records passam a confiar só no token.
+app.get('/v1/records', { preHandler: requireAuth }, async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.authUser.tenantId])).rows }));
+app.post('/v1/records', { preHandler: requireAuth }, async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.authUser.tenantId, b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });
+app.get('/v1/records/:id', { preHandler: requireAuth }, async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.authUser.tenantId, Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });
+// PUT /v1/records/:id — edição do registro. Edita SÓ title e external_ref (status é gerido por submit/worker,
+// NÃO editável aqui). Rejeita corpo vazio e title vazio (400); 404 se não achar no tenant do token. Grava audit.
+app.put('/v1/records/:id', { preHandler: requireAuth }, async (req, reply) => {
+  const b = req.body || {};
+  if (b.title === undefined && b.external_ref === undefined) { reply.code(400); return { error: { message: 'informe title e/ou external_ref' } }; }
+  if (b.title !== undefined && (typeof b.title !== 'string' || !b.title.trim())) { reply.code(400); return { error: { message: 'title não pode ser vazio' } }; }
+  const id = Number(req.params.id);
+  const sets = []; const vals = []; let i = 1;
+  if (b.title !== undefined) { sets.push('title=$' + i++); vals.push(String(b.title).trim()); }
+  if (b.external_ref !== undefined) { sets.push('external_ref=$' + i++); vals.push(String(b.external_ref)); }
+  vals.push(req.authUser.tenantId); vals.push(id);
+  const r = (await pool.query('UPDATE records SET ' + sets.join(',') + ', updated_at=now() WHERE tenant_id=$' + i++ + ' AND id=$' + i + ' RETURNING *', vals)).rows[0];
+  if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; }
+  await audit(req.authUser.tenantId, req.authUser.email, 'record.update', 'record', r.id);
+  return r;
+});
+app.post('/v1/records/:id/submit', { preHandler: requireAuth }, async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.authUser.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query("UPDATE records SET status='submitting', updated_at=now() WHERE id=$1", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });
 // --- auth: registro/login/refresh/logout (rate-limited p/ mitigar brute-force/abuso) ---
 app.post('/auth/register', authLimited(), async (req, reply) => {
   const b = req.body || {}; const email = String(b.email || '').toLowerCase().trim(); const password = String(b.password || '');

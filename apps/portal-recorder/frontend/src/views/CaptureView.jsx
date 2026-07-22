@@ -3,6 +3,7 @@ import {
   getSession,
   stopSession,
   createAnnotation,
+  listAnnotations,
   takeScreenshot,
   streamUrl,
 } from '../api.js';
@@ -26,6 +27,10 @@ import { navigate } from '../router.js';
 const VIEWPORT_W = 1280;
 const VIEWPORT_H = 800;
 
+// Reconexão automática do screencast (UX-PREC-005): teto de tentativas antes de
+// deixar só o botão manual de "Reconectar" no overlay.
+const MAX_AUTO_RETRIES = 5;
+
 export default function CaptureView({ sessionId }) {
   const canvasRef = useRef(null);
   // Dimensoes do ultimo frame recebido (coords do viewport remoto).
@@ -38,12 +43,24 @@ export default function CaptureView({ sessionId }) {
   const [wsStatus, setWsStatus] = useState('connecting'); // connecting|open|closed|error
   const [remoteStatus, setRemoteStatus] = useState({ status: '', url: '' });
 
+  // Reconexão do screencast: `reconnectNonce` reexecuta o effect do WS; `retryAttempt`
+  // e `exhausted` alimentam o feedback do overlay; refs guardam o backoff/timer.
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const [exhausted, setExhausted] = useState(false);
+  const retryTimerRef = useRef(0);
+  const autoRetryRef = useRef(0);
+
   const [label, setLabel] = useState('');
   const [steps, setSteps] = useState([]);
   const [busyStep, setBusyStep] = useState(false);
   const [busyShot, setBusyShot] = useState(false);
+  const [shotCount, setShotCount] = useState(0);
   const [busyStop, setBusyStop] = useState(false);
   const [actionErr, setActionErr] = useState(null);
+  // UX-PREC-009: sessão inexistente (404) recebe estado dedicado, não o overlay
+  // eterno de "Conectando…". Demais erros seguem fail-soft.
+  const [notFound, setNotFound] = useState(false);
 
   // Carrega os metadados da sessao (titulo, started_at). started_at ancora o relogio.
   useEffect(() => {
@@ -57,8 +74,37 @@ export default function CaptureView({ sessionId }) {
           if (!Number.isNaN(t)) sessionStartRef.current = t;
         }
       })
+      .catch((e) => {
+        if (!alive) return;
+        // 404 = sessão realmente inexistente (link velho / excluída): estado dedicado.
+        // Erros transitórios seguem fail-soft (mantém started local).
+        if (e && e.status === 404) setNotFound(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sessionId]);
+
+  // UX-PREC-004: hidrata os passos já persistidos (GET annotations) para sobreviver a
+  // reload/reabertura da captura. Sem isso a lista zerava e novos passos recomeçavam do
+  // índice 0. O step_index passa a ser atribuído pelo backend (ver markStep), então a
+  // narrativa da revisão não ganha índices duplicados.
+  useEffect(() => {
+    let alive = true;
+    listAnnotations(sessionId)
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+        setSteps(
+          rows.map((r) => ({
+            id: r.id,
+            label: r.label,
+            start_offset_ms: r.start_offset_ms,
+            step_index: r.step_index,
+          }))
+        );
+      })
       .catch(() => {
-        /* sessao pode ainda nao existir no GET; mantem started local */
+        /* sessão nova / sem anotações ainda, ou leitura falhou: mantém a lista local */
       });
     return () => {
       alive = false;
@@ -83,7 +129,8 @@ export default function CaptureView({ sessionId }) {
     img.src = `data:image/jpeg;base64,${b64}`;
   }, []);
 
-  // Conexao WebSocket do screencast.
+  // Conexao WebSocket do screencast — com auto-reconexão (backoff) e botão manual.
+  // Reexecuta sempre que `reconnectNonce` muda (retry automático ou clique em Reconectar).
   useEffect(() => {
     let closed = false;
     let ws;
@@ -97,10 +144,30 @@ export default function CaptureView({ sessionId }) {
     setWsStatus('connecting');
 
     ws.onopen = () => {
-      if (!closed) setWsStatus('open');
+      if (closed) return;
+      // conexão saudável: zera o backoff.
+      autoRetryRef.current = 0;
+      setRetryAttempt(0);
+      setExhausted(false);
+      setWsStatus('open');
     };
     ws.onclose = () => {
-      if (!closed) setWsStatus('closed');
+      if (closed) return;
+      setWsStatus('closed');
+      // UX-PREC-005: reconecta sozinho com backoff exponencial (teto de tentativas),
+      // sem exigir F5. Esgotado o teto, resta o botão "Reconectar" do overlay.
+      if (autoRetryRef.current < MAX_AUTO_RETRIES) {
+        autoRetryRef.current += 1;
+        setRetryAttempt(autoRetryRef.current);
+        setExhausted(false);
+        const delay = Math.min(8000, 1000 * 2 ** (autoRetryRef.current - 1));
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          setReconnectNonce((k) => k + 1);
+        }, delay);
+      } else {
+        setExhausted(true);
+      }
     };
     ws.onerror = () => {
       if (!closed) setWsStatus('error');
@@ -122,6 +189,7 @@ export default function CaptureView({ sessionId }) {
 
     return () => {
       closed = true;
+      clearTimeout(retryTimerRef.current);
       try {
         ws.close();
       } catch {
@@ -129,7 +197,17 @@ export default function CaptureView({ sessionId }) {
       }
       wsRef.current = null;
     };
-  }, [sessionId, drawFrame]);
+  }, [sessionId, drawFrame, reconnectNonce]);
+
+  // Reconexão manual imediata: zera o backoff e força um novo WS agora.
+  const reconnectNow = useCallback(() => {
+    clearTimeout(retryTimerRef.current);
+    autoRetryRef.current = 0;
+    setRetryAttempt(0);
+    setExhausted(false);
+    setWsStatus('connecting');
+    setReconnectNonce((k) => k + 1);
+  }, []);
 
   // Envia uma mensagem ao WS, se conectado.
   const send = useCallback((obj) => {
@@ -195,12 +273,22 @@ export default function CaptureView({ sessionId }) {
   // evita o keyDown+char duplicado que digitava torto. Teclas de controle
   // (Backspace/Enter/Tab/setas…) vão por 'down'/'up' com key+code.
   const isPrintable = (e) => e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+  // WCAG 2.1.2 (No Keyboard Trap): Tab/Shift+Tab e Escape NUNCA são engolidos —
+  // são a rota de saída por teclado do canvas. Tab navega para o próximo/anterior
+  // controle da página; Esc devolve o foco ao documento (blur). As demais teclas
+  // seguem sendo encaminhadas ao browser remoto enquanto o canvas tem foco.
+  const isExitKey = (e) => e.key === 'Tab' || e.key === 'Escape';
   const onKeyDown = (e) => {
+    if (isExitKey(e)) {
+      if (e.key === 'Escape') e.currentTarget.blur();
+      return; // sem preventDefault: navegação/saída por teclado seguem normais
+    }
     e.preventDefault();
     if (isPrintable(e)) send({ type: 'key', action: 'char', text: e.key });
     else send({ type: 'key', action: 'down', key: e.key, code: e.code });
   };
   const onKeyUp = (e) => {
+    if (isExitKey(e)) return;
     e.preventDefault();
     if (!isPrintable(e)) send({ type: 'key', action: 'up', key: e.key, code: e.code });
   };
@@ -213,17 +301,20 @@ export default function CaptureView({ sessionId }) {
     setActionErr(null);
     const startOffsetMs = Math.max(0, Date.now() - sessionStartRef.current);
     try {
+      // step_index é atribuído pelo backend (COUNT das anotações persistidas), não pelo
+      // tamanho da lista local — assim o índice nunca duplica após um reload (UX-PREC-004).
       const created = await createAnnotation(sessionId, {
         label: text,
         start_offset_ms: startOffsetMs,
-        step_index: steps.length,
       });
       setSteps((prev) => [
         ...prev,
         {
           id: (created && created.id) || `local-${Date.now()}`,
           label: text,
-          start_offset_ms: startOffsetMs,
+          start_offset_ms:
+            created && created.start_offset_ms != null ? created.start_offset_ms : startOffsetMs,
+          step_index: created && created.step_index != null ? created.step_index : prev.length,
         },
       ]);
       setLabel('');
@@ -239,6 +330,9 @@ export default function CaptureView({ sessionId }) {
     setActionErr(null);
     try {
       await takeScreenshot(sessionId);
+      // UX-PREC-012: confirma o sucesso com um contador visível (o print só aparece
+      // depois, na Revisão) — evita prints repetidos "por garantia".
+      setShotCount((n) => n + 1);
     } catch (e) {
       setActionErr(e.message || String(e));
     } finally {
@@ -247,6 +341,9 @@ export default function CaptureView({ sessionId }) {
   };
 
   const stop = async () => {
+    // UX-PREC-007: encerrar é irreversível (não dá para retomar) — pede confirmação,
+    // no mesmo padrão das exclusões (window.confirm).
+    if (!window.confirm('Encerrar a captura? A sessão não pode ser retomada depois.')) return;
     setBusyStop(true);
     setActionErr(null);
     try {
@@ -257,6 +354,24 @@ export default function CaptureView({ sessionId }) {
       setBusyStop(false);
     }
   };
+
+  if (notFound) {
+    return (
+      <div className="view">
+        <div className="empty">
+          <p style={{ margin: 0 }}>Sessão não encontrada.</p>
+          <p className="muted small" style={{ marginTop: 6 }}>
+            Ela pode ter sido excluída ou o link está desatualizado.
+          </p>
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={() => navigate('#/')}>
+              ← Voltar aos portais
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="capture">
@@ -287,7 +402,7 @@ export default function CaptureView({ sessionId }) {
             className="screencast"
             tabIndex={0}
             role="application"
-            aria-label="Tela do browser remoto — clique para focar; mouse e teclado sao enviados ao portal"
+            aria-label="Tela do browser remoto — clique para focar; mouse e teclado sao enviados ao portal. Pressione Esc para sair do controle por teclado, ou Tab para navegar."
             onMouseMove={onMouseMove}
             onMouseDown={onMouseDown}
             onMouseUp={onMouseUp}
@@ -298,14 +413,39 @@ export default function CaptureView({ sessionId }) {
           />
           {wsStatus !== 'open' && (
             <div className="screencast__overlay">
-              {wsStatus === 'connecting' && 'Conectando ao browser remoto…'}
-              {wsStatus === 'closed' && 'Conexao encerrada.'}
-              {wsStatus === 'error' && 'Falha na conexao do screencast.'}
+              <div className="screencast__overlay-msg">
+                {wsStatus === 'connecting' && 'Conectando ao browser remoto…'}
+                {wsStatus === 'closed' && 'Conexao encerrada.'}
+                {wsStatus === 'error' && 'Falha na conexao do screencast.'}
+              </div>
+              {(wsStatus === 'closed' || wsStatus === 'error') && (
+                <div className="screencast__overlay-actions">
+                  {!exhausted && retryAttempt > 0 && (
+                    <span
+                      className="screencast__overlay-note"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Reconectando automaticamente… (tentativa {retryAttempt} de {MAX_AUTO_RETRIES})
+                    </span>
+                  )}
+                  {exhausted && (
+                    <span className="screencast__overlay-note">
+                      Não foi possível reconectar automaticamente.
+                    </span>
+                  )}
+                  <button className="btn btn-primary" onClick={reconnectNow}>
+                    Reconectar
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <div className="screencast__hint muted small">
             Clique no quadro para focar (borda azul = teclado ativo). O cursor local serve
             de guia; digitação, Enter, Backspace e setas funcionam direto.
+            <br />
+            Pressione <kbd>Esc</kbd> para sair do controle por teclado (ou <kbd>Tab</kbd> para navegar).
           </div>
         </div>
 
@@ -326,9 +466,15 @@ export default function CaptureView({ sessionId }) {
               {busyStep ? 'Marcando…' : 'Marcar passo'}
             </button>
             <button className="btn btn-ghost" onClick={print} disabled={busyShot}>
-              {busyShot ? 'Printando…' : 'Print'}
+              {busyShot ? 'Printando…' : shotCount > 0 ? `Print (${shotCount})` : 'Print'}
             </button>
           </div>
+
+          {shotCount > 0 && (
+            <div className="panel__note muted small" role="status" aria-live="polite">
+              {shotCount} print{shotCount > 1 ? 's' : ''} salvo{shotCount > 1 ? 's' : ''} nesta sessão — aparece{shotCount > 1 ? 'm' : ''} na Revisão.
+            </div>
+          )}
 
           {actionErr && <div className="alert alert-err" role="alert">{actionErr}</div>}
 

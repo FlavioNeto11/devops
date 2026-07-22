@@ -103,6 +103,13 @@ export default function GestaoUsuarios() {
 
 function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
   const [addRole, setAddRole] = useState('');
+  const [busy, setBusy] = useState(false);
+  // envolve run() com trava anti-duplo-clique: desabilita as ações da linha enquanto em voo
+  const act = async (promise) => {
+    if (busy) return false;
+    setBusy(true);
+    try { return await run(promise); } finally { setBusy(false); }
+  };
   const ap = APPROVAL[user.approval_status] || { l: user.approval_status || '—', c: 'b-grey' };
   const userRoles = Array.isArray(user.roles) ? user.roles : [];
   // 'public' é pseudo-papel do anônimo — nunca atribuível a uma conta
@@ -126,8 +133,9 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
                   type="button"
                   title={`Remover o papel ${roleLabel(k)}`}
                   aria-label={`Remover o papel ${roleLabel(k)}`}
-                  onClick={() => run(api.admin.revokeRole(user.id, k))}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', lineHeight: 1, padding: 0, marginLeft: 2, opacity: 0.7 }}
+                  disabled={busy}
+                  onClick={() => act(api.admin.revokeRole(user.id, k))}
+                  style={{ border: 'none', background: 'none', cursor: busy ? 'default' : 'pointer', color: 'inherit', font: 'inherit', lineHeight: 1, padding: 0, marginLeft: 2, opacity: 0.7 }}
                 >×</button>
               )}
             </span>
@@ -141,9 +149,9 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
             </select>
             <button
               type="button" className={noAccessYet ? 'btn primary sm' : 'btn sm'}
-              disabled={!addRole}
+              disabled={!addRole || busy}
               title={noAccessYet ? 'Conceder este perfil já libera o acesso (aprova a conta)' : undefined}
-              onClick={async () => { const ok = await run(api.admin.grantRole(user.id, addRole)); if (ok) setAddRole(''); }}
+              onClick={async () => { const ok = await act(api.admin.grantRole(user.id, addRole)); if (ok) setAddRole(''); }}
             >{noAccessYet ? 'Conceder acesso' : 'Conceder'}</button>
           </div>
         )}
@@ -156,13 +164,13 @@ function UserRow({ user, roles, roleLabel, canManageRoles, run }) {
       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
         {user.approval_status === 'pending_approval' && (
           <>
-            <button className="btn primary sm" onClick={() => run(api.admin.patchUser(user.id, { approvalStatus: 'active' }))}><Icon name="check" size={13} /> Aprovar</button>{' '}
-            <ConfirmButton className="btn sm" label="Rejeitar" confirmLabel="Confirmar rejeição?" onConfirm={() => run(api.admin.patchUser(user.id, { approvalStatus: 'rejected' }))} />{' '}
+            <button className="btn primary sm" disabled={busy} onClick={() => act(api.admin.patchUser(user.id, { approvalStatus: 'active' }))}><Icon name="check" size={13} /> Aprovar</button>{' '}
+            <ConfirmButton className="btn sm" label="Rejeitar" confirmLabel="Confirmar rejeição?" onConfirm={() => act(api.admin.patchUser(user.id, { approvalStatus: 'rejected' }))} />{' '}
           </>
         )}
         {user.is_active
-          ? <ConfirmButton className="btn danger sm" label="Desativar" confirmLabel="Confirmar desativação?" onConfirm={() => run(api.admin.patchUser(user.id, { isActive: false }))} />
-          : <button className="btn sm" onClick={() => run(api.admin.patchUser(user.id, { isActive: true }))}>Ativar</button>}
+          ? <ConfirmButton className="btn danger sm" label="Desativar" confirmLabel="Confirmar desativação?" onConfirm={() => act(api.admin.patchUser(user.id, { isActive: false }))} />
+          : <button className="btn sm" disabled={busy} onClick={() => act(api.admin.patchUser(user.id, { isActive: true }))}>Ativar</button>}
       </td>
     </tr>
   );
@@ -197,9 +205,13 @@ function InvitePanel({ roles, roleLabel }) {
     setBusy(false);
   };
 
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(result.token); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* usuário copia manualmente */ }
+  const copy = async (text) => {
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* usuário copia manualmente */ }
   };
+
+  // Link de resgate completo (rota pública /convite/:token). BASE_URL = '/besc/' (Vite), então
+  // vira <origin>/besc/convite/<token> — é o que o convidado abre para definir a senha e entrar.
+  const resgateUrl = result ? `${window.location.origin}${import.meta.env.BASE_URL}convite/${result.token}` : '';
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
@@ -212,7 +224,8 @@ function InvitePanel({ roles, roleLabel }) {
         <div className="card-body">
           <p className="small muted" style={{ marginTop: 0 }}>
             Advogados e juízes <strong>não têm auto-cadastro</strong> — entram só por convite. Não há envio de e-mail
-            pela plataforma: <strong>o token abaixo é exibido uma única vez</strong> e você o repassa manualmente ao convidado.
+            pela plataforma: <strong>o link de resgate abaixo é exibido uma única vez</strong> e você o repassa
+            manualmente ao convidado, que define a própria senha e ativa o acesso.
           </p>
           <Banner kind="err">{error}</Banner>
           <div className="form-grid">
@@ -224,12 +237,13 @@ function InvitePanel({ roles, roleLabel }) {
           {result && (
             <div className="banner info" style={{ marginTop: 14 }}>
               <div><strong>Convite gerado para {result.email}</strong> como <strong>{roleLabel(result.roleKey)}</strong>. Válido por {result.expiresInDays} dia(s).</div>
-              <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'stretch' }}>
-                <code style={{ flex: 1, minWidth: 0, wordBreak: 'break-all', background: 'var(--surface-2)', padding: '8px 10px', borderRadius: 6, fontSize: 12 }}>{result.token}</code>
-                <button type="button" className="btn sm" onClick={copy}>{copied ? 'Copiado!' : 'Copiar token'}</button>
+              <div className="small" style={{ marginTop: 8 }}>Envie o <strong>link de resgate</strong> ao convidado — ele abre a página, define a senha e ativa o acesso sozinho:</div>
+              <div className="row" style={{ gap: 8, marginTop: 6, alignItems: 'stretch' }}>
+                <code style={{ flex: 1, minWidth: 0, wordBreak: 'break-all', background: 'var(--surface-2)', padding: '8px 10px', borderRadius: 6, fontSize: 12 }}>{resgateUrl}</code>
+                <button type="button" className="btn sm" onClick={() => copy(resgateUrl)}>{copied ? 'Copiado!' : 'Copiar link'}</button>
               </div>
               <div className="small" style={{ marginTop: 8 }}>
-                <Icon name="alert" size={12} /> Guarde ou repasse agora: por segurança, <strong>este token não será mostrado de novo</strong>.
+                <Icon name="alert" size={12} /> Repasse agora por um canal próprio: por segurança, <strong>este link não será mostrado de novo</strong>.
               </div>
             </div>
           )}
@@ -319,6 +333,7 @@ function GrantAccessPanel() {
               {grants === null && <p className="small muted">Carregando…</p>}
               {Array.isArray(grants) && activeGrants.length === 0 && <p className="small muted">Nenhum acesso concedido para este título.</p>}
               {activeGrants.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
                 <table className="data">
                   <thead><tr><th>Auditor</th><th>Finalidade</th><th>Concedido em</th><th></th></tr></thead>
                   <tbody>
@@ -334,6 +349,7 @@ function GrantAccessPanel() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           )}

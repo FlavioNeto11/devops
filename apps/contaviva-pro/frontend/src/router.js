@@ -7,6 +7,7 @@ import AuthView from './views/AuthView.vue';
 import ProfileView from './views/ProfileView.vue';
 import AdminUsuariosView from './views/AdminUsuariosView.vue';
 import { useAuth } from './composables/useAuth.js';
+import { useToast } from './ui/index.js';
 import NotFoundView from './views/NotFoundView.vue';
 export const routes = [
   { path: '/', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
@@ -28,7 +29,12 @@ export function installGuards(router) {
   router.beforeEach(async (to) => {
     if (!auth.ready.value) await auth.bootstrap();
     if (to.meta && to.meta.requiresAuth && !auth.user.value) return { name: 'login', query: { redirect: to.fullPath } };
-    if (to.meta && to.meta.requiresAdmin && !auth.isAdmin.value) return { name: 'dashboard' };
+    // Negação de acesso admin não pode ser silenciosa: avisa antes de mandar de volta ao painel,
+    // para o usuário distinguir "sem permissão" de "link quebrado" (UX-CVPRO-009).
+    if (to.meta && to.meta.requiresAdmin && !auth.isAdmin.value) {
+      useToast().warning('Área restrita a administradores.');
+      return { name: 'dashboard' };
+    }
     if (to.name === 'login' && auth.user.value) return { name: 'dashboard' };
     return true;
   });

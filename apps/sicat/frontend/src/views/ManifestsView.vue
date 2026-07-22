@@ -866,6 +866,40 @@ function applySituationChip(option) {
   applyFilters();
 }
 
+// Os CTAs do dashboard ("Resolver" as falhas e os cartões de métrica) chegam com
+// ?focus=<bucket> — os buckets de status do resumo (failed/pending/completed/draft/
+// cancelled). Aqui traduzimos cada bucket para um dos chips de situação JÁ existentes
+// desta lista, por persona, reusando as MESMAS opções de situationChipOptions para
+// garantir que o chip correspondente fique ativo (realçado) e a busca seja aplicada.
+// Nada de filtro novo: só reaproveitamos os filtros que a API já suporta.
+const DASHBOARD_FOCUS_TO_SITUATION_KEY = Object.freeze({
+  // Destinador raciocina por situação CETESB (Aguardando baixa/Recebidos).
+  receiver: { failed: 'failed', pending: 'awaiting', completed: 'received', draft: 'awaiting', cancelled: 'cancelled' },
+  // Gerador/Transportador raciocinam pelo pipeline (Rascunhos/Enviados).
+  default: { failed: 'failed', draft: 'draft', pending: 'submitted', completed: 'submitted', cancelled: 'cancelled' }
+});
+
+function applyDashboardFocus(focus) {
+  const normalized = String(focus || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  const personaMap = isReceiverOperationalMode.value
+    ? DASHBOARD_FOCUS_TO_SITUATION_KEY.receiver
+    : DASHBOARD_FOCUS_TO_SITUATION_KEY.default;
+  const chipKey = personaMap[normalized];
+  if (!chipKey) {
+    return false;
+  }
+  const option = situationChipOptions.value.find((item) => item.key === chipKey);
+  if (!option) {
+    return false;
+  }
+  filters.status = option.status;
+  filters.externalStatus = option.externalStatus;
+  return true;
+}
+
 const situationFilterLabel = computed(() => {
   const match = situationChipOptions.value.find((option) => option.key === activeSituationKey.value);
   if (match && match.key !== 'all') {
@@ -1694,6 +1728,7 @@ onMounted(async () => {
   const groupIdFromQuery = String(route.query.groupId || '').trim();
   const batchCreated = String(route.query.batchCreated || '') === '1';
   const batchCountFromQuery = Number(route.query.count || 0);
+  const focusFromQuery = String(route.query.focus || '').trim();
 
   if (
     integrationAccountFromQuery
@@ -1707,6 +1742,28 @@ onMounted(async () => {
   }
 
   normalizeReceiverDateWindow();
+
+  // CTAs do dashboard: ?focus=<bucket> vira o chip de situação correspondente e a
+  // busca filtrada. Como o dashboard resume o dia ("Resumo de hoje"), ancoramos a
+  // janela em hoje para que as falhas/rascunhos contados lá apareçam na lista.
+  if (focusFromQuery && !refreshRequested) {
+    const focusApplied = applyDashboardFocus(focusFromQuery);
+    // Remove ?focus= da URL para o filtro não "grudar" em reloads/navegações futuras.
+    const nextQuery = { ...route.query };
+    delete nextQuery.focus;
+    await router.replace({ path: '/manifestos', query: nextQuery }).catch(() => {});
+
+    if (focusApplied) {
+      filters.dateFrom = getTodayBr();
+      filters.dateTo = getTodayBr();
+      filters.page = 1;
+      normalizeReceiverDateWindow();
+      if (updateDateFilterFeedback()) {
+        await search();
+      }
+      return;
+    }
+  }
 
   if (refreshRequested) {
     if (forceSyncRequested) {
@@ -1999,6 +2056,7 @@ onUnmounted(() => {
                     :title="`Abrir manifesto ${manifest.manifestNumber || resolveManifestIdentifier(manifest) || ''}`"
                     @click="openManifestFromRow(manifest)"
                     @keydown.enter.prevent="openManifestFromRow(manifest)"
+                    @keydown.space.prevent="openManifestFromRow(manifest)"
                   >
                     {{ manifest.manifestNumber || resolveManifestIdentifier(manifest) || '-' }}
                   </a>

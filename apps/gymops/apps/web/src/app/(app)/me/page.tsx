@@ -115,14 +115,20 @@ export default function MyActivitiesPage() {
         <TutorialTrigger tutorialId="my-activities" />
       </div>
 
-      {/* Tabs — scrollable on mobile */}
+      {/* Tabs — scrollable on mobile. role=tablist/tab + aria-selected para o
+          leitor de tela anunciar a aba ativa (UX-GYMOPS-023). */}
       <div className="overflow-x-auto" data-tutorial="me-tabs">
-      <div className="flex min-w-max gap-1 rounded-lg border bg-muted/50 p-1 md:min-w-0">
+      <div className="flex min-w-max gap-1 rounded-lg border bg-muted/50 p-1 md:min-w-0" role="tablist" aria-label="Filtrar minhas atividades">
         {TABS.map((tab) => {
           const count = counts?.[tab.countKey] ?? 0;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              id={`me-tab-${tab.id}`}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="me-tabpanel"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 'flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap md:flex-1',
@@ -150,7 +156,9 @@ export default function MyActivitiesPage() {
       </div>
       </div>
 
-      {/* Activities — erro só substitui o conteúdo quando não há dados; com dados stale, banner acima */}
+      {/* Activities — erro só substitui o conteúdo quando não há dados; com dados stale, banner acima.
+          Região anunciada como tabpanel da aba ativa (UX-GYMOPS-023). */}
+      <div id="me-tabpanel" role="tabpanel" aria-labelledby={`me-tab-${activeTab}`}>
       {isError && data && (
         <QueryErrorState
           className="mb-4 py-4"
@@ -189,6 +197,7 @@ export default function MyActivitiesPage() {
           ))}
         </div>
       )}
+      </div>
 
       {selectedActivityId && (
         <ActivityDrawer

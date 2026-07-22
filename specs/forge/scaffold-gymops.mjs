@@ -334,6 +334,11 @@ if (F.contas) serverLines.push(
   '// helper: opções da rota com rate-limit SÓ se o plugin carregou (senão objeto vazio = sem limite).',
   'const authLimited = (opts) => authRateLimitOn ? { ...opts, config: { ...(opts && opts.config), rateLimit: AUTH_RATE } } : (opts || {});',
 );
+// bloco contas-acesso: as rotas de records EXIGEM autenticação (requireAuth) e o tenant vem do CLAIM do
+// JWT (req.authUser.tenantId), não do header X-Tenant-Id (spoofável). Apps SEM contas-acesso mantêm o
+// comportamento anterior (sem guard, tenant do req.tenantId resolvido no onRequest) — compat preservada.
+const recGuard = F.contas ? '{ preHandler: requireAuth }, ' : '';
+const recTenant = F.contas ? 'req.authUser.tenantId' : 'req.tenantId';
 serverLines.push(
   F.rbac
     ? "app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; });"
@@ -341,12 +346,12 @@ serverLines.push(
   "app.get('/', async () => ({ app: '@@APP@@', service: 'api', ok: true }));",
   "app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });",
   (F.redis ? "app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));" : ''),
-  "app.get('/v1/records', async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows }));",
-  "app.post('/v1/records', async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });",
-  "app.get('/v1/records/:id', async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });",
+  "app.get('/v1/records', " + recGuard + "async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [" + recTenant + "])).rows }));",
+  "app.post('/v1/records', " + recGuard + "async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [" + recTenant + ", b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });",
+  "app.get('/v1/records/:id', " + recGuard + "async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [" + recTenant + ", Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });",
 );
 if (F.rbac) serverLines.push("app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => { await pool.query('DELETE FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)]); return { deleted: true }; });");
-if (F.redis) serverLines.push("app.post('/v1/records/:id/submit', async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query(\"UPDATE records SET status='submitting', updated_at=now() WHERE id=$1\", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });");
+if (F.redis) serverLines.push("app.post('/v1/records/:id/submit', " + recGuard + "async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [" + recTenant + ", id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query(\"UPDATE records SET status='submitting', updated_at=now() WHERE id=$1\", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });");
 // bloco contas-acesso: rotas de autenticação/perfil/gerência de usuários + SSO (contrato da Forge).
 if (F.contas) serverLines.push(
   "// --- auth: registro/login/refresh/logout (rate-limited p/ mitigar brute-force/abuso) ---",

@@ -2,8 +2,16 @@
   <UiPageLayout title="Dashboard Financeiro" subtitle="Visão consolidada do fluxo de caixa." :loading="loading" :error="error" @retry="load">
     <template #actions>
       <div class="period-filter">
-        <input v-model="filters.period_start" type="date" @change="load" class="filter-input" placeholder="De" />
-        <input v-model="filters.period_end" type="date" @change="load" class="filter-input" placeholder="Até" />
+        <UiFormField label="De">
+          <template #default="{ id }">
+            <input :id="id" v-model="filters.period_start" type="date" @change="load" />
+          </template>
+        </UiFormField>
+        <UiFormField label="Até">
+          <template #default="{ id }">
+            <input :id="id" v-model="filters.period_end" type="date" @change="load" />
+          </template>
+        </UiFormField>
       </div>
     </template>
 
@@ -23,10 +31,12 @@
         <div class="fd-tops">
           <UiCard title="Top 5 Fornecedores (a pagar)">
             <UiDataTable :columns="topCols" :rows="data.top5_fornecedores" row-key="contraparte"
+              :sort="sortForn" @update:sort="s => (sortForn = s)"
               :empty="{ title: 'Nenhum fornecedor', description: 'Sem contas a pagar pendentes.' }" />
           </UiCard>
           <UiCard title="Top 5 Clientes (a receber)">
             <UiDataTable :columns="topCols" :rows="data.top5_clientes" row-key="contraparte"
+              :sort="sortCli" @update:sort="s => (sortCli = s)"
               :empty="{ title: 'Nenhum cliente', description: 'Sem contas a receber pendentes.' }" />
           </UiCard>
         </div>
@@ -36,11 +46,14 @@
 </template>
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { UiPageLayout, UiCard, UiMetricCard, UiDataTable } from '../ui/index.js';
+import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiFormField } from '../ui/index.js';
 import { financialDashboard } from '../api.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);
 const filters = reactive({ period_start: '', period_end: '' });
+// Ordenação client-side por tabela (UX-CV360-011): o cabeçalho "Nome" marcado como sortable passa a
+// reordenar as linhas já carregadas de cada Top 5, sem depender de sort no backend.
+const sortForn = ref(null), sortCli = ref(null);
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
 
@@ -67,7 +80,9 @@ onMounted(load);
 </script>
 <style scoped>
 .period-filter { display: flex; gap: var(--ui-space-2); }
-.filter-input { padding: var(--ui-space-1) var(--ui-space-2); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); font-size: var(--ui-text-sm); }
+/* Os campos De/Até usam UiFormField (rótulo + input estilizado pelo kit); a antiga regra .filter-input
+   referenciava tokens inexistentes (--ui-border cru, --ui-radius) e virou CSS morto — removida
+   (UX-CV360-006). */
 .fd-layout { display: flex; flex-direction: column; gap: var(--ui-space-4); }
 .fd-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ui-space-4); }
 .fd-tables { display: flex; flex-direction: column; gap: var(--ui-space-4); }

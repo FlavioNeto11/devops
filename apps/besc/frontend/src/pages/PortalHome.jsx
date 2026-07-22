@@ -46,7 +46,7 @@ export default function PortalHome() {
           <Link className="btn primary" to="/marketplace"><Icon name="coins" /> Investir em títulos</Link>
           <Link className="btn" to="/jurisprudencia"><Icon name="gavel" /> Explorar jurisprudência</Link>
           <Link className="btn" to="/biblioteca"><Icon name="library" /> Biblioteca</Link>
-          <Link className="btn" to="/casos"><Icon name="cases" /> Casos</Link>
+          {canSeeCases && <Link className="btn" to="/casos"><Icon name="cases" /> Casos</Link>}
         </div>
       </section>
 

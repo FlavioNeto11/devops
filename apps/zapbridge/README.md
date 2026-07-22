@@ -1,8 +1,11 @@
 # ZapBridge
 
-Cliente mobile de mensageria que conecta à conta de WhatsApp **do próprio usuário** via
-[WhiskeySockets/Baileys](https://github.com/WhiskeySockets/Baileys). MVP composto por um **backend
-Node.js/TypeScript** (mantém a sessão e persiste dados) e um **app mobile Expo/React Native**.
+Cliente de mensageria que conecta à conta de WhatsApp **do próprio usuário** via
+[WhiskeySockets/Baileys](https://github.com/WhiskeySockets/Baileys). Composto por um **backend
+Node.js/TypeScript** (mantém a sessão e persiste dados) e um **frontend web React 18 + Vite** (`web/`).
+
+> O cliente **Expo/React Native** em `app/` é **legado/aposentado** (mobile histórico) e não é mais o
+> build publicado na web.
 
 > **Uso legítimo apenas.** Conecta somente a conta autorizada pelo usuário (QR/pairing). Sem
 > WhatsApp Business API, sem scraping, sem envio em massa. Experiência apenas *inspirada* em
@@ -13,7 +16,8 @@ Node.js/TypeScript** (mantém a sessão e persiste dados) e um **app mobile Expo
 wpp/
   docs/MVP-FUNCIONAL.md   # documento funcional completo do MVP (20 seções, 45 RFs)
   server/                 # backend: Express + Prisma/SQLite + Socket.IO + Baileys
-  app/                    # mobile: Expo + React Native + TypeScript
+  web/                    # frontend web ATUAL: React 18 + Vite + TypeScript (SPA, deploy)
+  app/                    # LEGADO/aposentado: cliente mobile Expo + React Native
 ```
 
 ## Como rodar (resumo)
@@ -27,13 +31,14 @@ npx prisma migrate dev --name init
 npm run dev                 # http://localhost:3000
 ```
 
-**App**
+**Frontend web (`web/`)**
 ```bash
-cd app
+cd web
 npm install
-# edite extra.apiUrl em app.json com o IP da máquina na LAN (ex.: http://192.168.0.10:3000)
-npx expo start              # abra no Expo Go (Android/iOS)
+npm run dev                 # http://localhost:5173/zapbridge/ (proxy de /zapbridge/api → nvit.localhost)
+npm run build               # Vite → gera web/dist/ (base /zapbridge/), servido por nginx no deploy
 ```
+> O cliente Expo em `app/` é legado; instruções históricas em [`app/README.md`](app/README.md).
 
 ## Verificação end-to-end
 1. Registrar/login no app.
@@ -49,11 +54,12 @@ em [`docs/MVP-FUNCIONAL.md`](docs/MVP-FUNCIONAL.md).
 
 O ZapBridge está publicado na plataforma DevOps local (Traefik + Cloudflare Tunnel), reusando o
 mesmo domínio, sem abrir portas e sem alterar outros apps:
-- **`/zapbridge`** — landing + **app web** (Expo/react-native-web servido por nginx).
+- **`/zapbridge`** — **app web** (React 18 + Vite, servido por nginx).
 - **`/zapbridge/api`** — REST (backend, strip).
 - **`/zapbridge/socket.io`** — WebSocket em tempo real (backend).
 
-Passos de build/deploy no [server/README.md](server/README.md) (backend) e [app/README.md](app/README.md) (web).
+Passos de build/deploy no [server/README.md](server/README.md) (backend); o frontend web vive em
+`web/` (build Vite — ver acima). ([`app/README.md`](app/README.md) cobre o cliente Expo legado.)
 
 ## Roadmap (Fase 2, opcional)
 Respostas sugeridas por IA (Claude), detecção de estilo de escrita, resumo de conversa, busca

@@ -28,6 +28,8 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
   const {
     messages,
     loading,
+    error,
+    reload,
     loadingMore,
     exhausted,
     presence,
@@ -202,6 +204,17 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
         {loading ? (
           <div className="grid place-items-center py-16">
             <Spinner />
+          </div>
+        ) : error ? (
+          <div className="text-center px-6 py-16">
+            <div className="text-white font-semibold">Não foi possível carregar as mensagens</div>
+            <div className="text-muted text-sm mt-1">{error}</div>
+            <button
+              onClick={reload}
+              className="mt-4 rounded-full bg-surface hover:bg-surfaceAlt text-primary font-semibold px-5 py-2 text-sm"
+            >
+              Tentar novamente
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div className="text-center text-muted py-16">Nenhuma mensagem ainda</div>

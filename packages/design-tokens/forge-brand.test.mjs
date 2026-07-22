@@ -1,7 +1,14 @@
 // node --test — garante a DERIVAÇÃO de marca: contraste WCAG AA + cobertura de tokens.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hexToRgb, contrast, ensureContrast, relLuminance, deriveForgeTokensCss, RAMPS, normalizeBrand } from './forge-brand.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { hexToRgb, contrast, ensureContrast, relLuminance, deriveForgeTokensCss, RAMPS, normalizeBrand, badgePair } from './forge-brand.mjs';
+import { renderPlatformTokensBlock } from './renderers/platform.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const tokensJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'tokens.json'), 'utf8'));
 
 test('hexToRgb aceita #rgb e #rrggbb e rejeita lixo', () => {
   assert.deepEqual(hexToRgb('#fff'), [255, 255, 255]);
@@ -59,8 +66,49 @@ for (const b of BRANDS) {
     }
     // texto sobre preenchimento de acento (accent-fg sobre accent): AA
     assert.ok(contrast(parse(light['ui-accent-fg']), parse(light['ui-accent'])) >= 4.49, 'accent-fg/accent < 4.5');
+    // pares de BADGE: texto ≥4.5:1 sobre o PRÓPRIO fundo tintado (não a surface sólida),
+    // nos DOIS temas — é a regressão de UX-A11Y-003 / UX-DS-002.
+    for (const block of [':root {', '[data-theme="dark"], .dark {']) {
+      const v = varsOf(css, block);
+      for (const tone of ['ui-neutral', 'ui-ok', 'ui-warn', 'ui-danger', 'ui-accent']) {
+        const bg = parse(v[tone + '-badge-bg']);
+        const fg = parse(v[tone + '-badge-fg']);
+        assert.equal(bg.length, 3, 'falta --' + tone + '-badge-bg em ' + block);
+        assert.equal(fg.length, 3, 'falta --' + tone + '-badge-fg em ' + block);
+        assert.ok(contrast(fg, bg) >= 4.49, tone + '-badge < 4.5 em ' + block + ' (' + b.name + ')');
+      }
+    }
   });
 }
+
+test('badgePair: fg atinge ≥4.5:1 sobre o fundo tintado (claro e escuro)', () => {
+  const light = badgePair([217, 119, 6], [255, 255, 255], { alpha: 0.18 }); // warn sobre branco
+  assert.ok(contrast(light.fg, light.bg) >= 4.5, 'warn/light < 4.5');
+  const dark = badgePair([251, 191, 36], [22, 27, 34], { alpha: 0.18 }); // warn (dark) sobre surface escura
+  assert.ok(contrast(dark.fg, dark.bg) >= 4.5, 'warn/dark < 4.5');
+});
+
+// renderer da PLATAFORMA (--p-*): os pares de badge emitidos passam AA nos 2 temas.
+test('renderPlatformTokensBlock: pares --p-*-badge-* ≥4.5:1 (light + dark)', () => {
+  const css = renderPlatformTokensBlock(tokensJson.brands.platform);
+  const pvars = (block) => {
+    const start = css.indexOf(block);
+    const sub = css.slice(start, css.indexOf('}', start));
+    const map = {};
+    for (const m of sub.matchAll(/--(p-[a-z0-9-]+):\s*([^;]+);/g)) map[m[1]] = m[2].trim();
+    return map;
+  };
+  for (const block of [':root {', '[data-theme="dark"], .dark {']) {
+    const v = pvars(block);
+    for (const tone of ['p-ok', 'p-warn', 'p-danger']) {
+      const bg = parse(v[tone + '-badge-bg']);
+      const fg = parse(v[tone + '-badge-fg']);
+      assert.equal(bg.length, 3, 'falta --' + tone + '-badge-bg em ' + block);
+      assert.equal(fg.length, 3, 'falta --' + tone + '-badge-fg em ' + block);
+      assert.ok(contrast(fg, bg) >= 4.49, tone + '-badge < 4.5 em ' + block);
+    }
+  }
+});
 
 test('normalizeBrand cai p/ defaults seguros', () => {
   const b = normalizeBrand({ accent: '#123456', neutralBase: 'inexistente', radius: 'xxl' });

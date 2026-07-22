@@ -27,7 +27,7 @@
   >
     <!-- Ações do cabeçalho -->
     <template #actions>
-      <UiButton variant="ghost" to="/transactions">Voltar</UiButton>
+      <UiButton variant="ghost" to="/payment-transactions">Voltar</UiButton>
       <UiButton variant="subtle" :loading="refreshing" @click="refreshAll">Atualizar</UiButton>
       <UiButton v-if="consultationHref" :to="consultationHref">Ver agendamento</UiButton>
     </template>

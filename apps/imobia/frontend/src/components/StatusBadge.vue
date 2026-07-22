@@ -1,12 +1,12 @@
 <script setup>
-import { STATUS_TONE } from '../utils/format';
+import { STATUS_TONE, statusLabel } from '../utils/format';
 defineProps({ status: String });
 </script>
 <template>
-  <span class="st-badge" :class="`tone-${STATUS_TONE[status] || 'muted'}`">{{ status }}</span>
+  <span class="st-badge" :class="`tone-${STATUS_TONE[status] || 'muted'}`">{{ statusLabel(status) }}</span>
 </template>
 <style scoped>
-.st-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: capitalize; border: 1px solid transparent; }
+.st-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
 .st-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .tone-green { color: var(--im-accent-2); background: rgba(52,211,153,0.13); }
 .tone-amber { color: var(--im-accent); background: rgba(240,180,41,0.14); }

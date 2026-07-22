@@ -310,13 +310,13 @@ const ENTITY_ROUTES = {
   professionals: '/professionals/',
   'evolution-note': '/evolution-notes/',
   'evolution_note': '/evolution-notes/',
-  report: '/reports/',
-  reports: '/reports/',
-  'patient-report': '/reports/',
-  'patient_report': '/reports/',
-  'payment-transaction': '/transactions/',
-  'payment_transaction': '/transactions/',
-  transaction: '/transactions/',
+  report: '/patient-reports/',
+  reports: '/patient-reports/',
+  'patient-report': '/patient-reports/',
+  'patient_report': '/patient-reports/',
+  'payment-transaction': '/payment-transactions/',
+  'payment_transaction': '/payment-transactions/',
+  transaction: '/payment-transactions/',
 };
 
 function norm(v) {

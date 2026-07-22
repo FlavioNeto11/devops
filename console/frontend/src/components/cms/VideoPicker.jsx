@@ -62,7 +62,7 @@ export default function VideoPicker({ projectId, value, onChange }) {
         {!v && <span className="mp-preview__none"><Clapperboard size={16} style={{ verticalAlign: '-3px' }} /> Nenhum vídeo</span>}
       </div>
       <input className="input" value={value || ''} placeholder="Cole a URL/ID do YouTube, ou envie um arquivo…"
-        onChange={(e) => onInput(e.target.value)} />
+        aria-label="URL ou ID do vídeo" onChange={(e) => onInput(e.target.value)} />
       <div className="mp-actions">
         <input ref={inp} type="file" hidden accept={VIDEO_ACCEPT} onChange={onFile} />
         <button type="button" className="btn" disabled={busy || !projectId} onClick={() => inp.current?.click()}>

@@ -5,7 +5,7 @@
   "files": [
     {
       "path": "apps/contaviva-pro/tests/locked/_lib.mjs",
-      "sha256": "9eebd2f0af800d1b8af5bd1567781ed802c37201c1b3d2c5a6a37e1af9a29fe8"
+      "sha256": "364d311f7a7650e1492176ec9d3634afdee3e2728afd555d8aa82b1d22e3ae77"
     },
     {
       "path": "apps/contaviva-pro/tests/locked/capability/contas-acesso.test.mjs",
@@ -33,7 +33,7 @@
     },
     {
       "path": "apps/contaviva-pro/tests/locked/capability/redis-bullmq.test.mjs",
-      "sha256": "1aac69f375696d4c7d5b6378e35276ce90b5c73752853b517f8742bd568f581f"
+      "sha256": "f20e08d3a62df7f047af7c6a0e66018d3d92789ae7f789a0b0570bbbe7e9a24f"
     },
     {
       "path": "apps/contaviva-pro/tests/locked/capability/structured-outputs.test.mjs",

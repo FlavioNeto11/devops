@@ -86,6 +86,18 @@ export function ensureContrast(fg, bg, target = 4.5) {
   return best;
 }
 
+// par de BADGE/status — o modelo CORRETO (espelha os pares status-*-bg/fg da marca sicat).
+// O anti-padrão dos badges era usar a cor CRUA do tom como texto sobre uma tinta do próprio
+// tom (rgb(tom / α)) e validar o contraste contra a surface SÓLIDA, e não contra o fundo
+// realmente pintado — que fica mais perto do texto e derruba o contraste (medido 2,8-4,0:1).
+// Aqui compomos o tom sobre a surface no mesmo α (fundo real, opaco) e escurecemos/clareamos
+// o TEXTO até ≥target SOBRE esse fundo. Retorna triplas RGB arredondadas { bg, fg }.
+export function badgePair(toneRgb, surfaceRgb, { alpha = 0.16, target = 4.5 } = {}) {
+  const bg = mix(surfaceRgb, toneRgb, alpha).map((n) => Math.round(n)); // tom sobre surface no α => sólido
+  const fg = ensureContrast(toneRgb, bg, target).map((n) => Math.round(n));
+  return { bg, fg };
+}
+
 // ---- saneamento dos campos de texto que viram CSS/comentário ------------------
 // O `name` aparece num COMENTÁRIO de bloco do CSS (`/* … */`) — `*/` o fecharia e `{`/`}` poderiam
 // abrir uma regra. O `displayFont` vira `--ui-font-display: <font>, …;` — caracteres como `;`/`}`/`{`
@@ -118,6 +130,14 @@ function schemeVars(scheme, ramp, accentRgb, ink) {
   const okStrong = ensureContrast(parseTriplet(st.ok), surfaceRgb, 4.5);
   const warnStrong = ensureContrast(parseTriplet(st.warn), surfaceRgb, 4.5);
   const dangerStrong = ensureContrast(parseTriplet(st.danger), surfaceRgb, 4.5);
+  // pares de BADGE (par bg tintado sólido + fg validado contra ele) — o UiStatusBadge
+  // consome estes tokens em vez de `cor crua sobre rgb(tom / α)`, que reprovava AA (1.4.3).
+  // α por tom espelha o do componente (success/error/neutral/accent 0.16, warning 0.18).
+  const okBadge = badgePair(parseTriplet(st.ok), surfaceRgb, { alpha: 0.16 });
+  const warnBadge = badgePair(parseTriplet(st.warn), surfaceRgb, { alpha: 0.18 });
+  const dangerBadge = badgePair(parseTriplet(st.danger), surfaceRgb, { alpha: 0.16 });
+  const neutralBadge = badgePair(parseTriplet(n.muted), surfaceRgb, { alpha: 0.16 });
+  const accentBadge = badgePair(accentStrong, surfaceRgb, { alpha: 0.16 });
   return [
     `  color-scheme: ${scheme};`,
     `  --ui-bg: ${n.bg};`,
@@ -135,6 +155,16 @@ function schemeVars(scheme, ramp, accentRgb, ink) {
     `  --ui-warn: ${triplet(warnStrong)};`,
     `  --ui-danger: ${triplet(dangerStrong)};`,
     `  --ui-info: ${triplet(accentStrong)};`,
+    `  --ui-neutral-badge-bg: ${triplet(neutralBadge.bg)};`,
+    `  --ui-neutral-badge-fg: ${triplet(neutralBadge.fg)};`,
+    `  --ui-ok-badge-bg: ${triplet(okBadge.bg)};`,
+    `  --ui-ok-badge-fg: ${triplet(okBadge.fg)};`,
+    `  --ui-warn-badge-bg: ${triplet(warnBadge.bg)};`,
+    `  --ui-warn-badge-fg: ${triplet(warnBadge.fg)};`,
+    `  --ui-danger-badge-bg: ${triplet(dangerBadge.bg)};`,
+    `  --ui-danger-badge-fg: ${triplet(dangerBadge.fg)};`,
+    `  --ui-accent-badge-bg: ${triplet(accentBadge.bg)};`,
+    `  --ui-accent-badge-fg: ${triplet(accentBadge.fg)};`,
   ];
 }
 

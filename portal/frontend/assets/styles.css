@@ -53,6 +53,13 @@
   --warn-soft: rgb(var(--p-warn) / 0.12);
   --danger: rgb(var(--p-danger));
   --danger-soft: rgb(var(--p-danger) / 0.12);
+  /* Pares de BADGE tintado (fundo sólido + texto validado ≥4,5:1 sobre ele) — vêm da paleta
+     central (--p-*-badge-*, gerada em design-tokens). Antes o texto usava a cor crua do tom
+     sobre a tinta -soft e reprovava AA no tema claro (warn 2,80:1 / ok 2,88:1). */
+  --ok-badge-fg: rgb(var(--p-ok-badge-fg));
+  --ok-badge-bg: rgb(var(--p-ok-badge-bg));
+  --warn-badge-fg: rgb(var(--p-warn-badge-fg));
+  --warn-badge-bg: rgb(var(--p-warn-badge-bg));
 
   --grad: linear-gradient(120deg, rgb(var(--p-neon)), rgb(var(--p-accent2)));
   --grid-dot: rgb(var(--p-fg) / 0.05);
@@ -593,14 +600,14 @@ section.block {
   flex: 0 0 auto;
 }
 .badge.is-online {
-  color: var(--ok);
+  color: var(--ok-badge-fg);
   border-color: color-mix(in srgb, var(--ok) 35%, transparent);
-  background: var(--ok-soft);
+  background: var(--ok-badge-bg);
 }
 .badge.is-login {
-  color: var(--warn);
+  color: var(--warn-badge-fg);
   border-color: color-mix(in srgb, var(--warn) 35%, transparent);
-  background: var(--warn-soft);
+  background: var(--warn-badge-bg);
 }
 .badge.is-internal {
   color: var(--muted);

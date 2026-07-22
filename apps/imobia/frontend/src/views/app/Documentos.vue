@@ -7,23 +7,30 @@ import { dateTimeBr } from '../../utils/format';
 
 const items = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const uploading = ref(false);
 const docType = ref('rg');
 const msg = ref('');
+const msgErr = ref(false);
 const fileInput = ref(null);
 
-async function load() { loading.value = true; try { items.value = (await api.list('documentos')).data; } finally { loading.value = false; } }
+async function load() {
+  loading.value = true; loadError.value = '';
+  try { items.value = (await api.list('documentos')).data; }
+  catch (e) { loadError.value = e.message || 'Falha ao carregar os documentos.'; }
+  finally { loading.value = false; }
+}
 async function onFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  uploading.value = true; msg.value = '';
+  uploading.value = true; msg.value = ''; msgErr.value = false;
   try {
     const r = await api.upload('documentos', file, { type: docType.value });
     msg.value = r.ai?.dormant ? 'Enviado. Validação por IA dormente (configure GOOGLE_API_KEY).' : `Enviado e validado: ${r.data.validation}.`;
     await load();
-  } catch (err) { msg.value = err.message; } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
+  } catch (err) { msg.value = err.message; msgErr.value = true; } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = ''; }
 }
-async function revalidate(id) { try { await api.create(`documentos/${id}/validate`, {}); await load(); } catch (e) { alert(e.message); } }
+async function revalidate(id) { msg.value = ''; msgErr.value = false; try { await api.create(`documentos/${id}/validate`, {}); await load(); } catch (e) { msg.value = e.message; msgErr.value = true; } }
 onMounted(load);
 </script>
 
@@ -43,21 +50,24 @@ onMounted(load);
         <input ref="fileInput" type="file" hidden :disabled="uploading" @change="onFile" accept="image/*,application/pdf" />
       </label>
     </div>
-    <p v-if="msg" class="im-notice" style="margin-bottom:14px">{{ msg }}</p>
+    <p v-if="msg" class="im-notice" :class="{ err: msgErr }" style="margin-bottom:14px">{{ msg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="folder" :size="34" /><p>Nenhum documento enviado.</p></div>
-    <table v-else class="ap-table">
-      <thead><tr><th>Arquivo</th><th>Tipo</th><th>Validação</th><th>Enviado</th><th></th></tr></thead>
-      <tbody>
-        <tr v-for="d in items" :key="d.id">
-          <td><a :href="api.fileUrl(d.storageKey)" target="_blank">{{ d.filename }}</a><br /><small v-if="d.validationReason">{{ d.validationReason }}</small></td>
-          <td>{{ d.type }}</td>
-          <td><StatusBadge :status="d.validation" /></td>
-          <td><small>{{ dateTimeBr(d.createdAt) }}</small></td>
-          <td><button class="im-linkbtn" @click="revalidate(d.id)">revalidar</button></td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="ap-table-wrap">
+      <table class="ap-table">
+        <thead><tr><th>Arquivo</th><th>Tipo</th><th>Validação</th><th>Enviado</th><th></th></tr></thead>
+        <tbody>
+          <tr v-for="d in items" :key="d.id">
+            <td><a :href="api.fileUrl(d.storageKey)" target="_blank">{{ d.filename }}</a><br /><small v-if="d.validationReason">{{ d.validationReason }}</small></td>
+            <td>{{ d.type }}</td>
+            <td><StatusBadge :status="d.validation" /></td>
+            <td><small>{{ dateTimeBr(d.createdAt) }}</small></td>
+            <td><button class="im-linkbtn" @click="revalidate(d.id)">revalidar</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>

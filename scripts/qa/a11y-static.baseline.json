@@ -1,0 +1,137 @@
+{
+  "$guard": "a11y-static",
+  "$comment": "Elementos clicáveis-sem-teclado PRÉ-EXISTENTES tolerados. --check falha só em chaves NOVAS. Ao corrigir (role+tabindex+keydown, ou trocar por <button>), rode --update para reduzir o baseline.",
+  "generatedAt": "2026-07-22",
+  "counts": {
+    "apps/contaviva-360": 3,
+    "console": 3,
+    "apps/anarabottini": 2,
+    "apps/imobia": 2,
+    "apps/rmambiental": 2,
+    "apps/zapbridge": 2,
+    "apps/contaviva-pro": 1,
+    "apps/gymops": 1,
+    "apps/neuroevolui": 1
+  },
+  "violations": [
+    {
+      "file": "apps/anarabottini/src/components/Modal.tsx",
+      "line": 84,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className=\"absolute inset-0 bg-brand-ink/70 backdrop-blur-sm\" onClick={onClose} aria-hidden />"
+    },
+    {
+      "file": "apps/anarabottini/src/lib/cmsEdit.tsx",
+      "line": 188,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
+    },
+    {
+      "file": "apps/contaviva-360/frontend/src/ui/components/UiAppShell.vue",
+      "line": 33,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"navOpen\" class=\"ui-scrim\" @click=\"navOpen = false\" />"
+    },
+    {
+      "file": "apps/contaviva-360/frontend/src/ui/components/UiDataTable.vue",
+      "line": 29,
+      "tag": "tr",
+      "missing": "role",
+      "snippet": "<tr v-for=\"row in viewRows\" :key=\"row[rowKey]\" :data-clickable=\"clickableRows ? 'true' : null\" :tabindex=\"clickableRows "
+    },
+    {
+      "file": "apps/contaviva-360/frontend/src/ui/components/UiModal.vue",
+      "line": 4,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"open\" class=\"ui-modal-backdrop\" @click.self=\"onBackdrop\">"
+    },
+    {
+      "file": "apps/contaviva-pro/frontend/src/ui/components/UiModal.vue",
+      "line": 4,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"open\" class=\"ui-modal-backdrop\" @click.self=\"onBackdrop\">"
+    },
+    {
+      "file": "apps/gymops/apps/web/src/components/layout/sidebar.tsx",
+      "line": 64,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className=\"fixed inset-0 z-40 bg-black/50 md:hidden\" onClick={onMobileClose} />"
+    },
+    {
+      "file": "apps/imobia/frontend/src/components/Modal.vue",
+      "line": 50,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"open\" class=\"md-overlay\" @click.self=\"emit('close')\">"
+    },
+    {
+      "file": "apps/imobia/frontend/src/layouts/AppShell.vue",
+      "line": 57,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"open\" class=\"ap-backdrop\" @click=\"open = false\" />"
+    },
+    {
+      "file": "apps/neuroevolui/frontend/src/ui/components/UiModal.vue",
+      "line": 4,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div v-if=\"open\" class=\"ui-modal-backdrop\" @click.self=\"onBackdrop\">"
+    },
+    {
+      "file": "apps/rmambiental/src/components/SectionRenderer.tsx",
+      "line": 334,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className=\"absolute inset-0 bg-black/85 backdrop-blur-sm\" onClick={close} />"
+    },
+    {
+      "file": "apps/rmambiental/src/lib/cmsEdit.tsx",
+      "line": 188,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
+    },
+    {
+      "file": "apps/zapbridge/web/src/components/ConfirmDialog.tsx",
+      "line": 75,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className=\"fixed inset-0 z-50 bg-black/70 grid place-items-center px-6\" onClick={() => { if (!busy) onCancel(); }} "
+    },
+    {
+      "file": "apps/zapbridge/web/src/components/MediaViewer.tsx",
+      "line": 23,
+      "tag": "div",
+      "missing": "teclado+tabindex",
+      "snippet": "<div role=\"dialog\" aria-modal=\"true\" aria-label=\"Visualizador de mídia\" className=\"fixed inset-0 z-50 bg-black/90 grid p"
+    },
+    {
+      "file": "console/frontend/src/App.jsx",
+      "line": 282,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className=\"sidebar__backdrop\" onClick={() => setMobileNavOpen(false)} aria-hidden=\"true\" />"
+    },
+    {
+      "file": "console/site-renderer/src/cmsEdit.jsx",
+      "line": 166,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.s"
+    },
+    {
+      "file": "console/site-renderer/src/cmsEdit.jsx",
+      "line": 246,
+      "tag": "div",
+      "missing": "role+teclado+tabindex",
+      "snippet": "<div className={cn('cms-media', empty && 'cms-media--empty', className)} onClick={(e) => { e.stopPropagation(); if (busy"
+    }
+  ]
+}

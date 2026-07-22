@@ -22,7 +22,7 @@ export default function Referencia() {
       <div className="detail-layout">
         <nav className="tab-rail">
           {TABS.map((t) => (
-            <button key={t.key} className={tab === t.key ? 'active' : ''} onClick={() => setTab(t.key)}>
+            <button key={t.key} className={tab === t.key ? 'active' : ''} aria-current={tab === t.key ? 'true' : undefined} onClick={() => setTab(t.key)}>
               <Icon name={t.icon} /> {t.label}
             </button>
           ))}
@@ -45,6 +45,7 @@ export default function Referencia() {
             <div className="card"><div className="card-body">
               <h2 style={{ fontSize: 17, marginBottom: 4 }}>Relações de substituição (conversão)</h2>
               <p className="muted" style={{ marginBottom: 12 }}>{ref.shareConversion.summary}</p>
+              <div style={{ overflowX: 'auto' }}>
               <table className="data">
                 <thead><tr><th>Equivale a</th><th>Ações do BESC / BESCRI</th></tr></thead>
                 <tbody>
@@ -53,6 +54,7 @@ export default function Referencia() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <ul style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
                 {ref.shareConversion.notes.map((n, i) => <li key={i}>{n}</li>)}
               </ul>

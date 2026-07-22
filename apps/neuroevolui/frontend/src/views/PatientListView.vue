@@ -324,7 +324,7 @@ async function toggleStatus(row) {
   const isArchived = row.status === 'archived';
   const targetStatus = isArchived ? 'active' : 'archived';
   const actionLabel = isArchived ? 'Reativar' : 'Desativar';
-  const confirmed = await confirm.ask({
+  const confirmed = await confirm({
     title: actionLabel + ' paciente',
     message: isArchived
       ? `Deseja reativar "${row.full_name || 'este paciente'}"? O status voltará para "Em acompanhamento".`

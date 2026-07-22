@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Clock, AlertTriangle, CheckSquare, MessageSquare, Paperclip,
@@ -150,6 +151,9 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
       void qc.invalidateQueries({ queryKey: ['activity', activityId] });
       void qc.invalidateQueries({ queryKey: ['activity-events', activityId] });
     },
+    // Sem onError, a falha desmarcava o item "sozinho" no refetch sem aviso
+    // (UX-GYMOPS-013). O checklist é o registro operacional central.
+    onError: () => toast.error('Não foi possível atualizar o item. Tente novamente.'),
   });
 
   const uploadMutation = useMutation({
@@ -183,6 +187,8 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
       void qc.invalidateQueries({ queryKey: ['activity-attachments', activityId] });
       toast.success('Anexo removido');
     },
+    // Sem onError, o anexo "voltava" no refetch sem explicação (UX-GYMOPS-013).
+    onError: () => toast.error('Erro ao remover anexo'),
   });
 
   const activity = actRes?.data;
@@ -194,12 +200,22 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex">
-        {/* Overlay — hidden on mobile (full screen drawer) */}
-        <div className="hidden flex-1 bg-black/40 md:block" onClick={onClose} />
+      {/* Drawer acessível sobre Radix Dialog: role=dialog + aria-modal, focus
+          trap, Esc para fechar e retorno de foco à origem vêm do primitivo
+          (UX-GYMOPS-004), preservando o visual do painel lateral. */}
+      <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DialogPrimitive.Portal>
+          {/* Overlay — hidden on mobile (full screen drawer) */}
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 hidden bg-black/40 md:block" />
 
-        {/* Drawer panel */}
-        <div className="flex h-full w-full flex-col overflow-hidden border-l bg-background shadow-2xl md:max-w-2xl">
+          {/* Drawer panel */}
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col overflow-hidden border-l bg-background shadow-2xl outline-none md:max-w-2xl"
+          >
+            <DialogPrimitive.Title className="sr-only">
+              {activity?.title ? `Atividade: ${activity.title}` : 'Detalhes da atividade'}
+            </DialogPrimitive.Title>
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b px-6 py-4">
             <div className="min-w-0 flex-1">
@@ -267,8 +283,12 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                       size="sm"
                       className="h-7 gap-1 text-xs"
                       onClick={() => {
-                        patchMutation.mutate({ visibilityMode: 'restricted' });
-                        toast.success('Atividade restrita a membros explícitos');
+                        // Toast de sucesso só após o servidor confirmar — antes ele
+                        // aparecia mesmo quando o PATCH falhava (UX-GYMOPS-012).
+                        patchMutation.mutate(
+                          { visibilityMode: 'restricted' },
+                          { onSuccess: () => toast.success('Atividade restrita a membros explícitos') },
+                        );
                       }}
                     >
                       <Lock className="h-3 w-3" />
@@ -440,8 +460,17 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                 <TabsContent value="attachments" className="flex-1 overflow-y-auto px-6 pb-6" data-tutorial="activity-drawer-attachments">
                   <div className="space-y-3 pt-4">
                     <div
-                      className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/20"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Enviar anexo: clique, use Enter/Espaço ou arraste o arquivo"
+                      className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => {
                         e.preventDefault();
@@ -491,7 +520,14 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-500"
-                              onClick={() => deleteAttachmentMutation.mutate(a.id)}
+                              aria-label={`Remover anexo ${a.filename}`}
+                              onClick={() => {
+                                // Exclusão destrutiva sem undo — confirma citando o
+                                // arquivo, como já faz a remoção de checklist (UX-GYMOPS-014).
+                                if (window.confirm(`Remover o anexo "${a.filename}"? Esta ação não pode ser desfeita.`)) {
+                                  deleteAttachmentMutation.mutate(a.id);
+                                }
+                              }}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -558,8 +594,9 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
               <p className="mt-1 text-sm whitespace-pre-wrap">{activity.description}</p>
             </div>
           )}
-        </div>
-      </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       {/* Share modal */}
       {showShareModal && activityId && organizationId && (
@@ -644,12 +681,16 @@ function RecurrenceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-[60] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto outline-none"
+        >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Configurar recorrência</h3>
+            <DialogPrimitive.Title className="font-semibold">Configurar recorrência</DialogPrimitive.Title>
             <p className="text-xs text-muted-foreground">Gerar atividades automaticamente</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
@@ -753,8 +794,9 @@ function RecurrenceModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -799,12 +841,17 @@ function ShareModal({
   const users = searchRes?.data ?? [];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="fixed left-1/2 top-1/2 z-[60] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl max-h-[90vh] overflow-y-auto outline-none"
+        >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Compartilhar atividade</h3>
+            <DialogPrimitive.Title className="font-semibold">Compartilhar atividade</DialogPrimitive.Title>
             <p className="text-xs text-muted-foreground">Dê acesso a um usuário desta organização</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
@@ -886,8 +933,9 @@ function ShareModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -1085,7 +1133,7 @@ function ChecklistSection({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-100 md:opacity-0 md:transition-opacity md:group-hover/item:opacity-100"
+                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-100 md:opacity-0 md:transition-opacity md:group-hover/item:opacity-100 md:focus-visible:opacity-100"
                     aria-label={isExpanded ? 'Fechar detalhes do item' : 'Comentar ou anexar arquivo'}
                     onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
                   >

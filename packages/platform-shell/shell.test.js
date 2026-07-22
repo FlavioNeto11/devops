@@ -1,7 +1,7 @@
 // node:test das funções PURAS da casca (sem DOM). Roda: `node --test`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SURFACES, normalizeMe, roleLabel, healthFromStatus, groupSurfaces, activeSurfaceKey, surfaceLink, productLinks } from './shell.js';
+import { SURFACES, normalizeMe, roleLabel, healthFromStatus, healthFromResponse, groupSurfaces, activeSurfaceKey, surfaceLink, productLinks } from './shell.js';
 
 test('SURFACES: manifesto canônico tem os 7 surfaces e caminhos únicos', () => {
   const keys = SURFACES.map((s) => s.key);
@@ -56,6 +56,20 @@ test('healthFromStatus: 2xx/3xx/401/403 = up; 404/5xx = down; null = unknown', (
   for (const s of [200, 204, 301, 302, 401, 403]) assert.equal(healthFromStatus(s), 'up', String(s));
   for (const s of [404, 500, 502, 503]) assert.equal(healthFromStatus(s), 'down', String(s));
   assert.equal(healthFromStatus(null), 'unknown');
+});
+
+test('healthFromResponse: opaque redirect (SSO cross-origin não seguido) = up; 404/5xx = down; erro = unknown', () => {
+  // UX-NAV-002: com { redirect: 'manual' } o gate SSO devolve um opaque redirect (type
+  // 'opaqueredirect', status 0). A superfície está ROTEADA → 'up' (não mais falso 'down').
+  assert.equal(healthFromResponse({ type: 'opaqueredirect', status: 0 }), 'up');
+  // respostas diretas same-origin passam pelo mesmo julgamento de healthFromStatus
+  assert.equal(healthFromResponse({ type: 'basic', status: 200 }), 'up');
+  assert.equal(healthFromResponse({ type: 'basic', status: 401 }), 'up');
+  assert.equal(healthFromResponse({ type: 'basic', status: 404 }), 'down');
+  assert.equal(healthFromResponse({ type: 'basic', status: 503 }), 'down');
+  // resposta ausente (catch/rede) = desconhecido
+  assert.equal(healthFromResponse(null), 'unknown');
+  assert.equal(healthFromResponse(undefined), 'unknown');
 });
 
 test('groupSurfaces: agrupa preservando ordem de aparição (E1: portal-rec vira Ferramenta)', () => {

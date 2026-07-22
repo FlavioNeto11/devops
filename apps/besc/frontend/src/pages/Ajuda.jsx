@@ -17,6 +17,10 @@ const SECTIONS = [
   ['privacidade', 'Privacidade e aviso legal'],
 ];
 
+// respeita prefers-reduced-motion: sem animação de scroll quando o usuário pede redução de movimento
+const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scrollBehavior = () => (reducedMotion() ? 'auto' : 'smooth');
+
 const Ex = ({ children }) => (
   <div className="example-box"><span className="ex-label">Exemplo do que preencher</span>{children}</div>
 );
@@ -29,7 +33,7 @@ const Step = ({ n, title, children }) => (
 );
 
 function Section({ id, title, children }) {
-  const top = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const top = () => window.scrollTo({ top: 0, behavior: scrollBehavior() });
   return (
     <div className="card help-section" id={id}>
       <div className="card-head"><h2>{title}</h2><div className="spacer" style={{ flex: 1 }} /><button className="btn ghost sm back-top" onClick={top}>↑ topo</button></div>
@@ -39,7 +43,11 @@ function Section({ id, title, children }) {
 }
 
 export default function Ajuda() {
-  const go = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const go = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+  };
 
   return (
     <>

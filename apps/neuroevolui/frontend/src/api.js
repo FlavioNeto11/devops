@@ -1,10 +1,40 @@
 // Client da API (base absoluta sob o subpath). Sem ${} — concatenação. Gerado pela Forge.
 const BASE = import.meta.env.VITE_API_BASE_URL || '/neuroevolui/api';
+
+// URL de (re)login da plataforma (borda oauth2-proxy, ns devops-system). `rd` preserva a rota
+// atual para voltar ao mesmo lugar após autenticar. Mesmo endpoint canônico da casca/portal.
+export function loginUrl(returnTo) {
+  let rd = returnTo;
+  if (!rd && typeof location !== 'undefined') rd = location.pathname + location.search + location.hash;
+  return '/oauth2/start?rd=' + encodeURIComponent(rd || '/neuroevolui/');
+}
+
+// Sinaliza sessão expirada/ausente (HTTP 401) para TODA a app. App.vue escuta este evento e
+// mostra a faixa global "Entrar novamente" em qualquer tela (UX-NEURO-007) — em vez de deixar
+// cada view tratar 401 como "sem permissão / fale com um administrador" (o caso legítimo do 403).
+// A API roda atrás do middleware console-auth-401, que devolve 401 real (não 302) quando a
+// sessão cai no meio do uso — então o fetch consegue detectar e reagir.
+function signalUnauthenticated() {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('neuro:auth-expired'));
+  }
+}
+
+// Erro estruturado padrão (status + message [+ code]). Distingue 401 (não autenticado →
+// `unauthenticated` + sinal global de reautenticação) de 403 (sem permissão, tratado nas views).
+function apiError(res, data) {
+  const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
+  e.status = res.status;
+  if (data && data.error && data.error.code) e.code = data.error.code;
+  if (res.status === 401) { e.unauthenticated = true; signalUnauthenticated(); }
+  return e;
+}
+
 async function request(method, path, body, extraHeaders) {
   const headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) };
   const res = await fetch(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }
+  if (!res.ok) { throw apiError(res, data); }
   return data;
 }
 // Opções por chamada → headers. Hoje encaminha Idempotency-Key (cobrança/criação única);
@@ -109,7 +139,7 @@ export const knowledgeSources = Object.assign(resourceFactory('knowledge-sources
       for (const f of list) fd.append('files', f, f.name);
       const res = await fetch(BASE + '/v1/knowledge-sources', { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; e.code = data && data.error && data.error.code; throw e; }
+      if (!res.ok) { throw apiError(res, data); }
       return data;
     }
     return request('POST', '/v1/knowledge-sources', fields);
@@ -140,7 +170,7 @@ export async function assistant(question, files, opts) {
     res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: String(question || ''), context_type: contextType }), signal });
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; e.code = data && data.error && data.error.code; throw e; }
+  if (!res.ok) { throw apiError(res, data); }
   return data;
 }
 

@@ -36,6 +36,7 @@ Comece aqui ao desenhar/avaliar um app.
 | [`meta-doc-standard.md`](./standards/meta-doc-standard.md) | Como autorar **meta-docs** (CLAUDE.md/AGENTS.md/skills): fonte única, precedência, seções. |
 | [`portal-quality-checklist.md`](./standards/portal-quality-checklist.md) | Checklist de qualidade do Portal (SEO/perf/segurança/observabilidade/testes). |
 | [`portal-ux-accessibility-checklist.md`](./standards/portal-ux-accessibility-checklist.md) | Checklist de UX & acessibilidade do Portal (WCAG AA, responsividade, estados). |
+| [`../DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) | **Design System** canônico: camadas reais (tokens · `ui-vue` · `platform-shell`), matriz de adoção por app, gate de CI e regras de contribuição. |
 
 ## 📘 Guias operacionais (nesta pasta)
 

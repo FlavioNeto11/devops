@@ -73,7 +73,7 @@ export default function Overview({ streamData, streamStatus }) {
 
   if (loading && !counts) {
     return (
-      <section className="overview" aria-label="Visao geral do cluster">
+      <section className="overview" aria-label="Visão geral do cluster">
         <CardSkeleton count={8} />
         <h2 className="section-title">Pods</h2>
         <TableSkeleton rows={6} cols={7} />
@@ -87,11 +87,14 @@ export default function Overview({ streamData, streamStatus }) {
     || `${p.name} ${p.namespace}`.toLowerCase().includes(podFilter.toLowerCase()));
 
   return (
-    <section className="overview" aria-label="Visao geral do cluster">
+    <section className="overview" aria-label="Visão geral do cluster">
       {error && (
         <div className="state state--error" role="alert">
           Erro ao carregar overview: {error}
           {streamStatus === 'open' && ' (aguardando proximo frame em tempo real…)'}
+          <button type="button" className="btn" style={{ marginLeft: 12 }} onClick={() => load()}>
+            Tentar de novo
+          </button>
         </div>
       )}
 
@@ -133,7 +136,7 @@ export default function Overview({ streamData, streamStatus }) {
             </tr>
           </thead>
           <tbody>
-            {pods.length === 0 && (
+            {!error && pods.length === 0 && (
               <tr>
                 <td colSpan={7} className="table__empty">
                   Nenhum pod encontrado.
@@ -192,7 +195,7 @@ export default function Overview({ streamData, streamStatus }) {
             </tr>
           </thead>
           <tbody>
-            {events.length === 0 && (
+            {!error && events.length === 0 && (
               <tr>
                 <td colSpan={5} className="table__empty">
                   Nenhum evento recente.

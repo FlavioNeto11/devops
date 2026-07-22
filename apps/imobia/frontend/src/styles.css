@@ -1,5 +1,5 @@
 /* imobia — tema base (F0). Paleta imobiliaria + fintech: petroleo profundo + ambar/esmeralda.
-   Em F3+ o kit ui-vue e os design-tokens (--ui-*) sao sincronizados; aqui mantemos --im-*. */
+   DS proprio: os tokens --im-* sao definidos aqui; o kit ui-vue/--ui-* NAO e adotado (ver CLAUDE.md). */
 :root {
   --im-bg: #0d1418;
   --im-bg-soft: #121e24;
@@ -31,6 +31,9 @@ body {
 }
 
 a { color: inherit; text-decoration: none; }
+
+/* Somente para leitores de tela (regioes aria-live, rotulos ocultos). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 .im-shell { min-height: 100%; display: flex; flex-direction: column; }
 
@@ -185,6 +188,8 @@ a { color: inherit; text-decoration: none; }
 .chat-input input:focus { border-color: var(--im-accent); }
 .chat-input button { background: linear-gradient(135deg, var(--im-accent), var(--im-accent-2)); color: #0d1418; border: none; border-radius: 10px; width: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .chat-input button:disabled { opacity: 0.5; cursor: default; }
+.chat-stop { width: auto !important; padding: 0 14px; background: var(--im-bg-soft) !important; color: var(--im-text) !important; border: 1px solid var(--im-border) !important; font-size: 13.5px; font-weight: 700; }
+.chat-stop:hover { border-color: var(--im-danger) !important; color: var(--im-danger) !important; }
 
 @media (max-width: 860px) {
   .ap-side { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s; }
@@ -197,6 +202,20 @@ a { color: inherit; text-decoration: none; }
 /* ===================== Módulos: botões, toolbars, cards, tabelas ===================== */
 .im-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--im-accent), var(--im-accent-2)); color: #0d1418; font-weight: 800; border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; }
 .im-btn-primary:disabled { opacity: 0.55; cursor: default; }
+.im-btn-primary:focus-visible { outline: 2px solid var(--im-accent-2); outline-offset: 2px; }
+/* Acao secundaria (Cancelar, revalidar, IA, +add...). Definida aqui (era usada sem estilo):
+   pilula discreta coerente com o tema escuro, com hover/foco/disabled proprios. */
+.im-linkbtn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--im-border); color: var(--im-muted); font-family: inherit; font-weight: 600; font-size: 13.5px; line-height: 1.2; border-radius: 9px; padding: 8px 12px; cursor: pointer; white-space: nowrap; transition: color .15s, border-color .15s, background .15s; }
+.im-linkbtn:hover { color: var(--im-text); border-color: var(--im-accent); background: var(--im-bg-soft); }
+.im-linkbtn:focus-visible { outline: 2px solid var(--im-accent); outline-offset: 2px; }
+.im-linkbtn:disabled { opacity: 0.55; cursor: default; }
+/* Variante destrutiva do link-btn (Excluir) e botao de perigo solido (Confirmar exclusao). */
+.im-linkbtn.danger { color: var(--im-danger); border-color: rgba(248,113,113,0.4); }
+.im-linkbtn.danger:hover { color: #0d1418; background: var(--im-danger); border-color: var(--im-danger); }
+.im-linkbtn.danger:focus-visible { outline-color: var(--im-danger); }
+.im-btn-danger { display: inline-flex; align-items: center; gap: 8px; background: var(--im-danger); color: #0d1418; font-weight: 800; border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.im-btn-danger:disabled { opacity: 0.55; cursor: default; }
+.im-btn-danger:focus-visible { outline: 2px solid var(--im-danger); outline-offset: 2px; }
 .ap-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 
 .ap-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
@@ -204,10 +223,14 @@ a { color: inherit; text-decoration: none; }
 .ap-searchbox input { flex: 1; background: none; border: none; color: var(--im-text); font-size: 14px; outline: none; }
 
 .ap-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 20px; color: var(--im-muted); text-align: center; border: 1px dashed var(--im-border); border-radius: var(--im-radius); }
+/* Estado de erro de carga (distinto do vazio): mensagem acionavel + retry. */
+.ap-error { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.ap-error span { min-width: 0; }
 
 .ap-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
 .ap-card { background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); padding: 16px; cursor: pointer; transition: transform .15s, border-color .15s; }
 .ap-card:hover { transform: translateY(-3px); border-color: var(--im-accent); }
+.ap-card:focus-visible { outline: 2px solid var(--im-accent); outline-offset: 2px; border-color: var(--im-accent); }
 .ap-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .ap-code { margin-left: auto; font-size: 11px; color: var(--im-muted); font-family: monospace; }
 .ap-sim { font-size: 11px; font-weight: 700; color: var(--im-accent-3); }
@@ -217,11 +240,17 @@ a { color: inherit; text-decoration: none; }
 .ap-card-price .rent { font-size: 13px; font-weight: 700; color: var(--im-accent-2); }
 
 /* Tabela */
+/* Contem o scroll horizontal na propria tabela (nao na pagina) em telas estreitas. */
+.ap-table-wrap { width: 100%; overflow-x: auto; border-radius: var(--im-radius); }
+.ap-table-wrap .ap-table { min-width: 560px; }
 .ap-table { width: 100%; border-collapse: collapse; background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); overflow: hidden; }
 .ap-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--im-muted); padding: 12px 14px; border-bottom: 1px solid var(--im-border); }
 .ap-table td { padding: 12px 14px; border-bottom: 1px solid var(--im-border); font-size: 14px; vertical-align: middle; }
-.ap-table tbody tr { cursor: pointer; }
-.ap-table tbody tr:hover { background: var(--im-bg-soft); }
+/* Affordance de clique so nas linhas realmente clicaveis (evita cursor/hover enganosos
+   em Documentos/Financeiro, que nao abrem detalhe). */
+.ap-table tbody tr.is-clickable { cursor: pointer; }
+.ap-table tbody tr.is-clickable:hover { background: var(--im-bg-soft); }
+.ap-table tbody tr.is-clickable:focus-visible { outline: 2px solid var(--im-accent); outline-offset: -2px; background: var(--im-bg-soft); }
 .ap-table tbody tr:last-child td { border-bottom: none; }
 .ap-table small { color: var(--im-muted); }
 .ap-score { display: inline-block; width: 70px; height: 6px; background: var(--im-surface-2); border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
@@ -248,6 +277,9 @@ a { color: inherit; text-decoration: none; }
 .ap-tl-item div { font-size: 13.5px; }
 .ap-tl-item em { display: block; font-size: 11px; color: var(--im-muted); font-style: normal; margin-top: 2px; }
 .tag-human { color: var(--im-text); } .tag-system { color: var(--im-muted); }
+/* Acoes de editar/excluir no rodape do detalhe (exclusao atras de confirmacao inline). */
+.ap-detail-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--im-border); }
+.ap-confirm-msg { margin-right: auto; font-size: 13px; color: var(--im-text); }
 
 @media (max-width: 560px) { .ap-form { grid-template-columns: 1fr; } }
 
@@ -291,3 +323,15 @@ a { color: inherit; text-decoration: none; }
 .ap-inline-form input { flex: 1; min-width: 90px; background: var(--im-bg-soft); border: 1px solid var(--im-border); border-radius: 8px; padding: 8px 10px; color: var(--im-text); font-size: 13.5px; outline: none; }
 .ap-btnrow { display: flex; gap: 8px; margin-bottom: 8px; }
 .ap-simbox { background: var(--im-surface); border: 1px solid var(--im-border); border-radius: var(--im-radius); padding: 16px 18px; }
+
+/* Respeita quem pede menos movimento (a11y): remove transicoes/animacoes e o
+   deslizar do drawer/hover-lift, mantendo os estados visiveis. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ap-card:hover, .ap-tile:hover, .im-card:hover { transform: none; }
+}

@@ -35,9 +35,10 @@
       <template #actions>
         <UiButton v-if="docCount" variant="ghost" @click="showDocs = true">Ver todos</UiButton>
       </template>
+      <!-- A prévia não é clicável por linha: o clique abria a lista completa ignorando a linha
+           (UX-CV360-019). Para ver/agir sobre os documentos, use "Ver todos". -->
       <UiDataTable :columns="docCols" :rows="docsPreview" row-key="id"
-        :empty="{ title: 'Nenhum documento pendente', description: 'Todos os documentos estão em dia.' }"
-        clickable-rows @row-click="openDoc" />
+        :empty="{ title: 'Nenhum documento pendente', description: 'Todos os documentos estão em dia.' }" />
     </UiCard>
 
     <!-- Alertas de Vencimento -->
@@ -82,10 +83,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiButton, UiModal } from '../ui/index.js';
-import { dashboardRolePf, concludeObligation, dashboardEvents } from '../api.js';
+import { dashboardRolePf, dashboardEvents } from '../api.js';
+import { useObligation } from '../composables/useObligation.js';
 
 const loading = ref(true), error = ref(null), data = ref(null);
-const showDocs = ref(false), selectedObrigacao = ref(null), concluding = ref(false);
+const showDocs = ref(false), selectedObrigacao = ref(null);
+// Confirmação + feedback de erro centralizados (UX-CV360-003); fecha o modal só em sucesso.
+const { concluding, conclude } = useObligation({ onDone: load });
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0);
 const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
@@ -131,18 +135,10 @@ const irBarTone = computed(() => {
   return 'bar-warn';
 });
 
-function openDoc(row) { selectedObrigacao.value = null; showDocs.value = true; }
 function openObrigacao(row) { selectedObrigacao.value = row; }
 
 async function concludeObrig() {
-  if (!selectedObrigacao.value) return;
-  concluding.value = true;
-  try {
-    await concludeObligation(selectedObrigacao.value.id);
-    selectedObrigacao.value = null;
-    await load();
-  } catch {}
-  finally { concluding.value = false; }
+  if (await conclude(selectedObrigacao.value)) selectedObrigacao.value = null;
 }
 
 async function load() {

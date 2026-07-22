@@ -1,0 +1,58 @@
+# =============================================================================
+# qa-guards — guardas ESTÁTICOS de QA de UX que rodam SEM SERVIDOR (só Node).
+# -----------------------------------------------------------------------------
+# Trava a REGRESSÃO de dois anti-padrões sistêmicos do Plano Mestre de UX/UI
+# (docs/plans/ux-design-master-plan.md):
+#   - route-integrity: navegação morta — links/pushes para rotas não declaradas
+#     no router (classe do bug UX-NEURO-002, 18 links mortos).
+#   - a11y-static: clicável-sem-teclado — elemento não-interativo com @click/onClick
+#     sem role+tabindex+handler de teclado (P0 sistêmico UX-A11Y-001, WCAG 2.1.1).
+#
+# Cada guarda roda com `--check`: falha SÓ em violação NOVA vs. o baseline
+# commitado (scripts/qa/*.baseline.json). As violações pré-existentes ficam
+# toleradas até serem corrigidas (ao corrigir, rode o guarda com --update e
+# commite o baseline menor). Assim o CI barra regressão sem exigir a limpeza total.
+#
+# Node-only, sem serviços (Postgres/Playwright) — ver a esteira futura H1/H3/H5/H6
+# em scripts/qa/README.md e §16 do docs/plans/ux-design-master-plan.md.
+# Espelha o estilo de design-tokens-gate.yml (mesmo runner/Node/permissions).
+# =============================================================================
+name: qa-guards
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "console/**"
+      - "portal/**"
+      - "scripts/qa/**"
+      - ".github/workflows/qa-guards.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "console/**"
+      - "portal/**"
+      - "scripts/qa/**"
+      - ".github/workflows/qa-guards.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    name: Guardas estáticos de UX (a11y + rotas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Integridade de navegação (rotas mortas)
+        run: node scripts/qa/route-integrity.mjs --check
+      - name: Acessibilidade estática (clicável sem teclado)
+        run: node scripts/qa/a11y-static.mjs --check

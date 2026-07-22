@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import {
   StatusBadge, RiskBadge, Progress, Field, EnumSelect, Banner, Loading,
   ConfirmButton, formatMoney, formatBytes, useLabel, useMeta, HelpCallout,
-  LegalStatusBadge,
+  LegalStatusBadge, friendly,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { useAuth } from '../auth.jsx';
@@ -35,12 +35,12 @@ export default function CaseDetail() {
   const [tab, setTab] = useState('resumo');
   const label = useLabel();
 
-  const load = () => api.get(id).then(setC).catch((e) => setError(e.message));
+  const load = () => api.get(id).then(setC).catch((e) => setError(friendly(e.message)));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
   const patch = async (promise) => {
     setError(null);
-    try { setC(await promise); } catch (e) { setError(e.message); }
+    try { setC(await promise); } catch (e) { setError(friendly(e.message)); }
   };
 
   if (!c) return error ? <Banner>{error}</Banner> : <Loading />;
@@ -79,7 +79,7 @@ export default function CaseDetail() {
               className="btn danger sm"
               label={<><Icon name="trash" /> Excluir</>}
               confirmLabel="Confirmar exclusão?"
-              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/casos'); } catch (e) { setError(e.message); } }}
+              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/casos'); } catch (e) { setError(friendly(e.message)); } }}
             />
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function CaseDetail() {
       <div className="detail-layout">
         <nav className="tab-rail">
           {tabs.map((t) => (
-            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+            <button key={t.k} className={tab === t.k ? 'active' : ''} aria-current={tab === t.k ? 'true' : undefined} onClick={() => setTab(t.k)}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
               {t.count !== undefined && t.count !== 0 && <span className={`tab-count ${t.warn ? 'warn' : ''}`}>{t.count}</span>}
@@ -124,12 +124,14 @@ export default function CaseDetail() {
   );
 }
 
-// Ponte caso -> marketplace (só para quem tem titles:read, i.e. Gestor). Se o caso já originou um
-// título, linka para o detalhe do título; se é elegível, permite criar; senão, explica o porquê.
+// Ponte caso -> marketplace (só para quem tem titles:create, i.e. Gestor/admin). Tanto criar o
+// título quanto "Abrir título →" levam à área de GESTÃO (gated por titles:create); auditor com
+// titles:read só de leitura não deve ver esta ponte (cairia em "Acesso restrito"). Ver UX-BESC-002.
+// Se o caso já originou um título, linka para o detalhe; se é elegível, permite criar; senão, explica.
 function MarketplaceBridge({ caseId, c }) {
   const { hasPerm } = useAuth();
   const navigate = useNavigate();
-  const canManage = hasPerm('titles:read');
+  const canManage = hasPerm('titles:create');
   const [title, setTitle] = useState(undefined); // undefined = carregando · null = nenhum
   const [err, setErr] = useState(null);
   const [override, setOverride] = useState(false);
@@ -274,13 +276,18 @@ function ProcessosTab({ c, id, patch }) {
   const label = useLabel();
   const [editing, setEditing] = useState(null); // lawsuit id ou 'new'
   const [form, setForm] = useState(LAWSUIT_EMPTY);
+  const [busy, setBusy] = useState(false);
   const openNew = () => { setForm(LAWSUIT_EMPTY); setEditing('new'); };
   const openEdit = (l) => { setForm({ ...LAWSUIT_EMPTY, ...l }); setEditing(l.id); };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const save = async () => {
-    if (editing === 'new') await patch(api.addLawsuit(id, form));
-    else await patch(api.updateLawsuit(id, editing, form));
-    setEditing(null);
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (editing === 'new') await patch(api.addLawsuit(id, form));
+      else await patch(api.updateLawsuit(id, editing, form));
+      setEditing(null);
+    } finally { setBusy(false); }
   };
   return (
     <div className="stack">
@@ -308,7 +315,7 @@ function ProcessosTab({ c, id, patch }) {
             <Field label="Trânsito em julgado"><label className="row" style={{ gap: 6 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.transited} onChange={set('transited')} /> Houve trânsito em julgado</label></Field>
             <div className="full"><Field label="Próximos passos"><textarea value={form.next_steps} onChange={set('next_steps')} rows={2} /></Field></div>
           </div>
-          <div className="row"><button className="btn primary" onClick={save}>Salvar processo</button><button className="btn" onClick={() => setEditing(null)}>Cancelar</button></div>
+          <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar processo</button><button className="btn" onClick={() => setEditing(null)} disabled={busy}>Cancelar</button></div>
         </div></div>
       )}
 
@@ -521,9 +528,10 @@ function JuridicoTab({ c, id, patch }) {
 
 function PericiaTab({ c, id, patch }) {
   const [form, setForm] = useState(c.pericia || {});
+  const [busy, setBusy] = useState(false);
   useEffect(() => { setForm(c.pericia || {}); }, [c]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
-  const save = () => patch(api.updatePericia(id, form));
+  const save = async () => { if (busy) return; setBusy(true); try { await patch(api.updatePericia(id, form)); } finally { setBusy(false); } };
   const agio = (() => {
     const a = parseFloat(String(form.acquisition_price || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
     const u = parseFloat(String(form.updated_value_pericial || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
@@ -550,7 +558,7 @@ function PericiaTab({ c, id, patch }) {
         <Field label="Autenticidade da cártula"><EnumSelect enumName="authenticity_status" value={form.authenticity_status} onChange={set('authenticity_status')} /></Field>
         <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
       </div>
-      <div className="row"><button className="btn primary" onClick={save}>Salvar perícia</button></div>
+      <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar perícia</button></div>
     </div></div>
   );
 }
@@ -591,9 +599,10 @@ function TokenizacaoTab({ c, id, patch }) {
 function CaucaoTab({ c, id, patch }) {
   const col = c.collateral || {};
   const [form, setForm] = useState(col);
+  const [busy, setBusy] = useState(false);
   useEffect(() => { setForm(c.collateral || {}); }, [c]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
-  const save = () => patch(api.updateCollateral(id, form));
+  const save = async () => { if (busy) return; setBusy(true); try { await patch(api.updateCollateral(id, form)); } finally { setBusy(false); } };
   const coverage = (() => {
     const debt = parseFloat(String(form.debt_value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
     const guar = parseFloat(String(form.required_guarantee_value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
@@ -623,7 +632,7 @@ function CaucaoTab({ c, id, patch }) {
         <div className="full"><Field label="Documentos necessários para apresentar ao juiz"><textarea value={form.docs_for_judge || ''} onChange={set('docs_for_judge')} rows={2} /></Field></div>
         <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
       </div>
-      <div className="row"><button className="btn primary" onClick={save}>Salvar avaliação de caução</button></div>
+      <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar avaliação de caução</button></div>
     </div></div>
   );
 }
@@ -634,6 +643,7 @@ function PendenciasTab({ c, goResolve }) {
   return (
     <div className="card">
       <div className="card-head"><h3>Pendências automáticas ({p.length})</h3><span className="small muted" style={{ marginLeft: 8 }}>recalculadas a cada alteração</span></div>
+      <div style={{ overflowX: 'auto' }}>
       <table className="data">
         <thead><tr><th>Severidade</th><th>Pendência</th><th>Validação jurídica</th><th></th></tr></thead>
         <tbody>
@@ -647,6 +657,7 @@ function PendenciasTab({ c, goResolve }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

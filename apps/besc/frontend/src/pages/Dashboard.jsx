@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { StatusBadge, RiskBadge, Progress, Loading, Banner, formatMoney, useLabel } from '../ui.jsx';
+import { StatusBadge, RiskBadge, Progress, Loading, Banner, formatMoney, useLabel, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 export default function Dashboard() {
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const label = useLabel();
 
   useEffect(() => {
-    api.list().then(setCases).catch((e) => setError(e.message));
+    api.list().then(setCases).catch((e) => setError(friendly(e.message)));
   }, []);
 
   const filtered = useMemo(() => {
@@ -73,8 +73,8 @@ export default function Dashboard() {
       {cases && cases.length > 0 && (
         <div className="card">
           <div className="card-head">
-            <input placeholder="Buscar por titular ou CPF/CNPJ…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 300 }} />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 220 }}>
+            <input aria-label="Buscar casos por titular ou CPF/CNPJ" placeholder="Buscar por titular ou CPF/CNPJ…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 300 }} />
+            <select aria-label="Filtrar casos por status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 220 }}>
               <option value="">Todos os status</option>
               {['new', 'docs_incomplete', 'legal_review', 'awaiting_calculation', 'awaiting_opinion', 'ready_for_structuring', 'ready_with_caveats', 'not_eligible', 'archived'].map((s) => (
                 <option key={s} value={s}>{label('case_status', s)}</option>
@@ -83,6 +83,7 @@ export default function Dashboard() {
             <div className="spacer" style={{ flex: 1 }} />
             <span className="small muted">{filtered.length} de {cases.length}</span>
           </div>
+          <div style={{ overflowX: 'auto' }}>
           <table className="data">
             <thead>
               <tr>
@@ -91,7 +92,17 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.id} className="clickable" onClick={() => navigate(`/cases/${c.id}`)}>
+                <tr
+                  key={c.id}
+                  className="clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/cases/${c.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/cases/${c.id}`); }
+                  }}
+                >
                   <td>
                     <div style={{ fontWeight: 600 }}>{c.holder_name || <span className="muted">(sem titular)</span>}</div>
                     <div className="small muted">{c.holder_tax_id || '—'} · {label('holder_type', c.holder_type)}</div>
@@ -113,6 +124,7 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>

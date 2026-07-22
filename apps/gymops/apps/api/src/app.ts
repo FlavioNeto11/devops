@@ -127,15 +127,40 @@ export async function buildApp() {
   await app.register(auditLogRoutes, { prefix: '/audit-logs' });
   await app.register(adminRoutes, { prefix: '/admin' });
 
-  // Shortcut: /auth/me — return current user info
+  // Shortcut: /auth/me — return current user info + resolved org/role context.
+  // O login por senha resolve organizationId/role/primaryUnitId no /auth/login; quem entra
+  // por OAuth/SSO só recebe o accessToken, então precisa recuperar esse contexto aqui (senão
+  // cai no dashboard sem organização/papel). Aditivo — não altera o shape de /auth/login.
   app.get('/auth/me', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { db } = await import('./lib/prisma.js');
     const user = await db.user.findUnique({
       where: { id: request.user.sub },
-      select: { id: true, name: true, email: true, avatarUrl: true },
+      select: { id: true, name: true, email: true, avatarUrl: true, isPlatformAdmin: true },
     });
     if (!user) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
-    return reply.send({ data: user });
+
+    // Enriquecimento de org/papel é BEST-EFFORT: o login (senha e OAuth) depende de /auth/me, então
+    // uma falha ao resolver contexto NUNCA pode derrubar esta rota — degrada para nulos (comportamento
+    // pré-D11) em vez de 500/redirect-para-login.
+    let organizationId: string | null = null;
+    let role: string | null = null;
+    let primaryUnitId: string | null = null;
+    try {
+      const { resolveUserOrganization, resolveUserContext } = await import('./lib/auth-context.js');
+      const orgId = await resolveUserOrganization(user.id);
+      if (orgId) {
+        const ctx = await resolveUserContext(user.id, orgId);
+        organizationId = ctx.organizationId;
+        role = ctx.userRole;
+        primaryUnitId = ctx.primaryUnitId;
+      }
+    } catch (err) {
+      request.log.warn({ err }, '/auth/me: falha ao resolver contexto de org — degradando para nulos');
+    }
+
+    return reply.send({
+      data: { ...user, organizationId, role, primaryUnitId, isPlatformAdmin: user.isPlatformAdmin },
+    });
   });
 
   // ── Error handler ────────────────────────────────────────────────────────────

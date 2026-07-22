@@ -25,6 +25,12 @@
   --p-danger: 220 38 38;
   --p-border: 226 232 240;
   --p-ink: 2 6 23;
+  --p-ok-badge-bg: 227 244 233;
+  --p-ok-badge-fg: 17 122 56;
+  --p-warn-badge-bg: 250 239 225;
+  --p-warn-badge-fg: 163 89 5;
+  --p-danger-badge-bg: 251 229 229;
+  --p-danger-badge-fg: 198 34 34;
 
   /* ---- escalas ESTRUTURAIS (independentes de tema) ----------------------------
      Promovem os "números mágicos" da casca a tokens: tipografia, espaçamento,
@@ -68,6 +74,12 @@
   --p-danger: 248 113 113;
   --p-border: 42 50 62;
   --p-ink: 226 232 240;
+  --p-ok-badge-bg: 28 50 45;
+  --p-ok-badge-fg: 74 222 128;
+  --p-warn-badge-bg: 49 47 34;
+  --p-warn-badge-fg: 251 191 36;
+  --p-danger-badge-bg: 49 37 43;
+  --p-danger-badge-fg: 248 113 113;
   --p-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
   --p-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
   --p-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
@@ -89,6 +101,12 @@
     --p-danger: 248 113 113;
     --p-border: 42 50 62;
     --p-ink: 226 232 240;
+    --p-ok-badge-bg: 28 50 45;
+    --p-ok-badge-fg: 74 222 128;
+    --p-warn-badge-bg: 49 47 34;
+    --p-warn-badge-fg: 251 191 36;
+    --p-danger-badge-bg: 49 37 43;
+    --p-danger-badge-fg: 248 113 113;
     --p-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
     --p-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
     --p-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
