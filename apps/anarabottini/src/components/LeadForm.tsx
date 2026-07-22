@@ -6,7 +6,7 @@ import { useSite } from '../lib/SiteContext';
 const DEMANDAS = ['Palestra', 'Campanha (Setembro Amarelo / Dia da Mulher)', 'Treinamento de lideranças', 'Consultoria educativa', 'Outro'];
 
 const field =
-  'w-full rounded-xl border border-brand-text/12 bg-brand-surface px-4 py-2.5 text-sm text-brand-text placeholder:text-brand-muted/60 focus:outline-none focus-visible:border-brand-neon focus-visible:ring-2 focus-visible:ring-brand-neon/40';
+  'w-full rounded-xl border border-brand-text/12 bg-brand-surface px-4 py-2.5 text-sm text-brand-text placeholder:text-brand-muted focus:outline-none focus-visible:border-brand-neon focus-visible:ring-2 focus-visible:ring-brand-neon/40';
 const labelCls = 'mb-1.5 block text-xs font-semibold text-brand-muted';
 
 /**
