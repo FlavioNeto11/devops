@@ -2,16 +2,30 @@
 
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, type UserRole } from '@/store/auth';
 import { api, ApiError } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import type { ApiResponse } from '@gymops/shared';
 
+interface AuthMe {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  organizationId: string | null;
+  role: UserRole;
+  primaryUnitId: string | null;
+  isPlatformAdmin: boolean;
+}
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setOrganizationId = useAuthStore((s) => s.setOrganizationId);
+  const setUserContext = useAuthStore((s) => s.setUserContext);
+  const setPlatformAdmin = useAuthStore((s) => s.setPlatformAdmin);
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -28,8 +42,13 @@ function AuthCallbackContent() {
       .then(async (res) => {
         const token = res.data.accessToken;
         api.setToken(token);
-        const me = await api.get<ApiResponse<{ id: string; name: string; email: string; avatarUrl: string | null }>>('/auth/me');
+        const me = await api.get<ApiResponse<AuthMe>>('/auth/me');
         setAuth(me.data, token);
+        // Espelha o login por senha (login/page.tsx): sem isto, quem entra por OAuth/SSO
+        // cai no dashboard sem organização/papel.
+        if (me.data.organizationId) setOrganizationId(me.data.organizationId);
+        setUserContext(me.data.role ?? null, me.data.primaryUnitId ?? null);
+        setPlatformAdmin(me.data.isPlatformAdmin ?? false);
         toast.success(`Bem-vindo, ${me.data.name}!`);
         router.push('/dashboard');
       })
@@ -39,7 +58,7 @@ function AuthCallbackContent() {
         }
         router.push('/login');
       });
-  }, [searchParams, router, setAuth]);
+  }, [searchParams, router, setAuth, setOrganizationId, setUserContext, setPlatformAdmin]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

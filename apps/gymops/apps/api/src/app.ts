@@ -127,15 +127,33 @@ export async function buildApp() {
   await app.register(auditLogRoutes, { prefix: '/audit-logs' });
   await app.register(adminRoutes, { prefix: '/admin' });
 
-  // Shortcut: /auth/me — return current user info
+  // Shortcut: /auth/me — return current user info + resolved org/role context.
+  // O login por senha resolve organizationId/role/primaryUnitId no /auth/login; quem entra
+  // por OAuth/SSO só recebe o accessToken, então precisa recuperar esse contexto aqui (senão
+  // cai no dashboard sem organização/papel). Aditivo — não altera o shape de /auth/login.
   app.get('/auth/me', { preHandler: [app.authenticate] }, async (request, reply) => {
     const { db } = await import('./lib/prisma.js');
+    const { resolveUserOrganization, resolveUserContext } = await import('./lib/auth-context.js');
     const user = await db.user.findUnique({
       where: { id: request.user.sub },
-      select: { id: true, name: true, email: true, avatarUrl: true },
+      select: { id: true, name: true, email: true, avatarUrl: true, isPlatformAdmin: true },
     });
     if (!user) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
-    return reply.send({ data: user });
+
+    const orgId = await resolveUserOrganization(user.id);
+    const ctx = orgId
+      ? await resolveUserContext(user.id, orgId)
+      : { userRole: null, primaryUnitId: null, organizationId: null };
+
+    return reply.send({
+      data: {
+        ...user,
+        organizationId: ctx.organizationId,
+        role: ctx.userRole,
+        primaryUnitId: ctx.primaryUnitId,
+        isPlatformAdmin: user.isPlatformAdmin,
+      },
+    });
   });
 
   // ── Error handler ────────────────────────────────────────────────────────────
