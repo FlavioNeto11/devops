@@ -7,7 +7,8 @@
 
 <script setup>
 import { ref, shallowRef, onMounted } from 'vue';
-import { UiPageLayout, UiErrorState } from '../ui/index.js';
+import { useRoute, useRouter } from 'vue-router';
+import { UiPageLayout, UiErrorState, useToast } from '../ui/index.js';
 import { me } from '../api.js';
 import DashboardClientePfView from './DashboardClientePfView.vue';
 import DashboardClientePjView from './DashboardClientePjView.vue';
@@ -25,6 +26,9 @@ const ROLE_MAP = {
 
 const view = shallowRef(null);
 const roleError = ref(null);
+const route = useRoute();
+const router = useRouter();
+const toast = useToast();
 
 async function detectRole() {
   roleError.value = null;
@@ -37,5 +41,13 @@ async function detectRole() {
   }
 }
 
-onMounted(detectRole);
+onMounted(() => {
+  detectRole();
+  // Chegou aqui redirecionado de uma rota /dashboard/<papel> órfã (router.js): explica a troca de
+  // contexto e limpa o parâmetro para não repetir o aviso ao recarregar (UX-CV360-010).
+  if (route.query.painel === 'auto') {
+    toast.info('Abrimos o seu painel de acordo com o seu perfil.');
+    router.replace({ path: '/', query: {} });
+  }
+});
 </script>
