@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   pmProjects, pmCreateProject, pmDeleteProject,
   pmItems, pmCreateItem, pmPatchItem, pmDeleteItem,
@@ -9,6 +9,7 @@ import { ageFrom } from '../format.js';
 import Icon from './Icon.jsx';
 import Modal from './Modal.jsx';
 import ConfirmDialog from './ConfirmDialog.jsx';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 import EmptyState from './EmptyState.jsx';
 import PageHeader from './PageHeader.jsx';
 import { ListSkeleton } from './Skeleton.jsx';
@@ -62,6 +63,9 @@ function Card({ it, onOpen, dragging, setDragging }) {
     <article
       className={'kcard' + (dragging ? ' kcard--dragging' : '')}
       draggable
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir item: ${it.title}`}
       onDragStart={(e) => {
         setDragging(it.id);
         e.dataTransfer.effectAllowed = 'move';
@@ -69,7 +73,12 @@ function Card({ it, onOpen, dragging, setDragging }) {
       }}
       onDragEnd={() => setDragging(null)}
       onClick={onOpen}
-      title="Arraste para mudar o status · clique para abrir"
+      onKeyDown={(e) => {
+        // Só o próprio card responde (links git/PR aninhados tratam o seu Enter).
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); }
+      }}
+      title="Arraste para mudar o status · clique ou Enter para abrir"
     >
       <div className="kcard__tags">
         <span className={'badge ' + type.cls}>{type.icon} {type.label}</span>
@@ -101,6 +110,7 @@ function Card({ it, onOpen, dragging, setDragging }) {
 function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
   const isCreate = mode === 'create';
   const toast = useToast();
+  const dialogRef = useRef(null);
   const [form, setForm] = useState(() => ({
     type: item?.type || 'feature',
     title: item?.title || '',
@@ -128,6 +138,12 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Trap de Tab + foco inicial no primeiro campo do corpo + devolução do foco ao
+  // card que abriu o drawer (mesmo padrão do Modal).
+  useFocusTrap(dialogRef, {
+    getInitialFocus: (root) => root.querySelector('.drawer__body input, .drawer__body textarea, .drawer__body select'),
+  });
 
   const guard = async (fn) => {
     setBusy(true);
@@ -173,7 +189,7 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
 
   return (
     <div className="drawer__overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Detalhe do item">
+      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Detalhe do item" ref={dialogRef}>
         <div className="drawer__head">
           <div className="kcard__tags">
             <span className={'badge ' + type.cls}>{type.icon} {type.label}</span>

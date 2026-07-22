@@ -768,6 +768,7 @@ body {
 .icon-btn:focus-visible,
 .sidebar__item:focus-visible,
 .usermenu__btn:focus-visible,
+.kcard:focus-visible,
 .tab:focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 1px;
