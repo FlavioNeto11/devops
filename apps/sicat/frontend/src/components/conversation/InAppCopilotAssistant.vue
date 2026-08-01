@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useInAppCopilot } from '../../composables/useInAppCopilot.js';
 import StructuredMessageContent from './StructuredMessageContent.vue';
 import ConversationResultRenderer from './ConversationResultRenderer.vue';
@@ -76,7 +77,15 @@ function handlePanelKeydown(event) {
   }
 }
 
-const launcherLabel = computed(() => (isOpen.value ? 'Fechar copiloto contextual' : 'Abrir copiloto contextual'));
+const route = useRoute();
+
+// Na própria tela do assistente o lançador flutuante só atrapalha: ficava por
+// cima do botão "Enviar" do chat (achado 3.4 da auditoria) e ofereceria um
+// segundo caminho para a mesma conversa.
+const isAssistantRoute = computed(() => route.path === '/conversacional/chat');
+const showLauncher = computed(() => !isAssistantRoute.value);
+
+const launcherLabel = computed(() => (isOpen.value ? 'Fechar assistente contextual' : 'Abrir assistente contextual'));
 const launcherTitle = computed(() => `${launcherLabel.value} · arraste para reposicionar`);
 const scopeBadgeTone = computed(() => (hasOperationalContext.value ? 'success' : 'warning'));
 const scopeBadgeLabel = computed(() => (hasOperationalContext.value ? 'Conta ativa pronta' : 'Contexto incompleto'));
@@ -254,6 +263,14 @@ watch(
   }
 );
 
+// Entrou na tela do assistente com o painel aberto: fecha o painel (a conversa
+// continua na página, sem dois canais concorrentes sobre a mesma tela).
+watch(isAssistantRoute, (onAssistantPage) => {
+  if (onAssistantPage && isOpen.value) {
+    closePanel();
+  }
+});
+
 watch(
   () => isOpen.value,
   async (opened) => {
@@ -281,6 +298,7 @@ onUnmounted(() => {
 <template>
   <div class="copilot-shell">
     <v-btn
+      v-if="showLauncher"
       ref="launcherRef"
       class="copilot-launcher"
       :class="{ 'copilot-launcher--dragging': dragState.active }"
@@ -294,11 +312,11 @@ onUnmounted(() => {
       @click="handleLauncherClick"
     >
       <v-icon start>{{ isOpen ? 'mdi-close' : 'mdi-headset' }}</v-icon>
-      Copiloto
+      Assistente
     </v-btn>
 
     <transition name="copilot-fade">
-      <button v-if="isOpen" class="copilot-backdrop" type="button" aria-label="Fechar painel do copiloto" @click="closePanel" />
+      <button v-if="isOpen" class="copilot-backdrop" type="button" aria-label="Fechar painel do assistente" @click="closePanel" />
     </transition>
 
     <transition name="copilot-panel-transition">
@@ -333,14 +351,14 @@ onUnmounted(() => {
               icon="mdi-close"
               variant="text"
               density="compact"
-              aria-label="Fechar copiloto"
-              title="Fechar copiloto"
+              aria-label="Fechar assistente"
+              title="Fechar assistente"
               @click="closePanel"
             />
           </div>
         </header>
 
-        <section class="copilot-actions-strip" aria-label="Atalhos sugeridos do copiloto">
+        <section class="copilot-actions-strip" aria-label="Atalhos sugeridos do assistente">
           <button
             v-for="action in quickActions"
             :key="action.id"
@@ -361,7 +379,7 @@ onUnmounted(() => {
             :class="[`copilot-message-${message.role}`, `copilot-status-${message.status || 'ready'}`]"
           >
             <div class="copilot-message-meta">
-              {{ message.role === 'user' ? 'Você' : 'Copiloto' }}
+              {{ message.role === 'user' ? 'Você' : 'Assistente' }}
             </div>
 
             <div class="copilot-message-text">
@@ -497,11 +515,20 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
 }
 
+/* O UA stylesheet do <dialog> aplica `left: 0` + `margin: auto`. Com `right`
+   e `width` definidos aqui, a caixa ficava SOBRE-RESTRINGIDA e o navegador
+   redistribuía as margens automáticas — o painel abria deslocado para a
+   esquerda (por cima da navegação) mesmo com o botão à direita. Zerar a margem
+   e liberar `left` devolve a ancoragem à direita, do lado do lançador. */
 .copilot-panel {
   position: fixed;
   top: 18px;
   right: 18px;
   bottom: 18px;
+  left: auto;
+  margin: 0;
+  /* O UA também define `color: CanvasText` (preto), que ignora o tema do app. */
+  color: rgba(var(--v-theme-on-surface), 0.92);
   width: min(440px, calc(100vw - 36px));
   height: min(860px, calc(100dvh - 36px));
   display: flex;

@@ -100,9 +100,10 @@ const emit = defineEmits([
           color="secondary"
           variant="tonal"
           class="sicat-topbar__account-chip d-none d-md-inline-flex"
+          :title="activeCetesbAccountLabel"
         >
-          <v-icon start size="16">mdi-domain</v-icon>
-          {{ activeCetesbAccountLabel }}
+          <v-icon start size="16" aria-hidden="true">mdi-domain</v-icon>
+          <span class="sicat-topbar__account-chip-text">{{ activeCetesbAccountLabel }}</span>
         </v-chip>
 
         <v-btn
@@ -223,8 +224,11 @@ const emit = defineEmits([
   flex: 0 0 auto;
 }
 
+/* `flex: 0 0 auto`: os controles de conta não podem ser comprimidos pela
+   navegação — quem cede espaço (e rola) é a faixa de navegação. */
 .sicat-topbar__extra {
   display: flex;
+  flex: 0 0 auto;
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
@@ -252,8 +256,38 @@ const emit = defineEmits([
   background: rgba(var(--v-theme-surface), 0.84);
 }
 
+/* O nome da conta CETESB é longo e variável. Sem `text-overflow` o v-chip
+   cortava a palavra no meio (ex.: "…EXTINT"); agora trunca com reticências e o
+   nome completo fica no `title` (tooltip nativo). */
 .sicat-topbar__account-chip {
-  max-width: 320px;
+  max-width: clamp(160px, 22vw, 320px);
+}
+
+.sicat-topbar__account-chip :deep(.v-chip__content) {
+  min-width: 0;
+}
+
+.sicat-topbar__account-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Faixa apertada (~1180-1365px): reduz respiros para a navegação caber antes de
+   precisar rolar. */
+@media (max-width: 1365px) {
+  .sicat-topbar__inner {
+    gap: 10px;
+    padding-inline: 18px;
+  }
+
+  .sicat-topbar__brand-block {
+    gap: 12px;
+  }
+
+  .sicat-topbar__account-chip {
+    max-width: 190px;
+  }
 }
 
 @media (max-width: 1179px) {
