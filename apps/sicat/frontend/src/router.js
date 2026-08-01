@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
+import { useNotification } from './composables/useNotification.js';
+import { KNOWN_PERSONAS } from './composables/usePersona.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
 import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
@@ -30,6 +32,17 @@ import CdfCreateView from './views/CdfCreateView.vue';
 
 // Destino inicial do admin/SRE (persona de sistema) — não exige conta CETESB.
 const ADMIN_HOME = '/operacao/dashboard';
+
+// Destino de fallback do operador quando uma rota é negada (permissão ou perfil).
+const OPERATOR_HOME = '/dashboard';
+
+// Rótulos dos perfis exigidos por rota (`meta.personas`). Fonte da verdade do
+// perfil: `composables/usePersona.js` (derivado do accountType da conta CETESB).
+const PERSONA_ROUTE_LABELS = {
+  generator: 'Gerador',
+  carrier: 'Transportador',
+  receiver: 'Destinador'
+};
 
 const routes = [
   {
@@ -97,6 +110,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      // Emitir MTR é ação do Gerador (espelha config/navigation.js).
+      personas: ['generator'],
       breadcrumb: ['MTR', 'Emitir MTR']
     }
   },
@@ -167,6 +182,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      // MTR provisório (emergência) é fluxo do Gerador (espelha config/navigation.js).
+      personas: ['generator'],
       breadcrumb: ['MTR Provisório', 'Lista']
     }
   },
@@ -178,6 +195,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      personas: ['generator'],
       breadcrumb: ['MTR Provisório', 'Novo']
     }
   },
@@ -189,6 +207,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      personas: ['generator'],
       breadcrumb: ['MTR Provisório', 'Detalhe']
     }
   },
@@ -337,6 +356,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      // CDF é emitido pelo Destinador (espelha config/navigation.js).
+      personas: ['receiver'],
       breadcrumb: ['Certificados · CDF', 'Emitidos']
     }
   },
@@ -348,6 +369,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      personas: ['receiver'],
       breadcrumb: ['Certificados · CDF', 'Gerar CDF']
     }
   },
@@ -387,6 +409,43 @@ const router = createRouter({
     };
   }
 });
+
+/**
+ * Perfil (persona) da conta CETESB ativa. Mesma derivação de `usePersona()`:
+ * '' quando o backend ainda não resolveu o tipo da conta.
+ */
+function resolveActivePersona(authStore) {
+  const accountType = String(authStore.activeAccount.value?.accountType || '').trim().toLowerCase();
+  return KNOWN_PERSONAS.includes(accountType) ? accountType : '';
+}
+
+/**
+ * Mesma semântica de `personaAllows` em config/navigation.js: rota sem
+ * `meta.personas` é livre e perfil não resolvido NÃO restringe nada — assim o
+ * menu e o acesso por URL direta contam a mesma história.
+ */
+function routeAllowsPersona(to, persona) {
+  const allowed = Array.isArray(to.meta?.personas) ? to.meta.personas : null;
+  if (!allowed || !allowed.length) {
+    return true;
+  }
+
+  if (!persona) {
+    return true;
+  }
+
+  return allowed.includes(persona);
+}
+
+function describeRequiredPersonas(to) {
+  const allowed = Array.isArray(to.meta?.personas) ? to.meta.personas : [];
+  const labels = allowed.map((item) => PERSONA_ROUTE_LABELS[item] || item).filter(Boolean);
+  if (!labels.length) {
+    return '';
+  }
+
+  return labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(', ')} ou ${labels[labels.length - 1]}`;
+}
 
 async function ensureAdminRouteAccess(authStore) {
   try {
@@ -461,15 +520,32 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAdminAccess) {
     const hasAdminAccess = await ensureAdminRouteAccess(authStore);
     if (!hasAdminAccess) {
-      next({
-        path: '/dashboard',
-        query: {
-          notice: 'admin-access-denied',
-          deniedRoute: String(to.fullPath || to.path || '/admin/acessos')
-        }
-      });
+      // O aviso é genérico de propósito: o path negado não vai para a URL nem
+      // para a tela, para não expor o mapa de rotas internas a quem não tem acesso.
+      useNotification().warning(
+        'Você não tem permissão para acessar esta área.',
+        { detail: 'Fale com o administrador do SICAT da sua organização se precisar deste acesso.' }
+      );
+      next(OPERATOR_HOME);
       return;
     }
+  }
+
+  // Perfil da conta CETESB ativa (Gerador/Transportador/Destinador): telas
+  // exclusivas de um perfil ficam bloqueadas também por URL direta, e não só
+  // ocultas no menu.
+  if (!routeAllowsPersona(to, resolveActivePersona(authStore))) {
+    const required = describeRequiredPersonas(to);
+    useNotification().warning(
+      'Esta tela não faz parte do seu perfil nesta conta CETESB.',
+      {
+        detail: required
+          ? `Ela é exclusiva do perfil ${required}. Se você também opera com esse perfil, troque a conta CETESB ativa em "Minha sessão".`
+          : 'Se você também opera com outro perfil, troque a conta CETESB ativa em "Minha sessão".'
+      }
+    );
+    next(OPERATOR_HOME);
+    return;
   }
 
   next();
