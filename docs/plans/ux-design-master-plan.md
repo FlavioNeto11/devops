@@ -3823,3 +3823,27 @@ Com o dono delegando as decisões, foram implementadas na branch de integração
 anteriores + estes 3). Os 3 últimos carregam a ressalva de validação na CI LIVE (D9) e as limitações
 documentadas acima — por isso o merge de produção, especialmente do D9, deve rodar `forge-tests` LIVE
 e ser revisado por humano.
+
+### 19.7 Publicação em produção — verificada ponta a ponta (2026-07-22)
+
+O merge levou o código à `main`, mas **os apps rodam com imagens `<app>-<svc>:local` +
+`imagePullPolicy: IfNotPresent`**: o Argo aplica manifests e, como os manifests não mudam, nenhum
+container é recriado. **Mesclar não publica** — foi preciso build local + rollout de cada serviço.
+
+- **Gap encontrado e corrigido:** logo após o merge, a API do ContaViva Pro ainda aceitava
+  `GET`/`POST` anônimos em `/v1/records` (o P0 de exposição) e o `PUT` do D10 dava 404 — o container
+  era de 2026-07-02. Após build+rollout: **401 em GET e POST** (P0 fechado) e **401 no PUT** (rota
+  existe e exige auth).
+- **28 workloads publicados** (12 apps + console + workers), com evidência de que o código novo
+  entrou (hash do bundle dentro do pod, `requireRole` no `server.js` do pod, logs das filas).
+  Workers compartilham a imagem da API — reiniciados junto, senão rodariam código velho.
+- **Portal:** publicado à parte (é GHCR pinado por tree-sha, não `:local`) via bump do pin no #276.
+- **Correção de contrato:** o `gymops-web` havia sido buildado com `NEXT_PUBLIC_API_URL` divergente
+  do `devops.yaml`; refeito com os build-args do contrato. O build só passa via **PowerShell** — no
+  Git Bash o MSYS mangla `/gymops` para `C:/Program Files/Git/gymops` (armadilha conhecida).
+
+**Estado final verificado (independente):** todos os pods `Running`, todos os Argo apps
+`Synced + Healthy`, e **15/15 superfícies respondendo**: Portal, Console, SICAT, GymOps, BESC,
+ZapBridge, ContaViva 360, ContaViva Pro, NeuroEvolui, Imobia, RM Ambiental, Ana Rabottini, Reqhub,
+Portal Recorder (200/SSO) e AI Control Plane (`/ai-control/api/health` → 200; a rota é
+`/ai-control/api`, sem frontend por design).
