@@ -207,6 +207,14 @@ function toAccountCard(account: SicatAccountEntity | null | undefined) {
   };
 }
 
+// ⚠️ NÃO "corrija" o prefixo aparentemente duplicado sem migrar os dados.
+// `sicat_cetesb_accounts.id` JÁ nasce com o prefixo (`acc_046302…`), então este concat produz
+// `acc_acc_046302…` — que é exatamente o valor gravado em `integration_accounts.id` e referenciado
+// por `integration_account_id` em 12+ tabelas (599 manifestos reais em 2026-07). Os JOINs em
+// `operations-repo.ts` usam a mesma regra (`'acc_' || a.id`), então o sistema é consistente.
+// Remover o `acc_` daqui SEM uma migração que renomeie a PK e todas as FKs quebra o vínculo dos
+// manifestos com a conta CETESB. A limpeza cosmética dos ids está registrada como decisão pendente
+// no Plano Mestre de UX (§14.1.3, item 1.8 da auditoria externa).
 function buildIntegrationAccountId(account: Pick<SicatAccountEntity, 'id'>) {
   return `acc_${account.id}`;
 }
