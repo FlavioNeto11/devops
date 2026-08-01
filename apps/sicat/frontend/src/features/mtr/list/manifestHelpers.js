@@ -11,29 +11,23 @@ import {
   formatDateBr,
   formatDateTimeBr
 } from '../../../utils/date-format.js';
+import {
+  resolveManifestRawSituation,
+  resolveManifestSituationLabel
+} from '../../../lib/status-map.js';
 
-export const MANIFEST_STATUS_LABELS = Object.freeze({
-  draft: 'Rascunho',
-  queued_submit: 'Pendente',
-  submitting: 'Enviando',
-  processing: 'Executando',
-  submitted: 'Sucesso',
-  printing: 'Imprimindo',
-  printed: 'Sucesso',
-  cancelling: 'Cancelando',
-  cancelled: 'Cancelado',
-  succeeded: 'Sucesso',
-  failed: 'Falha',
-  error: 'Falha'
-});
-
+/**
+ * Rótulo do status do manifesto — delega ao mapa CANÔNICO (`lib/status-map.js`).
+ * Antes esta função devolvia o `externalStatus` CRU da CETESB ('Salvo'), o que
+ * fazia a lista falar um vocabulário e o filtro/dashboard outro.
+ */
 export function resolveManifestStatusLabel(manifest) {
-  const externalStatus = String(manifest?.externalStatus || '').trim();
-  if (externalStatus) {
-    return externalStatus;
-  }
-  const internalStatus = String(manifest?.status || '').trim();
-  return MANIFEST_STATUS_LABELS[internalStatus] || internalStatus || '-';
+  return resolveManifestSituationLabel(manifest);
+}
+
+/** Termo cru da CETESB (tooltip de rastreabilidade ao lado do rótulo canônico). */
+export function resolveManifestRawStatus(manifest) {
+  return resolveManifestRawSituation(manifest);
 }
 
 export function normalizedStatusClass(status) {
