@@ -161,13 +161,15 @@ export function renderSicatVuetifyTheme(brand) {
   out.push('// escala neutra de cinza-frio; UM acento verde-petróleo escuro. Sincronia com os');
   out.push('// tokens CSS é garantida na fonte (packages/design-tokens/tokens.json).');
   out.push('export const sicatVuetifyThemes = {');
-  out.push('  vuexy: {');
+  // Nomes de tema do PRODUTO (`sicat`/`sicatDark`). Antes eram `vuexy`/`vuexyDark`,
+  // herança do template comprado: o nome vazava para o DOM em `class="v-theme--vuexy"`.
+  out.push('  sicat: {');
   out.push('    dark: false,');
   out.push('    colors: {');
   out.push(...vuetifyColorsBlock(resolveVuetify(brand, 'light'), '      '));
   out.push('    }');
   out.push('  },');
-  out.push('  vuexyDark: {');
+  out.push('  sicatDark: {');
   out.push('    dark: true,');
   out.push('    colors: {');
   out.push(...vuetifyColorsBlock(resolveVuetify(brand, 'dark'), '      '));

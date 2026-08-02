@@ -46,6 +46,21 @@ const props = defineProps({
     type: String,
     default: 'Sem dados para seleção.'
   },
+  /**
+   * Nº mínimo de caracteres antes de a busca (normalmente remota) acontecer.
+   * Só com isso o componente consegue distinguir "ainda faltam caracteres" de
+   * "a busca rodou e não achou nada" — antes o estado vazio mentia, exibindo
+   * "Digite pelo menos 2 caracteres" mesmo com 7 caracteres digitados e a API
+   * respondendo 200 com zero resultados.
+   */
+  minSearchLength: {
+    type: Number,
+    default: 0
+  },
+  minSearchText: {
+    type: String,
+    default: ''
+  },
   ariaLabel: {
     type: String,
     default: 'Campo de seleção pesquisável'
@@ -127,6 +142,20 @@ const filteredOptions = computed(() => {
       return label.includes(query) || value.includes(query);
     })
     .slice(0, 50);
+});
+
+/** Ainda faltam caracteres para a busca remota disparar. */
+const needsMoreCharacters = computed(() => {
+  if (!props.minSearchLength || props.minSearchLength <= 0) {
+    return false;
+  }
+
+  return String(resolvedSearchValue.value || '').trim().length < props.minSearchLength;
+});
+
+const resolvedMinSearchText = computed(() => {
+  return props.minSearchText
+    || `Digite pelo menos ${props.minSearchLength} caracteres para buscar.`;
 });
 
 const showClearButton = computed(() => {
@@ -294,6 +323,7 @@ onUnmounted(() => {
 
     <div v-if="isOpen" :id="listboxId" ref="listRef" class="filterable-dropdown-list" role="listbox" :aria-label="ariaLabel">
       <div v-if="loading" class="filterable-dropdown-state">Carregando...</div>
+      <div v-else-if="needsMoreCharacters" class="filterable-dropdown-state">{{ resolvedMinSearchText }}</div>
       <div v-else-if="!options.length" class="filterable-dropdown-state">{{ noDataText }}</div>
       <div v-else-if="!filteredOptions.length" class="filterable-dropdown-state">{{ emptyText }}</div>
       <button

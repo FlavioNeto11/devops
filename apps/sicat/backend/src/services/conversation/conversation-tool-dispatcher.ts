@@ -40,6 +40,10 @@ import {
   normalizeManifestDetailResult,
   normalizeManifestListResult
 } from './tools/tool-normalizer.js';
+import {
+  describeManifestStatusFilterPtBr,
+  resolveManifestSituationLabelPtBr
+} from './conversation-status-vocabulary.js';
 
 export type ConversationDispatchInput = {
   toolName: string;
@@ -610,6 +614,9 @@ function summarizeManifestReference(item: ManifestListItem) {
     expeditionDate: item.expeditionDate,
     status: item.status,
     externalStatus: item.externalStatus,
+    // Rótulo pt-BR do MESMO vocabulário das telas — o compositor da resposta lê
+    // este campo e deixa de imprimir termo técnico em inglês ("received").
+    statusLabel: resolveManifestSituationLabelPtBr(item),
     externalHashCode: item.externalHashCode,
     generator: item.generatorDescription,
     carrier: item.carrierDescription,
@@ -676,6 +683,43 @@ function getOperationalTodayIso(): string {
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
+}
+
+/**
+ * Resumo pt-BR da tool `list_manifests`. Antes a tool devolvia só o payload cru
+ * e o compositor da resposta imprimia uma seção "Resultado:" VAZIA + o filtro em
+ * inglês ("Filtro: status = received"). Aqui o período e a situação já saem no
+ * vocabulário das telas, com o total explícito.
+ */
+function buildManifestListToolSummary(input: {
+  dateFrom: string | null;
+  dateTo: string | null;
+  status: string | null;
+  totalItems: number;
+  items: ManifestListItem[];
+}): string {
+  const periodText = buildPeriodText({ dateFrom: input.dateFrom, dateTo: input.dateTo })
+    || 'sem recorte de periodo (janela operacional corrente)';
+  const statusLabel = describeManifestStatusFilterPtBr(input.status);
+  const filterText = statusLabel ? `Filtro de situacao: ${statusLabel}.` : 'Sem filtro de situacao.';
+
+  if (input.totalItems === 0 || input.items.length === 0) {
+    return `Consulta de manifestos: ${periodText}. ${filterText} Resumo: total encontrado=0, ausencia de dados=sim. `
+      + `Data operacional atual: ${getOperationalTodayIso()}.`;
+  }
+
+  const sample = input.items.slice(0, 10).map((item) => {
+    const number = item.manifestNumber ? String(item.manifestNumber) : item.id;
+    const dateLabel = item.expeditionDate || item.lastSyncAt || 'sem data';
+    return `${number} (data: ${dateLabel}; situacao: ${resolveManifestSituationLabelPtBr(item, 'sem situacao registrada')})`;
+  });
+
+  const situations = Array.from(new Set(input.items.map((item) => resolveManifestSituationLabelPtBr(item, 'sem situacao registrada'))))
+    .slice(0, 5)
+    .join(', ');
+
+  return `Consulta de manifestos: ${periodText}. ${filterText} Resumo: total encontrado=${input.totalItems}, `
+    + `situacoes relevantes=${situations}, ausencia de dados=nao. Amostra: ${sample.join('; ')}.`;
 }
 
 function buildQueryNoDataSummary(input: {
@@ -1133,10 +1177,11 @@ function buildSelectionSummary(args: {
     const position = args.skipMostRecent + index + 1;
     const number = item.manifestNumber ? String(item.manifestNumber) : item.id;
     const dateLabel = item.expeditionDate || item.lastSyncAt || 'sem data';
-    // Status user-facing (padrao do portal: salvo/recebido/...) tem prioridade sobre
-    // o status interno do SICAT, alinhando o chat com o que aparece na grid.
-    const statusLabel = item.externalStatus || item.status || 'sem status';
-    return `${number} (${positionLabel(position)}; data: ${dateLabel}; status: ${statusLabel})`;
+    // Situacao user-facing no vocabulario pt-BR das telas ("Aguardando baixa",
+    // "Recebido"), e nao o termo cru da CETESB ("Salvo") nem o status interno em
+    // ingles ("received") — chat e grid falam a mesma lingua.
+    const statusLabel = resolveManifestSituationLabelPtBr(item, 'sem situacao registrada');
+    return `${number} (${positionLabel(position)}; data: ${dateLabel}; situacao: ${statusLabel})`;
   });
 
   const listText =
@@ -2918,11 +2963,23 @@ export async function dispatchConversationTool(input: ConversationDispatchInput)
       );
 
       const normalized = normalizeManifestListResult(response);
+      const listRecord = toRecord(response);
+      const listItems = asListResponseItems(response).map(toManifestListItem).filter(Boolean) as ManifestListItem[];
+      const totalItems = toOptionalNumber(listRecord.totalItems) ?? listItems.length;
 
       return withNormalizedShape({
         legacyKind: 'query',
         data: response,
-        normalized
+        normalized,
+        // Sem este resumo a resposta final saia com a secao "Resultado:" VAZIA
+        // (o compositor recebia so o payload cru) e com o filtro em ingles.
+        assistantSummary: buildManifestListToolSummary({
+          dateFrom,
+          dateTo,
+          status: toNullableString(args.status),
+          totalItems,
+          items: listItems
+        })
       });
     }
 

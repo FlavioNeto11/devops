@@ -28,8 +28,10 @@ export default createVuetify({
         ...pt,
         dataFooter: {
           ...pt.dataFooter,
-          // Rótulo do SICAT (padrão ERP) — sobrepõe "Itens por página:" do pacote.
-          itemsPerPageText: 'Linhas por página:'
+          // String canônica do SICAT para o seletor de paginação. Todas as telas
+          // (painel, listas, relatórios, CDF) dizem a MESMA coisa — antes havia
+          // "Por página" / "Linhas por página" / "Itens por página" convivendo.
+          itemsPerPageText: 'Itens por página:'
         }
       },
       en

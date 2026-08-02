@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { batchCreateManifests, batchSubmitManifests, createManifest, getCatalog, searchPartners, submitManifest } from '../services/api.js';
+import { useNotification } from '../composables/useNotification.js';
 import { useAuthStore } from '../stores/auth.js';
 import { getTodayBr, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import FilterableDropdown from './FilterableDropdown.vue';
@@ -51,7 +52,7 @@ const props = defineProps({
   /** Texto do kicker (badge superior) do header do wizard. */
   pageKicker: {
     type: String,
-    default: 'Wizard operacional'
+    default: 'Emissão guiada'
   },
   /** Título principal exibido no header do wizard. */
   pageTitle: {
@@ -70,11 +71,16 @@ const emit = defineEmits(['success']);
 const isSingleOnly = computed(() => Boolean(props.singleOnly || props.submitHandler));
 
 const authStore = useAuthStore();
+const notify = useNotification();
 
 const catalogsLoading = ref(false);
 const loading = ref(false);
 const errorMessage = ref('');
+/** Lista completa de pendências do passo — o alerta deixa de mostrar só a primeira. */
+const errorDetails = ref([]);
 const successMessage = ref('');
+/** Âncora do bloco de avisos: usada para rolar a página até o alerta. */
+const feedbackAnchor = ref(null);
 
 const partnerSearch = reactive({
   carrier: {
@@ -117,8 +123,11 @@ const form = reactive({
   driverName: '',
   vehiclePlate: '',
   notes: '',
-  quantity: 1,
-  weightTon: 1,
+  // MTR é documento regulatório: quantidade e peso NASCEM VAZIOS. Um default de
+  // `1` fazia o operador desatento declarar "1 tonelada" sem perceber. A
+  // validação exige > 0, então o preenchimento é sempre consciente.
+  quantity: null,
+  weightTon: null,
   unitCode: '',
   residueCode: '',
   treatmentCode: '',
@@ -166,19 +175,50 @@ const activeAccountLabel = computed(() => {
 
   return partnerName || partnerCode || 'Conta CETESB ativa';
 });
+/**
+ * Metadados de usuário da conta ativa. O identificador interno (`acc_...`) NÃO
+ * é exibido — é ruído técnico que não ajuda o operador. Quando o suporte pedir,
+ * ele sai pelo botão "Copiar identificador" em "Detalhes técnicos".
+ */
 const activeAccountMeta = computed(() => {
   const account = activeAccount.value;
   if (!account) {
     return '';
   }
 
-  const parts = [
-    String(account.partnerDocument || '').trim(),
-    resolvedIntegrationAccountId.value ? `ID interno ${resolvedIntegrationAccountId.value}` : ''
-  ].filter(Boolean);
-
-  return parts.join(' • ');
+  const document = String(account.partnerDocument || '').trim();
+  return document ? `CNPJ/CPF ${document}` : '';
 });
+
+const hasTechnicalIdentifiers = computed(() => Boolean(resolvedIntegrationAccountId.value || currentSessionContextId.value));
+
+async function copyTechnicalIdentifier(value, label) {
+  const content = String(value || '').trim();
+  if (!content) {
+    notify.warning(`${label} indisponível para cópia.`);
+    return;
+  }
+
+  try {
+    if (globalThis.navigator?.clipboard?.writeText) {
+      await globalThis.navigator.clipboard.writeText(content);
+    } else {
+      const temporaryField = document.createElement('textarea');
+      temporaryField.value = content;
+      temporaryField.setAttribute('readonly', '');
+      temporaryField.style.position = 'absolute';
+      temporaryField.style.left = '-9999px';
+      document.body.append(temporaryField);
+      temporaryField.select();
+      document.execCommand('copy');
+      temporaryField.remove();
+    }
+
+    notify.success(`${label} copiado para a área de transferência.`);
+  } catch {
+    notify.error(`Falha ao copiar ${label.toLowerCase()}.`);
+  }
+}
 const resolvedPrimaryLabel = computed(() => {
   if (props.primaryActionLabel) return props.primaryActionLabel;
   return Number(form.batchCount || 1) > 1 ? 'Criar e submeter lote' : 'Criar e submeter';
@@ -200,6 +240,24 @@ const catalogContextWarning = computed(() => {
 
   return 'Sessão CETESB indisponível. Faça login novamente para carregar os catálogos.';
 });
+const PARTNER_MIN_SEARCH_TEXT = `Digite pelo menos ${PARTNER_SEARCH_MIN_LENGTH} caracteres para buscar.`;
+
+/**
+ * Estado vazio honesto: com menos de 2 caracteres o componente pede mais texto;
+ * com a busca já feita e zero resultados, diz que não encontrou (citando o termo).
+ */
+function buildPartnerEmptyText(type, roleLabel) {
+  const query = String(partnerSearch[type].query || '').trim();
+  if (query.length < PARTNER_SEARCH_MIN_LENGTH) {
+    return PARTNER_MIN_SEARCH_TEXT;
+  }
+
+  return `Nenhum ${roleLabel} encontrado para "${query}".`;
+}
+
+const carrierEmptyText = computed(() => buildPartnerEmptyText('carrier', 'transportador'));
+const receiverEmptyText = computed(() => buildPartnerEmptyText('receiver', 'destinador'));
+
 const currentStep = ref(1);
 const stepDefinitions = [
   { value: 1, title: 'Dados da viagem', subtitle: 'Conta, cópias e data de saída' },
@@ -252,8 +310,12 @@ const fieldErrors = computed(() => {
     batchCount: batchCountIsValid ? '' : 'Informe uma quantidade de manifestos válida entre 1 e 100.',
     carrier: selectedCarrier.value ? '' : 'Selecione o transportador.',
     receiver: selectedReceiver.value ? '' : 'Selecione o destinador.',
-    quantity: quantity !== null && quantity > 0 ? '' : 'Informe uma quantidade maior que zero.',
-    weightTon: weightTon !== null && weightTon > 0 ? '' : 'Informe um peso em toneladas maior que zero.',
+    quantity: quantity === null
+      ? 'Informe a quantidade transportada.'
+      : (quantity > 0 ? '' : 'Informe uma quantidade maior que zero.'),
+    weightTon: weightTon === null
+      ? 'Informe o peso em toneladas.'
+      : (weightTon > 0 ? '' : 'Informe um peso em toneladas maior que zero.'),
     // Catálogos: validamos o ITEM resolvido (e não só o código no form), porque
     // é o item que vira payload — código órfão geraria `unit`/`residue` nulos.
     unitCode: selectedUnitCatalogItem.value ? '' : 'Selecione a unidade.',
@@ -289,9 +351,35 @@ function describeCatalogItem(item) {
   return item?.name || item?.description || '';
 }
 
+/**
+ * "1 TON · 2.5 ton" — dois números de tonelagem lado a lado sem dizer qual era
+ * qual. Agora cada medida vem ROTULADA, com número em pt-BR e o peso sempre em
+ * "t" (a unidade da quantidade continua sendo a do catálogo CETESB).
+ */
+const quantitySummary = computed(() => {
+  const quantity = formatDecimal(form.quantity);
+  if (!quantity) {
+    return 'Quantidade: não informada';
+  }
+
+  const unitSymbol = String(
+    selectedUnitCatalogItem.value?.shortName
+    || selectedUnitCatalogItem.value?.symbol
+    || ''
+  ).trim();
+
+  return `Quantidade: ${quantity}${unitSymbol ? ` ${unitSymbol}` : ''}`;
+});
+
+const weightSummary = computed(() => {
+  const weight = formatDecimal(form.weightTon);
+  return weight ? `Peso: ${weight} t` : 'Peso: não informado';
+});
+
+const measuresSummary = computed(() => `${quantitySummary.value} · ${weightSummary.value}`);
+
 const reviewChecklist = computed(() => {
   const errors = fieldErrors.value;
-  const unitSymbol = selectedUnitCatalogItem.value?.shortName || selectedUnitCatalogItem.value?.symbol || 'un.';
 
   return [
     {
@@ -303,7 +391,8 @@ const reviewChecklist = computed(() => {
     {
       key: 'session',
       label: 'Sessão CETESB pronta',
-      value: currentSessionContextId.value || 'Sessão indisponível',
+      // Sem ID cru (`scx_...`): o operador só precisa saber se está vinculada.
+      value: currentSessionContextId.value ? 'Sessão vinculada' : 'Sessão indisponível',
       ok: Boolean(currentSessionContextId.value)
     },
     {
@@ -341,7 +430,7 @@ const reviewChecklist = computed(() => {
       label: 'Quantidade e peso',
       value: errors.quantity || errors.weightTon
         ? [errors.quantity, errors.weightTon].filter(Boolean).join(' ')
-        : `${form.quantity} ${unitSymbol} · ${form.weightTon} ton`,
+        : measuresSummary.value,
       ok: !errors.quantity && !errors.weightTon && !errors.unitCode
     },
     {
@@ -484,9 +573,25 @@ function normalizeDigits(value) {
   return String(value || '').replaceAll(/\D/g, '');
 }
 
+/**
+ * Campo numérico vazio é AUSÊNCIA de valor, não zero. `Number('')` devolvia `0`
+ * e mascarava "não informado" — com os defaults agora vazios isso viraria um
+ * payload com quantidade/peso zerados.
+ */
 function toNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return null;
+  }
+
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+const decimalFormatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+
+function formatDecimal(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? '' : decimalFormatter.format(parsed);
 }
 
 function getPartnerCode(partner) {
@@ -655,7 +760,7 @@ function getSelectedPartner(type) {
 
 async function loadCatalogs() {
   catalogsLoading.value = true;
-  errorMessage.value = '';
+  clearValidationAlert();
 
   try {
     const names = ['units', 'residueTreatments', 'classes', 'residueStates', 'packagingGroups', 'residueClasses'];
@@ -677,6 +782,7 @@ async function loadCatalogs() {
     applyUnambiguousCatalogDefaults();
   } catch (error) {
     errorMessage.value = error.message || 'Falha ao carregar catálogos auxiliares.';
+    errorDetails.value = [];
   } finally {
     catalogsLoading.value = false;
   }
@@ -706,12 +812,16 @@ function buildPartnerSearchPayload(rawQuery) {
   };
 }
 
-function getPartnerRoles(type) {
-  if (type === 'carrier') {
-    return ['transportador', 'carrier'];
-  }
-
-  return ['destinador', 'receiver'];
+/**
+ * UM papel por busca. Antes cada digitação disparava DUAS requisições
+ * (`role=transportador` + `role=carrier`, idem destinador/receiver) só para
+ * cobrir os dois vocabulários do espelho local — dobrando a latência da tela
+ * mais lenta do fluxo. O backend passou a resolver os sinônimos do papel numa
+ * única consulta (`resolvePartnerRoleAliases` em `partner-service.ts`), então
+ * mandamos apenas o termo canônico pt-BR do contrato/OpenAPI.
+ */
+function getPartnerRole(type) {
+  return type === 'carrier' ? 'transportador' : 'destinador';
 }
 
 function queuePartnerSearch(type, rawQuery) {
@@ -733,6 +843,10 @@ function queuePartnerSearch(type, rawQuery) {
     state.loading = false;
     return;
   }
+
+  // Já entra em "Carregando..." durante o debounce: sem isso a lista mostrava
+  // "nenhum resultado" antes mesmo de a busca sair.
+  state.loading = true;
 
   partnerSearchTimers[type] = setTimeout(async () => {
     await handlePartnerSearch(type, normalizedQuery);
@@ -760,35 +874,23 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
   try {
     await authStore.ensureSessionContextReady();
 
+    const response = await searchPartners({
+      ...buildPartnerSearchPayload(normalizedQuery),
+      role: getPartnerRole(type)
+    });
+
     const mergedResults = [];
     const seenPartnerCodes = new Set();
-    let lastError = null;
 
-    for (const role of getPartnerRoles(type)) {
-      try {
-        const response = await searchPartners({
-          ...buildPartnerSearchPayload(normalizedQuery),
-          role
-        });
-
-        const items = Array.isArray(response?.items) ? response.items : [];
-        items.forEach((item) => {
-          const partnerCode = String(getPartnerCode(item) || '');
-          if (!partnerCode || seenPartnerCodes.has(partnerCode)) {
-            return;
-          }
-
-          seenPartnerCodes.add(partnerCode);
-          mergedResults.push({ ...item, _partnerCode: partnerCode });
-        });
-      } catch (error) {
-        lastError = error;
+    (Array.isArray(response?.items) ? response.items : []).forEach((item) => {
+      const partnerCode = String(getPartnerCode(item) || '');
+      if (!partnerCode || seenPartnerCodes.has(partnerCode)) {
+        return;
       }
-    }
 
-    if (mergedResults.length === 0 && lastError) {
-      throw lastError;
-    }
+      seenPartnerCodes.add(partnerCode);
+      mergedResults.push({ ...item, _partnerCode: partnerCode });
+    });
 
     state.results = mergedResults;
 
@@ -802,9 +904,10 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
       state.selectedCode = '';
     }
 
-    state.error = mergedResults.length === 0
-      ? 'Nenhum parceiro encontrado para os critérios informados.'
-      : '';
+    // Busca sem resultado NÃO é erro: quem comunica isso é o estado vazio da
+    // lista ("Nenhum transportador encontrado para ..."), e não uma mensagem
+    // vermelha de falha.
+    state.error = '';
   } catch (error) {
     state.error = error.message || 'Falha ao pesquisar parceiros.';
     state.results = [];
@@ -820,19 +923,67 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
  * revisão só olhava conta/sessão/transportador/destinador/resíduo e deixava
  * passar quantidade, peso, unidade e demais catálogos obrigatórios.
  */
-function getStepError(step) {
-  const fields = step === stepDefinitions.length
+function getStepFields(step) {
+  return step === stepDefinitions.length
     ? [...STEP_FIELDS[1], ...STEP_FIELDS[2], ...STEP_FIELDS[3]]
     : (STEP_FIELDS[step] || []);
+}
 
-  for (const field of fields) {
-    const message = fieldErrors.value[field];
-    if (message) {
-      return message;
-    }
+/** TODAS as pendências do passo (não só a primeira) — alimenta o alerta em lista. */
+function getStepErrors(step) {
+  const messages = getStepFields(step)
+    .map((field) => fieldErrors.value[field])
+    .filter(Boolean);
+
+  return [...new Set(messages)];
+}
+
+function getStepError(step) {
+  return getStepErrors(step)[0] || '';
+}
+
+function clearValidationAlert() {
+  errorMessage.value = '';
+  errorDetails.value = [];
+}
+
+/**
+ * O alerta ficava fora da viewport (medido em ~-315px) e listava só a primeira
+ * pendência, então o clique em "Próximo passo" parecia um no-op. Agora ele lista
+ * tudo e a página rola até ele.
+ */
+async function scrollToFeedback() {
+  await nextTick();
+
+  const element = feedbackAnchor.value;
+  if (!element) {
+    return;
   }
 
-  return '';
+  element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  element.focus?.({ preventScroll: true });
+}
+
+function setValidationAlert(messages) {
+  const list = [...new Set((messages || []).filter(Boolean))];
+
+  if (list.length === 0) {
+    clearValidationAlert();
+    return;
+  }
+
+  errorMessage.value = list.length > 1
+    ? `Faltam ${list.length} informações obrigatórias para continuar:`
+    : list[0];
+  errorDetails.value = list.length > 1 ? list : [];
+
+  scrollToFeedback();
+}
+
+function setFailureAlert(message) {
+  errorMessage.value = message;
+  errorDetails.value = [];
+  scrollToFeedback();
 }
 
 function validateForm(shouldSubmitNow) {
@@ -872,16 +1023,16 @@ function goToStep(step) {
   }
 
   for (let index = 1; index < step; index += 1) {
-    const error = getStepError(index);
-    if (error) {
+    const errors = getStepErrors(index);
+    if (errors.length > 0) {
       revealStepErrors(index);
-      errorMessage.value = error;
       currentStep.value = index;
+      setValidationAlert(errors);
       return;
     }
   }
 
-  errorMessage.value = '';
+  clearValidationAlert();
   currentStep.value = step;
 }
 
@@ -890,16 +1041,16 @@ function goToPreviousStep() {
 }
 
 function goToNextStep() {
-  const error = getStepError(currentStep.value);
-  if (error) {
-    // O clique deixa de ser um "no-op silencioso": além do alerta do topo,
-    // cada campo pendente do passo passa a exibir o próprio erro inline.
+  // Mesma mecânica em TODOS os passos: erro inline em cada campo pendente +
+  // alerta no topo com a lista completa + rolagem até ele.
+  const errors = getStepErrors(currentStep.value);
+  if (errors.length > 0) {
     revealStepErrors(currentStep.value);
-    errorMessage.value = error;
+    setValidationAlert(errors);
     return;
   }
 
-  errorMessage.value = '';
+  clearValidationAlert();
   currentStep.value = Math.min(stepDefinitions.length, currentStep.value + 1);
 }
 
@@ -1042,13 +1193,19 @@ async function handleCreate(shouldSubmitNow) {
     return;
   }
 
-  errorMessage.value = '';
+  clearValidationAlert();
   successMessage.value = '';
 
   // Tentativa de envio revela as pendências de todos os passos, inline.
   Object.keys(stepValidationAttempts).forEach((step) => {
     stepValidationAttempts[step] = true;
   });
+
+  const pendingMessages = getStepErrors(stepDefinitions.length);
+  if (pendingMessages.length > 0) {
+    setValidationAlert(pendingMessages);
+    return;
+  }
 
   loading.value = true;
 
@@ -1079,7 +1236,7 @@ async function handleCreate(shouldSubmitNow) {
 
     await createSingleFlow(manifestPayload, shouldSubmitNow);
   } catch (error) {
-    errorMessage.value = error.message || 'Falha ao criar manifesto.';
+    setFailureAlert(error.message || 'Falha ao criar manifesto.');
   } finally {
     loading.value = false;
   }
@@ -1104,7 +1261,18 @@ async function handleCreate(shouldSubmitNow) {
       </v-btn>
     </div>
 
-    <SicatInlineAlert v-if="errorMessage" tone="error" :message="errorMessage" />
+    <!--
+      Âncora do feedback: o alerta de validação ficava fora da viewport e o
+      clique em "Próximo passo" parecia um no-op. `scrollToFeedback()` traz este
+      bloco para a tela e move o foco para cá.
+    -->
+    <div v-if="errorMessage" ref="feedbackAnchor" class="wizard-feedback-anchor" tabindex="-1" data-testid="wizard-feedback">
+      <SicatInlineAlert tone="error" :message="errorMessage" data-testid="wizard-validation-alert">
+        <ul v-if="errorDetails.length" class="wizard-error-list">
+          <li v-for="detail in errorDetails" :key="detail">{{ detail }}</li>
+        </ul>
+      </SicatInlineAlert>
+    </div>
     <SicatInlineAlert v-if="successMessage" tone="success" :message="successMessage" />
     <SicatNextStep
       v-if="successMessage"
@@ -1157,6 +1325,35 @@ async function handleCreate(shouldSubmitNow) {
                     <span>Conta CETESB ativa</span>
                     <strong>{{ activeAccountLabel }}</strong>
                     <small>{{ activeAccountMeta || 'A conta ativa é preenchida automaticamente a partir da sessão.' }}</small>
+                    <!--
+                      Identificadores internos (acc_… / scx_…) não aparecem na
+                      tela: ficam recolhidos e só saem por cópia, para o suporte.
+                    -->
+                    <details v-if="hasTechnicalIdentifiers" class="wizard-technical-details">
+                      <summary>Detalhes técnicos</summary>
+                      <div class="wizard-technical-actions">
+                        <v-btn
+                          v-if="resolvedIntegrationAccountId"
+                          size="small"
+                          variant="text"
+                          prepend-icon="mdi-content-copy"
+                          data-testid="wizard-copy-account-id"
+                          @click="copyTechnicalIdentifier(resolvedIntegrationAccountId, 'Identificador da conta')"
+                        >
+                          Copiar identificador da conta
+                        </v-btn>
+                        <v-btn
+                          v-if="currentSessionContextId"
+                          size="small"
+                          variant="text"
+                          prepend-icon="mdi-content-copy"
+                          data-testid="wizard-copy-session-id"
+                          @click="copyTechnicalIdentifier(currentSessionContextId, 'Identificador da sessão')"
+                        >
+                          Copiar identificador da sessão
+                        </v-btn>
+                      </div>
+                    </details>
                   </div>
                 </v-col>
                 <v-col v-if="!isSingleOnly" cols="12" md="5">
@@ -1210,13 +1407,15 @@ async function handleCreate(shouldSubmitNow) {
                       :disabled="loading"
                       :loading="partnerSearch.carrier.loading"
                       placeholder="Digite nome ou código do transportador"
-                      no-data-text="Digite pelo menos 2 caracteres para buscar."
-                      empty-text="Nenhum transportador encontrado para o filtro."
+                      :min-search-length="PARTNER_SEARCH_MIN_LENGTH"
+                      :min-search-text="PARTNER_MIN_SEARCH_TEXT"
+                      :no-data-text="carrierEmptyText"
+                      :empty-text="carrierEmptyText"
                       aria-label="Selecionar transportador"
                       @search-change="queuePartnerSearch('carrier', $event)"
                     />
-                    <small v-if="partnerSearch.carrier.error" class="wizard-inline-error" role="alert">{{ partnerSearch.carrier.error }}</small>
-                    <small v-else-if="visibleFieldError('carrier')" class="wizard-inline-error" role="alert">{{ visibleFieldError('carrier') }}</small>
+                    <small v-if="partnerSearch.carrier.error" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ partnerSearch.carrier.error }}</small>
+                    <small v-else-if="visibleFieldError('carrier')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('carrier') }}</small>
                     <small v-else-if="selectedCarrier" class="text-medium-emphasis">{{ selectedCarrier.document || 'Sem documento' }} · {{ selectedCarrier.address?.city || 'Cidade não informada' }}/{{ selectedCarrier.address?.state || 'SP' }}</small>
                     <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
@@ -1233,13 +1432,15 @@ async function handleCreate(shouldSubmitNow) {
                       :disabled="loading"
                       :loading="partnerSearch.receiver.loading"
                       placeholder="Digite nome ou código do destinador"
-                      no-data-text="Digite pelo menos 2 caracteres para buscar."
-                      empty-text="Nenhum destinador encontrado para o filtro."
+                      :min-search-length="PARTNER_SEARCH_MIN_LENGTH"
+                      :min-search-text="PARTNER_MIN_SEARCH_TEXT"
+                      :no-data-text="receiverEmptyText"
+                      :empty-text="receiverEmptyText"
                       aria-label="Selecionar destinador"
                       @search-change="queuePartnerSearch('receiver', $event)"
                     />
-                    <small v-if="partnerSearch.receiver.error" class="wizard-inline-error" role="alert">{{ partnerSearch.receiver.error }}</small>
-                    <small v-else-if="visibleFieldError('receiver')" class="wizard-inline-error" role="alert">{{ visibleFieldError('receiver') }}</small>
+                    <small v-if="partnerSearch.receiver.error" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ partnerSearch.receiver.error }}</small>
+                    <small v-else-if="visibleFieldError('receiver')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('receiver') }}</small>
                     <small v-else-if="selectedReceiver" class="text-medium-emphasis">{{ selectedReceiver.document || 'Sem documento' }} · {{ selectedReceiver.address?.city || 'Cidade não informada' }}/{{ selectedReceiver.address?.state || 'SP' }}</small>
                     <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
@@ -1272,7 +1473,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione a unidade"
                       aria-label="Selecionar unidade"
                     />
-                    <small v-if="visibleFieldError('unitCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('unitCode') }}</small>
+                    <small v-if="visibleFieldError('unitCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('unitCode') }}</small>
                   </div>
                 </v-col>
 
@@ -1293,7 +1494,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione o resíduo (digite para filtrar)"
                       aria-label="Selecionar resíduo"
                     />
-                    <small v-if="visibleFieldError('residueCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('residueCode') }}</small>
+                    <small v-if="visibleFieldError('residueCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('residueCode') }}</small>
                     <div v-if="selectedResidueCatalogItem" class="wizard-residue-summary">
                       <strong>{{ selectedResidueCatalogItem.name || selectedResidueCatalogItem.description }}</strong>
                       <span>Código: {{ selectedResidueCatalogItem.code }}</span>
@@ -1321,7 +1522,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione o tratamento"
                       aria-label="Selecionar tratamento"
                     />
-                    <small v-if="visibleFieldError('treatmentCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('treatmentCode') }}</small>
+                    <small v-if="visibleFieldError('treatmentCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('treatmentCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="4">
@@ -1338,7 +1539,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione a classe"
                       aria-label="Selecionar classe"
                     />
-                    <small v-if="visibleFieldError('classCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('classCode') }}</small>
+                    <small v-if="visibleFieldError('classCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('classCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="4">
@@ -1355,7 +1556,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione o estado físico"
                       aria-label="Selecionar estado físico"
                     />
-                    <small v-if="visibleFieldError('stateTypeCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('stateTypeCode') }}</small>
+                    <small v-if="visibleFieldError('stateTypeCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('stateTypeCode') }}</small>
                   </div>
                 </v-col>
 
@@ -1376,7 +1577,7 @@ async function handleCreate(shouldSubmitNow) {
                       placeholder="Selecione o acondicionamento"
                       aria-label="Selecionar acondicionamento"
                     />
-                    <small v-if="visibleFieldError('packagingTypeCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('packagingTypeCode') }}</small>
+                    <small v-if="visibleFieldError('packagingTypeCode')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('packagingTypeCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="6">
@@ -1403,7 +1604,7 @@ async function handleCreate(shouldSubmitNow) {
                 <div class="wizard-review-card">
                   <span>Contexto</span>
                   <strong>{{ activeAccountLabel }}</strong>
-                  <small>{{ form.batchCount }} item(ns) · Expedição {{ form.expeditionDate || 'não informada' }}</small>
+                  <small>{{ form.batchCount }} manifesto(s) · Saída em {{ form.expeditionDate || 'data não informada' }}</small>
                 </div>
                 <div class="wizard-review-card">
                   <span>Participantes</span>
@@ -1413,7 +1614,7 @@ async function handleCreate(shouldSubmitNow) {
                 <div class="wizard-review-card">
                   <span>Resíduo</span>
                   <strong>{{ selectedResidueCatalogItem?.name || selectedResidueCatalogItem?.description || 'Resíduo pendente' }}</strong>
-                  <small>{{ form.quantity || 0 }} {{ selectedUnitCatalogItem?.shortName || selectedUnitCatalogItem?.symbol || 'un.' }} · {{ form.weightTon || 0 }} ton</small>
+                  <small data-testid="wizard-review-measures">{{ measuresSummary }}</small>
                 </div>
               </div>
 
@@ -1436,7 +1637,7 @@ async function handleCreate(shouldSubmitNow) {
               />
 
               <v-alert variant="tonal" color="info" class="mt-5">
-                A criação unitária gera um rascunho ou um envio imediato. Quando o lote é maior que 1, o wizard cria um grupo de manifestos com o mesmo template antes de submeter.
+                Com 1 manifesto, você pode salvar como rascunho ou enviar à CETESB na hora. Se pedir mais de um, o SICAT cria todos com os mesmos dados e envia o conjunto de uma vez.
               </v-alert>
             </div>
           </v-card-text>
@@ -1464,7 +1665,7 @@ async function handleCreate(shouldSubmitNow) {
       <aside class="wizard-sidebar">
         <v-card class="wizard-summary-card">
           <v-card-text>
-            <div class="text-overline text-primary mb-2">Resumo do wizard</div>
+            <div class="text-overline text-primary mb-2">Resumo do preenchimento</div>
             <!-- Badge vivo: reflete o passo atual e as pendências reais (antes era um texto fixo). -->
             <div class="mb-2">
               <SicatStatusBadge
@@ -1475,7 +1676,7 @@ async function handleCreate(shouldSubmitNow) {
                 :tone="wizardProgressStatus.tone"
               />
             </div>
-            <p class="text-body-2 text-medium-emphasis mb-4">A lateral funciona como o resumo do checkout: contexto, participantes e item principal sempre visíveis.</p>
+            <p class="text-body-2 text-medium-emphasis mb-4">Acompanhe aqui o que já foi preenchido: conta, participantes e resíduo ficam sempre à vista.</p>
 
             <div class="wizard-summary-progress mb-5">
               <div class="wizard-summary-progress-bar">
@@ -1488,7 +1689,7 @@ async function handleCreate(shouldSubmitNow) {
               <div class="wizard-summary-item">
                 <span>Conta ativa</span>
                 <strong>{{ activeAccountLabel }}</strong>
-                <small>{{ activeAccountMeta || 'Sem metadados adicionais' }}</small>
+                <small>{{ activeAccountMeta || 'CNPJ/CPF não informado' }}</small>
               </div>
               <div class="wizard-summary-item">
                 <span>Transportador</span>
@@ -1725,10 +1926,15 @@ async function handleCreate(shouldSubmitNow) {
   color: rgba(var(--v-theme-on-surface), 0.9);
 }
 
+/*
+  `:not(.wizard-inline-error)` é obrigatório: `.wizard-dropdown-field small` tem
+  especificidade MAIOR que `.wizard-inline-error` e pintava os erros dos
+  dropdowns de cinza (rgba(0,0,0,.6)) — idênticos ao texto de ajuda.
+*/
 .wizard-static-field small,
 .wizard-summary-item small,
 .wizard-review-card small,
-.wizard-dropdown-field small {
+.wizard-dropdown-field small:not(.wizard-inline-error) {
   color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
@@ -1742,13 +1948,82 @@ async function handleCreate(shouldSubmitNow) {
   sugestões (posicionada em `position: absolute`) do FilterableDropdown —
   autocomplete de parceiros/catálogos truncado na borda do card. O card do
   wizard precisa deixar o popover transbordar.
+
+  Além do overflow, o `.v-card` traz `position: relative; z-index: 0`, ou seja,
+  CADA card é um contexto de empilhamento próprio: o `z-index: 20` da lista
+  ficava preso dentro do card do stepper e a barra de ações (card seguinte no
+  DOM) era pintada por cima. Ordenamos explicitamente os contextos.
 */
 .wizard-stepper-card {
   overflow: visible;
+  position: relative;
+  z-index: 3;
 }
 
+.wizard-footer-card {
+  position: relative;
+  z-index: 1;
+}
+
+.wizard-main {
+  position: relative;
+  z-index: 2;
+}
+
+.wizard-sidebar {
+  position: relative;
+  z-index: 1;
+}
+
+.wizard-feedback-anchor {
+  outline: none;
+  scroll-margin-top: 96px;
+}
+
+.wizard-error-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: rgba(var(--v-theme-on-surface), 0.78);
+}
+
+.wizard-error-list li {
+  list-style: disc;
+}
+
+/* Erro inline com o mesmo peso visual do `v-text-field` (cor de erro do tema). */
 .wizard-inline-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: rgb(var(--v-theme-error));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.wizard-inline-error :deep(.v-icon) {
+  color: rgb(var(--v-theme-error));
+  flex-shrink: 0;
+}
+
+.wizard-technical-details {
+  margin-top: 8px;
+}
+
+.wizard-technical-details summary {
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+}
+
+.wizard-technical-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .wizard-residue-summary {

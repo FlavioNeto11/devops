@@ -41,6 +41,7 @@ import {
   resolveManifestRawStatus,
   resolveManifestSnapshot,
   resolveManifestStatusLabel,
+  resolveSituationFilterLabel,
   sanitizeDownloadFileName,
   sleep,
   toIntegerOrNull,
@@ -225,6 +226,20 @@ const selectedPrintableManifests = computed(() => items.value
   .filter((manifest) => canPrintManifest(manifest)));
 const activeAccount = computed(() => authStore.activeAccount.value || null);
 const isReceiverOperationalMode = computed(() => String(activeAccount.value?.accountType || '').toLowerCase() === 'receiver');
+
+// Empty state por PERSONA: o Destinador e o Transportador não CRIAM manifestos
+// (recebem/transportam), então o texto do Gerador ("você ainda não criou nenhum")
+// mentia para eles. O filtro fica ACIMA da tabela — o texto diz "acima".
+const emptyStateHint = computed(() => {
+  const accountType = String(activeAccount.value?.accountType || '').toLowerCase();
+  if (accountType === 'receiver') {
+    return 'Pode ser por causa dos filtros acima, ou nenhum manifesto foi enviado para você neste período.';
+  }
+  if (accountType === 'carrier') {
+    return 'Pode ser por causa dos filtros acima, ou nenhum manifesto foi atribuído ao seu transporte neste período.';
+  }
+  return 'Pode ser por causa dos filtros acima, ou você ainda não criou nenhum.';
+});
 const receiverOperationalSelection = computed(() => items.value
   .filter((manifest) => selectedManifestIds.value.includes(resolveManifestIdentifier(manifest))));
 const selectedReceivableManifests = computed(() => receiverOperationalSelection.value.filter((manifest) => canReceiveOperationalManifest(manifest)));
@@ -907,9 +922,26 @@ const situationFilterLabel = computed(() => {
   if (match && match.key !== 'all') {
     return match.label;
   }
-  const raw = [String(filters.status || '').trim(), String(filters.externalStatus || '').trim()].filter(Boolean).join(' / ');
-  return raw || '';
+  // Sem chip correspondente (ex.: filtro herdado de OUTRA persona), o valor cru
+  // ('receb') não pode vazar para a tela: passa pelo mapa canônico de rótulos.
+  return resolveSituationFilterLabel(filters.status, filters.externalStatus);
 });
+
+// Troca de conta ativa muda a PERSONA e, com ela, o conjunto de chips de situação.
+// O filtro persistido da persona anterior sobrevivia à troca: ficava aplicado
+// (0 resultados) sem chip realçado e aparecia como token cru no resumo. Aqui o
+// filtro é reconciliado — se não corresponde a nenhum chip da persona atual, cai
+// para "Todos".
+function reconcileSituationFilterWithPersona() {
+  const hasSituationFilter = Boolean(String(filters.status || '').trim() || String(filters.externalStatus || '').trim());
+  if (!hasSituationFilter || activeSituationKey.value) {
+    return false;
+  }
+  filters.status = '';
+  filters.externalStatus = '';
+  filters.page = 1;
+  return true;
+}
 
 // Sugestões de Número MTR conforme digita: busca instantânea no espelho local
 // (localOnly=true — não toca a CETESB), a partir de 3 dígitos.
@@ -1715,7 +1747,15 @@ watch(
       return;
     }
 
+    // A persona pode ter mudado junto com a conta: descarta o filtro de situação
+    // que não existe mais nos chips desta persona ANTES de sincronizar/persistir.
+    const situationFilterReset = reconcileSituationFilterWithPersona();
+
     await syncWithActiveOperationalContext({ resetPage: true });
+
+    if (situationFilterReset && updateDateFilterFeedback()) {
+      await search();
+    }
   }
 );
 
@@ -1723,6 +1763,11 @@ onMounted(async () => {
   globalThis.addEventListener('keydown', handleGlobalKeydown);
 
   const operationalContext = await syncWithActiveOperationalContext();
+
+  // Filtro de situação persistido pode ser de OUTRA persona (troca de conta entre
+  // sessões): reconcilia antes da primeira busca para não abrir a tela vazia com
+  // um filtro que nem aparece nos chips.
+  reconcileSituationFilterWithPersona();
 
   const refreshRequested = String(route.query.refresh || '') === '1';
   const forceSyncRequested = String(route.query.forceSync || '') === '1';
@@ -1943,8 +1988,8 @@ onUnmounted(() => {
                 Busca por número de MTR ignora o período selecionado.
               </div>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
-                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
+                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar filtros</v-btn>
+                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar filtros</v-btn>
               </div>
             </v-form>
           </v-card-text>
@@ -2001,11 +2046,11 @@ onUnmounted(() => {
                 <v-select
                   v-model.number="filters.pageSize"
                   :items="[10, 20, 50]"
-                  label="Por página"
+                  label="Itens por página"
                   density="compact"
                   variant="outlined"
                   hide-details
-                  style="width: 110px"
+                  style="width: 160px"
                   @update:model-value="applyFilters"
                 />
               </v-col>
@@ -2036,7 +2081,7 @@ onUnmounted(() => {
               <tr v-if="!items.length && !loadingList">
                 <td colspan="7" class="text-center pa-6">
                   <div class="text-body-1 font-weight-bold mb-1">Nenhum manifesto aqui</div>
-                  <div class="text-body-2 text-medium-emphasis mb-1">Pode ser por causa do filtro abaixo, ou você ainda não criou nenhum.</div>
+                  <div class="text-body-2 text-medium-emphasis mb-1">{{ emptyStateHint }}</div>
                   <div v-if="activeFiltersSummary" class="text-caption text-medium-emphasis mb-3">{{ activeFiltersSummary }}</div>
                   <div class="d-flex justify-center flex-wrap ga-2">
                     <v-btn v-if="!isReceiverOperationalMode" size="small" color="primary" variant="flat" prepend-icon="mdi-plus" @click="goToCreate">Criar manifesto</v-btn>

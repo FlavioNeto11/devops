@@ -6,7 +6,7 @@ const props = defineProps({
   },
   description: {
     type: String,
-    default: 'Esta acao exige confirmacao explicita antes de ser executada.'
+    default: 'Esta ação exige confirmação explícita antes de ser executada.'
   },
   action: {
     type: Object,

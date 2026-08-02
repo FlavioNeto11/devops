@@ -98,6 +98,9 @@ add('frontend/nginx.conf', [
   '  location @@BASE@@/ {',
   '    alias /usr/share/nginx/html@@BASE@@/;',
   '    try_files $uri $uri/ @@BASE@@/index.html;',
+  '    # index.html NUNCA em cache heurístico: sem isto o browser reaproveita a',
+  '    # cópia antiga e o usuário fica no bundle anterior depois do deploy.',
+  '    add_header Cache-Control "no-cache" always;',
   '  }',
   '}', '',
 ].join('\n'));

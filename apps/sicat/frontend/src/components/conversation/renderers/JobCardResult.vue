@@ -16,16 +16,16 @@ const payload = computed(() => asRecord(props.artifact?.payload));
   <article class="result-card" aria-label="job_card">
     <header class="result-card-header">
       <v-icon size="16">mdi-cog-outline</v-icon>
-      <h4>Job Operacional</h4>
+      <h4>Processamento operacional</h4>
     </header>
 
     <dl class="result-card-grid">
       <div class="result-row" v-if="toNullableText(payload.jobId)">
-        <dt>Job</dt>
+        <dt>Processamento</dt>
         <dd>{{ payload.jobId }}</dd>
       </div>
       <div class="result-row" v-if="toNullableText(payload.operation || payload.jobType)">
-        <dt>Operacao</dt>
+        <dt>Operação</dt>
         <dd>{{ payload.operation || payload.jobType }}</dd>
       </div>
       <div class="result-row" v-if="toNullableText(payload.status)">
