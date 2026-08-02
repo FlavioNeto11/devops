@@ -14,6 +14,8 @@ import {
   resolveRuntimeAgentText,
   resolveRuntimeAgentTools
 } from '../ai-control/ai-runtime-registry-service.js';
+import { anchorConversationDateWindow, userNamedPeriod } from './planning/conversation-window-anchor.js';
+import { MANIFEST_STATUS_VOCABULARY_HINT } from './conversation-status-vocabulary.js';
 
 // ─── Tipos públicos (mantidos para compatibilidade com conversation-service.ts) ──
 
@@ -1446,6 +1448,71 @@ export function downgradeUnconfirmedBatchActionToPreview(toolCall: LlmToolCall |
   return { ...toolCall, arguments: { ...args, intent: previewIntent } };
 }
 
+/**
+ * Ancora a janela de datas do tool call em HOJE quando ela foi INVENTADA pelo
+ * planner (o usuário não citou período algum). Ver
+ * `planning/conversation-window-anchor.ts` para o diagnóstico completo — em
+ * produção o planner emitiu uma janela de 2 anos terminando 46 dias no passado
+ * e a contagem de manifestos "aguardando baixa" voltou 0 com 38 na tela.
+ *
+ * Não é heurística de frase: o sinal usado é o contrato do classificador, que
+ * só preenche `entities.date*` diante de período explícito do usuário.
+ */
+export function anchorPlannerToolCallDateWindow(input: {
+  toolCall: LlmToolCall | null;
+  classifier: Pick<IntentClassification, 'entities'>;
+}): LlmToolCall | null {
+  const toolCall = input.toolCall;
+  if (!toolCall) return toolCall;
+
+  const namedPeriod = userNamedPeriod(input.classifier.entities);
+  if (namedPeriod) return toolCall;
+
+  const args = toRecord(toolCall.arguments);
+
+  if (toolCall.name === 'orchestrate_manifest_operation') {
+    const selection = toRecord(args.selection);
+    const anchored = anchorConversationDateWindow({
+      dateFrom: selection.dateFrom,
+      dateTo: selection.dateTo,
+      userNamedPeriod: namedPeriod
+    });
+    if (anchored.anchor === 'none') return toolCall;
+
+    return {
+      ...toolCall,
+      arguments: {
+        ...args,
+        selection: {
+          ...selection,
+          ...(anchored.dateFrom ? { dateFrom: anchored.dateFrom } : {}),
+          dateTo: anchored.dateTo
+        }
+      }
+    };
+  }
+
+  if (toolCall.name === 'list_manifests' || toolCall.name === 'list_cdf_certificates') {
+    const anchored = anchorConversationDateWindow({
+      dateFrom: args.dateFrom,
+      dateTo: args.dateTo,
+      userNamedPeriod: namedPeriod
+    });
+    if (anchored.anchor === 'none') return toolCall;
+
+    return {
+      ...toolCall,
+      arguments: {
+        ...args,
+        ...(anchored.dateFrom ? { dateFrom: anchored.dateFrom } : {}),
+        dateTo: anchored.dateTo
+      }
+    };
+  }
+
+  return toolCall;
+}
+
 export function normalizePlannerToolCallForRecency(input: {
   toolCall: LlmToolCall | null;
   classifier: Pick<IntentClassification, 'entities'>;
@@ -1617,7 +1684,8 @@ async function classifyIntent(input: {
       'Retorne SOMENTE JSON valido com o formato: ' +
       '{"intent":string,"confidence":number,"entities":object,"needsClarification":boolean,"clarifyingQuestion":string|null}. ' +
       'Quando houver pedido por recencia de manifestos, inclua entities.recencyDirection com valor oldest ou recent. ' +
-      'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito (entre X e Y, do dia X ao Y, ultimos N dias, hoje, ontem). NUNCA invente nem assuma datas; sem periodo explicito na frase, deixe dateFrom/dateTo ausentes. Para COMPARAR dias/periodos (ex.: "ontem com hoje", "esta semana vs a passada"), defina dateFrom/dateTo cobrindo TODOS os dias mencionados (de ontem ate hoje) para que ambos os lados venham nos dados. ' +
+      'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito (entre X e Y, do dia X ao Y, ultimos N dias, hoje, ontem). NUNCA invente nem assuma datas; sem periodo explicito na frase, deixe dateFrom/dateTo ausentes. A data de HOJE e context.currentDate — jamais deduza a data atual do seu proprio conhecimento; datas relativas SEMPRE terminam em context.currentDate. Para COMPARAR dias/periodos (ex.: "ontem com hoje", "esta semana vs a passada"), defina dateFrom/dateTo cobrindo TODOS os dias mencionados (de ontem ate hoje) para que ambos os lados venham nos dados. ' +
+      `${MANIFEST_STATUS_VOCABULARY_HINT} Ao extrair entities.status, use o valor tecnico correspondente a esse vocabulario. ` +
       'AGRUPAMENTO: quando houver, inclua entities.groupBy com um valor CANONICO do contrato da tool: status, externalStatus, generator, carrier, receiver, driverName, vehiclePlate, date, month, year. ' +
       'Perguntas de periodo ("em que mes...", "qual mes...", "por mes") => groupBy=month; ("em que ano...") => groupBy=year. ' +
       'Inclua tambem entities.groupOrder: key_asc quando a pergunta pede linha do tempo (month/date/year) ou count_desc quando pede ranking por volume. ' +
@@ -1770,7 +1838,10 @@ function buildPlannerInstruction(input: {
         'usar orchestrate_manifest_operation para intents compostos e de memoria',
         'preservar contextos de selecao de manifestos da sessao',
         'respeitar direcao temporal explicita: oldest => selection.orderBy=recency_asc; recent => selection.orderBy=recency_desc',
-        'quando existir intervalo temporal, preencher selection.dateFrom e selection.dateTo em YYYY-MM-DD',
+        'quando existir intervalo temporal CITADO PELO USUARIO, preencher selection.dateFrom e selection.dateTo em YYYY-MM-DD',
+        'HOJE e context.currentDate — nunca deduza a data atual do seu proprio conhecimento',
+        'sem periodo citado pelo usuario, NAO preencher selection.dateFrom/dateTo: o SICAT ja consulta a janela operacional corrente. Se ainda assim usar uma janela relativa, ela DEVE terminar exatamente em context.currentDate (jamais numa data anterior)',
+        MANIFEST_STATUS_VOCABULARY_HINT,
         'na ausencia de pedido explicito para pular itens em oldest, manter selection.skipMostRecent=0',
         'para consulta de gerador por numero, usar intent manifest.lookup_generator_by_number',
         'nunca responder com pseudo-codigo JSON de tool/input; usar function call quando a intencao estiver clara',
@@ -1953,9 +2024,12 @@ async function performEscalation(input: {
     classification: escalatedClassification
   });
 
-  const finalToolCall = downgradeUnconfirmedBatchActionToPreview(
-    alignedEscalatedToolCall || buildFallbackToolCallFromClassification(escalatedClassification)
-  );
+  const finalToolCall = anchorPlannerToolCallDateWindow({
+    toolCall: downgradeUnconfirmedBatchActionToPreview(
+      alignedEscalatedToolCall || buildFallbackToolCallFromClassification(escalatedClassification)
+    ),
+    classifier: escalatedClassification
+  });
 
   const escalatedConfidence = Math.max(
     0,
@@ -2238,9 +2312,12 @@ export function createLlmProvider(): LlmProvider {
         }
       }
 
-      const recoveredToolCall = downgradeUnconfirmedBatchActionToPreview(
-        alignedToolCall || buildFallbackToolCallFromClassification(fallbackClassification)
-      );
+      const recoveredToolCall = anchorPlannerToolCallDateWindow({
+        toolCall: downgradeUnconfirmedBatchActionToPreview(
+          alignedToolCall || buildFallbackToolCallFromClassification(fallbackClassification)
+        ),
+        classifier: fallbackClassification
+      });
 
       const toolCall = shouldClarify
         ? null

@@ -706,12 +706,16 @@ function buildPartnerSearchPayload(rawQuery) {
   };
 }
 
-function getPartnerRoles(type) {
-  if (type === 'carrier') {
-    return ['transportador', 'carrier'];
-  }
-
-  return ['destinador', 'receiver'];
+/**
+ * UM papel por busca. Antes cada digitação disparava DUAS requisições
+ * (`role=transportador` + `role=carrier`, idem destinador/receiver) só para
+ * cobrir os dois vocabulários do espelho local — dobrando a latência da tela
+ * mais lenta do fluxo. O backend passou a resolver os sinônimos do papel numa
+ * única consulta (`resolvePartnerRoleAliases` em `partner-service.ts`), então
+ * mandamos apenas o termo canônico pt-BR do contrato/OpenAPI.
+ */
+function getPartnerRole(type) {
+  return type === 'carrier' ? 'transportador' : 'destinador';
 }
 
 function queuePartnerSearch(type, rawQuery) {
@@ -760,35 +764,23 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
   try {
     await authStore.ensureSessionContextReady();
 
+    const response = await searchPartners({
+      ...buildPartnerSearchPayload(normalizedQuery),
+      role: getPartnerRole(type)
+    });
+
     const mergedResults = [];
     const seenPartnerCodes = new Set();
-    let lastError = null;
 
-    for (const role of getPartnerRoles(type)) {
-      try {
-        const response = await searchPartners({
-          ...buildPartnerSearchPayload(normalizedQuery),
-          role
-        });
-
-        const items = Array.isArray(response?.items) ? response.items : [];
-        items.forEach((item) => {
-          const partnerCode = String(getPartnerCode(item) || '');
-          if (!partnerCode || seenPartnerCodes.has(partnerCode)) {
-            return;
-          }
-
-          seenPartnerCodes.add(partnerCode);
-          mergedResults.push({ ...item, _partnerCode: partnerCode });
-        });
-      } catch (error) {
-        lastError = error;
+    (Array.isArray(response?.items) ? response.items : []).forEach((item) => {
+      const partnerCode = String(getPartnerCode(item) || '');
+      if (!partnerCode || seenPartnerCodes.has(partnerCode)) {
+        return;
       }
-    }
 
-    if (mergedResults.length === 0 && lastError) {
-      throw lastError;
-    }
+      seenPartnerCodes.add(partnerCode);
+      mergedResults.push({ ...item, _partnerCode: partnerCode });
+    });
 
     state.results = mergedResults;
 
