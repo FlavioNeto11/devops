@@ -125,8 +125,15 @@ npm test                     # suíte tsx --test (ou test:api / test:integration
 Frontend (mudou UI), a partir da raiz do app:
 
 ```bash
+npm run test:unit:frontend   # node:test puro (sem browser/banco) — guard de persona,
+                             # elegibilidade de ação do MTR, defaults do wizard e
+                             # vocabulário de status. Roda no CI (ci-apps).
 npm run build:frontend       # Vite build com base /sicat/
 ```
+
+Os testes de unidade do frontend ficam em `frontend/tests/unit/*.test.js` (o Playwright continua
+em `frontend/tests/ui/`, via `npm run test:ui`). Regra: comportamento crítico de UI que já quebrou
+em produção entra ali como caso, não só como correção pontual.
 
 Se um comando falhar por motivo pré-existente e **não relacionado** à mudança, documente no relatório
 em vez de mascarar. Validação que toca a CETESB real entra na fronteira **com aprovação** (§5).

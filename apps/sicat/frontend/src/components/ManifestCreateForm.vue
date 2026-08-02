@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { batchCreateManifests, batchSubmitManifests, createManifest, getCatalog, searchPartners, submitManifest } from '../services/api.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useAuthStore } from '../stores/auth.js';
-import { getTodayBr, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
+import { normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
+import { createEmptyManifestForm, resolveMeasureErrors, toNumber } from '../features/mtr/create/manifestFormState.js';
 import FilterableDropdown from './FilterableDropdown.vue';
 import SicatInlineAlert from './sicat/SicatInlineAlert.vue';
 import SicatHelpHint from './sicat/SicatHelpHint.vue';
@@ -115,28 +116,9 @@ const catalogOptions = reactive({
   residueClasses: []
 });
 
-const form = reactive({
-  integrationAccountId: '',
-  batchCount: 1,
-  expeditionDate: getTodayBr(),
-  responsibleName: '',
-  driverName: '',
-  vehiclePlate: '',
-  notes: '',
-  // MTR é documento regulatório: quantidade e peso NASCEM VAZIOS. Um default de
-  // `1` fazia o operador desatento declarar "1 tonelada" sem perceber. A
-  // validação exige > 0, então o preenchimento é sempre consciente.
-  quantity: null,
-  weightTon: null,
-  unitCode: '',
-  residueCode: '',
-  treatmentCode: '',
-  classCode: '',
-  stateTypeCode: '',
-  packagingTypeCode: '',
-  hasTemporaryStorage: false,
-  hasCadriInResidueList: false
-});
+// Defaults do wizard vêm do módulo puro `features/mtr/create/manifestFormState.js`
+// (quantidade/peso nascem VAZIOS) — assim os defaults têm teste de unidade.
+const form = reactive(createEmptyManifestForm());
 
 const resolvedUser = computed(() => props.user || authStore.user.value || null);
 const resolvedPartner = computed(() => props.partner || authStore.partner.value || null);
@@ -295,8 +277,7 @@ const FIELD_STEP = Object.entries(STEP_FIELDS).reduce((accumulator, [step, field
 const stepValidationAttempts = reactive({ 1: false, 2: false, 3: false, 4: false });
 
 const fieldErrors = computed(() => {
-  const quantity = toNumber(form.quantity);
-  const weightTon = toNumber(form.weightTon);
+  const measureErrors = resolveMeasureErrors(form);
   const batchCount = Number(form.batchCount || 1);
   const batchCountIsValid = isSingleOnly.value
     || (Number.isInteger(batchCount) && batchCount >= 1 && batchCount <= 100);
@@ -310,12 +291,8 @@ const fieldErrors = computed(() => {
     batchCount: batchCountIsValid ? '' : 'Informe uma quantidade de manifestos válida entre 1 e 100.',
     carrier: selectedCarrier.value ? '' : 'Selecione o transportador.',
     receiver: selectedReceiver.value ? '' : 'Selecione o destinador.',
-    quantity: quantity === null
-      ? 'Informe a quantidade transportada.'
-      : (quantity > 0 ? '' : 'Informe uma quantidade maior que zero.'),
-    weightTon: weightTon === null
-      ? 'Informe o peso em toneladas.'
-      : (weightTon > 0 ? '' : 'Informe um peso em toneladas maior que zero.'),
+    quantity: measureErrors.quantity,
+    weightTon: measureErrors.weightTon,
     // Catálogos: validamos o ITEM resolvido (e não só o código no form), porque
     // é o item que vira payload — código órfão geraria `unit`/`residue` nulos.
     unitCode: selectedUnitCatalogItem.value ? '' : 'Selecione a unidade.',
@@ -578,15 +555,6 @@ function normalizeDigits(value) {
  * e mascarava "não informado" — com os defaults agora vazios isso viraria um
  * payload com quantidade/peso zerados.
  */
-function toNumber(value) {
-  if (value === null || value === undefined || String(value).trim() === '') {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 const decimalFormatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 
 function formatDecimal(value) {

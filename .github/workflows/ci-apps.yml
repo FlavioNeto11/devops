@@ -62,7 +62,7 @@ jobs:
           # Tabela canonica dos apps (path = subpasta de apps/ com o package.json).
           cat > "$RUNNER_TEMP/apps.json" <<'JSON'
           [
-            {"app":"sicat","path":"sicat","pm":"npm","prep":"","checks":"lint build:frontend"},
+            {"app":"sicat","path":"sicat","pm":"npm","prep":"","checks":"lint test:unit:frontend build:frontend"},
             {"app":"gymops","path":"gymops","pm":"pnpm","prep":"pnpm --filter @gymops/db run generate && pnpm --filter \"./packages/*\" run build","checks":"lint typecheck"},
             {"app":"rmambiental","path":"rmambiental","pm":"npm","prep":"","checks":"build"},
             {"app":"anarabottini","path":"anarabottini","pm":"npm","prep":"","checks":"typecheck build"},

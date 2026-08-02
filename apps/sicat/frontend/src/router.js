@@ -1,7 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
 import { useNotification } from './composables/useNotification.js';
-import { KNOWN_PERSONAS } from './composables/usePersona.js';
+import {
+  describeRequiredPersonas,
+  resolveActivePersona,
+  routeAllowsPersona
+} from './lib/persona-access.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
 import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
@@ -36,13 +40,8 @@ const ADMIN_HOME = '/operacao/dashboard';
 // Destino de fallback do operador quando uma rota é negada (permissão ou perfil).
 const OPERATOR_HOME = '/dashboard';
 
-// Rótulos dos perfis exigidos por rota (`meta.personas`). Fonte da verdade do
-// perfil: `composables/usePersona.js` (derivado do accountType da conta CETESB).
-const PERSONA_ROUTE_LABELS = {
-  generator: 'Gerador',
-  carrier: 'Transportador',
-  receiver: 'Destinador'
-};
+// Regras de perfil (persona) por rota: `lib/persona-access.js` — módulo PURO,
+// coberto por node:test (o guard abaixo não pode voltar a ficar sem teste).
 
 const routes = [
   {
@@ -409,43 +408,6 @@ const router = createRouter({
     };
   }
 });
-
-/**
- * Perfil (persona) da conta CETESB ativa. Mesma derivação de `usePersona()`:
- * '' quando o backend ainda não resolveu o tipo da conta.
- */
-function resolveActivePersona(authStore) {
-  const accountType = String(authStore.activeAccount.value?.accountType || '').trim().toLowerCase();
-  return KNOWN_PERSONAS.includes(accountType) ? accountType : '';
-}
-
-/**
- * Mesma semântica de `personaAllows` em config/navigation.js: rota sem
- * `meta.personas` é livre e perfil não resolvido NÃO restringe nada — assim o
- * menu e o acesso por URL direta contam a mesma história.
- */
-function routeAllowsPersona(to, persona) {
-  const allowed = Array.isArray(to.meta?.personas) ? to.meta.personas : null;
-  if (!allowed || !allowed.length) {
-    return true;
-  }
-
-  if (!persona) {
-    return true;
-  }
-
-  return allowed.includes(persona);
-}
-
-function describeRequiredPersonas(to) {
-  const allowed = Array.isArray(to.meta?.personas) ? to.meta.personas : [];
-  const labels = allowed.map((item) => PERSONA_ROUTE_LABELS[item] || item).filter(Boolean);
-  if (!labels.length) {
-    return '';
-  }
-
-  return labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(', ')} ou ${labels[labels.length - 1]}`;
-}
 
 async function ensureAdminRouteAccess(authStore) {
   try {
