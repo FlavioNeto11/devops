@@ -449,6 +449,36 @@ async function request(path, options = {}) {
   throw createApiError({ message: 'Falha ao acessar API após novas tentativas.', correlationId });
 }
 
+/**
+ * Coalescência de GETs idênticos EM VOO.
+ *
+ * As telas de CDF montam o carregamento com `watch(contextReady, { immediate: true })`
+ * E `onMounted` — quando o contexto operacional já está pronto na montagem, os
+ * dois disparam e a mesma consulta sai DUAS vezes por carregamento
+ * (`/v1/cdf/certificates` e `/v1/cdf/responsibles` foram observados assim em
+ * produção). Como essas rotas passam pelo gateway CETESB, a duplicidade dobra a
+ * latência das telas mais lentas.
+ *
+ * Aqui a segunda chamada com o MESMO path enquanto a primeira ainda está em voo
+ * reaproveita a mesma promise. Não é cache: assim que a requisição termina a
+ * entrada é descartada, então um recarregamento posterior continua indo à rede.
+ */
+const inFlightGetRequests = new Map();
+
+function dedupedGet(path) {
+  const pending = inFlightGetRequests.get(path);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = request(path).finally(() => {
+    inFlightGetRequests.delete(path);
+  });
+
+  inFlightGetRequests.set(path, promise);
+  return promise;
+}
+
 function toQueryString(params = {}) {
   const searchParams = new URLSearchParams();
 
@@ -473,11 +503,11 @@ export function getManifestById(id) {
 }
 
 export function getReceiptResponsibles(params) {
-  return request(`/v1/manifestos/receipt-responsibles${toQueryString(params)}`);
+  return dedupedGet(`/v1/manifestos/receipt-responsibles${toQueryString(params)}`);
 }
 
 export function getCdfResponsibles(params) {
-  return request(`/v1/cdf/responsibles${toQueryString(params)}`);
+  return dedupedGet(`/v1/cdf/responsibles${toQueryString(params)}`);
 }
 
 export function enqueueManifestReceive(payload) {
@@ -511,7 +541,7 @@ export function enqueueCdfDownload(payload) {
 }
 
 export function listCdfCertificates(params = {}) {
-  return request(`/v1/cdf/certificates${toQueryString(params)}`);
+  return dedupedGet(`/v1/cdf/certificates${toQueryString(params)}`);
 }
 
 export async function downloadCdfDocument(documentId, options = {}) {
@@ -653,7 +683,7 @@ export function searchPartners(params = {}) {
     sessionContextId: params.sessionContextId
   };
 
-  return request(`/v1/partners/search${toQueryString(normalizedParams)}`);
+  return dedupedGet(`/v1/partners/search${toQueryString(normalizedParams)}`);
 }
 
 export function getPartnerInfo(document) {

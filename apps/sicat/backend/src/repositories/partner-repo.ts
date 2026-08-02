@@ -33,6 +33,13 @@ type PartnerEntity = {
 type SearchPartnersInput = {
   q?: string;
   role?: string | null;
+  /**
+   * Vocabulários equivalentes do MESMO papel (ex.: `transportador` e `carrier`).
+   * O espelho local guarda o valor com que o parceiro foi pesquisado pela
+   * primeira vez, então filtrar por um único termo perdia registros gravados
+   * com o outro — era essa a razão de o frontend disparar DUAS buscas por papel.
+   */
+  roles?: string[] | null;
   page?: number;
   pageSize?: number;
 };
@@ -71,9 +78,14 @@ function mapRow(row: PartnerRow): PartnerEntity {
   };
 }
 
-export async function searchPartners({ q = '', role = null, page = 1, pageSize = 20 }: SearchPartnersInput) {
-  const values: Array<string | number> = [];
+export async function searchPartners({ q = '', role = null, roles = null, page = 1, pageSize = 20 }: SearchPartnersInput) {
+  const values: Array<string | number | string[]> = [];
   const where: string[] = [];
+  const roleAliases = Array.from(new Set(
+    (Array.isArray(roles) && roles.length > 0 ? roles : [role])
+      .map((value) => String(value ?? '').trim().toLowerCase())
+      .filter(Boolean)
+  ));
 
   if (q) {
     values.push(`%${q.toLowerCase()}%`);
@@ -85,9 +97,9 @@ export async function searchPartners({ q = '', role = null, page = 1, pageSize =
     )`);
   }
 
-  if (role) {
-    values.push(role.toLowerCase());
-    where.push(`lower(role) = $${values.length}`);
+  if (roleAliases.length > 0) {
+    values.push(roleAliases);
+    where.push(`lower(role) = any($${values.length}::text[])`);
   }
 
   const whereSql = where.length ? `where ${where.join(' and ')}` : '';
