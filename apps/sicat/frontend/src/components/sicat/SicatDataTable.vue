@@ -31,14 +31,14 @@ const props = defineProps({
   selected: { type: Array, default: () => [] },
   /**
    * Mostra o footer de paginação (padrão ERP). Desligue com :show-footer="false".
-   * Os textos do rodapé ("1-10 de 100", "Linhas por página:") vêm do locale pt-BR
+   * Os textos do rodapé ("1-10 de 100", "Itens por página:") vêm do locale pt-BR
    * configurado em plugins/vuetify.js — não passe literais aqui (o Vuetify roda
    * essas props pelo tradutor e uma string crua gera aviso de chave inexistente).
    */
   showFooter: { type: Boolean, default: true },
-  /** Linhas por página (padrão 10). Use -1 para mostrar tudo. */
+  /** Itens por página (padrão 10). Use -1 para mostrar tudo. */
   itemsPerPage: { type: Number, default: 10 },
-  /** Opções do seletor "linhas por página". */
+  /** Opções do seletor "itens por página". */
   itemsPerPageOptions: {
     type: Array,
     default: () => [

@@ -377,7 +377,7 @@ onMounted(loadInitialData);
       <SicatFiltersPanel :loading="loading" apply-label="Aplicar filtros" @apply="applyFilters" @clear="() => { filters.search = ''; filters.status = 'active'; applyFilters(); }">
         <v-text-field v-model="filters.search" label="Usuário (nome/e-mail/ID)" placeholder="Ex.: flavio" density="comfortable" variant="outlined" hide-details="auto" @keydown.enter.prevent="applyFilters" />
         <v-select v-model="filters.status" label="Status" :items="[{title:'Ativo',value:'active'},{title:'Desativado',value:'disabled'},{title:'Todos',value:''}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
-        <v-select v-model.number="filters.pageSize" label="Por página" :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
+        <v-select v-model.number="filters.pageSize" label="Itens por página" :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
       </SicatFiltersPanel>
     </template>
 

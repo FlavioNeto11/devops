@@ -367,7 +367,7 @@ async function appendRequestedManifest(items = []) {
         merged.unshift(detail);
       }
     } catch {
-      manifestsFeedback.value = `Nao foi possivel carregar automaticamente o manifesto ${requestedId}.`;
+      manifestsFeedback.value = `Não foi possível carregar automaticamente o manifesto ${requestedId}.`;
     }
   }
 
@@ -416,7 +416,7 @@ async function loadManifestCandidates(options = {}) {
 
     selectRequestedManifestIfPresent(manifests.value);
   } catch (error) {
-    manifestsError.value = error?.message || 'Falha ao carregar manifestos para geracao de CDF.';
+    manifestsError.value = error?.message || 'Falha ao carregar manifestos para geração de CDF.';
     manifests.value = [];
     manifestsLoaded.value = true;
   } finally {
@@ -488,7 +488,7 @@ async function submitCdfGenerate() {
     await ensureOperationalContext();
 
     if (!receiverPartnerCode.value) {
-      throw new Error('Nao foi possivel identificar o destinador ativo para gerar o CDF.');
+      throw new Error('Não foi possível identificar o destinador ativo para gerar o CDF.');
     }
 
     if (!eligibleManifestCount.value) {
@@ -497,7 +497,7 @@ async function submitCdfGenerate() {
 
     const responsibleCode = toIntegerOrNull(cdfForm.responsibleCode);
     if (!responsibleCode) {
-      throw new Error('Selecione o responsavel pela emissao do CDF.');
+      throw new Error('Selecione o responsável pela emissão do CDF.');
     }
 
     const cerData = toNoonIso(cdfForm.issueAt);
@@ -505,11 +505,11 @@ async function submitCdfGenerate() {
     const cerDataFinal = toEndOfDayIso(cdfForm.dateTo);
 
     if (!cerData || !cerDataInicial || !cerDataFinal) {
-      throw new Error('Informe uma data de emissao e um periodo validos para o CDF.');
+      throw new Error('Informe uma data de emissão e um período válidos para o CDF.');
     }
 
     if (new Date(cerDataInicial) > new Date(cerDataFinal)) {
-      throw new Error('A data inicial do CDF nao pode ser maior que a data final.');
+      throw new Error('A data inicial do CDF não pode ser maior que a data final.');
     }
 
     const accepted = await enqueueCdfGenerate({
@@ -537,10 +537,10 @@ async function submitCdfGenerate() {
       }
     });
 
-    cdfFeedback.value = `Geracao de CDF solicitada para ${eligibleManifestCount.value} manifesto(s). Job ${accepted.jobId} criado com sucesso.`;
+    cdfFeedback.value = `Geração de CDF solicitada para ${eligibleManifestCount.value} manifesto(s). Processamento ${accepted.jobId} criado com sucesso.`;
     await loadManifestCandidates({ includeRequestedManifest: true });
   } catch (error) {
-    cdfFeedbackError.value = error?.message || 'Falha ao solicitar geracao de CDF.';
+    cdfFeedbackError.value = error?.message || 'Falha ao solicitar geração de CDF.';
   } finally {
     cdfLoading.value = false;
   }

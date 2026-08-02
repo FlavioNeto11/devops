@@ -47,6 +47,39 @@ function buildDefaultFilters() {
   };
 }
 
+// O período persistido "envelhece": salvo ontem, a tela reabria terminando ONTEM
+// (ex.: 02/07 a 01/08 em 02/08) e escondia os manifestos do dia. Mesmo bug já
+// corrigido em /manifestos e no DMR. Reancoramos a janela para terminar HOJE,
+// preservando o tamanho de período que o operador tinha escolhido.
+function refreshPersistedDateRange(persisted, fallback) {
+  const savedFrom = String(persisted?.dateFrom || '').trim();
+  const savedTo = String(persisted?.dateTo || '').trim();
+  const todayBr = getTodayBr();
+
+  if (!savedFrom || !savedTo) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  if (savedTo === todayBr) {
+    return { dateFrom: savedFrom, dateTo: savedTo };
+  }
+
+  const fromIso = brDateToIsoDate(savedFrom);
+  const toIso = brDateToIsoDate(savedTo);
+  if (!fromIso || !toIso) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  const spanDays = Math.round(
+    (new Date(`${toIso}T12:00:00`) - new Date(`${fromIso}T12:00:00`)) / 86400000
+  );
+  if (!Number.isFinite(spanDays) || spanDays < 0) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  return { dateFrom: formatDateOffsetBr(-spanDays), dateTo: todayBr };
+}
+
 function loadPersistedFilters() {
   try {
     const raw = localStorage.getItem(REPORT_FILTERS_KEY);
@@ -116,14 +149,15 @@ function resolveOperationalContext() {
 
 const persistedFilters = loadPersistedFilters();
 const defaults = buildDefaultFilters();
+const initialDateRange = refreshPersistedDateRange(persistedFilters, defaults);
 
 const filters = reactive({
   status: String(persistedFilters?.status || defaults.status).trim(),
   manifestNumber: String(persistedFilters?.manifestNumber || defaults.manifestNumber).trim(),
   carrierQuery: String(persistedFilters?.carrierQuery || defaults.carrierQuery).trim(),
   receiverQuery: String(persistedFilters?.receiverQuery || defaults.receiverQuery).trim(),
-  dateFrom: String(persistedFilters?.dateFrom || defaults.dateFrom).trim(),
-  dateTo: String(persistedFilters?.dateTo || defaults.dateTo).trim(),
+  dateFrom: initialDateRange.dateFrom,
+  dateTo: initialDateRange.dateTo,
   page: Number(persistedFilters?.page || defaults.page),
   pageSize: Number(persistedFilters?.pageSize || defaults.pageSize)
 });
@@ -198,7 +232,7 @@ function updateDateFilterFeedback(options = {}) {
   dateFilterError.value = '';
 
   if (showWideWindowInfo && Number.isFinite(Number(validation.spanDays)) && Number(validation.spanDays) > DATE_WINDOW_NOTICE_DAYS) {
-    dateFilterInfo.value = 'Janela ampla detectada. Se o retorno vier vazio, tente recortes menores para evitar limites operacionais da integracao CETESB.';
+    dateFilterInfo.value = 'Período longo selecionado. Se o resultado vier vazio, tente períodos menores para evitar os limites operacionais da CETESB.';
     return true;
   }
 
@@ -511,7 +545,7 @@ onMounted(async () => {
           </v-row>
           <div class="d-flex ga-2 mt-2">
             <v-btn color="primary" type="submit" :loading="loading">Aplicar filtros</v-btn>
-            <v-btn variant="outlined" :disabled="loading" @click="resetFilters">Redefinir faixa</v-btn>
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters">Limpar filtros</v-btn>
           </div>
         </v-form>
       </v-card-text>

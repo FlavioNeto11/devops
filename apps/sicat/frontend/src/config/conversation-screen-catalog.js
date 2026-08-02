@@ -8,8 +8,8 @@ const DEFAULT_SCREEN_META = {
       description: 'Toda orientação deve respeitar a conta CETESB selecionada e o contexto operacional em sessão.'
     },
     {
-      label: 'Rota atual',
-      description: 'Use a rota e a trilha de navegação para localizar o módulo certo antes de orientar uma ação.'
+      label: 'Tela atual',
+      description: 'Use a tela e a trilha de navegação para localizar o módulo certo antes de orientar uma ação.'
     }
   ],
   quickActions: [
@@ -66,7 +66,7 @@ const SHELL_SCREEN_CATALOG = {
         id: 'dashboard-summary',
         label: 'Resumo operacional',
         kind: 'backend',
-        prompt: 'Quero um resumo operacional do dashboard atual.',
+        prompt: 'Quero um resumo operacional do painel atual.',
         icon: 'mdi-view-dashboard-outline'
       },
       {

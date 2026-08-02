@@ -1943,8 +1943,8 @@ onUnmounted(() => {
                 Busca por número de MTR ignora o período selecionado.
               </div>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
-                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
+                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar filtros</v-btn>
+                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar filtros</v-btn>
               </div>
             </v-form>
           </v-card-text>
@@ -2001,11 +2001,11 @@ onUnmounted(() => {
                 <v-select
                   v-model.number="filters.pageSize"
                   :items="[10, 20, 50]"
-                  label="Por página"
+                  label="Itens por página"
                   density="compact"
                   variant="outlined"
                   hide-details
-                  style="width: 110px"
+                  style="width: 160px"
                   @update:model-value="applyFilters"
                 />
               </v-col>
