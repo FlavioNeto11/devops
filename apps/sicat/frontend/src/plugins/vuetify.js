@@ -3,6 +3,7 @@ import '@mdi/font/css/materialdesignicons.css';
 import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
+import { en, pt } from 'vuetify/locale';
 import { getStoredThemeMode, toVuetifyThemeName } from '../composables/useAppTheme.js';
 // Paleta monocromática institucional (slate + verde-petróleo) GERADA de
 // packages/design-tokens (marca sicat): o Vuetify alimenta componentes, os tokens
@@ -14,6 +15,25 @@ export default createVuetify({
   directives,
   display: {
     mobileBreakpoint: 'sm'
+  },
+  // Locale pt-BR: sem isto o Vuetify usa o pacote 'en' e a paginação de TODA
+  // tabela sai em inglês ("0-0 of 0", "Items per page", "Next page"). Ajustar
+  // aqui resolve o sistema inteiro (rodapé de paginação, aria-labels de
+  // navegação, "No data available") em vez de traduzir tabela por tabela.
+  locale: {
+    locale: 'pt',
+    fallback: 'en',
+    messages: {
+      pt: {
+        ...pt,
+        dataFooter: {
+          ...pt.dataFooter,
+          // Rótulo do SICAT (padrão ERP) — sobrepõe "Itens por página:" do pacote.
+          itemsPerPageText: 'Linhas por página:'
+        }
+      },
+      en
+    }
   },
   theme: {
     defaultTheme: toVuetifyThemeName(getStoredThemeMode()),

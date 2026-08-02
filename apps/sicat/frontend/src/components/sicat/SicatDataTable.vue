@@ -29,7 +29,12 @@ const props = defineProps({
   /** Habilita seleção múltipla (checkbox). v-model:selected. */
   selectable: { type: Boolean, default: false },
   selected: { type: Array, default: () => [] },
-  /** Mostra o footer de paginação (padrão ERP). Desligue com :show-footer="false". */
+  /**
+   * Mostra o footer de paginação (padrão ERP). Desligue com :show-footer="false".
+   * Os textos do rodapé ("1-10 de 100", "Linhas por página:") vêm do locale pt-BR
+   * configurado em plugins/vuetify.js — não passe literais aqui (o Vuetify roda
+   * essas props pelo tradutor e uma string crua gera aviso de chave inexistente).
+   */
   showFooter: { type: Boolean, default: true },
   /** Linhas por página (padrão 10). Use -1 para mostrar tudo. */
   itemsPerPage: { type: Number, default: 10 },
@@ -97,7 +102,6 @@ function onSelectionUpdate(value) {
       :model-value="selected"
       :items-per-page="itemsPerPage"
       :items-per-page-options="itemsPerPageOptions"
-      items-per-page-text="Linhas por página:"
       :hide-default-footer="!showFooter"
       class="sicat-data-table__table"
       @update:model-value="onSelectionUpdate"

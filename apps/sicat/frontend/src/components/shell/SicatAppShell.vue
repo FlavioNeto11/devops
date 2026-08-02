@@ -41,7 +41,7 @@ const currentPageTitle = computed(() => breadcrumbs.value[breadcrumbs.value.leng
 const currentPageSection = computed(() => breadcrumbs.value[0] || 'SICAT');
 const currentPageDescription = computed(
   () => getShellScreenDescription(route.name)
-    || 'Operação integrada do SICAT com experiência visual unificada em light e dark.'
+    || 'Operação de resíduos integrada à CETESB-SP.'
 );
 
 // Oculta o header genérico do shell quando a route pede, em chat, ou quando a
@@ -127,7 +127,7 @@ function skipToContent() {
       <footer class="sicat-shell__footer">
         <div class="sicat-shell__footer-inner">
           <span>SICAT MTR CETESB</span>
-          <span>Shell unificado · navegação por intenção · light e dark</span>
+          <span>Emissão e acompanhamento de MTR, CDF e DMR junto à CETESB-SP</span>
         </div>
       </footer>
     </div>

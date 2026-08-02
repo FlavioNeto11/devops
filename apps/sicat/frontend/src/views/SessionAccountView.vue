@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.js';
 import { formatDateTimeBr } from '../utils/date-format.js';
+import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -51,10 +52,11 @@ const sessionStateLabel = computed(() => {
   return 'Expirado';
 });
 
-const sessionStatusClass = computed(() => {
-  if (sessionState.value === 'healthy') return 'succeeded';
-  if (sessionState.value === 'warning') return 'retry';
-  return 'failed';
+// Tom do design system (SicatStatusBadge) para o estado da sessão.
+const sessionStateTone = computed(() => {
+  if (sessionState.value === 'healthy') return 'success';
+  if (sessionState.value === 'warning') return 'warning';
+  return 'error';
 });
 
 const operationalChecks = computed(() => {
@@ -74,15 +76,17 @@ const operationalChecks = computed(() => {
     },
     {
       key: 'sessionContextId',
-      label: 'sessionContextId presente',
+      label: 'Contexto de sessão na CETESB',
       ok: Boolean(sessionContextId),
-      detail: sessionContextId || '-'
+      // O identificador técnico continua disponível pelo botão "Copiar", mas não
+      // é despejado na tela: para o operador só importa se está vinculado.
+      detail: sessionContextId ? 'Vinculado a esta sessão' : 'Não vinculado — sincronize o contexto'
     },
     {
       key: 'integrationAccountId',
-      label: 'integrationAccountId presente',
+      label: 'Conta de integração vinculada',
       ok: Boolean(integrationAccountId.value),
-      detail: integrationAccountId.value || '-'
+      detail: integrationAccountId.value ? 'Vinculada a esta sessão' : 'Não vinculada — selecione uma conta CETESB'
     }
   ];
 });
@@ -202,18 +206,16 @@ onUnmounted(() => {
       <v-card-text>
         <v-row align="center">
           <v-col>
-            <div class="text-overline text-primary mb-1">Contexto operacional</div>
-            <h2 class="text-h5 font-weight-semibold mb-1">Sessão e Conta CETESB</h2>
-            <p class="text-body-2 text-medium-emphasis mb-1">Clareza operacional de autenticação, conta ativa e contexto de execução.</p>
+            <!-- Sem título aqui: o cabeçalho da página (shell) já anuncia
+                 "Minha sessão · Conta CETESB" — repetir gerava título duplicado. -->
+            <p class="text-body-2 text-medium-emphasis mb-1">Veja quanto tempo resta na sua sessão, qual conta CETESB está ativa e troque de conta quando precisar.</p>
             <div class="d-flex flex-wrap ga-3 mt-1 text-caption text-medium-emphasis">
               <span>Última sincronização: {{ lastSyncAt ? formatDate(lastSyncAt) : '—' }}</span>
               <span>Usuário: {{ authStore.user.value?.email || '-' }}</span>
             </div>
           </v-col>
           <v-col cols="auto">
-            <v-chip :color="sessionStatusClass === 'succeeded' ? 'success' : sessionStatusClass === 'failed' ? 'error' : 'warning'" variant="tonal">
-              {{ sessionStateLabel }}
-            </v-chip>
+            <SicatStatusBadge :label="sessionStateLabel" :tone="sessionStateTone" size="lg" with-dot />
           </v-col>
         </v-row>
       </v-card-text>
@@ -245,8 +247,8 @@ onUnmounted(() => {
           <v-card-text>
             <div class="text-caption text-medium-emphasis mb-1">Contexto operacional</div>
             <div class="text-h6 font-weight-bold" :class="hasOperationalContext ? 'text-success' : 'text-warning'">{{ hasOperationalContext ? 'Pronto' : 'Incompleto' }}</div>
-            <div class="text-caption">sessionContextId: {{ sessionContext?.id || sessionContext?.sessionContextId || '-' }}</div>
-            <div class="text-caption">integrationAccountId: {{ integrationAccountId || '-' }}</div>
+            <div class="text-caption">Contexto de sessão: {{ sessionContext?.id || sessionContext?.sessionContextId ? 'vinculado' : 'pendente' }}</div>
+            <div class="text-caption">Conta de integração: {{ integrationAccountId ? 'vinculada' : 'pendente' }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -317,7 +319,7 @@ onUnmounted(() => {
     </v-card>
 
     <v-card>
-      <v-card-title class="text-subtitle-1 font-weight-semibold">Diagnóstico de contexto operacional</v-card-title>
+      <v-card-title class="text-subtitle-1 font-weight-semibold">Verificações da sessão e da conta CETESB</v-card-title>
       <v-table density="compact">
         <thead>
           <tr>
@@ -342,18 +344,20 @@ onUnmounted(() => {
                 size="small"
                 variant="outlined"
                 :disabled="!sessionContext?.id && !sessionContext?.sessionContextId"
-                @click="copyValue(sessionContext?.id || sessionContext?.sessionContextId, 'sessionContextId')"
+                title="Copia o identificador técnico para informar ao suporte"
+                @click="copyValue(sessionContext?.id || sessionContext?.sessionContextId, 'Identificador do contexto de sessão')"
               >
-                Copiar ID
+                Copiar identificador
               </v-btn>
               <v-btn
                 v-else-if="check.key === 'integrationAccountId'"
                 size="small"
                 variant="outlined"
                 :disabled="!integrationAccountId"
-                @click="copyValue(integrationAccountId, 'integrationAccountId')"
+                title="Copia o identificador técnico para informar ao suporte"
+                @click="copyValue(integrationAccountId, 'Identificador da conta de integração')"
               >
-                Copiar ID
+                Copiar identificador
               </v-btn>
             </td>
           </tr>
