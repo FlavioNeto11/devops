@@ -1,5 +1,40 @@
 @import './tokens.generated.css';
 
+/* Redeclara a fonte de ícones do Vuetify (@mdi/font) só para fixar
+   `font-display: block`: o pacote publica o @font-face SEM essa propriedade, e
+   no `auto` o navegador cai no fallback assim que o período de bloqueio expira
+   — os ícones apareciam como quadradinhos (.notdef) por 1-3s no primeiro
+   carregamento. Com `block` o espaço fica reservado e vazio até a fonte chegar.
+   Mesma família/peso/estilo do pacote: esta regra, por vir depois no
+   documento, substitui a original. */
+@font-face {
+  font-family: 'Material Design Icons';
+  font-style: normal;
+  font-weight: normal;
+  font-display: block;
+  src:
+    url('@mdi/font/fonts/materialdesignicons-webfont.woff2') format('woff2'),
+    url('@mdi/font/fonts/materialdesignicons-webfont.woff') format('woff'),
+    url('@mdi/font/fonts/materialdesignicons-webfont.ttf') format('truetype');
+}
+
+/* O tema do app é a fonte da verdade também para os widgets nativos (barras de
+   rolagem, <dialog>, seletores de data, autofill). Sem `color-scheme` eles
+   seguem o SO e destoavam do tema claro escolhido no app. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
 /* Respeita "prefers-reduced-motion": neutraliza transições/animações globalmente. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -367,11 +402,14 @@ textarea:focus-visible {
   display: none;
 }
 
+/* Escala de empilhamento do shell: skip-link (300) > assistente (220) >
+   topbar (110). Com z-index 60 o link "Pular para o conteúdo" ficava ATRÁS da
+   barra superior ao receber foco — ou seja, invisível justo quando aparece. */
 .sicat-skip-link {
-  position: absolute;
+  position: fixed;
   top: -100px;
   left: 12px;
-  z-index: 60;
+  z-index: 300;
   background: var(--color-primary);
   color: var(--color-primary-contrast);
   padding: 8px 12px;

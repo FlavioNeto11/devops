@@ -41,7 +41,7 @@ const currentPageTitle = computed(() => breadcrumbs.value[breadcrumbs.value.leng
 const currentPageSection = computed(() => breadcrumbs.value[0] || 'SICAT');
 const currentPageDescription = computed(
   () => getShellScreenDescription(route.name)
-    || 'Operação integrada do SICAT com experiência visual unificada em light e dark.'
+    || 'Acompanhe e execute as operações de MTR, CDF e DMR da conta CETESB ativa.'
 );
 
 // Oculta o header genérico do shell quando a route pede, em chat, ou quando a
@@ -127,7 +127,7 @@ function skipToContent() {
       <footer class="sicat-shell__footer">
         <div class="sicat-shell__footer-inner">
           <span>SICAT MTR CETESB</span>
-          <span>Shell unificado · navegação por intenção · light e dark</span>
+          <span>Automação de manifestos de transporte de resíduos — CETESB-SP</span>
         </div>
       </footer>
     </div>
@@ -136,6 +136,9 @@ function skipToContent() {
 
 <style scoped>
 .sicat-shell {
+  /* Faixa reservada no rodapé do conteúdo para o lançador flutuante do
+     assistente (fixo em baixo/direita) não cobrir o último bloco da página. */
+  --assistant-launcher-space: 84px;
   display: flex;
   min-height: 100vh;
   flex-direction: column;
@@ -152,7 +155,7 @@ function skipToContent() {
 
 .sicat-shell__content {
   flex: 1;
-  padding: 22px 0 34px;
+  padding: 22px 0 calc(34px + var(--assistant-launcher-space, 0px));
   overflow-y: auto;
 }
 
