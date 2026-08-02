@@ -30,6 +30,28 @@ export function resolveManifestRawStatus(manifest) {
   return resolveManifestRawSituation(manifest);
 }
 
+/**
+ * Rótulo legível de um FILTRO de situação, a partir dos valores CRUS enviados à
+ * API (`status` interno + `externalStatus`, que é um fragmento ILIKE da CETESB:
+ * 'receb', 'salvo', 'cancel'...).
+ *
+ * Sem isto o resumo de "Filtros ativos" vazava o token cru truncado
+ * (`situação "receb"`) — vocabulário de máquina, sem chip correspondente na tela.
+ * Passa pelo mapa CANÔNICO (`lib/status-map.js`), o mesmo dos badges e dos chips.
+ */
+export function resolveSituationFilterLabel(status, externalStatus) {
+  const rawStatus = String(status || '').trim();
+  const rawExternalStatus = String(externalStatus || '').trim();
+  const labels = [];
+  if (rawExternalStatus) {
+    labels.push(resolveManifestSituationLabel({ externalStatus: rawExternalStatus }));
+  }
+  if (rawStatus) {
+    labels.push(resolveManifestSituationLabel({ status: rawStatus }));
+  }
+  return [...new Set(labels.filter((label) => label && label !== '-'))].join(' / ');
+}
+
 export function normalizedStatusClass(status) {
   const value = String(status || '').toLowerCase();
   if (value.includes('queue') || value.includes('pend')) return 'queued';
@@ -245,11 +267,17 @@ export function canCancelManifest(manifest) {
   if (!status) {
     return false;
   }
+  // Manifesto RECEBIDO nao volta a ser cancelado: o fluxo dele segue para o
+  // certificado (ver canUseManifestForCdf, que EXIGE 'receb'). O recebimento
+  // mantem o status interno 'submitted', entao sem este bloqueio o
+  // `status.includes('submit')` abaixo reabilitava "Cancelar" para recebidos
+  // (em lote aparecia "Cancelar (N)" para N manifestos ja recebidos).
   if (
     status.includes('draft')
     || status.includes('queue')
     || status.includes('process')
     || status.includes('cancel')
+    || status.includes('receb')
     || status.includes('fail')
     || status.includes('error')
   ) {
@@ -413,6 +441,11 @@ export function describeReceiveManifestRestriction(manifest) {
 export function describeCancelManifestRestriction(manifest) {
   if (isCancelledStatus(manifest)) {
     return 'Manifesto ja cancelado.';
+  }
+  // Espelha describeReceiveManifestRestriction: recebido é estado final para o
+  // cancelamento; o próximo passo é o certificado (CDF).
+  if (normalizedStatusValue(manifest).includes('receb')) {
+    return 'Este manifesto já foi recebido. O próximo passo é o certificado (CDF), não o cancelamento.';
   }
   if (!String(manifest?.externalHashCode || '').trim()) {
     return 'Sem hash CETESB — manifesto ainda nao registrado no SIGOR.';
