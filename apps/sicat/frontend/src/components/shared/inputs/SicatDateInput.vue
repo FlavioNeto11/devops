@@ -63,7 +63,7 @@ const rootRef = ref(null);
 const isPickerOpen = ref(false);
 const activeMonth = ref(new Date());
 
-const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 const monthLabel = computed(() => {
   const monthDate = activeMonth.value;
@@ -347,8 +347,8 @@ defineExpose({
 
 <template>
   <div ref="rootRef" class="sicat-date-field" :data-open="isPickerOpen">
-    <button class="sicat-date-field-nav" type="button" :aria-label="previousDayAriaLabel" :disabled="disabled" @click="shiftDay(-1)">
-      <span class="material-symbols-outlined">chevron_left</span>
+    <button class="sicat-date-field-nav" type="button" :aria-label="previousDayAriaLabel" :title="previousDayAriaLabel" :disabled="disabled" @click="shiftDay(-1)">
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
     </button>
     <input
       :id="id"
@@ -363,21 +363,21 @@ defineExpose({
       @input="setValue($event.target.value)"
       @blur="normalizeAndCommit"
     />
-    <button class="sicat-date-field-picker" type="button" :aria-label="openCalendarAriaLabel" :disabled="disabled" @click="openPicker">
-      <span class="material-symbols-outlined">calendar_month</span>
+    <button class="sicat-date-field-picker" type="button" :aria-label="openCalendarAriaLabel" :title="openCalendarAriaLabel" :disabled="disabled" @click="openPicker">
+      <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
     </button>
-    <button class="sicat-date-field-nav" type="button" :aria-label="nextDayAriaLabel" :disabled="disabled" @click="shiftDay(1)">
-      <span class="material-symbols-outlined">chevron_right</span>
+    <button class="sicat-date-field-nav" type="button" :aria-label="nextDayAriaLabel" :title="nextDayAriaLabel" :disabled="disabled" @click="shiftDay(1)">
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
     </button>
 
     <dialog v-if="isPickerOpen" class="sicat-date-field-popover" open :aria-label="ariaLabel">
       <div class="sicat-date-field-header">
-        <button class="sicat-date-field-popover-nav" type="button" aria-label="Mês anterior" @click="shiftMonth(-1)">
-          <span class="material-symbols-outlined">chevron_left</span>
+        <button class="sicat-date-field-popover-nav" type="button" aria-label="Mês anterior" title="Mês anterior" @click="shiftMonth(-1)">
+          <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
         </button>
-        <strong>{{ monthLabel }}</strong>
-        <button class="sicat-date-field-popover-nav" type="button" aria-label="Mês seguinte" @click="shiftMonth(1)">
-          <span class="material-symbols-outlined">chevron_right</span>
+        <strong aria-live="polite">{{ monthLabel }}</strong>
+        <button class="sicat-date-field-popover-nav" type="button" aria-label="Mês seguinte" title="Mês seguinte" @click="shiftMonth(1)">
+          <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
         </button>
       </div>
 

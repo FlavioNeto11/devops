@@ -99,7 +99,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['MTR', 'Relatórios']
+      breadcrumb: ['MTR', 'Relatórios de MTR']
     }
   },
   {
@@ -138,7 +138,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Declarações']
+      breadcrumb: ['Resíduos · DMR', 'Declarações de resíduos']
     }
   },
   {
@@ -149,7 +149,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Pendentes']
+      breadcrumb: ['Resíduos · DMR', 'Declarações pendentes']
     }
   },
   {
@@ -160,7 +160,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Nova declaração']
+      breadcrumb: ['Resíduos · DMR', 'Nova declaração de resíduos']
     }
   },
   {
@@ -171,7 +171,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Detalhe']
+      breadcrumb: ['Resíduos · DMR', 'Detalhe da declaração']
     }
   },
   {
@@ -184,7 +184,7 @@ const routes = [
       audience: 'operator',
       // MTR provisório (emergência) é fluxo do Gerador (espelha config/navigation.js).
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Lista']
+      breadcrumb: ['MTR Provisório', 'Manifestos provisórios']
     }
   },
   {
@@ -196,7 +196,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Novo']
+      breadcrumb: ['MTR Provisório', 'Novo manifesto provisório']
     }
   },
   {
@@ -208,7 +208,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Detalhe']
+      breadcrumb: ['MTR Provisório', 'Detalhe do manifesto provisório']
     }
   },
   {
@@ -242,7 +242,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'admin',
-      breadcrumb: ['Administração', 'Acessos']
+      breadcrumb: ['Administração', 'Perfis e acessos']
     }
   },
   {
@@ -254,7 +254,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Visão geral']
+      breadcrumb: ['Sistema', 'Visão geral do sistema']
     }
   },
   {
@@ -282,7 +282,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Auditoria', 'Timeline']
+      breadcrumb: ['Sistema', 'Auditoria', 'Linha do tempo da auditoria']
     }
   },
   {
@@ -358,7 +358,7 @@ const routes = [
       audience: 'operator',
       // CDF é emitido pelo Destinador (espelha config/navigation.js).
       personas: ['receiver'],
-      breadcrumb: ['Certificados · CDF', 'Emitidos']
+      breadcrumb: ['Certificados · CDF', 'Certificados emitidos']
     }
   },
   {
