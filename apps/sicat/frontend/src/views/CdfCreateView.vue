@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { enqueueCdfGenerate, getCdfResponsibles, getManifestById, listManifests } from '../services/api.js';
 import { useCdfOperationalContext } from '../composables/useCdfOperationalContext.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import SicatCard from '../components/sicat/SicatCard.vue';
@@ -181,6 +182,11 @@ const cdfResponsibleOptions = computed(() => (Array.isArray(cdfResponsibles.valu
   .filter((option) => option.value != null && option.value !== ''));
 
 const manifests = ref([]);
+// Teto desta tela: carregamos uma única página de candidatos. Guardamos o total
+// devolvido pela API para dizer ao operador quando a lista está truncada
+// (antes o "Candidatos: 100" parecia o universo inteiro).
+const CANDIDATES_PAGE_SIZE = 120;
+const candidatesTotalItems = ref(0);
 const manifestsLoading = ref(false);
 const manifestsLoaded = ref(false);
 const manifestsError = ref('');
@@ -237,21 +243,41 @@ const candidateManifestEntries = computed(() => (Array.isArray(manifests.value) 
 const eligibleCandidates = computed(() => candidateManifestEntries.value.filter((entry) => entry.eligible));
 const blockedCandidates = computed(() => candidateManifestEntries.value.filter((entry) => !entry.eligible));
 
+// Aviso de truncamento: a API tem mais manifestos do que esta tela carregou.
+const candidatesTruncatedNotice = computed(() => {
+  const total = Number(candidatesTotalItems.value || 0);
+  const loaded = candidateManifestEntries.value.length;
+  if (!total || total <= loaded) {
+    return '';
+  }
+  return `Esta tela avalia os ${loaded} manifestos mais recentes da conta (de ${total} no total). Se o manifesto que você procura não estiver na lista, abra-o em Manifestos e use “Gerar CDF” por lá.`;
+});
+
 const candidateTableHeaders = [
   { title: 'Sel.', key: 'select', sortable: false, width: '64' },
   { title: 'MTR', key: 'mtr', sortable: false },
   { title: 'Gerador', key: 'generator', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Situação', key: 'status', sortable: false },
   { title: 'Condição', key: 'condition', sortable: false },
   { title: 'Ação', key: 'actions', sortable: false, align: 'end' }
 ];
 
-const candidateTableRows = computed(() => candidateManifestEntries.value.map((entry) => ({
+// Filtro de leitura: sem isto, entender "38 bloqueados" exigia varrer a tabela
+// inteira procurando as linhas com motivo na coluna Condição.
+const showOnlyBlockedCandidates = ref(false);
+
+const visibleCandidateEntries = computed(() => (showOnlyBlockedCandidates.value
+  ? candidateManifestEntries.value.filter((entry) => !entry.eligible)
+  : candidateManifestEntries.value));
+
+const candidateTableRows = computed(() => visibleCandidateEntries.value.map((entry) => ({
   id: entry.manifestId,
   manifestId: entry.manifestId,
   mtr: entry.manifestLabel,
   generator: entry.manifest?.generator?.description || '-',
-  status: entry.manifest?.externalStatus || entry.manifest?.status || '-',
+  // Mesmo vocabulário pt-BR da lista de manifestos (nada de "Salvo"/"draft" cru).
+  status: resolveManifestSituationLabel(entry.manifest),
+  rawStatus: resolveManifestRawSituation(entry.manifest),
   eligible: entry.eligible,
   reason: entry.reason,
   selected: entry.selected
@@ -366,9 +392,10 @@ async function loadManifestCandidates(options = {}) {
       integrationAccountId: integrationAccountId.value,
       sessionContextId: sessionContextId.value,
       page: 1,
-      pageSize: 120
+      pageSize: CANDIDATES_PAGE_SIZE
     });
 
+    candidatesTotalItems.value = Number(response?.totalItems || 0);
     const baseItems = Array.isArray(response?.items) ? response.items : [];
     const merged = includeRequestedManifest ? await appendRequestedManifest(baseItems) : [...baseItems];
 
@@ -563,14 +590,18 @@ onMounted(() => {
       title="Manifestos para emissão"
       subtitle="Fluxo operacional de criação. Esta rota não exibe listagem de CDF emitido."
     >
+      <!-- Escopo explícito: estes contadores falam da LISTA carregada abaixo.
+           Os do "Resumo da seleção" falam só do que está marcado. Antes ambos
+           diziam apenas "Elegíveis/Bloqueados" e se contradiziam na tela. -->
       <template #header-actions>
         <div class="cdf-create-view__chips">
-          <span class="cdf-create-view__chip">Candidatos: {{ candidateManifestEntries.length }}</span>
-          <span class="cdf-create-view__chip">Elegíveis: {{ eligibleCandidates.length }}</span>
-          <span class="cdf-create-view__chip warning">Bloqueados: {{ blockedCandidates.length }}</span>
+          <span class="cdf-create-view__chip">Candidatos na lista: {{ candidateManifestEntries.length }}</span>
+          <span class="cdf-create-view__chip">Elegíveis na lista: {{ eligibleCandidates.length }}</span>
+          <span class="cdf-create-view__chip warning">Bloqueados na lista: {{ blockedCandidates.length }}</span>
         </div>
       </template>
 
+      <SicatInlineAlert v-if="candidatesTruncatedNotice" tone="info" :message="candidatesTruncatedNotice" class="mb-2" />
       <SicatInlineAlert v-if="requestedManifestIds.length" tone="info" :message="`Pré-seleção via link para ${requestedManifestIds.length} manifesto(s): ${requestedManifestIds.join(', ')}.`" class="mb-2" />
       <SicatInlineAlert v-if="!contextReady" tone="warning" message="O contexto operacional CETESB ainda não está pronto para geração de CDF." class="mb-2" />
       <SicatInlineAlert v-if="manifestsFeedback" tone="info" :message="manifestsFeedback" class="mb-2" />
@@ -579,7 +610,17 @@ onMounted(() => {
       <div class="cdf-create-view__table-actions">
         <v-btn variant="tonal" size="small" :loading="manifestsLoading" :disabled="manifestsLoading || !contextReady" @click="loadManifestCandidates({ includeRequestedManifest: true })">Atualizar manifestos</v-btn>
         <v-btn variant="outlined" size="small" :disabled="!eligibleCandidates.length" @click="toggleAllEligibleManifests">{{ allEligibleSelected ? 'Limpar elegíveis' : 'Selecionar todos elegíveis' }}</v-btn>
+        <v-btn
+          :variant="showOnlyBlockedCandidates ? 'flat' : 'text'"
+          :color="showOnlyBlockedCandidates ? 'warning' : undefined"
+          size="small"
+          :disabled="!blockedCandidates.length"
+          @click="showOnlyBlockedCandidates = !showOnlyBlockedCandidates"
+        >
+          {{ showOnlyBlockedCandidates ? 'Mostrar todos' : `Ver só os bloqueados (${blockedCandidates.length})` }}
+        </v-btn>
       </div>
+      <p class="cdf-create-view__hint">A coluna “Condição” explica, linha a linha, por que um manifesto está bloqueado.</p>
 
       <SicatDataTable
         :headers="candidateTableHeaders"
@@ -590,6 +631,9 @@ onMounted(() => {
       >
         <template #[`item.select`]="{ item }">
           <v-checkbox-btn :model-value="item.selected" density="compact" @update:model-value="toggleManifestSelection(item.manifestId)" />
+        </template>
+        <template #[`item.status`]="{ item }">
+          <span :title="item.rawStatus ? `Situação na CETESB: ${item.rawStatus}` : undefined">{{ item.status }}</span>
         </template>
         <template #[`item.condition`]="{ item }">
           <SicatStatusBadge :tone="item.eligible ? 'success' : 'error'" :label="item.eligible ? 'Elegível' : item.reason" />
@@ -602,7 +646,10 @@ onMounted(() => {
       <section class="cdf-create-view__summary">
         <h4>Resumo da seleção</h4>
         <p class="text-medium-emphasis">
-          Selecionados: {{ selectedManifestCount }} · Elegíveis: {{ eligibleManifestCount }} · Bloqueados: {{ blockedManifestCount }}
+          Selecionados: {{ selectedManifestCount }} · Elegíveis na seleção: {{ eligibleManifestCount }} · Bloqueados na seleção: {{ blockedManifestCount }}
+        </p>
+        <p v-if="!selectedManifestCount" class="text-medium-emphasis">
+          Nada marcado ainda — marque manifestos na tabela acima. Os contadores do topo se referem à lista inteira.
         </p>
         <ul v-if="blockedManifestCount" class="cdf-create-view__blocked-list">
           <li v-for="entry in selectedManifestEntries.filter((item) => !item.eligible)" :key="`blocked-${entry.manifestId}`">

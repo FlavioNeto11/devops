@@ -11,7 +11,7 @@ import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, listManifests as listManifestsApi, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useManifestsStore } from '../stores/manifests.js';
-import { brDateToIsoDate, getTodayBr, isoDateToBrDate, normalizeBrDateInput } from '../utils/date-format.js';
+import { brDateToIsoDate, getTodayBr, isoDateToBrDate, isoDaysAgo, isoToday, normalizeBrDateInput } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
 import {
   buildBatchPrintZipFileName,
@@ -38,6 +38,7 @@ import {
   normalizedStatusValue,
   parsePrintUrl,
   resolveManifestIdentifier,
+  resolveManifestRawStatus,
   resolveManifestSnapshot,
   resolveManifestStatusLabel,
   sanitizeDownloadFileName,
@@ -287,7 +288,7 @@ const selectedResponsibleCode = computed({
 const activeDatePresetDays = computed(() => {
   const fromIso = brDateToIsoDate(filters.dateFrom);
   const toIso = brDateToIsoDate(filters.dateTo);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = isoToday();
   if (!fromIso || !toIso || toIso !== todayIso) {
     return null;
   }
@@ -824,12 +825,13 @@ function openReceiveModal(manifest = null) {
   }
 }
 
+// Atalhos de período: "N dias" INCLUI hoje (30 dias = hoje + 29 anteriores).
+// Data local via isoDaysAgo — `toISOString()` converte para UTC e, à noite no
+// fuso do Brasil, empurrava o início do período um dia para frente.
 function applyDatePreset(days) {
-  const today = new Date();
-  const from = new Date(today);
-  from.setDate(today.getDate() - (Number(days) - 1));
+  const span = Math.max(1, Number(days) || 1);
   filters.dateTo = getTodayBr();
-  filters.dateFrom = isoDateToBrDate(from.toISOString().slice(0, 10)) || getTodayBr();
+  filters.dateFrom = isoDateToBrDate(isoDaysAgo(span - 1)) || getTodayBr();
   applyFilters();
 }
 
@@ -2009,7 +2011,11 @@ onUnmounted(() => {
               </v-col>
             </v-row>
           </v-card-text>
-          <v-table density="compact" class="manifests-table-shell">
+          <!-- Recarga sobre dados já exibidos: barra de progresso + tabela esmaecida.
+               Antes uma linha "Carregando manifestos…" era injetada DENTRO do corpo
+               acima das linhas antigas — dois estados simultâneos na mesma tabela. -->
+          <v-progress-linear v-if="loadingList" indeterminate color="primary" height="3" aria-label="Carregando manifestos" />
+          <v-table density="compact" class="manifests-table-shell" :class="{ 'is-refreshing': loadingList && items.length }">
             <thead>
               <tr>
                 <th scope="col" style="width:40px">
@@ -2024,8 +2030,8 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loadingList">
-                <td colspan="7" class="text-center text-medium-emphasis pa-4">Carregando manifestos...</td>
+              <tr v-if="loadingList && !items.length">
+                <td colspan="7" class="text-center text-medium-emphasis pa-4" aria-live="polite">Carregando manifestos…</td>
               </tr>
               <tr v-if="!items.length && !loadingList">
                 <td colspan="7" class="text-center pa-6">
@@ -2068,9 +2074,12 @@ onUnmounted(() => {
                 <td>{{ formatPartnerLabel(manifest.carrier) }}</td>
                 <td>{{ formatPartnerLabel(manifest.receiver) }}</td>
                 <td>
+                  <!-- Rótulo canônico (mesmo vocabulário dos chips de Situação);
+                       o termo cru da CETESB fica no tooltip para rastreabilidade. -->
                   <SicatStatusBadge
                     :status="manifest.externalStatus || manifest.status"
                     :label="resolveManifestStatusLabel(manifest)"
+                    :title="resolveManifestRawStatus(manifest) ? `Situação na CETESB: ${resolveManifestRawStatus(manifest)}` : undefined"
                     domain="manifest"
                     with-dot
                   />
@@ -2574,6 +2583,13 @@ onUnmounted(() => {
   padding: 0;
   overflow-x: auto;
   overflow-y: visible;
+}
+
+/* Recarga com dados na tela: esmaece e bloqueia o clique (sem trocar o conteúdo
+   por uma linha de "carregando" no meio dos dados antigos). */
+.manifests-table-shell.is-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .manifest-code-cell {

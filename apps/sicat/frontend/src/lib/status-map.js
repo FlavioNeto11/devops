@@ -77,6 +77,21 @@ function resolveManifestToneBySubstring(key) {
   return null;
 }
 
+// Vocabulário CANÔNICO das situações CETESB (texto livre pt-BR vindo do SIGOR:
+// 'Salvo', 'Recebido', 'Armazenado temporariamente'...). Sem este mapa a lista
+// mostrava o termo CRU ('Salvo') enquanto o filtro da mesma tela chamava o mesmo
+// estado de 'Aguardando baixa' — dois vocabulários para o mesmo status.
+// Ordem importa: o primeiro fragmento que casar vence.
+const MANIFEST_SITUATION_LABEL_RULES = Object.freeze([
+  ['receb', 'Recebido'],
+  ['salvo', 'Aguardando baixa'],
+  ['armazenado', 'Armazenado temporariamente'],
+  ['trâns', 'Em trânsito'],
+  ['trans', 'Em trânsito'],
+  ['rejeit', 'Rejeitado'],
+  ['cancel', 'Cancelado']
+]);
+
 const MANIFEST_STATUS_LABELS = Object.freeze({
   draft: 'Rascunho',
   rascunho: 'Rascunho',
@@ -249,6 +264,35 @@ export function resolveStatusLabel(domain, status, { fallback = null } = {}) {
   if (map && map[key]) return map[key];
   if (fallback) return fallback;
   return humanizeFallback(status);
+}
+
+/**
+ * Rótulo canônico da SITUAÇÃO de um manifesto, na ordem de precedência real:
+ * situação CETESB (externalStatus, texto livre) -> status interno -> humanizado.
+ *
+ * Fonte ÚNICA das telas de MTR (lista, relatório e dashboard) para o mesmo
+ * manifesto não ser rotulado de três jeitos diferentes.
+ */
+export function resolveManifestSituationLabel(manifest) {
+  const externalKey = normalizeKey(manifest?.externalStatus);
+  if (externalKey) {
+    const rule = MANIFEST_SITUATION_LABEL_RULES.find(([fragment]) => externalKey.includes(fragment));
+    if (rule) return rule[1];
+    if (MANIFEST_STATUS_LABELS[externalKey]) return MANIFEST_STATUS_LABELS[externalKey];
+    return humanizeFallback(manifest?.externalStatus);
+  }
+
+  const internalKey = normalizeKey(manifest?.status);
+  if (!internalKey) return '-';
+  return MANIFEST_STATUS_LABELS[internalKey] || humanizeFallback(manifest?.status);
+}
+
+/**
+ * Termo CRU da CETESB, para expor como tooltip/legenda ao lado do rótulo
+ * canônico (rastreabilidade: o operador ainda consegue casar com o SIGOR).
+ */
+export function resolveManifestRawSituation(manifest) {
+  return String(manifest?.externalStatus || manifest?.status || '').trim();
 }
 
 export function toneToVuetifyColor(tone) {

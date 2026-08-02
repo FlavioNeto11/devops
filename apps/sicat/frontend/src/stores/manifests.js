@@ -1,7 +1,7 @@
 import { reactive, ref } from 'vue';
 import { getManifestById, listManifests } from '../services/api.js';
 import { useAuthStore } from './auth.js';
-import { getTodayBr, isoDateToBrDate, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
+import { getTodayBr, isoDateToBrDate, isoToday, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 
 const INTEGRATION_ACCOUNT_ID_KEY = 'sicat_active_integration_account_id';
 const MANIFEST_FILTERS_KEY = 'sicat_manifest_list_filters';
@@ -38,8 +38,26 @@ function loadPersistedManifestFilters() {
   }
 }
 
+// A JANELA DE DATAS persistida só vale para o MESMO DIA em que foi salva.
+// Sem isso, quem usou a tela em 01/07 reabria em 01/08 com o filtro travado em
+// 01/07 — a lista voltava vazia e parecia "bug do mês anterior". Os demais
+// filtros (situação, número, parceiros) continuam persistindo normalmente.
+function resolvePersistedDateWindow(persistedFilters) {
+  const today = getTodayBr();
+  const savedOn = String(persistedFilters?.savedOn || '').trim();
+  if (!persistedFilters || savedOn !== isoToday()) {
+    return { dateFrom: today, dateTo: today };
+  }
+
+  return {
+    dateFrom: String(persistedFilters.dateFrom || today).trim(),
+    dateTo: String(persistedFilters.dateTo || today).trim()
+  };
+}
+
 function persistManifestFilters(filters) {
   const payload = {
+    savedOn: isoToday(),
     integrationAccountId: String(filters.integrationAccountId || '').trim(),
     status: String(filters.status || '').trim(),
     externalStatus: String(filters.externalStatus || '').trim(),
@@ -111,6 +129,7 @@ function hasCetesbSingleDayIntervalError(message) {
 export function useManifestsStore() {
   const authStore = useAuthStore();
   const persistedFilters = loadPersistedManifestFilters();
+  const persistedDateWindow = resolvePersistedDateWindow(persistedFilters);
 
   const filters = reactive({
     integrationAccountId: resolveInitialIntegrationAccountId(authStore, persistedFilters),
@@ -120,8 +139,8 @@ export function useManifestsStore() {
     manifestNumber: String(persistedFilters?.manifestNumber || '').trim(),
     carrierQuery: String(persistedFilters?.carrierQuery || '').trim(),
     receiverQuery: String(persistedFilters?.receiverQuery || '').trim(),
-    dateFrom: String(persistedFilters?.dateFrom || getTodayBr()).trim(),
-    dateTo: String(persistedFilters?.dateTo || getTodayBr()).trim(),
+    dateFrom: persistedDateWindow.dateFrom,
+    dateTo: persistedDateWindow.dateTo,
     page: Number(persistedFilters?.page || 1),
     pageSize: Number(persistedFilters?.pageSize || 20)
   });
