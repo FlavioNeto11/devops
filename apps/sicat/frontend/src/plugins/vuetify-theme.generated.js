@@ -6,7 +6,7 @@
 // escala neutra de cinza-frio; UM acento verde-petróleo escuro. Sincronia com os
 // tokens CSS é garantida na fonte (packages/design-tokens/tokens.json).
 export const sicatVuetifyThemes = {
-  vuexy: {
+  sicat: {
     dark: false,
     colors: {
       primary: '#0e6e5c',
@@ -21,7 +21,7 @@ export const sicatVuetifyThemes = {
       'surface-light': '#f0f3f4',
     }
   },
-  vuexyDark: {
+  sicatDark: {
     dark: true,
     colors: {
       primary: '#35b493',

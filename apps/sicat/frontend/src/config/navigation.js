@@ -52,16 +52,20 @@ export const NAVIGATION_GROUPS = [
         personas: ['generator']
       },
       {
+        // Nomenclatura única do conceito (menu, breadcrumb, aba do navegador):
+        // "Relatórios de MTR".
         to: '/relatorios/mtrs',
-        label: 'Relatórios',
+        label: 'Relatórios de MTR',
         icon: 'mdi-chart-box-outline',
         description: 'Resumo dos seus manifestos'
       }
     ]
   },
   {
+    // Nomenclatura única do conceito (menu, breadcrumb, título e botão da tela):
+    // "MTR provisório" — é como a CETESB o chama e como o glossário registra.
     id: 'mtr-provisorio',
-    label: 'Manifesto de emergência',
+    label: 'MTR provisório',
     icon: 'mdi-file-clock-outline',
     kind: 'direct',
     module: 'operacao',
@@ -122,13 +126,15 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
+    // Nomenclatura única do conceito: "Assistente" (menu, aba do chat e o botão
+    // flutuante). O que ele faz fica na descrição, não em um segundo nome.
     id: 'conversacional',
-    label: 'Tirar dúvidas',
+    label: 'Assistente',
     icon: 'mdi-chat-processing-outline',
     kind: 'direct',
     module: 'operacao',
     to: '/conversacional/chat',
-    description: 'Pergunte ao assistente'
+    description: 'Tire dúvidas e peça ajuda com a operação'
   },
   {
     id: 'sistema',
@@ -175,7 +181,7 @@ export const NAVIGATION_GROUPS = [
       },
       {
         to: '/operacao/relatorios/mtr',
-        label: 'Relatórios MTR (SRE)',
+        label: 'Relatórios de MTR (SRE)',
         icon: 'mdi-file-chart-outline',
         description: 'Relatório técnico de MTRs',
         requiresAdminAccess: true
