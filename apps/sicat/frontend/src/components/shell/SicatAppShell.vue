@@ -127,7 +127,7 @@ function skipToContent() {
       <footer class="sicat-shell__footer">
         <div class="sicat-shell__footer-inner">
           <span>SICAT MTR CETESB</span>
-          <span>Automação de manifestos de transporte de resíduos — CETESB-SP</span>
+          <span>Emissão e acompanhamento de MTR, CDF e DMR junto à CETESB-SP</span>
         </div>
       </footer>
     </div>
