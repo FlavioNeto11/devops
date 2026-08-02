@@ -178,7 +178,7 @@ test('renderiza estrutura em bullets e pares chave-valor no assistente interno',
 
   await page.goto('/dashboard');
 
-  await page.getByRole('button', { name: 'Abrir copiloto contextual' }).click();
+  await page.getByRole('button', { name: 'Abrir assistente contextual' }).click();
 
   const panel = page.locator('dialog.copilot-panel[open]');
   await expect(panel).toBeVisible();

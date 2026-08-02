@@ -68,21 +68,16 @@ function goBack() {
 
 <template>
   <div class="manifest-create-page">
+    <!--
+      Um título por tela: o h1 "Emitir MTR" vem do SicatPageHeader do shell
+      (route.meta.breadcrumb). Esta faixa é só contexto + navegação, e o wizard
+      recebe kicker/título vazios — antes a tela empilhava três títulos
+      ("Emitir MTR" → "Emissão guiada de MTR" → "Criar manifesto").
+    -->
     <v-card class="manifest-create-hero">
-      <v-card-text>
-        <v-row align="center">
-          <v-col>
-            <div class="text-overline text-primary mb-1">Novo manifesto</div>
-            <h2 class="text-h4 font-weight-semibold mb-1">Emissão guiada de MTR</h2>
-            <p class="text-body-2 text-medium-emphasis mb-2">Emissão em quatro passos: contexto da viagem, participantes, resíduo e revisão final antes de criar.</p>
-            <div class="d-flex flex-wrap ga-2 align-center">
-              <span class="text-caption text-medium-emphasis">Conta ativa: <strong>{{ activeAccountLabel }}</strong></span>
-            </div>
-          </v-col>
-          <v-col cols="auto">
-            <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar</v-btn>
-          </v-col>
-        </v-row>
+      <v-card-text class="manifest-create-context">
+        <span class="text-body-2 text-medium-emphasis">Conta ativa: <strong>{{ activeAccountLabel }}</strong></span>
+        <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar</v-btn>
       </v-card-text>
     </v-card>
 
@@ -93,6 +88,9 @@ function goBack() {
           :user="authStore.user.value"
           :partner="authStore.partner.value"
           :session-context="authStore.sessionContext.value"
+          page-kicker=""
+          page-title=""
+          page-description="Emissão em quatro passos: contexto da viagem, participantes, resíduo e revisão final antes de criar."
           @success="handleCreateSuccess"
         />
       </v-card-text>
@@ -108,6 +106,14 @@ function goBack() {
 
 .manifest-create-hero {
   background: linear-gradient(135deg, rgba(var(--v-theme-surface), 0.96) 0%, rgba(var(--v-theme-primary), 0.08) 100%);
+}
+
+.manifest-create-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 767px) {

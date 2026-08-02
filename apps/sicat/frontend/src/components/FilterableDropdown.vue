@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 
 const props = defineProps({
   modelValue: {
@@ -62,6 +62,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update:searchValue', 'search-change']);
 
+const listboxId = `${useId()}-listbox`;
 const isOpen = ref(false);
 const hasFocus = ref(false);
 const localSearchValue = ref('');
@@ -269,6 +270,10 @@ onUnmounted(() => {
         :placeholder="placeholder"
         :disabled="disabled"
         :aria-label="ariaLabel"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="isOpen"
+        :aria-controls="listboxId"
         autocomplete="off"
         @input="handleInput"
         @focus="handleFocus"
@@ -287,7 +292,7 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="isOpen" ref="listRef" class="filterable-dropdown-list">
+    <div v-if="isOpen" :id="listboxId" ref="listRef" class="filterable-dropdown-list" role="listbox" :aria-label="ariaLabel">
       <div v-if="loading" class="filterable-dropdown-state">Carregando...</div>
       <div v-else-if="!options.length" class="filterable-dropdown-state">{{ noDataText }}</div>
       <div v-else-if="!filteredOptions.length" class="filterable-dropdown-state">{{ emptyText }}</div>
@@ -296,7 +301,9 @@ onUnmounted(() => {
         v-else
         :key="`${optionValueKey}-${getOptionValue(item)}`"
         type="button"
+        role="option"
         class="filterable-dropdown-option"
+        :aria-selected="String(modelValue || '') === getOptionValue(item)"
         :class="{ selected: String(modelValue || '') === getOptionValue(item) }"
         @mousedown.prevent="selectOption(item)"
       >

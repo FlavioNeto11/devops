@@ -82,20 +82,43 @@ function isGroupActive(group) {
 </template>
 
 <style scoped>
+/* A navegação divide a barra com a marca (esquerda) e os controles de conta
+   (direita). Entre ~1180px e ~1400px os itens não cabem: com `justify-content:
+   center` puro o conteúdo que estoura transborda para OS DOIS LADOS e é pintado
+   por cima da marca e dos controles (colisão relatada na auditoria). A correção
+   é dupla:
+     - `safe center` degrada para `flex-start` quando há overflow (sem perder o
+       primeiro item, que ficaria inalcançável no eixo de rolagem);
+     - `overflow-x: auto` transforma o excedente em rolagem DENTRO da faixa, em
+       vez de sobreposição sobre os vizinhos.
+   O padding vertical existe para o anel de foco não ser cortado pelo overflow. */
 .sicat-nav {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   justify-content: center;
+  justify-content: safe center;
   gap: 4px;
   margin: 0;
-  padding: 0 12px;
+  padding: 3px 12px;
   list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Barra de rolagem some: a faixa tem 64px e o scroll aqui é só válvula de
+   escape para viewports estreitos (o menu completo continua no drawer). */
+.sicat-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .sicat-nav__item {
   display: flex;
+  flex: 0 0 auto;
 }
 
 .sicat-nav__link {

@@ -7,6 +7,7 @@ import FilterableDropdown from './FilterableDropdown.vue';
 import SicatInlineAlert from './sicat/SicatInlineAlert.vue';
 import SicatHelpHint from './sicat/SicatHelpHint.vue';
 import SicatNextStep from './sicat/SicatNextStep.vue';
+import SicatStatusBadge from './sicat/SicatStatusBadge.vue';
 
 const props = defineProps({
   integrationAccountId: {
@@ -178,7 +179,6 @@ const activeAccountMeta = computed(() => {
 
   return parts.join(' • ');
 });
-const canImmediateSubmit = computed(() => !loading.value);
 const resolvedPrimaryLabel = computed(() => {
   if (props.primaryActionLabel) return props.primaryActionLabel;
   return Number(form.batchCount || 1) > 1 ? 'Criar e submeter lote' : 'Criar e submeter';
@@ -208,34 +208,203 @@ const stepDefinitions = [
   { value: 4, title: 'Conferir e enviar', subtitle: 'Revise tudo antes de enviar' }
 ];
 const currentStepMeta = computed(() => stepDefinitions.find((step) => step.value === currentStep.value) || stepDefinitions[0]);
-const completionRatio = computed(() => Math.round((currentStep.value / stepDefinitions.length) * 100));
-const reviewChecklist = computed(() => [
-  {
-    label: 'Conta CETESB ativa',
-    value: activeAccountLabel.value,
-    ok: Boolean(resolvedIntegrationAccountId.value)
-  },
-  {
-    label: 'Sessão CETESB pronta',
-    value: currentSessionContextId.value || 'Sessão indisponível',
-    ok: Boolean(currentSessionContextId.value)
-  },
-  {
-    label: 'Transportador',
-    value: selectedCarrier.value?.description || 'Não selecionado',
-    ok: Boolean(selectedCarrier.value)
-  },
-  {
-    label: 'Destinador',
-    value: selectedReceiver.value?.description || 'Não selecionado',
-    ok: Boolean(selectedReceiver.value)
-  },
-  {
-    label: 'Resíduo',
-    value: selectedResidueCatalogItem.value?.name || selectedResidueCatalogItem.value?.description || 'Não selecionado',
-    ok: Boolean(selectedResidueCatalogItem.value)
+
+/**
+ * Campos obrigatórios por passo.
+ *
+ * A obrigatoriedade segue o contrato interno `ManifestCreateRequest`
+ * (`backend/openapi/mtr_automacao_openapi_interna.yaml`): `responsibleName`,
+ * `expeditionDate`, `generator`, `carrier`, `receiver` e cada `ResidueLine`
+ * com `quantity`, `weightTon`, `unit`, `residue`, `treatment`, `class`,
+ * `stateType` e `packagingType`. `driverName` e `vehiclePlate` são
+ * explicitamente nullable no contrato — continuam OPCIONAIS aqui.
+ */
+const STEP_FIELDS = {
+  1: ['account', 'responsibleName', 'expeditionDate', 'batchCount'],
+  2: ['carrier', 'receiver'],
+  3: ['quantity', 'weightTon', 'unitCode', 'residueCode', 'treatmentCode', 'classCode', 'stateTypeCode', 'packagingTypeCode'],
+  4: []
+};
+
+const FIELD_STEP = Object.entries(STEP_FIELDS).reduce((accumulator, [step, fields]) => {
+  fields.forEach((field) => {
+    accumulator[field] = Number(step);
+  });
+  return accumulator;
+}, {});
+
+/** Passos em que o operador já tentou avançar/enviar — libera o erro inline. */
+const stepValidationAttempts = reactive({ 1: false, 2: false, 3: false, 4: false });
+
+const fieldErrors = computed(() => {
+  const quantity = toNumber(form.quantity);
+  const weightTon = toNumber(form.weightTon);
+  const batchCount = Number(form.batchCount || 1);
+  const batchCountIsValid = isSingleOnly.value
+    || (Number.isInteger(batchCount) && batchCount >= 1 && batchCount <= 100);
+
+  return {
+    account: resolvedIntegrationAccountId.value ? '' : 'Selecione uma conta CETESB ativa antes de criar o manifesto.',
+    responsibleName: String(form.responsibleName || '').trim() ? '' : 'Informe o responsável pela expedição.',
+    expeditionDate: form.expeditionDate
+      ? (toApiDate(form.expeditionDate) ? '' : 'Informe a data de expedição no formato dd/mm/yyyy.')
+      : 'Informe a data de expedição.',
+    batchCount: batchCountIsValid ? '' : 'Informe uma quantidade de manifestos válida entre 1 e 100.',
+    carrier: selectedCarrier.value ? '' : 'Selecione o transportador.',
+    receiver: selectedReceiver.value ? '' : 'Selecione o destinador.',
+    quantity: quantity !== null && quantity > 0 ? '' : 'Informe uma quantidade maior que zero.',
+    weightTon: weightTon !== null && weightTon > 0 ? '' : 'Informe um peso em toneladas maior que zero.',
+    // Catálogos: validamos o ITEM resolvido (e não só o código no form), porque
+    // é o item que vira payload — código órfão geraria `unit`/`residue` nulos.
+    unitCode: selectedUnitCatalogItem.value ? '' : 'Selecione a unidade.',
+    residueCode: selectedResidueCatalogItem.value ? '' : 'Selecione o resíduo.',
+    treatmentCode: selectedTreatmentCatalogItem.value ? '' : 'Selecione o tratamento.',
+    classCode: selectedClassCatalogItem.value ? '' : 'Selecione a classe.',
+    stateTypeCode: selectedStateCatalogItem.value ? '' : 'Selecione o estado físico.',
+    packagingTypeCode: selectedPackagingCatalogItem.value ? '' : 'Selecione o acondicionamento.'
+  };
+});
+
+/** Erro do campo, exibido só depois que o operador tentou avançar naquele passo. */
+function visibleFieldError(field) {
+  const step = FIELD_STEP[field];
+  if (!step || !stepValidationAttempts[step]) {
+    return '';
   }
-]);
+
+  return fieldErrors.value[field] || '';
+}
+
+const missingResidueDetails = computed(() => {
+  return [
+    { label: 'unidade', item: selectedUnitCatalogItem.value },
+    { label: 'tratamento', item: selectedTreatmentCatalogItem.value },
+    { label: 'classe', item: selectedClassCatalogItem.value },
+    { label: 'estado físico', item: selectedStateCatalogItem.value },
+    { label: 'acondicionamento', item: selectedPackagingCatalogItem.value }
+  ].filter((entry) => !entry.item).map((entry) => entry.label);
+});
+
+function describeCatalogItem(item) {
+  return item?.name || item?.description || '';
+}
+
+const reviewChecklist = computed(() => {
+  const errors = fieldErrors.value;
+  const unitSymbol = selectedUnitCatalogItem.value?.shortName || selectedUnitCatalogItem.value?.symbol || 'un.';
+
+  return [
+    {
+      key: 'account',
+      label: 'Conta CETESB ativa',
+      value: activeAccountLabel.value,
+      ok: !errors.account
+    },
+    {
+      key: 'session',
+      label: 'Sessão CETESB pronta',
+      value: currentSessionContextId.value || 'Sessão indisponível',
+      ok: Boolean(currentSessionContextId.value)
+    },
+    {
+      key: 'responsibleName',
+      label: 'Responsável pela expedição',
+      value: String(form.responsibleName || '').trim() || 'Não informado',
+      ok: !errors.responsibleName
+    },
+    {
+      key: 'expeditionDate',
+      label: 'Data de expedição',
+      value: form.expeditionDate || 'Não informada',
+      ok: !errors.expeditionDate
+    },
+    {
+      key: 'carrier',
+      label: 'Transportador',
+      value: selectedCarrier.value?.description || 'Não selecionado',
+      ok: !errors.carrier
+    },
+    {
+      key: 'receiver',
+      label: 'Destinador',
+      value: selectedReceiver.value?.description || 'Não selecionado',
+      ok: !errors.receiver
+    },
+    {
+      key: 'residue',
+      label: 'Resíduo',
+      value: describeCatalogItem(selectedResidueCatalogItem.value) || 'Não selecionado',
+      ok: !errors.residueCode
+    },
+    {
+      key: 'measures',
+      label: 'Quantidade e peso',
+      value: errors.quantity || errors.weightTon
+        ? [errors.quantity, errors.weightTon].filter(Boolean).join(' ')
+        : `${form.quantity} ${unitSymbol} · ${form.weightTon} ton`,
+      ok: !errors.quantity && !errors.weightTon && !errors.unitCode
+    },
+    {
+      key: 'classification',
+      label: 'Classificação e acondicionamento',
+      value: missingResidueDetails.value.length
+        ? `Falta informar: ${missingResidueDetails.value.join(', ')}`
+        : [
+          describeCatalogItem(selectedTreatmentCatalogItem.value),
+          describeCatalogItem(selectedClassCatalogItem.value),
+          describeCatalogItem(selectedStateCatalogItem.value),
+          describeCatalogItem(selectedPackagingCatalogItem.value)
+        ].filter(Boolean).join(' · '),
+      ok: !errors.treatmentCode && !errors.classCode && !errors.stateTypeCode && !errors.packagingTypeCode && !errors.unitCode
+    }
+  ];
+});
+
+/**
+ * Progresso REAL: proporção de requisitos obrigatórios já satisfeitos — e não
+ * "passo atual ÷ total de passos" (que mostrava 100% no passo 4 mesmo com
+ * campos obrigatórios vazios).
+ */
+const completionRatio = computed(() => {
+  const items = reviewChecklist.value;
+  if (items.length === 0) {
+    return 0;
+  }
+
+  return Math.round((items.filter((item) => item.ok).length / items.length) * 100);
+});
+
+/** Pendências que impedem até a criação do rascunho (sessão CETESB à parte). */
+const draftBlockers = computed(() => reviewChecklist.value
+  .filter((item) => !item.ok && item.key !== 'session')
+  .map((item) => item.label));
+
+const canCreateDraft = computed(() => !loading.value && !catalogsLoading.value && draftBlockers.value.length === 0);
+const canImmediateSubmit = computed(() => canCreateDraft.value && Boolean(currentSessionContextId.value));
+const canRunPrimaryAction = computed(() => (isSingleOnly.value ? canCreateDraft.value : canImmediateSubmit.value));
+const submitBlockedMessage = computed(() => {
+  if (draftBlockers.value.length > 0) {
+    return `Ainda faltam dados obrigatórios: ${draftBlockers.value.join(', ')}.`;
+  }
+
+  if (!isSingleOnly.value && !currentSessionContextId.value) {
+    return 'Sessão CETESB indisponível. Faça login novamente para enviar agora.';
+  }
+
+  return '';
+});
+
+const wizardProgressStatus = computed(() => {
+  if (draftBlockers.value.length === 0) {
+    return { label: 'Pronto para revisão', tone: 'success' };
+  }
+
+  if (currentStep.value >= stepDefinitions.length) {
+    return { label: `Faltam ${draftBlockers.value.length} item(ns) obrigatório(s)`, tone: 'warning' };
+  }
+
+  return { label: `Em elaboração · passo ${currentStep.value} de ${stepDefinitions.length}`, tone: 'running' };
+});
 
 watch(
   () => props.integrationAccountId,
@@ -425,30 +594,31 @@ function formatResidueOption(item) {
   return `${code} · ${summarizedDescription}`;
 }
 
-function setCatalogDefaults() {
-  if (!form.unitCode && catalogOptions.units.length > 0) {
-    form.unitCode = String(catalogOptions.units[0].code);
-  }
+const CATALOG_FIELD_BINDINGS = [
+  ['unitCode', 'units'],
+  ['residueCode', 'residueClasses'],
+  ['treatmentCode', 'residueTreatments'],
+  ['classCode', 'classes'],
+  ['stateTypeCode', 'residueStates'],
+  ['packagingTypeCode', 'packagingGroups']
+];
 
-  if (!form.residueCode && catalogOptions.residueClasses.length > 0) {
-    form.residueCode = String(catalogOptions.residueClasses[0].code);
-  }
-
-  if (!form.treatmentCode && catalogOptions.residueTreatments.length > 0) {
-    form.treatmentCode = String(catalogOptions.residueTreatments[0].code);
-  }
-
-  if (!form.classCode && catalogOptions.classes.length > 0) {
-    form.classCode = String(catalogOptions.classes[0].code);
-  }
-
-  if (!form.stateTypeCode && catalogOptions.residueStates.length > 0) {
-    form.stateTypeCode = String(catalogOptions.residueStates[0].code);
-  }
-
-  if (!form.packagingTypeCode && catalogOptions.packagingGroups.length > 0) {
-    form.packagingTypeCode = String(catalogOptions.packagingGroups[0].code);
-  }
+/**
+ * Pré-seleção segura de catálogos.
+ *
+ * Antes o wizard assumia o PRIMEIRO item de cada catálogo, o que produzia
+ * combinações impossíveis sem qualquer escolha do operador (ex.: entulho
+ * sólido + unidade "Litro" + estado físico "Gasoso"). Agora só pré-selecionamos
+ * quando o catálogo tem exatamente UMA opção possível — aí não há ambiguidade.
+ * Nos demais casos o campo fica vazio ("Selecione…") e exige escolha consciente.
+ */
+function applyUnambiguousCatalogDefaults() {
+  CATALOG_FIELD_BINDINGS.forEach(([formKey, catalogKey]) => {
+    const options = catalogOptions[catalogKey];
+    if (!form[formKey] && Array.isArray(options) && options.length === 1) {
+      form[formKey] = String(options[0].code);
+    }
+  });
 }
 
 function findCatalogItem(collection, code) {
@@ -504,7 +674,7 @@ async function loadCatalogs() {
       catalogOptions[name] = Array.isArray(responses[index]?.items) ? responses[index].items : [];
     });
 
-    setCatalogDefaults();
+    applyUnambiguousCatalogDefaults();
   } catch (error) {
     errorMessage.value = error.message || 'Falha ao carregar catálogos auxiliares.';
   } finally {
@@ -621,20 +791,20 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
     }
 
     state.results = mergedResults;
+
+    // A seleção é sempre EXPLÍCITA: enquanto o operador digita, nenhum parceiro
+    // é escolhido automaticamente. Antes o primeiro resultado da busca virava a
+    // seleção corrente (e aparecia no resumo lateral / no payload) mesmo sem o
+    // operador ter clicado em nada. Só preservamos a escolha anterior quando ela
+    // continua presente na nova lista de resultados.
     const hasSelectedCode = mergedResults.some((item) => String(item._partnerCode) === String(state.selectedCode));
-
     if (!hasSelectedCode) {
-      state.selectedCode = mergedResults.length > 0
-        ? String(mergedResults[0]._partnerCode || '')
-        : '';
+      state.selectedCode = '';
     }
 
-    if (mergedResults.length === 0) {
-      state.selectedCode = '';
-      state.error = 'Nenhum parceiro encontrado para os critérios informados.';
-    } else {
-      state.error = '';
-    }
+    state.error = mergedResults.length === 0
+      ? 'Nenhum parceiro encontrado para os critérios informados.'
+      : '';
   } catch (error) {
     state.error = error.message || 'Falha ao pesquisar parceiros.';
     state.results = [];
@@ -644,126 +814,35 @@ async function handlePartnerSearch(type, rawQuery = partnerSearch[type].query) {
   }
 }
 
+/**
+ * Fonte única de verdade da validação: `fieldErrors`. O passo 4 (revisão)
+ * herda as pendências de TODOS os passos anteriores — antes o checklist da
+ * revisão só olhava conta/sessão/transportador/destinador/resíduo e deixava
+ * passar quantidade, peso, unidade e demais catálogos obrigatórios.
+ */
+function getStepError(step) {
+  const fields = step === stepDefinitions.length
+    ? [...STEP_FIELDS[1], ...STEP_FIELDS[2], ...STEP_FIELDS[3]]
+    : (STEP_FIELDS[step] || []);
+
+  for (const field of fields) {
+    const message = fieldErrors.value[field];
+    if (message) {
+      return message;
+    }
+  }
+
+  return '';
+}
+
 function validateForm(shouldSubmitNow) {
-  if (!resolvedIntegrationAccountId.value) {
-    throw new Error('Selecione uma conta CETESB ativa antes de criar o manifesto.');
-  }
-
-  if (!form.responsibleName.trim()) {
-    throw new Error('Informe o responsável pela expedição.');
-  }
-
-  if (!form.expeditionDate) {
-    throw new Error('Informe a data de expedição.');
-  }
-
-  if (!toApiDate(form.expeditionDate)) {
-    throw new Error('Informe a data de expedição no formato dd/mm/yyyy.');
-  }
-
-  if (!selectedCarrier.value) {
-    throw new Error('Selecione o transportador.');
-  }
-
-  if (!selectedReceiver.value) {
-    throw new Error('Selecione o destinador.');
-  }
-
-  if (!form.residueCode || !form.treatmentCode || !form.classCode || !form.stateTypeCode || !form.packagingTypeCode || !form.unitCode) {
-    throw new Error('Selecione os catálogos obrigatórios do resíduo.');
-  }
-
-  if (toNumber(form.quantity) === null || toNumber(form.quantity) <= 0) {
-    throw new Error('Informe uma quantidade válida.');
-  }
-
-  if (toNumber(form.weightTon) === null || toNumber(form.weightTon) <= 0) {
-    throw new Error('Informe um peso válido em toneladas.');
+  const pendingMessage = getStepError(stepDefinitions.length);
+  if (pendingMessage) {
+    throw new Error(pendingMessage);
   }
 
   if (shouldSubmitNow && !currentSessionContextId.value) {
     throw new Error('Sessão CETESB indisponível. Faça login novamente para submeter agora.');
-  }
-
-  const batchCount = Number(form.batchCount || 1);
-  if (!isSingleOnly.value) {
-    if (!Number.isInteger(batchCount) || batchCount < 1) {
-      throw new Error('Informe uma quantidade de manifestos válida para o lote.');
-    }
-
-    if (batchCount > 100) {
-      throw new Error('O lote está limitado a 100 manifestos por vez.');
-    }
-  }
-
-}
-
-function validateStep1() {
-  if (!resolvedIntegrationAccountId.value) {
-    throw new Error('Selecione uma conta CETESB ativa antes de iniciar o manifesto.');
-  }
-
-  if (!String(form.responsibleName || '').trim()) {
-    throw new Error('Informe o responsável pela expedição para continuar.');
-  }
-
-  if (!form.expeditionDate || !toApiDate(form.expeditionDate)) {
-    throw new Error('Informe a data de expedição no formato dd/mm/yyyy.');
-  }
-
-  if (!isSingleOnly.value) {
-    const batchCount = Number(form.batchCount || 1);
-    if (!Number.isInteger(batchCount) || batchCount < 1 || batchCount > 100) {
-      throw new Error('Informe uma quantidade de manifestos válida entre 1 e 100.');
-    }
-  }
-}
-
-function validateStep2() {
-  if (!selectedCarrier.value) {
-    throw new Error('Selecione o transportador para seguir ao próximo passo.');
-  }
-
-  if (!selectedReceiver.value) {
-    throw new Error('Selecione o destinador para seguir ao próximo passo.');
-  }
-}
-
-function validateStep3() {
-  if (!form.residueCode || !form.treatmentCode || !form.classCode || !form.stateTypeCode || !form.packagingTypeCode || !form.unitCode) {
-    throw new Error('Selecione todos os catálogos obrigatórios do resíduo antes de revisar.');
-  }
-
-  if (toNumber(form.quantity) === null || toNumber(form.quantity) <= 0) {
-    throw new Error('Informe uma quantidade válida do resíduo.');
-  }
-
-  if (toNumber(form.weightTon) === null || toNumber(form.weightTon) <= 0) {
-    throw new Error('Informe um peso válido em toneladas.');
-  }
-}
-
-function validateStep4() {
-  validateForm(false);
-}
-
-function getStepError(step) {
-  try {
-    const validators = {
-      1: validateStep1,
-      2: validateStep2,
-      3: validateStep3,
-      4: validateStep4
-    };
-
-    const validator = validators[step];
-    if (validator) {
-      validator();
-    }
-
-    return '';
-  } catch (error) {
-    return error.message || 'Revise os dados deste passo.';
   }
 }
 
@@ -780,6 +859,12 @@ function stepState(step) {
   return error ? 'pending-error' : 'pending';
 }
 
+function revealStepErrors(step) {
+  if (stepValidationAttempts[step] !== undefined) {
+    stepValidationAttempts[step] = true;
+  }
+}
+
 function goToStep(step) {
   if (step <= currentStep.value) {
     currentStep.value = step;
@@ -789,6 +874,7 @@ function goToStep(step) {
   for (let index = 1; index < step; index += 1) {
     const error = getStepError(index);
     if (error) {
+      revealStepErrors(index);
       errorMessage.value = error;
       currentStep.value = index;
       return;
@@ -806,6 +892,9 @@ function goToPreviousStep() {
 function goToNextStep() {
   const error = getStepError(currentStep.value);
   if (error) {
+    // O clique deixa de ser um "no-op silencioso": além do alerta do topo,
+    // cada campo pendente do passo passa a exibir o próprio erro inline.
+    revealStepErrors(currentStep.value);
     errorMessage.value = error;
     return;
   }
@@ -955,6 +1044,12 @@ async function handleCreate(shouldSubmitNow) {
 
   errorMessage.value = '';
   successMessage.value = '';
+
+  // Tentativa de envio revela as pendências de todos os passos, inline.
+  Object.keys(stepValidationAttempts).forEach((step) => {
+    stepValidationAttempts[step] = true;
+  });
+
   loading.value = true;
 
   try {
@@ -994,10 +1089,15 @@ async function handleCreate(shouldSubmitNow) {
 <template>
   <div class="wizard-shell" data-testid="manifest-wizard-shell">
     <div class="wizard-header">
+      <!--
+        Kicker e título são opcionais: quando a view hospedeira já tem o título
+        da página (h1 do shell), ela passa `page-kicker=""`/`page-title=""` e o
+        wizard não empilha um terceiro título na mesma tela.
+      -->
       <div class="wizard-header-copy">
-        <span class="wizard-kicker">{{ pageKicker }}</span>
-        <h2>{{ pageTitle }}</h2>
-        <p class="text-muted">{{ pageDescription }}</p>
+        <span v-if="pageKicker" class="wizard-kicker">{{ pageKicker }}</span>
+        <h2 v-if="pageTitle">{{ pageTitle }}</h2>
+        <p v-if="pageDescription" class="text-muted">{{ pageDescription }}</p>
       </div>
       <v-btn variant="outlined" prepend-icon="mdi-refresh" :disabled="catalogsLoading || loading" @click="loadCatalogs">
         {{ catalogsLoading ? 'Atualizando catálogos...' : 'Recarregar catálogos' }}
@@ -1026,7 +1126,7 @@ async function handleCreate(shouldSubmitNow) {
                 <div class="text-h6 font-weight-bold">{{ currentStepMeta.title }}</div>
                 <div class="text-body-2 text-medium-emphasis">{{ currentStepMeta.subtitle }}</div>
               </div>
-              <div class="wizard-progress-pill">{{ completionRatio }}%</div>
+              <div class="wizard-progress-pill" :title="`${completionRatio}% dos dados obrigatórios preenchidos`">{{ completionRatio }}%</div>
             </div>
 
             <div class="wizard-step-tabs mt-6">
@@ -1060,25 +1160,26 @@ async function handleCreate(shouldSubmitNow) {
                   </div>
                 </v-col>
                 <v-col v-if="!isSingleOnly" cols="12" md="5">
-                  <v-text-field v-model.number="form.batchCount" type="number" min="1" max="100" step="1" label="Quantidade no lote" :disabled="loading" hint="Use 1 para criação unitária. Valores maiores criam rascunhos idênticos." persistent-hint />
+                  <v-text-field v-model.number="form.batchCount" type="number" min="1" max="100" step="1" label="Quantidade no lote *" :disabled="loading" :error-messages="visibleFieldError('batchCount')" hint="Use 1 para criação unitária. Valores maiores criam rascunhos idênticos." persistent-hint />
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-text-field
                     v-model="form.expeditionDate"
-                    label="Data de expedição"
+                    label="Data de expedição *"
                     placeholder="dd/mm/yyyy"
                     :disabled="loading"
+                    :error-messages="visibleFieldError('expeditionDate')"
                     @blur="form.expeditionDate = normalizeBrDateInput(form.expeditionDate)"
                   />
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model="form.responsibleName" label="Responsável" autocomplete="name" :disabled="loading" />
+                  <v-text-field v-model="form.responsibleName" label="Responsável *" autocomplete="name" :disabled="loading" :error-messages="visibleFieldError('responsibleName')" />
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model="form.driverName" label="Motorista" autocomplete="off" :disabled="loading" />
+                  <v-text-field v-model="form.driverName" label="Motorista" autocomplete="off" :disabled="loading" hint="Opcional para a CETESB." persistent-hint />
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model="form.vehiclePlate" label="Placa do veículo" maxlength="8" autocomplete="off" :disabled="loading" />
+                  <v-text-field v-model="form.vehiclePlate" label="Placa do veículo" maxlength="8" autocomplete="off" :disabled="loading" hint="Opcional para a CETESB." persistent-hint />
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-textarea v-model="form.notes" label="Observações" rows="4" auto-grow :disabled="loading" />
@@ -1114,8 +1215,10 @@ async function handleCreate(shouldSubmitNow) {
                       aria-label="Selecionar transportador"
                       @search-change="queuePartnerSearch('carrier', $event)"
                     />
-                    <small v-if="partnerSearch.carrier.error" class="wizard-inline-error">{{ partnerSearch.carrier.error }}</small>
+                    <small v-if="partnerSearch.carrier.error" class="wizard-inline-error" role="alert">{{ partnerSearch.carrier.error }}</small>
+                    <small v-else-if="visibleFieldError('carrier')" class="wizard-inline-error" role="alert">{{ visibleFieldError('carrier') }}</small>
                     <small v-else-if="selectedCarrier" class="text-medium-emphasis">{{ selectedCarrier.document || 'Sem documento' }} · {{ selectedCarrier.address?.city || 'Cidade não informada' }}/{{ selectedCarrier.address?.state || 'SP' }}</small>
+                    <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="6">
@@ -1135,8 +1238,10 @@ async function handleCreate(shouldSubmitNow) {
                       aria-label="Selecionar destinador"
                       @search-change="queuePartnerSearch('receiver', $event)"
                     />
-                    <small v-if="partnerSearch.receiver.error" class="wizard-inline-error">{{ partnerSearch.receiver.error }}</small>
+                    <small v-if="partnerSearch.receiver.error" class="wizard-inline-error" role="alert">{{ partnerSearch.receiver.error }}</small>
+                    <small v-else-if="visibleFieldError('receiver')" class="wizard-inline-error" role="alert">{{ visibleFieldError('receiver') }}</small>
                     <small v-else-if="selectedReceiver" class="text-medium-emphasis">{{ selectedReceiver.document || 'Sem documento' }} · {{ selectedReceiver.address?.city || 'Cidade não informada' }}/{{ selectedReceiver.address?.state || 'SP' }}</small>
+                    <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
                 </v-col>
               </v-row>
@@ -1148,10 +1253,10 @@ async function handleCreate(shouldSubmitNow) {
                   <h4 class="wizard-subsection">Quanto está sendo levado</h4>
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model.number="form.quantity" type="number" min="0.001" step="0.001" label="Quantidade" hint="Quanto está sendo levado, na unidade ao lado." persistent-hint :disabled="loading || catalogsLoading" />
+                  <v-text-field v-model.number="form.quantity" type="number" min="0.001" step="0.001" label="Quantidade *" hint="Quanto está sendo levado, na unidade ao lado." persistent-hint :error-messages="visibleFieldError('quantity')" :disabled="loading || catalogsLoading" />
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model.number="form.weightTon" type="number" min="0.001" step="0.001" label="Peso (toneladas)" hint="O peso total da carga, em toneladas." persistent-hint :disabled="loading || catalogsLoading" />
+                  <v-text-field v-model.number="form.weightTon" type="number" min="0.001" step="0.001" label="Peso (toneladas) *" hint="O peso total da carga, em toneladas." persistent-hint :error-messages="visibleFieldError('weightTon')" :disabled="loading || catalogsLoading" />
                 </v-col>
                 <v-col cols="12" md="4">
                   <div class="wizard-dropdown-field">
@@ -1164,9 +1269,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar unidade"
+                      placeholder="Selecione a unidade"
                       aria-label="Selecionar unidade"
                     />
+                    <small v-if="visibleFieldError('unitCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('unitCode') }}</small>
                   </div>
                 </v-col>
 
@@ -1184,9 +1290,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar resíduo"
+                      placeholder="Selecione o resíduo (digite para filtrar)"
                       aria-label="Selecionar resíduo"
                     />
+                    <small v-if="visibleFieldError('residueCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('residueCode') }}</small>
                     <div v-if="selectedResidueCatalogItem" class="wizard-residue-summary">
                       <strong>{{ selectedResidueCatalogItem.name || selectedResidueCatalogItem.description }}</strong>
                       <span>Código: {{ selectedResidueCatalogItem.code }}</span>
@@ -1211,9 +1318,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar tratamento"
+                      placeholder="Selecione o tratamento"
                       aria-label="Selecionar tratamento"
                     />
+                    <small v-if="visibleFieldError('treatmentCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('treatmentCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="4">
@@ -1227,9 +1335,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar classe"
+                      placeholder="Selecione a classe"
                       aria-label="Selecionar classe"
                     />
+                    <small v-if="visibleFieldError('classCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('classCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="4">
@@ -1243,9 +1352,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar estado físico"
+                      placeholder="Selecione o estado físico"
                       aria-label="Selecionar estado físico"
                     />
+                    <small v-if="visibleFieldError('stateTypeCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('stateTypeCode') }}</small>
                   </div>
                 </v-col>
 
@@ -1263,9 +1373,10 @@ async function handleCreate(shouldSubmitNow) {
                       clearable
                       :disabled="loading || catalogsLoading"
                       :loading="catalogsLoading"
-                      placeholder="Digite para filtrar acondicionamento"
+                      placeholder="Selecione o acondicionamento"
                       aria-label="Selecionar acondicionamento"
                     />
+                    <small v-if="visibleFieldError('packagingTypeCode')" class="wizard-inline-error" role="alert">{{ visibleFieldError('packagingTypeCode') }}</small>
                   </div>
                 </v-col>
                 <v-col cols="12" md="6">
@@ -1316,6 +1427,14 @@ async function handleCreate(shouldSubmitNow) {
                 </v-list-item>
               </v-list>
 
+              <SicatInlineAlert
+                v-if="submitBlockedMessage"
+                class="mt-5"
+                tone="warning"
+                data-testid="wizard-submit-blocked"
+                :message="submitBlockedMessage"
+              />
+
               <v-alert variant="tonal" color="info" class="mt-5">
                 A criação unitária gera um rascunho ou um envio imediato. Quando o lote é maior que 1, o wizard cria um grupo de manifestos com o mesmo template antes de submeter.
               </v-alert>
@@ -1331,10 +1450,10 @@ async function handleCreate(shouldSubmitNow) {
             </div>
 
             <div v-if="currentStep === stepDefinitions.length" class="d-flex ga-2 flex-wrap justify-end">
-              <v-btn v-if="!isSingleOnly" variant="outlined" color="secondary" :loading="loading" :disabled="loading || catalogsLoading" data-testid="wizard-submit-draft" @click="handleCreate(false)">
+              <v-btn v-if="!isSingleOnly" variant="outlined" color="secondary" :loading="loading" :disabled="!canCreateDraft" :title="submitBlockedMessage || undefined" data-testid="wizard-submit-draft" @click="handleCreate(false)">
                 {{ loading ? 'Processando...' : resolvedDraftLabel }}
               </v-btn>
-              <v-btn color="primary" :loading="loading" :disabled="!canImmediateSubmit" data-testid="wizard-submit-primary" @click="handleCreate(isSingleOnly ? false : true)">
+              <v-btn color="primary" :loading="loading" :disabled="!canRunPrimaryAction" :title="submitBlockedMessage || undefined" data-testid="wizard-submit-primary" @click="handleCreate(isSingleOnly ? false : true)">
                 {{ loading ? 'Processando...' : resolvedPrimaryLabel }}
               </v-btn>
             </div>
@@ -1346,7 +1465,16 @@ async function handleCreate(shouldSubmitNow) {
         <v-card class="wizard-summary-card">
           <v-card-text>
             <div class="text-overline text-primary mb-2">Resumo do wizard</div>
-            <div class="text-h6 font-weight-bold mb-1">Pronto para revisão</div>
+            <!-- Badge vivo: reflete o passo atual e as pendências reais (antes era um texto fixo). -->
+            <div class="mb-2">
+              <SicatStatusBadge
+                size="lg"
+                with-dot
+                data-testid="wizard-progress-badge"
+                :label="wizardProgressStatus.label"
+                :tone="wizardProgressStatus.tone"
+              />
+            </div>
             <p class="text-body-2 text-medium-emphasis mb-4">A lateral funciona como o resumo do checkout: contexto, participantes e item principal sempre visíveis.</p>
 
             <div class="wizard-summary-progress mb-5">
@@ -1607,6 +1735,16 @@ async function handleCreate(shouldSubmitNow) {
 .wizard-dropdown-field {
   display: grid;
   gap: 8px;
+}
+
+/*
+  O `.v-card` do Vuetify aplica `overflow: hidden`, o que cortava a lista de
+  sugestões (posicionada em `position: absolute`) do FilterableDropdown —
+  autocomplete de parceiros/catálogos truncado na borda do card. O card do
+  wizard precisa deixar o popover transbordar.
+*/
+.wizard-stepper-card {
+  overflow: visible;
 }
 
 .wizard-inline-error {

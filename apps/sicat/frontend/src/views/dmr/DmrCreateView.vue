@@ -1,8 +1,9 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.js';
 import { useDmrStore } from '../../stores/dmrStore.js';
+import { usePersona } from '../../composables/usePersona.js';
 import { DMR_ROLE_OPTIONS, describeDmrError } from './dmrUiHelpers.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../../components/shell/SicatPageHeader.vue';
@@ -16,17 +17,46 @@ const store = useDmrStore();
 
 const { commandLoading, commandError, createDmrDraft, clearCommandState } = store;
 
-const today = new Date().toISOString().slice(0, 10);
-const lastMonth = new Date();
-lastMonth.setMonth(lastMonth.getMonth() - 1);
-const defaultStart = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-01`;
+// A DMR é MENSAL: o padrão é o mês de referência FECHADO (mês anterior inteiro).
+// Antes o período nascia de 01 do mês anterior até HOJE — dois meses numa
+// declaração mensal.
+function buildReferenceMonthPeriod(reference = new Date()) {
+  const start = new Date(reference.getFullYear(), reference.getMonth() - 1, 1);
+  const end = new Date(reference.getFullYear(), reference.getMonth(), 0);
+  const pad = (value) => String(value).padStart(2, '0');
+  const toIso = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  return {
+    periodStart: toIso(start),
+    periodEnd: toIso(end),
+    periodLabel: `${monthNames[start.getMonth()]}/${start.getFullYear()}`
+  };
+}
+
+// Papel padrão = o papel da CONTA ATIVA (destinador não declara como gerador).
+const PERSONA_TO_DMR_ROLE = Object.freeze({
+  generator: 'gerador',
+  carrier: 'transportador',
+  receiver: 'destinador'
+});
+
+const { persona } = usePersona();
+const referencePeriod = buildReferenceMonthPeriod();
 
 const form = reactive({
-  role: 'gerador',
-  periodStart: defaultStart,
-  periodEnd: today,
-  periodLabel: '',
+  role: PERSONA_TO_DMR_ROLE[persona.value] || 'gerador',
+  periodStart: referencePeriod.periodStart,
+  periodEnd: referencePeriod.periodEnd,
+  periodLabel: referencePeriod.periodLabel,
   requestedBy: ''
+});
+
+// A conta ativa pode resolver depois da montagem (bootstrap da sessão CETESB):
+// enquanto o operador não escolher o papel na mão, seguimos o perfil da conta.
+const roleTouched = ref(false);
+watch(persona, (nextPersona) => {
+  if (roleTouched.value) return;
+  form.role = PERSONA_TO_DMR_ROLE[nextPersona] || form.role;
 });
 
 const localError = ref('');
@@ -114,6 +144,7 @@ function goBack() {
               density="comfortable"
               variant="outlined"
               hide-details="auto"
+              @update:model-value="roleTouched = true"
             />
           </template>
         </SicatFormField>

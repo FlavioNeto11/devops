@@ -6,6 +6,7 @@ import { listManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { brDateToIsoDate, formatDateBr, getTodayBr, isoDateToBrDate, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
@@ -90,8 +91,9 @@ function formatPartnerLabel(partner) {
   return `Código ${partnerCode}`;
 }
 
+// Rótulo canônico (mesmo da lista/painel) em vez do texto cru da CETESB.
 function resolveManifestStatusLabel(manifest) {
-  return String(manifest?.externalStatus || manifest?.status || '-').trim() || '-';
+  return resolveManifestSituationLabel(manifest);
 }
 
 function resolveOperationalContext() {
@@ -529,7 +531,10 @@ onMounted(async () => {
             <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifesto(s).</div>
           </v-col>
         </v-row>
-        <v-table density="compact">
+        <!-- Recarga sobre dados já exibidos: barra + tabela esmaecida (não uma
+             linha de "consultando" empilhada acima dos dados antigos). -->
+        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" aria-label="Consultando manifestos" />
+        <v-table density="compact" :class="{ 'is-refreshing': loading && items.length }">
           <thead>
             <tr>
               <th scope="col">Número MTR</th>
@@ -542,8 +547,8 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
-              <td colspan="7" class="text-center text-medium-emphasis pa-4">Consultando manifestos...</td>
+            <tr v-if="loading && !items.length">
+              <td colspan="7" class="text-center text-medium-emphasis pa-4" aria-live="polite">Consultando manifestos…</td>
             </tr>
             <tr v-else-if="!items.length">
               <td colspan="7" class="text-center text-medium-emphasis pa-4">Nenhum manifesto disponível para os filtros informados.</td>
@@ -558,6 +563,7 @@ onMounted(async () => {
                 <SicatStatusBadge
                   :status="manifest.externalStatus || manifest.status"
                   :label="resolveManifestStatusLabel(manifest)"
+                  :title="resolveManifestRawSituation(manifest) ? `Situação na CETESB: ${resolveManifestRawSituation(manifest)}` : undefined"
                   domain="manifest"
                   with-dot
                 />
@@ -583,6 +589,11 @@ onMounted(async () => {
 <style scoped>
 .report-workspace {
   overflow: hidden;
+}
+
+.is-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .report-workspace-body {
