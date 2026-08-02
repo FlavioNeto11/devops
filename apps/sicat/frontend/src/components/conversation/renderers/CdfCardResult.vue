@@ -30,11 +30,11 @@ const sourceManifest = computed(() => asRecord(props.data?.sourceManifest));
         <dd>{{ criteria.certificateHashCode }}</dd>
       </div>
       <div class="result-row" v-if="toNullableText(criteria.dateFrom)">
-        <dt>Data ini</dt>
+        <dt>Início do período</dt>
         <dd>{{ criteria.dateFrom }}</dd>
       </div>
       <div class="result-row" v-if="toNullableText(criteria.dateTo)">
-        <dt>Data fim</dt>
+        <dt>Fim do período</dt>
         <dd>{{ criteria.dateTo }}</dd>
       </div>
     </dl>

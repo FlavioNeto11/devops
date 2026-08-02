@@ -234,12 +234,12 @@ onMounted(async () => {
               type="button"
               class="chat-focus-chip"
               :class="{ 'chat-focus-chip--active': hasFocus }"
-              :title="hasFocus ? 'Editar foco operacional' : 'Definir manifesto/job em foco para as ações guiadas'"
+              :title="hasFocus ? 'Editar foco operacional' : 'Definir o manifesto ou o processamento em foco para as ações guiadas'"
               @click="openFocusMenu"
             >
               <v-icon size="13">{{ hasFocus ? 'mdi-target' : 'mdi-target-variant' }}</v-icon>
               <span v-if="focusedManifestId">MTR {{ focusedManifestId }}</span>
-              <span v-if="focusedJobId">Job {{ focusedJobId }}</span>
+              <span v-if="focusedJobId">Processamento {{ focusedJobId }}</span>
               <span v-if="!hasFocus">Definir foco</span>
             </button>
           </template>
@@ -257,7 +257,7 @@ onMounted(async () => {
             />
             <v-text-field
               v-model="focusJobDraft"
-              label="Job em foco"
+              label="Processamento em foco"
               density="compact"
               hide-details
               clearable
@@ -335,7 +335,7 @@ onMounted(async () => {
           </div>
           <h2 class="chat-empty-title">Como posso ajudar?</h2>
           <p class="chat-empty-sub">
-            Consultas operacionais sobre manifestos, jobs, auditoria e dashboard —
+            Consultas operacionais sobre manifestos, processamentos, auditoria e o painel —
             sempre no contexto da conta CETESB ativa.
           </p>
           <p class="chat-empty-disclosure">

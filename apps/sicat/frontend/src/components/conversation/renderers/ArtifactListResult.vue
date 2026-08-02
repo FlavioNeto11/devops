@@ -45,7 +45,7 @@ function onDownload(item) {
   <section class="result-card" aria-label="artifact_list">
     <header class="result-card-header">
       <v-icon size="16">mdi-file-multiple-outline</v-icon>
-      <h4>Artifacts</h4>
+      <h4>Arquivos gerados</h4>
     </header>
 
     <ul class="artifact-list">
