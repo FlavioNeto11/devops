@@ -13,7 +13,10 @@ const theme = useTheme();
 const authStore = useAuthStore();
 const { loading, error } = authStore;
 
-const email = ref(import.meta.env.VITE_LOGIN_EMAIL || '');
+// Nunca pré-preencher credencial (nem por variável de build): campo de login
+// começa vazio sempre. O preenchimento automático fica a cargo do gerenciador
+// de senhas do próprio usuário, via `autocomplete` nos campos.
+const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
 const formError = ref('');
@@ -221,6 +224,8 @@ async function handleRegister() {
             v-model="email"
             label="E-mail"
             type="email"
+            name="email"
+            autocomplete="username"
             placeholder="voce@empresa.com"
             :error-messages="formError && !email ? [formError] : []"
             autofocus
@@ -231,6 +236,8 @@ async function handleRegister() {
             v-model="password"
             label="Senha"
             :type="showPassword ? 'text' : 'password'"
+            name="current-password"
+            autocomplete="current-password"
             placeholder="Digite sua senha"
             :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
             class="mb-2"
@@ -310,24 +317,28 @@ async function handleRegister() {
               <v-text-field
                 v-model="registerName"
                 label="Nome completo"
+                autocomplete="name"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerEmail"
                 label="E-mail"
                 type="email"
+                autocomplete="username"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerPassword"
                 label="Senha"
                 type="password"
+                autocomplete="new-password"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerConfirmPassword"
                 label="Confirmar senha"
                 type="password"
+                autocomplete="new-password"
                 class="mb-4"
               />
 
