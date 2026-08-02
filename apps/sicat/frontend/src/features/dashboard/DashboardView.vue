@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { getDashboardOverview } from '../../services/api.js';
 import { useAuthStore } from '../../stores/auth.js';
 import { usePersona } from '../../composables/usePersona.js';
@@ -16,7 +16,6 @@ import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
 import SicatEmptyState from '../../components/sicat/SicatEmptyState.vue';
 import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
 
-const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { isReceiver, isCarrier } = usePersona();
@@ -40,19 +39,6 @@ const activeAccountLabel = computed(() => {
   if (name && code) return `${name} (cód. ${code})`;
   return name || code || account.accountId || 'Conta ativa';
 });
-
-const adminAccessNotice = computed(() => {
-  if (String(route.query?.notice || '').trim() !== 'admin-access-denied') return '';
-  const deniedRoute = String(route.query?.deniedRoute || '/admin/acessos').trim();
-  return `Você não possui permissão para acessar ${deniedRoute}.`;
-});
-
-function clearAdminAccessNotice() {
-  const nextQuery = { ...route.query };
-  delete nextQuery.notice;
-  delete nextQuery.deniedRoute;
-  router.replace({ path: route.path, query: nextQuery }).catch(() => {});
-}
 
 function statusBucket(status) {
   const tone = resolveManifestStatusTone(status);
@@ -262,14 +248,9 @@ onMounted(loadDashboard);
       </SicatPageHeader>
     </template>
 
+    <!-- Acesso negado a área administrativa é avisado pelo próprio guard de rota
+         (useNotification), sem query string e sem expor o caminho interno. -->
     <template #banner>
-      <SicatInlineAlert
-        v-if="adminAccessNotice"
-        tone="warning"
-        :message="adminAccessNotice"
-        dismissible
-        @dismiss="clearAdminAccessNotice"
-      />
       <SicatInlineAlert v-if="error" tone="error" :message="error">
         <template #actions>
           <v-btn size="small" variant="text" :loading="loading" @click="loadDashboard">Tentar novamente</v-btn>

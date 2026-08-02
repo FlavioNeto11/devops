@@ -1,5 +1,8 @@
 <script setup>
+import { computed } from 'vue';
 import { formatDateTimeBr } from '../utils/date-format.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
+import SicatStatusBadge from './sicat/SicatStatusBadge.vue';
 
 const props = defineProps({
   manifest: {
@@ -17,6 +20,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
+
+// Mesmo vocabulário pt-BR da lista de manifestos: sem isto o detalhe mostrava o
+// status CRU ("draft"/"submitted") enquanto a lista já falava "Rascunho"/"Enviado".
+const situationLabel = computed(() => (props.manifest ? resolveManifestSituationLabel(props.manifest) : '-'));
+const situationKey = computed(() => props.manifest?.externalStatus || props.manifest?.status || '');
+const rawSituation = computed(() => (props.manifest ? resolveManifestRawSituation(props.manifest) : ''));
 
 function formatDateTime(value) {
   if (!value) {
@@ -46,8 +55,11 @@ function formatDateTime(value) {
         <strong class="detail-value detail-code">{{ manifest.id }}</strong>
       </div>
       <div class="detail-group">
-        <span class="detail-label">Status</span>
-        <strong class="detail-value">{{ manifest.status }} / {{ manifest.externalStatus || '-' }}</strong>
+        <span class="detail-label">Situação</span>
+        <span class="detail-value">
+          <SicatStatusBadge :status="situationKey" :label="situationLabel" domain="manifest" with-dot />
+        </span>
+        <span v-if="rawSituation" class="detail-hint">Situação na CETESB: {{ rawSituation }}</span>
       </div>
       <div class="detail-group">
         <span class="detail-label">Número MTR</span>
@@ -100,5 +112,12 @@ function formatDateTime(value) {
 
 .detail-code {
   font-family: var(--font-family-mono);
+}
+
+.detail-hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
 }
 </style>

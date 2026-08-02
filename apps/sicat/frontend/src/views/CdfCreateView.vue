@@ -5,6 +5,7 @@ import { enqueueCdfGenerate, getCdfResponsibles, getManifestById, listManifests 
 import { useCdfOperationalContext } from '../composables/useCdfOperationalContext.js';
 import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
+import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import SicatCard from '../components/sicat/SicatCard.vue';
 import SicatDataTable from '../components/sicat/SicatDataTable.vue';
@@ -162,9 +163,16 @@ const requestedManifestIds = computed(() => {
   return Array.from(new Set(raw.split(',').map((id) => id.trim()).filter(Boolean)));
 });
 
+function formatFirstDayOfMonthInput(date = new Date()) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-01`;
+}
+
+// Período pré-preenchido de forma SIMÉTRICA (mês corrente até hoje). Antes só a
+// "Data final" vinha preenchida e a "Data inicial" ficava vazia, o que parecia
+// erro de carregamento — o operador segue livre para trocar as duas datas.
 const cdfForm = reactive({
   issueAt: formatLocalDateInput(new Date()),
-  dateFrom: '',
+  dateFrom: formatFirstDayOfMonthInput(new Date()),
   dateTo: formatLocalDateInput(new Date()),
   responsibleCode: null,
   observation: ''
@@ -577,18 +585,22 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-container class="cdf-create-view py-6" fluid>
-    <SicatPageHeader
-      kicker="Certificados · CDF"
-      title="Gerar CDF"
-      description="Selecione manifestos elegíveis, valide bloqueios e solicite a emissão de novo Certificado de Destinação Final."
-      compact
-    />
+  <!-- O cabeçalho vai no slot #header do SicatPageLayout: é ele que avisa o shell
+       que a página já tem header próprio (usePageChrome). Solto num v-container,
+       o shell continuava desenhando o header genérico e a tela mostrava DOIS. -->
+  <SicatPageLayout class="cdf-create-view">
+    <template #header>
+      <SicatPageHeader
+        kicker="Certificados · CDF"
+        title="Gerar CDF"
+        description="Selecione manifestos elegíveis, valide bloqueios e solicite a emissão de novo Certificado de Destinação Final."
+        compact
+      />
+    </template>
 
     <SicatCard
-      class="mt-4"
       title="Manifestos para emissão"
-      subtitle="Fluxo operacional de criação. Esta rota não exibe listagem de CDF emitido."
+      subtitle="Esta tela é só para emitir um certificado novo. Para consultar os certificados já emitidos, use “Certificados · CDF › Emitidos”."
     >
       <!-- Escopo explícito: estes contadores falam da LISTA carregada abaixo.
            Os do "Resumo da seleção" falam só do que está marcado. Antes ambos
@@ -658,28 +670,35 @@ onMounted(() => {
         </ul>
       </section>
 
-      <SicatFormSection title="Dados da emissão" class="mt-4">
-        <SicatFormField label="Data da emissão">
+      <!-- Período coberto: as duas datas são um PAR. As dicas são curtas e simétricas
+           (antes só a "Data inicial" tinha uma frase longa, que escorria para
+           debaixo da "Data final") e ambas já vêm preenchidas. -->
+      <SicatFormSection
+        title="Dados da emissão"
+        description="Campos marcados com * são obrigatórios. O período define quais manifestos o certificado cobre."
+        class="mt-4"
+      >
+        <SicatFormField label="Data da emissão" required>
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.issueAt" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Responsável pela emissão">
+        <SicatFormField label="Responsável pela emissão" required>
           <template #default="{ id }">
             <v-select :id="id" v-model="cdfForm.responsibleCode" :items="cdfResponsibleOptions" item-title="title" item-value="value" :loading="cdfResponsiblesLoading" :disabled="cdfLoading || cdfResponsiblesLoading" placeholder="Selecione o responsável" density="comfortable" variant="outlined" hide-details="auto" no-data-text="Nenhum responsável disponível" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Data inicial" hint="Início do período dos manifestos cobertos pelo certificado.">
+        <SicatFormField label="Data inicial" required hint="Primeiro dia do período coberto.">
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.dateFrom" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Data final">
+        <SicatFormField label="Data final" required hint="Último dia do período coberto.">
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.dateTo" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Observação" full-width>
+        <SicatFormField label="Observação" hint="Opcional." full-width>
           <template #default="{ id }">
             <v-textarea :id="id" v-model="cdfForm.observation" rows="3" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
@@ -692,10 +711,10 @@ onMounted(() => {
 
       <div class="cdf-create-view__actions-row mt-3">
         <v-btn color="primary" variant="flat" :loading="cdfLoading" :disabled="cdfLoading || !contextReady || !eligibleManifestCount" @click="submitCdfGenerate">Gerar CDF</v-btn>
-        <span class="cdf-create-view__hint">O backend revalida a elegibilidade remota antes de emitir o certificado.</span>
+        <span class="cdf-create-view__hint">Antes de emitir, o SICAT confere na CETESB se os manifestos selecionados continuam elegíveis.</span>
       </div>
     </SicatCard>
-  </v-container>
+  </SicatPageLayout>
 </template>
 
 <style scoped>
