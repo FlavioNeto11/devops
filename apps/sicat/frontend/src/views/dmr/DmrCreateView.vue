@@ -118,7 +118,10 @@ function goBack() {
 </script>
 
 <template>
-  <SicatPageLayout width="narrow">
+  <!-- Largura padrão (a mesma das demais telas do app). Com `width="narrow"`
+       esta era a única tela em ~740px enquanto todo o resto usava ~1160px — a
+       auditoria pegou o degrau de layout ao navegar de /dmr para /dmr/novo. -->
+  <SicatPageLayout>
     <template #header>
       <SicatPageHeader
         kicker="Resíduos · DMR"

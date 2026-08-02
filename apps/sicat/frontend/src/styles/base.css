@@ -35,6 +35,32 @@
   }
 }
 
+/* Geometria do lançador flutuante do assistente (FAB). Mora aqui, e não dentro
+   do componente, porque DUAS camadas dependem dos mesmos números: o próprio
+   botão (InAppCopilotAssistant) e o espaço que o shell precisa reservar para
+   que nenhuma ação de linha (botão "Receber", kebab das tabelas) fique embaixo
+   dele — a auditoria mediu 44x28px do "Receber" cobertos em /manifestos.
+     - `--sicat-launcher-space`: faixa reservada no RODAPÉ do conteúdo (o fim da
+       lista nunca termina sob o botão);
+     - `--sicat-launcher-rail`: faixa reservada à DIREITA da viewport; o shell
+       empurra o conteúdo para a esquerda quando a calha natural (fora do
+       container) é menor que ela.
+   O `+ 8px` do rail é folga para a barra de rolagem: `html` usa
+   `overflow-y: scroll`, então `100vw` é ~15px maior que a área visível. */
+:root {
+  --sicat-launcher-size: 56px;
+  --sicat-launcher-inset: 16px;
+  --sicat-launcher-space: calc(var(--sicat-launcher-size) + var(--sicat-launcher-inset) * 2);
+  --sicat-launcher-rail: calc(var(--sicat-launcher-size) + var(--sicat-launcher-inset) + 8px);
+}
+
+@media (max-width: 959px) {
+  :root {
+    --sicat-launcher-size: 52px;
+    --sicat-launcher-inset: 12px;
+  }
+}
+
 /* Respeita "prefers-reduced-motion": neutraliza transições/animações globalmente. */
 @media (prefers-reduced-motion: reduce) {
   *,

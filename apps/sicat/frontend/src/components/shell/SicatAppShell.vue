@@ -137,8 +137,10 @@ function skipToContent() {
 <style scoped>
 .sicat-shell {
   /* Faixa reservada no rodapé do conteúdo para o lançador flutuante do
-     assistente (fixo em baixo/direita) não cobrir o último bloco da página. */
-  --assistant-launcher-space: 84px;
+     assistente (fixo em baixo/direita) não cobrir o último bloco da página.
+     A medida vem dos tokens do FAB (styles/base.css) para as duas camadas não
+     saírem de sincronia. */
+  --assistant-launcher-space: var(--sicat-launcher-space, 88px);
   display: flex;
   min-height: 100vh;
   flex-direction: column;
@@ -177,10 +179,27 @@ function skipToContent() {
 }
 
 .sicat-shell__container {
+  --sicat-container-pad: clamp(18px, 2.2vw, 28px);
   width: 100%;
   max-width: var(--app-max-width);
   margin-inline: auto;
-  padding: 0 clamp(18px, 2.2vw, 28px);
+  padding: 0 var(--sicat-container-pad);
+}
+
+/* Calha do FAB: em desktop o conteúdo cede à direita exatamente o que faltar
+   para o lançador do assistente caber FORA da coluna de conteúdo. Enquanto a
+   viewport é larga (calha natural >= rail) o padding é o normal e nada muda;
+   abaixo disso o conteúdo desloca no máximo ~50px, e a coluna de ações das
+   tabelas deixa de passar por baixo do botão em qualquer posição de rolagem.
+   Em mobile (<960px) não há calha a reservar (custaria largura demais numa tela
+   estreita) — lá vale a faixa inferior `--assistant-launcher-space`. */
+@media (min-width: 960px) {
+  .sicat-shell__container:not(.sicat-shell__container--chat) {
+    padding-right: max(
+      var(--sicat-container-pad),
+      calc(var(--sicat-launcher-rail, 80px) - max(0px, (100vw - var(--app-max-width)) / 2))
+    );
+  }
 }
 
 .sicat-shell__footer {

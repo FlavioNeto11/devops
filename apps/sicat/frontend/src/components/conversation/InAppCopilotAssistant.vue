@@ -85,7 +85,8 @@ const route = useRoute();
 const isAssistantRoute = computed(() => route.path === '/conversacional/chat');
 const showLauncher = computed(() => !isAssistantRoute.value);
 
-const launcherLabel = computed(() => (isOpen.value ? 'Fechar assistente contextual' : 'Abrir assistente contextual'));
+// Nomenclatura única do conceito: "Assistente" (menu, aba do chat e este FAB).
+const launcherLabel = computed(() => (isOpen.value ? 'Fechar o Assistente' : 'Abrir o Assistente'));
 const launcherTitle = computed(() => `${launcherLabel.value} · arraste para reposicionar`);
 const scopeBadgeTone = computed(() => (hasOperationalContext.value ? 'success' : 'warning'));
 const scopeBadgeLabel = computed(() => (hasOperationalContext.value ? 'Conta ativa pronta' : 'Contexto incompleto'));
@@ -297,23 +298,23 @@ onUnmounted(() => {
 
 <template>
   <div class="copilot-shell">
-    <v-btn
+    <button
       v-if="showLauncher"
       ref="launcherRef"
+      type="button"
+      data-testid="copilot-launcher-btn"
       class="copilot-launcher"
       :class="{ 'copilot-launcher--dragging': dragState.active }"
       :style="launcherStyle"
-      color="primary"
-      size="large"
-      elevation="12"
       :aria-label="launcherLabel"
+      :aria-expanded="isOpen"
       :title="launcherTitle"
       @pointerdown="onLauncherPointerDown"
       @click="handleLauncherClick"
     >
-      <v-icon start>{{ isOpen ? 'mdi-close' : 'mdi-headset' }}</v-icon>
-      Assistente
-    </v-btn>
+      <v-icon size="24" aria-hidden="true">{{ isOpen ? 'mdi-close' : 'mdi-headset' }}</v-icon>
+      <span class="copilot-launcher__label" aria-hidden="true">Assistente</span>
+    </button>
 
     <transition name="copilot-fade">
       <button v-if="isOpen" class="copilot-backdrop" type="button" aria-label="Fechar painel do assistente" @click="closePanel" />
@@ -486,19 +487,59 @@ onUnmounted(() => {
   z-index: 220;
 }
 
+/* Lançador compacto: em repouso é um círculo de 56px, medida usada pelo shell
+   para reservar a faixa inferior e a calha direita (styles/base.css). O rótulo
+   só se expande no hover/foco — quando o ponteiro JÁ está sobre o botão, então
+   a expansão nunca surge por cima de uma ação que o operador ia clicar.
+   Antes era uma pílula de ~160px que cobria a coluna de ações das tabelas. */
 .copilot-launcher {
   position: fixed;
-  right: clamp(18px, 2.5vw, 30px);
-  bottom: clamp(18px, 2.8vw, 30px);
-  min-height: 54px;
-  padding-inline: 18px;
-  border-radius: var(--radius-md);
+  right: var(--sicat-launcher-inset, 16px);
+  bottom: var(--sicat-launcher-inset, 16px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sicat-launcher-size, 56px);
+  min-width: var(--sicat-launcher-size, 56px);
+  padding-inline: calc((var(--sicat-launcher-size, 56px) - 24px) / 2);
+  border: 0;
+  border-radius: 999px;
   background: rgb(var(--v-theme-primary));
   color: rgb(var(--v-theme-on-primary));
   box-shadow: var(--shadow-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1;
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+
+.copilot-launcher:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.copilot-launcher__label {
+  display: inline-block;
+  max-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 0.18s ease, opacity 0.18s ease, margin-left 0.18s ease;
+}
+
+.copilot-launcher:hover .copilot-launcher__label,
+.copilot-launcher:focus-visible .copilot-launcher__label {
+  max-width: 140px;
+  margin-left: 8px;
+  opacity: 1;
+}
+
+.copilot-launcher:focus-visible {
+  outline: 3px solid rgba(var(--v-theme-primary), 0.4);
+  outline-offset: 2px;
 }
 
 .copilot-launcher--dragging {
@@ -773,13 +814,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 960px) {
-  .copilot-launcher {
-    right: 14px;
-    bottom: 14px;
-    min-height: 50px;
-    padding-inline: 16px;
-  }
-
   .copilot-panel {
     top: 10px;
     right: 10px;

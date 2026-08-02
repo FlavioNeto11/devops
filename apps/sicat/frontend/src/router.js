@@ -184,7 +184,7 @@ const routes = [
       audience: 'operator',
       // MTR provisório (emergência) é fluxo do Gerador (espelha config/navigation.js).
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Manifestos provisórios']
+      breadcrumb: ['MTR provisório', 'Meus MTRs provisórios']
     }
   },
   {
@@ -196,7 +196,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Novo manifesto provisório']
+      breadcrumb: ['MTR provisório', 'Novo MTR provisório']
     }
   },
   {
@@ -208,7 +208,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       personas: ['generator'],
-      breadcrumb: ['MTR Provisório', 'Detalhe do manifesto provisório']
+      breadcrumb: ['MTR provisório', 'Detalhe do MTR provisório']
     }
   },
   {
@@ -306,7 +306,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Relatório MTR']
+      breadcrumb: ['Sistema', 'Relatórios de MTR (SRE)']
     }
   },
   {
