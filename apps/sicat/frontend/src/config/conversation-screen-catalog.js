@@ -1,15 +1,15 @@
 const DEFAULT_SCREEN_META = {
   title: 'SICAT',
-  description: 'Contexto autenticado do SICAT com orientacao operacional e navegacao assistida.',
-  purpose: 'Apoiar a leitura da tela atual sem sair do shell autenticado.',
+  description: 'Contexto autenticado do SICAT, com orientação operacional e navegação assistida.',
+  purpose: 'Apoiar a leitura da tela atual sem sair da área autenticada.',
   fieldHints: [
     {
       label: 'Conta ativa',
-      description: 'Toda orientacao deve respeitar a conta CETESB selecionada e o contexto operacional em sessao.'
+      description: 'Toda orientação deve respeitar a conta CETESB selecionada e o contexto operacional em sessão.'
     },
     {
       label: 'Rota atual',
-      description: 'Use a rota e o breadcrumb para localizar o modulo certo antes de orientar uma acao.'
+      description: 'Use a rota e a trilha de navegação para localizar o módulo certo antes de orientar uma ação.'
     }
   ],
   quickActions: [
@@ -45,20 +45,20 @@ const DEFAULT_SCREEN_META = {
 const SHELL_SCREEN_CATALOG = {
   Dashboard: {
     title: 'Dashboard',
-    description: 'Saude operacional, capacidade e leitura rapida do ecossistema de jobs e manifestos.',
+    description: 'Saúde operacional, capacidade e leitura rápida dos manifestos e processamentos.',
     purpose: 'Ler sinais do ambiente e localizar gargalos antes de agir.',
     fieldHints: [
       {
-        label: 'KPIs operacionais',
-        description: 'Os cards superiores mostram backlog, taxa de sucesso, workers ativos e risco operacional.'
+        label: 'Indicadores operacionais',
+        description: 'Os cartões superiores resumem fila acumulada, taxa de sucesso, processamento ativo e risco operacional.'
       },
       {
-        label: 'Series temporais',
-        description: 'Use os graficos para correlacionar latencia, sucesso e volume em 24h ou 7 dias.'
+        label: 'Séries temporais',
+        description: 'Use os gráficos para correlacionar tempo de resposta, sucesso e volume em 24h ou 7 dias.'
       },
       {
-        label: 'Top operacoes',
-        description: 'Ajuda a localizar endpoints ou jobs que concentram custo e falha.'
+        label: 'Principais operações',
+        description: 'Ajuda a localizar as operações e os processamentos que concentram custo e falha.'
       }
     ],
     quickActions: [
@@ -88,31 +88,31 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Jobs',
         to: '/sistema/jobs',
-        description: 'Detalhar fila, execucao e DLQ.'
+        description: 'Detalhar fila, execução e falhas terminais.'
       },
       {
         label: 'Manifestos',
         to: '/manifestos',
-        description: 'Ir para a operacao direta de MTRs.'
+        description: 'Ir para a operação direta de MTRs.'
       }
     ]
   },
   Manifestos: {
     title: 'Manifestos',
-    description: 'Operacao ampla da fila de MTRs, com filtros, acoes em lote e acompanhamento CETESB.',
+    description: 'Operação ampla da fila de MTRs, com filtros, ações em lote e acompanhamento CETESB.',
     purpose: 'Filtrar, localizar e acompanhar manifestos da conta ativa.',
     fieldHints: [
       {
         label: 'Filtros',
-        description: 'Data, status e contexto operacional definem a amostra que vai para a listagem.'
+        description: 'Data, situação e contexto operacional definem a amostra que vai para a listagem.'
       },
       {
-        label: 'Selecao em lote',
+        label: 'Seleção em lote',
         description: 'Use com cuidado para revisar o conjunto antes de qualquer fluxo operacional.'
       },
       {
-        label: 'Menu de acoes',
-        description: 'Centraliza consulta de detalhes, replicacao e fluxos suportados pelo backend principal.'
+        label: 'Menu de ações',
+        description: 'Centraliza consulta de detalhes, replicação e os demais fluxos disponíveis para o manifesto.'
       }
     ],
     quickActions: [
@@ -142,7 +142,7 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Novo manifesto',
         to: '/manifestos/novo',
-        description: 'Abrir o fluxo guiado de criacao.'
+        description: 'Abrir o fluxo guiado de criação.'
       },
       {
         label: 'Jobs',
@@ -152,17 +152,17 @@ const SHELL_SCREEN_CATALOG = {
     ]
   },
   RelatorioMtrs: {
-    title: 'Relatorio dos MTRs',
-    description: 'Consulta consolidada de MTRs com recorte temporal e leitura orientada a auditoria.',
-    purpose: 'Auditar e consolidar historico operacional sem sair do portal.',
+    title: 'Relatório dos MTRs',
+    description: 'Consulta consolidada de MTRs com recorte temporal e leitura voltada à auditoria.',
+    purpose: 'Auditar e consolidar o histórico operacional sem sair do portal.',
     fieldHints: [
       {
         label: 'Janela temporal',
-        description: 'Ajuste o periodo para equilibrar volume, latencia e utilidade do resultado.'
+        description: 'Ajuste o período para equilibrar volume, tempo de resposta e utilidade do resultado.'
       },
       {
         label: 'Leitura para auditoria',
-        description: 'Concentre a analise em status, recortes e inconsistencias observadas.'
+        description: 'Concentre a análise em situação, recortes e inconsistências observadas.'
       }
     ],
     quickActions: [
@@ -190,14 +190,14 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Dashboard',
         to: '/dashboard',
-        description: 'Consultar um panorama rapido antes da auditoria.'
+        description: 'Consultar um panorama rápido antes da auditoria.'
       }
     ]
   },
   ManifestoNovo: {
     title: 'Novo manifesto',
-    description: 'Fluxo guiado para montar e submeter manifestos sem alterar regras operacionais existentes.',
-    purpose: 'Preencher o manifesto com contexto da conta ativa e validacoes do fluxo.',
+    description: 'Fluxo guiado para montar e enviar manifestos com o contexto da conta ativa.',
+    purpose: 'Preencher o manifesto com o contexto da conta ativa e as validações do fluxo.',
     fieldHints: [
       {
         label: 'Participantes',
@@ -205,11 +205,11 @@ const SHELL_SCREEN_CATALOG = {
       },
       {
         label: 'Dados operacionais',
-        description: 'Tipo, data de expedicao e responsavel influenciam validacao e submissao.'
+        description: 'Tipo, data de expedição e responsável influenciam a validação e o envio.'
       },
       {
-        label: 'Residuos',
-        description: 'Descricao, classe, unidade e quantidade sao pontos frequentes de revisao.'
+        label: 'Resíduos',
+        description: 'Descrição, classe, unidade e quantidade são pontos frequentes de revisão.'
       }
     ],
     quickActions: [
@@ -239,26 +239,26 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Manifestos',
         to: '/manifestos',
-        description: 'Revisar fila e rascunhos existentes.'
+        description: 'Revisar a fila e os rascunhos existentes.'
       }
     ]
   },
   ManifestoDetalhe: {
     title: 'Detalhe do manifesto',
-    description: 'Dados operacionais, participantes, residuos e acompanhamento do manifesto selecionado.',
+    description: 'Dados operacionais, participantes, resíduos e acompanhamento do manifesto selecionado.',
     purpose: 'Entender o estado do manifesto atual e orientar a leitura dos dados exibidos.',
     fieldHints: [
       {
-        label: 'Identificacao do manifesto',
-        description: 'ID interno, numero externo e codigo CETESB ajudam a cruzar auditoria e fila.'
+        label: 'Identificação do manifesto',
+        description: 'O número do manifesto e o código CETESB ajudam a cruzar auditoria e fila.'
       },
       {
-        label: 'Status e participantes',
-        description: 'Leia status, gerador, transportador e destinador antes de orientar proximo passo.'
+        label: 'Situação e participantes',
+        description: 'Leia a situação, o gerador, o transportador e o destinador antes de orientar o próximo passo.'
       },
       {
         label: 'Dados operacionais',
-        description: 'Responsavel, expedicao, hash externo e residuos explicam o estado exibido.'
+        description: 'Responsável, expedição, identificação na CETESB e resíduos explicam o estado exibido.'
       }
     ],
     quickActions: [
@@ -293,26 +293,26 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Jobs',
         to: '/sistema/jobs',
-        description: 'Consultar processamento relacionado quando houver job.'
+        description: 'Consultar o processamento relacionado, quando houver.'
       }
     ]
   },
   SistemaJobs: {
     title: 'Jobs',
-    description: 'Fila, auditoria, DLQ e sinais operacionais para suportar troubleshooting em tempo real.',
-    purpose: 'Entender execucao, falhas e backlog da fila assincrona.',
+    description: 'Fila, auditoria, falhas terminais e sinais operacionais para apoiar o diagnóstico em tempo real.',
+    purpose: 'Entender execução, falhas e acúmulo da fila de processamentos.',
     fieldHints: [
       {
-        label: 'Status do job',
-        description: 'Priorize status, tentativas, erro atual e timestamps para orientar a leitura.'
+        label: 'Situação do processamento',
+        description: 'Priorize situação, tentativas, erro atual e horários para orientar a leitura.'
       },
       {
-        label: 'Fila e DLQ',
-        description: 'Separe gargalo de fila de falha terminal antes de sugerir uma acao.'
+        label: 'Fila e falhas terminais',
+        description: 'Separe gargalo de fila de falha terminal antes de sugerir uma ação.'
       },
       {
-        label: 'Correlacao',
-        description: 'Job, correlationId e auditoria devem ser analisados em conjunto.'
+        label: 'Correlação',
+        description: 'Processamento, identificador de correlação e auditoria devem ser analisados em conjunto.'
       }
     ],
     quickActions: [
@@ -345,17 +345,17 @@ const SHELL_SCREEN_CATALOG = {
     ]
   },
   SessaoConta: {
-    title: 'Sessao e conta CETESB',
-    description: 'Contexto autenticado, sessao ativa e troca rapida de conta CETESB.',
-    purpose: 'Validar o contexto autenticado antes de orientar operacoes no portal.',
+    title: 'Sessão e conta CETESB',
+    description: 'Contexto autenticado, sessão ativa e troca rápida de conta CETESB.',
+    purpose: 'Validar o contexto autenticado antes de orientar operações no portal.',
     fieldHints: [
       {
         label: 'Conta ativa',
-        description: 'Confira partnerCode, tipo de conta e dados da conta CETESB selecionada.'
+        description: 'Confira o código do parceiro, o tipo de conta e os dados da conta CETESB selecionada.'
       },
       {
-        label: 'Session context',
-        description: 'SessionContextId e integrationAccountId explicam qual identidade operacional esta valendo.'
+        label: 'Contexto da sessão',
+        description: 'Os identificadores da sessão e da conta de integração mostram qual identidade operacional está valendo.'
       }
     ],
     quickActions: [
@@ -378,22 +378,22 @@ const SHELL_SCREEN_CATALOG = {
       {
         label: 'Dashboard',
         to: '/dashboard',
-        description: 'Retomar a operacao principal.'
+        description: 'Retomar a operação principal.'
       }
     ]
   },
   AdminAcessos: {
     title: 'Perfis e acessos',
-    description: 'Visao administrativa de usuarios, perfis, permissoes e sessoes recentes.',
-    purpose: 'Orientar leitura administrativa sem expandir privilegios no copiloto.',
+    description: 'Visão administrativa de usuários, perfis, permissões e sessões recentes.',
+    purpose: 'Orientar a leitura administrativa sem ampliar privilégios pelo assistente.',
     fieldHints: [
       {
-        label: 'Perfis e permissoes',
-        description: 'Leia o escopo concedido antes de sugerir qualquer acao administrativa.'
+        label: 'Perfis e permissões',
+        description: 'Leia o escopo concedido antes de sugerir qualquer ação administrativa.'
       },
       {
-        label: 'Sessoes',
-        description: 'Use a trilha de acessos para diagnosticar governanca e suporte.'
+        label: 'Sessões',
+        description: 'Use a trilha de acessos para diagnosticar governança e apoiar o suporte.'
       }
     ],
     quickActions: [
@@ -414,9 +414,9 @@ const SHELL_SCREEN_CATALOG = {
     ],
     relatedRoutes: [
       {
-        label: 'Sessao',
+        label: 'Sessão',
         to: '/sessao',
-        description: 'Confirmar contexto ativo antes de qualquer leitura administrativa.'
+        description: 'Confirmar o contexto ativo antes de qualquer leitura administrativa.'
       }
     ]
   }
@@ -457,14 +457,14 @@ function normalizeAccountType(accountType) {
 
 function buildActiveAccountLabel(activeAccount) {
   if (!activeAccount || typeof activeAccount !== 'object') {
-    return 'Conta CETESB nao selecionada';
+    return 'Conta CETESB não selecionada';
   }
 
   const partnerName = toTrimmedString(activeAccount.partnerName);
   const partnerCode = toTrimmedString(activeAccount.partnerCode);
 
   if (partnerName && partnerCode) {
-    return `${partnerName} (cod. ${partnerCode})`;
+    return `${partnerName} (cód. ${partnerCode})`;
   }
 
   if (partnerName) {
@@ -472,7 +472,7 @@ function buildActiveAccountLabel(activeAccount) {
   }
 
   if (partnerCode) {
-    return `Codigo ${partnerCode}`;
+    return `Código ${partnerCode}`;
   }
 
   return toTrimmedString(activeAccount.accountId) || 'Conta ativa';

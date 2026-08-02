@@ -92,6 +92,9 @@ defineProps({
 .sicat-form-section__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* Sem 'start', um campo com dica estica os vizinhos da mesma linha e a dica
+     acaba flutuando sob o campo ao lado. Cada campo fica ancorado no topo. */
+  align-items: start;
   gap: var(--space-4);
 }
 </style>

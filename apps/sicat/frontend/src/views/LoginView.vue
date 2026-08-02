@@ -27,7 +27,6 @@ const registerEmail = ref('');
 const registerPassword = ref('');
 const registerConfirmPassword = ref('');
 const registerError = ref('');
-const rememberMe = ref(true);
 
 const authError = computed(() => formError.value || error.value || '');
 const isLoading = computed(() => loading.value);
@@ -245,13 +244,6 @@ async function handleRegister() {
           />
 
           <div class="auth-form-options mb-4">
-            <v-checkbox
-              v-model="rememberMe"
-              label="Lembrar de mim"
-              density="compact"
-              hide-details
-              color="primary"
-            />
             <v-btn variant="text" size="small" type="button" @click="handleForgotPassword">
               Esqueceu a senha?
             </v-btn>

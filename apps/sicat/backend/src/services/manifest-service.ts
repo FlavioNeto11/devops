@@ -847,7 +847,7 @@ function buildSyncEmptyPreserveWarning(items: unknown[], page: number, pageSize:
     ...toPagedResponse(items, page, pageSize, totalItems),
     syncWarning: {
       code: 'CETESB_SYNC_EMPTY_PRESERVED',
-      message: 'Pesquisa CETESB retornou sem itens para a janela solicitada. Mantendo dados locais para evitar limpeza indevida do espelho.',
+      message: 'A CETESB não retornou manifestos para o período consultado. Os manifestos já registrados aqui foram preservados.',
       source: 'local-cache',
       dateFrom: syncWindow.dateFrom,
       dateTo: syncWindow.dateTo,
