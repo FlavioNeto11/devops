@@ -386,7 +386,7 @@ onMounted(async () => {
               size="small"
               @click="onMessageAction(action)"
             >
-              {{ action.label || 'Acao' }}
+              {{ action.label || 'Ação' }}
             </v-btn>
           </div>
 
@@ -404,18 +404,18 @@ onMounted(async () => {
                 :icon="message.feedback === 'positive' ? 'mdi-thumb-up' : 'mdi-thumb-up-outline'"
                 :color="message.feedback === 'positive' ? 'success' : undefined"
                 variant="text"
-                size="x-small"
-                density="compact"
-                aria-label="Resposta útil"
+                size="small"
+                title="Marcar como resposta útil"
+                aria-label="Marcar como resposta útil"
                 @click="sendFeedback(message, 'positive')"
               />
               <v-btn
                 :icon="message.feedback === 'negative' ? 'mdi-thumb-down' : 'mdi-thumb-down-outline'"
                 :color="message.feedback === 'negative' ? 'error' : undefined"
                 variant="text"
-                size="x-small"
-                density="compact"
-                aria-label="Resposta não útil"
+                size="small"
+                title="Marcar como resposta que não ajudou"
+                aria-label="Marcar como resposta que não ajudou"
                 @click="sendFeedback(message, 'negative')"
               />
             </template>
@@ -424,8 +424,7 @@ onMounted(async () => {
               :icon="copiedMessageId === message.id ? 'mdi-check' : 'mdi-content-copy'"
               :color="copiedMessageId === message.id ? 'success' : undefined"
               variant="text"
-              size="x-small"
-              density="compact"
+              size="small"
               :title="copiedMessageId === message.id ? 'Copiado!' : 'Copiar esta resposta'"
               aria-label="Copiar esta resposta"
               @click="copyMessageText(message)"
@@ -434,10 +433,9 @@ onMounted(async () => {
               v-if="message.id === lastAssistantId && canRegenerate"
               icon="mdi-refresh"
               variant="text"
-              size="x-small"
-              density="compact"
-              title="Regenerar resposta (reenvia a última pergunta)"
-              aria-label="Regenerar resposta"
+              size="small"
+              title="Refazer a resposta (reenvia a última pergunta)"
+              aria-label="Refazer a resposta"
               @click="onRegenerate"
             />
           </div>
@@ -448,7 +446,7 @@ onMounted(async () => {
           <div class="chat-message-meta"><span>Assistente</span></div>
           <div class="chat-typing" aria-label="Assistente processando">
             <span class="chat-typing-dot" /><span class="chat-typing-dot" /><span class="chat-typing-dot" />
-            <span class="chat-typing-label">Consultando o backend operacional…</span>
+            <span class="chat-typing-label">Consultando os seus dados operacionais…</span>
           </div>
         </div>
       </section>
@@ -841,10 +839,19 @@ onMounted(async () => {
 .chat-message-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-top: 2px;
-  opacity: 0.55;
+  gap: 8px;
+  margin-top: 6px;
+  margin-left: -6px;
+  opacity: 0.75;
   transition: opacity 0.15s ease;
+}
+
+/* Alvo de toque confortável (WCAG 2.5.8): 40px por botão, com folga entre eles. */
+.chat-message-toolbar :deep(.v-btn) {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 10px;
 }
 
 .chat-message:hover .chat-message-toolbar,
