@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/auth.js';
 import { brDateToIsoDate, formatDateBr, getTodayBr, isoDateToBrDate, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
 import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
@@ -171,11 +172,14 @@ const error = ref('');
 const infoMessage = ref('');
 const hasSearched = ref(false);
 
-const pageDescription = computed(() => {
-  const start = items.value.length ? (Number(page.value) - 1) * Number(filters.pageSize) + 1 : 0;
-  const end = items.value.length ? start + items.value.length - 1 : 0;
-  return { start, end };
-});
+// Contador ÚNICO do app: "Mostrando 1–20 de 243 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: page.value,
+  pageSize: filters.pageSize,
+  itemsOnPage: items.value.length,
+  total: totalItems.value,
+  singular: 'manifesto'
+}));
 
 const activeAccountLabel = computed(() => {
   const account = authStore.activeAccount.value || null;
@@ -562,7 +566,7 @@ onMounted(async () => {
         <v-row align="center" class="mb-2">
           <v-col>
             <div class="text-subtitle-1 font-weight-semibold">Resultados do relatório</div>
-            <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifesto(s).</div>
+            <div class="text-caption text-medium-emphasis">{{ resultsCounterLabel }}</div>
           </v-col>
         </v-row>
         <!-- Recarga sobre dados já exibidos: barra + tabela esmaecida (não uma

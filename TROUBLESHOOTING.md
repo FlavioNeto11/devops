@@ -501,6 +501,52 @@ Solucoes (qualquer uma):
 > **nao** e um API Token Bearer valido para o endpoint `purge_cache` (retorna 401 / code 10000).
 > Para purgar via API e preciso um API Token com permissao *Zone → Cache Purge*.
 
+### 14.3 `Cache-Control: no-cache` no `index.html` NAO conserta a copia JA guardada
+
+Sintoma classico de validacao de deploy: o time adiciona `Cache-Control: no-cache` ao
+`index.html`, publica, e **o avaliador continua vendo a versao antiga** — e reporta como bug
+de produto o que e bug de cache. Depois "se resolve sozinho" e ninguem entende por que.
+
+Causa: header novo so vale para respostas **novas**. A copia que ja esta no disco do
+navegador foi guardada com os headers ANTIGOS. Se ela nao tem validador (`ETag` /
+`Last-Modified`) nem `max-age`, o navegador aplica **frescor heuristico** (RFC 9111 §4.2.2):
+inventa um tempo de validade a partir da idade do recurso e serve a copia **sem nem perguntar
+ao servidor**. Ou seja: nao ha requisicao, nao ha 304, nao ha como o header novo chegar. Na
+**primeira** navegacao apos o deploy o usuario continua no bundle velho; a partir da segunda
+(quando a heuristica expira ou o `index.html` e finalmente revalidado) ele autocura.
+
+Consequencias praticas ao validar um deploy:
+
+1. **Afirme o hash do bundle carregado A CADA navegacao** — nao uma vez por sessao. Cada
+   transicao de rota pode estar servindo um `index.html` diferente (um do cache, outro do
+   servidor). Compare o que o navegador REALMENTE carregou com o que o servidor entrega:
+
+   ```powershell
+   # o que o servidor entrega agora
+   curl.exe -s https://dev.nvit.com.br/sicat/ | Select-String -Pattern 'assets/index-[^"]+\.js'
+   ```
+
+   ```js
+   // no console da pagina aberta: o que ESTA rodando
+   performance.getEntriesByType('resource')
+     .map((r) => r.name).filter((n) => /assets\/index-.*\.js/.test(n));
+   ```
+
+   Hashes diferentes = voce esta olhando codigo velho. Qualquer conclusao tirada dali e lixo.
+
+2. **Hard reload** (Ctrl+Shift+R / DevTools com *Disable cache*) antes de julgar comportamento,
+   e de novo a cada tela avaliada.
+
+3. **`grep` no bundle NAO prova comportamento.** O build **minifica**: identificadores locais
+   (funcoes, variaveis, props internas) sao renomeados — so **literais de string** sobrevivem.
+   Nao achar `nomeDaFuncao` no `dist` nao significa que a logica nao esta la; achar a string
+   nao significa que o caminho e executado. Verifique lendo o **codigo-fonte** e, quando der,
+   com **teste** (unitario para logica pura, Playwright para layout/interacao).
+
+Prevencao (ja aplicada nos frontends da plataforma): servir o `index.html` com
+`Cache-Control: no-cache` **e** um validador (`ETag`/`Last-Modified`), para que a proxima copia
+guardada seja sempre revalidada em vez de cair na heuristica.
+
 ---
 
 ## 15. Keycloak (SSO) e cofre de segredos (Sealed Secrets)

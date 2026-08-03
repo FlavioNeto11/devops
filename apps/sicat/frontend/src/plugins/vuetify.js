@@ -31,7 +31,13 @@ export default createVuetify({
           // String canônica do SICAT para o seletor de paginação. Todas as telas
           // (painel, listas, relatórios, CDF) dizem a MESMA coisa — antes havia
           // "Por página" / "Linhas por página" / "Itens por página" convivendo.
-          itemsPerPageText: 'Itens por página:'
+          itemsPerPageText: 'Itens por página:',
+          // Contador do rodapé no MESMO formato do contador das telas
+          // (lib/pagination-label.js): "Mostrando 1–20 de 38". O painel dizia
+          // "0-0 de 0" enquanto /manifestos dizia "Mostrando 1 até 20 de 38" —
+          // três formatos para a mesma informação. Aqui não há substantivo
+          // porque a tabela genérica não sabe o que está listando.
+          pageText: 'Mostrando {0}–{1} de {2}'
         }
       },
       en

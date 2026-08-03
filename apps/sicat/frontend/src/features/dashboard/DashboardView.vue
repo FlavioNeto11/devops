@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.js';
 import { usePersona } from '../../composables/usePersona.js';
 import { formatDateBr, getTodayBr, toApiDate } from '../../utils/date-format.js';
 import { resolveManifestRawSituation, resolveManifestSituationLabel, resolveManifestStatusTone } from '../../lib/status-map.js';
+import { pluralize } from '../../lib/plural-pt.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../../components/shell/SicatPageHeader.vue';
 import SicatCard from '../../components/sicat/SicatCard.vue';
@@ -110,7 +111,7 @@ const pendingActions = computed(() => {
       key: 'failed',
       icon: 'mdi-alert-circle-outline',
       tone: 'error',
-      title: `${summary.value.failed} MTR(s) com falha`,
+      title: `${summary.value.failed} ${pluralize(summary.value.failed, 'MTR', 'MTRs')} com falha`,
       description: 'Revise o erro e reemita para regularizar.',
       actionLabel: 'Resolver',
       to: { path: '/manifestos', query: { focus: 'failed' } }
@@ -121,7 +122,7 @@ const pendingActions = computed(() => {
       key: 'draft',
       icon: 'mdi-file-edit-outline',
       tone: 'warning',
-      title: `${summary.value.draft} rascunho(s) em aberto`,
+      title: `${summary.value.draft} ${pluralize(summary.value.draft, 'rascunho')} em aberto`,
       description: 'Finalize a emissão dos manifestos pendentes.',
       actionLabel: 'Continuar',
       to: { path: '/manifestos', query: { focus: 'draft' } }
