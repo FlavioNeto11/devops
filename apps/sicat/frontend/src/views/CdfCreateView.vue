@@ -4,6 +4,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { enqueueCdfGenerate, getCdfResponsibles, getManifestById, listManifests } from '../services/api.js';
 import { useCdfOperationalContext } from '../composables/useCdfOperationalContext.js';
 import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
+import { pluralize } from '../lib/plural-pt.js';
+import {
+  CDF_PAGE_SIZE_OPTIONS,
+  clampPage,
+  formatCandidateDetailLabel,
+  formatCandidateSelectionLabel,
+  paginateRows,
+  resolveTotalPages
+} from '../features/cdf/cdfTableState.js';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
@@ -288,8 +298,60 @@ const candidateTableRows = computed(() => visibleCandidateEntries.value.map((ent
   rawStatus: resolveManifestRawSituation(entry.manifest),
   eligible: entry.eligible,
   reason: entry.reason,
-  selected: entry.selected
+  selected: entry.selected,
+  // Dez checkboxes sem nome e dez botões chamados "Ver detalhe" são
+  // indistinguíveis fora da tabela visual (lista de links, navegação por voz).
+  selectionLabel: formatCandidateSelectionLabel(entry.manifestLabel),
+  detailLabel: formatCandidateDetailLabel(entry.manifestLabel)
 })));
+
+// ---- Paginação da TELA -------------------------------------------------
+// A lista de candidatos vem inteira numa página só da API (CANDIDATES_PAGE_SIZE).
+// O rodapé genérico do v-data-table escrevia "Mostrando 0–0 de 0" — 0 de quê? —
+// então quem pagina e quem conta é a tela, com o contador canônico
+// (lib/pagination-label.js) e o substantivo do domínio.
+const candidatesPageSize = ref(10);
+const candidatesPage = ref(1);
+
+const candidatesTotalRows = computed(() => candidateTableRows.value.length);
+const candidatesTotalPages = computed(() => resolveTotalPages(candidatesTotalRows.value, candidatesPageSize.value));
+const pagedCandidateRows = computed(() => paginateRows(candidateTableRows.value, {
+  page: candidatesPage.value,
+  pageSize: candidatesPageSize.value
+}));
+
+const candidatesCounterLabel = computed(() => formatPageCounter({
+  page: candidatesPage.value,
+  pageSize: candidatesPageSize.value,
+  itemsOnPage: pagedCandidateRows.value.length,
+  total: candidatesTotalRows.value,
+  singular: 'manifesto candidato',
+  plural: 'manifestos candidatos'
+}));
+
+// O contador conta o que a tabela está listando. Com o filtro "só os bloqueados"
+// ligado, o total é o do RECORTE — e a frase diz isso, senão ele contradiz o chip
+// "Candidatos na lista" do topo.
+const candidatesCounterFullLabel = computed(() => (showOnlyBlockedCandidates.value
+  ? `${candidatesCounterLabel.value} · filtro “só os bloqueados” ativo`
+  : candidatesCounterLabel.value));
+
+const canGoPreviousCandidatesPage = computed(() => candidatesPage.value > 1 && !manifestsLoading.value);
+const canGoNextCandidatesPage = computed(() => candidatesPage.value < candidatesTotalPages.value && !manifestsLoading.value);
+
+function changeCandidatesPage(nextPage) {
+  candidatesPage.value = clampPage(nextPage, candidatesTotalRows.value, candidatesPageSize.value);
+}
+
+// Trocar de filtro/de tamanho de página, ou encolher a lista, não pode deixar o
+// operador numa página que não existe mais (tabela vazia sem explicação).
+watch([candidatesPageSize, showOnlyBlockedCandidates], () => {
+  candidatesPage.value = 1;
+});
+
+watch(candidatesTotalRows, () => {
+  candidatesPage.value = clampPage(candidatesPage.value, candidatesTotalRows.value, candidatesPageSize.value);
+});
 const allEligibleSelected = computed(() => {
   const ids = eligibleCandidates.value.map((entry) => entry.manifestId).filter(Boolean);
   if (!ids.length) {
@@ -492,7 +554,7 @@ async function submitCdfGenerate() {
     }
 
     if (!eligibleManifestCount.value) {
-      throw new Error('Selecione ao menos um manifesto elegivel para gerar o CDF.');
+      throw new Error('Selecione ao menos um manifesto elegível para gerar o CDF.');
     }
 
     const responsibleCode = toIntegerOrNull(cdfForm.responsibleCode);
@@ -537,7 +599,7 @@ async function submitCdfGenerate() {
       }
     });
 
-    cdfFeedback.value = `Geração de CDF solicitada para ${eligibleManifestCount.value} manifesto(s). Processamento ${accepted.jobId} criado com sucesso.`;
+    cdfFeedback.value = `Geração de CDF solicitada para ${eligibleManifestCount.value} ${pluralize(eligibleManifestCount.value, 'manifesto')}. Processamento ${accepted.jobId} criado com sucesso.`;
     await loadManifestCandidates({ includeRequestedManifest: true });
   } catch (error) {
     cdfFeedbackError.value = error?.message || 'Falha ao solicitar geração de CDF.';
@@ -614,7 +676,7 @@ onMounted(() => {
       </template>
 
       <SicatInlineAlert v-if="candidatesTruncatedNotice" tone="info" :message="candidatesTruncatedNotice" class="mb-2" />
-      <SicatInlineAlert v-if="requestedManifestIds.length" tone="info" :message="`Pré-seleção via link para ${requestedManifestIds.length} manifesto(s): ${requestedManifestIds.join(', ')}.`" class="mb-2" />
+      <SicatInlineAlert v-if="requestedManifestIds.length" tone="info" :message="`Pré-seleção via link para ${requestedManifestIds.length} ${pluralize(requestedManifestIds.length, 'manifesto')}: ${requestedManifestIds.join(', ')}.`" class="mb-2" />
       <SicatInlineAlert v-if="!contextReady" tone="warning" message="O contexto operacional CETESB ainda não está pronto para geração de CDF." class="mb-2" />
       <SicatInlineAlert v-if="manifestsFeedback" tone="info" :message="manifestsFeedback" class="mb-2" />
       <SicatInlineAlert v-if="manifestsError" tone="error" :message="manifestsError" class="mb-2" />
@@ -634,15 +696,38 @@ onMounted(() => {
       </div>
       <p class="cdf-create-view__hint">A coluna “Condição” explica, linha a linha, por que um manifesto está bloqueado.</p>
 
+      <div class="cdf-create-view__table-toolbar">
+        <span class="text-caption text-medium-emphasis">{{ candidatesCounterFullLabel }}</span>
+        <v-select
+          v-model.number="candidatesPageSize"
+          :items="CDF_PAGE_SIZE_OPTIONS"
+          label="Itens por página"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="width: 160px"
+        />
+      </div>
+
+      <!-- Paginação é da TELA (o rodapé padrão do v-data-table escrevia
+           "Mostrando 0–0 de 0", sem dizer de quê) — desligado aqui. -->
       <SicatDataTable
         :headers="candidateTableHeaders"
-        :items="candidateTableRows"
+        :items="pagedCandidateRows"
         :loading="manifestsLoading"
         density="compact"
+        :show-footer="false"
+        :items-per-page="-1"
         :empty="{ title: 'Nenhum manifesto disponível', description: 'Não há manifestos para avaliação.', icon: 'mdi-file-search-outline' }"
       >
         <template #[`item.select`]="{ item }">
-          <v-checkbox-btn :model-value="item.selected" density="compact" @update:model-value="toggleManifestSelection(item.manifestId)" />
+          <v-checkbox-btn
+            :model-value="item.selected"
+            density="compact"
+            :aria-label="item.selectionLabel"
+            :title="item.selectionLabel"
+            @update:model-value="toggleManifestSelection(item.manifestId)"
+          />
         </template>
         <template #[`item.status`]="{ item }">
           <span :title="item.rawStatus ? `Situação na CETESB: ${item.rawStatus}` : undefined">{{ item.status }}</span>
@@ -651,7 +736,22 @@ onMounted(() => {
           <SicatStatusBadge :tone="item.eligible ? 'success' : 'error'" :label="item.eligible ? 'Elegível' : item.reason" />
         </template>
         <template #[`item.actions`]="{ item }">
-          <v-btn variant="text" size="small" @click="openManifest(item.manifestId)">Ver detalhe</v-btn>
+          <v-btn
+            variant="text"
+            size="small"
+            :aria-label="item.detailLabel"
+            :title="item.detailLabel"
+            @click="openManifest(item.manifestId)"
+          >Ver detalhe</v-btn>
+        </template>
+        <template #footer>
+          <v-btn variant="text" size="small" :disabled="!canGoPreviousCandidatesPage" prepend-icon="mdi-chevron-left" @click="changeCandidatesPage(candidatesPage - 1)">
+            Anterior
+          </v-btn>
+          <span class="text-caption text-medium-emphasis">{{ candidatesCounterFullLabel }}</span>
+          <v-btn variant="text" size="small" :disabled="!canGoNextCandidatesPage" append-icon="mdi-chevron-right" @click="changeCandidatesPage(candidatesPage + 1)">
+            Próxima
+          </v-btn>
         </template>
       </SicatDataTable>
 
@@ -786,6 +886,15 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.cdf-create-view__table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .cdf-create-view__table-shell {

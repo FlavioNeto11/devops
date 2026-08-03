@@ -35,7 +35,7 @@ export function evaluateDateRange({
   if (rawFrom && !parsedFrom) {
     return {
       isValid: false,
-      errorMessage: `${fromLabel} invalida. Revise o valor informado.`,
+      errorMessage: `${fromLabel} inválida. Revise o valor informado.`,
       fromIso: '',
       toIso: '',
       spanDays: null
@@ -45,7 +45,7 @@ export function evaluateDateRange({
   if (rawTo && !parsedTo) {
     return {
       isValid: false,
-      errorMessage: `${toLabel} invalida. Revise o valor informado.`,
+      errorMessage: `${toLabel} inválida. Revise o valor informado.`,
       fromIso: parsedFrom?.iso || '',
       toIso: '',
       spanDays: null
@@ -65,7 +65,7 @@ export function evaluateDateRange({
   if (parsedFrom.date > parsedTo.date) {
     return {
       isValid: false,
-      errorMessage: `${fromLabel} nao pode ser maior que ${toLabel}.`,
+      errorMessage: `${fromLabel} não pode ser maior que ${toLabel}.`,
       fromIso: parsedFrom.iso,
       toIso: parsedTo.iso,
       spanDays: null
@@ -83,7 +83,7 @@ export function evaluateDateRange({
   if (hasMaxDaysLimit && spanDays > normalizedMaxDays) {
     return {
       isValid: false,
-      errorMessage: `O intervalo entre as datas nao pode ser maior que ${normalizedMaxDays} dias.`,
+      errorMessage: `O intervalo entre as datas não pode ser maior que ${normalizedMaxDays} dias.`,
       fromIso: parsedFrom.iso,
       toIso: parsedTo.iso,
       spanDays
