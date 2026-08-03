@@ -1032,6 +1032,13 @@ function buildPartnerSuggestionItems(items) {
   return options;
 }
 
+// Papel canônico do contrato (pt-BR), o MESMO que o wizard de emissão manda. O
+// backend resolve os sinônimos (`resolvePartnerRoleAliases`), mas mandar o termo
+// legado em inglês daqui mantinha dois vocabulários circulando para a mesma busca.
+function toCanonicalPartnerRole(role) {
+  return role === 'carrier' ? 'transportador' : 'destinador';
+}
+
 async function fetchPartnerSuggestions(role, term) {
   const targetRef = role === 'carrier' ? carrierSuggestions : receiverSuggestions;
   const loadingRef = role === 'carrier' ? carrierSuggestionsLoading : receiverSuggestionsLoading;
@@ -1046,7 +1053,7 @@ async function fetchPartnerSuggestions(role, term) {
     const response = await searchPartners({
       integrationAccountId,
       sessionContextId: sessionContextId || undefined,
-      role,
+      role: toCanonicalPartnerRole(role),
       q: String(term || '').trim() || undefined,
       pageSize: 20
     });
@@ -1085,7 +1092,7 @@ async function resolveReceiveOperationalContext() {
   const integrationAccountId = String(authStore.integrationAccountId.value || '').trim();
   const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
   if (!ready || !integrationAccountId || !sessionContextId) {
-    throw new Error('Contexto operacional incompleto. Atualize a sessao CETESB antes de continuar.');
+    throw new Error('Contexto operacional incompleto. Atualize a sessão CETESB antes de continuar.');
   }
 
   return { integrationAccountId, sessionContextId };
@@ -1131,7 +1138,8 @@ function resolveReceiverPartnerCode(manifest) {
 async function enqueueReceiveForManifest(manifest, context, requestBase, requestedBy) {
   const receiverPartnerCode = resolveReceiverPartnerCode(manifest);
   if (!receiverPartnerCode) {
-    throw new Error('destinador ativo nao identificado.');
+    // Minúscula proposital: a mensagem entra concatenada ("<MTR>: <motivo>").
+    throw new Error('destinador ativo não identificado.');
   }
 
   const accepted = await enqueueManifestReceive({

@@ -378,5 +378,19 @@ onUnmounted(() => {
     gap: 16px;
   }
 }
+
+/* Calha do FAB nas tabelas desta tela. Acima de 960px o shell já empurra o
+   conteúdo para fora do lançador do assistente (SicatAppShell), mas abaixo
+   disso ele NÃO reserva calha lateral — e aqui a última coluna é justamente a
+   das ações ("Ativar", "Copiar identificador"): ao rolar a lista, o botão
+   (28px de altura) ficava ~29px debaixo do FAB e não dava para clicar.
+   A reserva vai no wrapper rolável da v-table: quando a tabela rola na
+   horizontal, o padding entra na área de rolagem e o fim da última coluna
+   para antes do botão flutuante; quando não rola, a tabela apenas encolhe. */
+@media (max-width: 959px) {
+  .session-page :deep(.v-table__wrapper) {
+    padding-right: var(--sicat-launcher-rail, 72px);
+  }
+}
 </style>
 
