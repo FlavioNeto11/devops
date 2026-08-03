@@ -49,6 +49,19 @@ export async function startKeycloakLogin() {
   window.location.assign(`${AUTH_URL}?${params.toString()}`);
 }
 
+// Mensagem ÚNICA de falha de login mostrada ao operador. O nome do provedor de
+// identidade (Keycloak), o "authorization code" e o "access_token" são detalhe
+// de INFRAESTRUTURA: quem está tentando entrar não tem o que fazer com isso e a
+// frase ainda vaza a arquitetura interna. O diagnóstico continua existindo — vai
+// para o console, com o motivo exato.
+const LOGIN_FAILED_MESSAGE = 'Não foi possível concluir o login. Tente novamente.';
+
+function reportLoginFailure(technicalDetail) {
+  // console (e não a tela): detalhe técnico para quem opera/depura.
+  console.error(`[sso] ${technicalDetail}`);
+  return new Error(LOGIN_FAILED_MESSAGE);
+}
+
 // No callback: valida o state e troca o code pelo access_token (client publico + PKCE).
 export async function exchangeKeycloakCode(code, returnedState) {
   const state = sessionStorage.getItem(STATE_KEY);
@@ -57,7 +70,7 @@ export async function exchangeKeycloakCode(code, returnedState) {
   sessionStorage.removeItem(VERIFIER_KEY);
 
   if (!code || !state || returnedState !== state || !verifier) {
-    throw new Error('Estado OIDC invalido ou expirado.');
+    throw reportLoginFailure('estado OIDC invalido ou expirado (state/code/verifier ausentes ou divergentes).');
   }
 
   const body = new URLSearchParams({
@@ -73,11 +86,11 @@ export async function exchangeKeycloakCode(code, returnedState) {
     body
   });
   if (!resp.ok) {
-    throw new Error('Falha ao trocar o codigo no Keycloak.');
+    throw reportLoginFailure(`falha ao trocar o authorization code no Keycloak (HTTP ${resp.status}).`);
   }
   const data = await resp.json();
   if (!data?.access_token) {
-    throw new Error('Keycloak nao retornou access_token.');
+    throw reportLoginFailure('Keycloak respondeu sem access_token.');
   }
   return data.access_token;
 }

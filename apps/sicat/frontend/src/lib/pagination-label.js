@@ -75,6 +75,28 @@ export function formatPaginationCounter({ start, end, total, singular, plural } 
   return `Mostrando ${safeStart}${RANGE_SEPARATOR}${safeEnd} de ${safeTotal}${suffix}`;
 }
 
+/**
+ * MESMA frase, no formato de TEMPLATE que o rodapé das tabelas entende.
+ *
+ * O rodapé do Vuetify escreve o contador sozinho, com os marcadores `{0}`
+ * (início), `{1}` (fim) e `{2}` (total) — por isso ele não conseguia dizer o
+ * substantivo e o painel e /dmr/pendentes exibiam "Mostrando 0–0 de 0", sem
+ * dizer 0 de quê. Como o TOTAL já é conhecido por fora (é o tamanho da lista
+ * que a tela entrega à tabela), a concordância é resolvida aqui e só a faixa
+ * fica a cargo do rodapé.
+ *
+ * `formatFooterPageText(0, 'manifesto')` → "Mostrando {0}–{1} de {2} manifestos".
+ * Sem substantivo devolve `null` — o chamador então deixa o texto padrão do
+ * locale (tabela genérica, que não sabe o que lista).
+ */
+export function formatFooterPageText(total, singular, plural) {
+  const noun = pluralize(toSafeCount(total), singular, plural);
+  if (!noun) {
+    return null;
+  }
+  return `Mostrando {0}${RANGE_SEPARATOR}{1} de {2} ${noun}`;
+}
+
 /** Atalho: calcula a faixa da página e já devolve a frase canônica. */
 export function formatPageCounter({ page, pageSize, itemsOnPage, total, singular, plural } = {}) {
   const range = resolvePageRange({ page, pageSize, itemsOnPage });

@@ -23,7 +23,7 @@ export function useCdfOperationalContext() {
   async function ensureOperationalContext() {
     const ready = await authStore.ensureSessionContextReady();
     if (!ready || !integrationAccountId.value || !sessionContextId.value) {
-      throw new Error('Contexto operacional incompleto. Atualize a sessao CETESB antes de continuar.');
+      throw new Error('Contexto operacional incompleto. Atualize a sessão CETESB antes de continuar.');
     }
   }
 
