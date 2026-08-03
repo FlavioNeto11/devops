@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { batchCreateManifests, batchSubmitManifests, createManifest, getCatalog, searchPartners, submitManifest } from '../services/api.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useAuthStore } from '../stores/auth.js';
-import { getTodayBr, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
+import { normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
+import { createEmptyManifestForm, resolveMeasureErrors, toNumber } from '../features/mtr/create/manifestFormState.js';
 import FilterableDropdown from './FilterableDropdown.vue';
 import SicatInlineAlert from './sicat/SicatInlineAlert.vue';
 import SicatHelpHint from './sicat/SicatHelpHint.vue';
@@ -115,28 +116,9 @@ const catalogOptions = reactive({
   residueClasses: []
 });
 
-const form = reactive({
-  integrationAccountId: '',
-  batchCount: 1,
-  expeditionDate: getTodayBr(),
-  responsibleName: '',
-  driverName: '',
-  vehiclePlate: '',
-  notes: '',
-  // MTR é documento regulatório: quantidade e peso NASCEM VAZIOS. Um default de
-  // `1` fazia o operador desatento declarar "1 tonelada" sem perceber. A
-  // validação exige > 0, então o preenchimento é sempre consciente.
-  quantity: null,
-  weightTon: null,
-  unitCode: '',
-  residueCode: '',
-  treatmentCode: '',
-  classCode: '',
-  stateTypeCode: '',
-  packagingTypeCode: '',
-  hasTemporaryStorage: false,
-  hasCadriInResidueList: false
-});
+// Defaults do wizard vêm do módulo puro `features/mtr/create/manifestFormState.js`
+// (quantidade/peso nascem VAZIOS) — assim os defaults têm teste de unidade.
+const form = reactive(createEmptyManifestForm());
 
 const resolvedUser = computed(() => props.user || authStore.user.value || null);
 const resolvedPartner = computed(() => props.partner || authStore.partner.value || null);
@@ -258,6 +240,28 @@ function buildPartnerEmptyText(type, roleLabel) {
 const carrierEmptyText = computed(() => buildPartnerEmptyText('carrier', 'transportador'));
 const receiverEmptyText = computed(() => buildPartnerEmptyText('receiver', 'destinador'));
 
+/**
+ * "Digitei, logo escolhi" é a confusão que fazia sair MTR com o transportador
+ * errado. O texto digitado é só busca; enquanto não houver clique/Enter numa
+ * opção, o campo avisa em voz alta que NADA está selecionado — sem esperar a
+ * tentativa de avançar de passo.
+ */
+function buildPartnerSelectionHint(type, roleLabel, selectedPartner) {
+  if (selectedPartner) {
+    return '';
+  }
+
+  const query = String(partnerSearch[type].query || '').trim();
+  if (query.length < PARTNER_SEARCH_MIN_LENGTH) {
+    return '';
+  }
+
+  return `"${query}" é só o termo da busca — nenhum ${roleLabel} foi selecionado. Clique na opção desejada (ou use as setas e Enter).`;
+}
+
+const carrierSelectionHint = computed(() => buildPartnerSelectionHint('carrier', 'transportador', selectedCarrier.value));
+const receiverSelectionHint = computed(() => buildPartnerSelectionHint('receiver', 'destinador', selectedReceiver.value));
+
 const currentStep = ref(1);
 const stepDefinitions = [
   { value: 1, title: 'Dados da viagem', subtitle: 'Conta, cópias e data de saída' },
@@ -295,8 +299,7 @@ const FIELD_STEP = Object.entries(STEP_FIELDS).reduce((accumulator, [step, field
 const stepValidationAttempts = reactive({ 1: false, 2: false, 3: false, 4: false });
 
 const fieldErrors = computed(() => {
-  const quantity = toNumber(form.quantity);
-  const weightTon = toNumber(form.weightTon);
+  const measureErrors = resolveMeasureErrors(form);
   const batchCount = Number(form.batchCount || 1);
   const batchCountIsValid = isSingleOnly.value
     || (Number.isInteger(batchCount) && batchCount >= 1 && batchCount <= 100);
@@ -310,12 +313,8 @@ const fieldErrors = computed(() => {
     batchCount: batchCountIsValid ? '' : 'Informe uma quantidade de manifestos válida entre 1 e 100.',
     carrier: selectedCarrier.value ? '' : 'Selecione o transportador.',
     receiver: selectedReceiver.value ? '' : 'Selecione o destinador.',
-    quantity: quantity === null
-      ? 'Informe a quantidade transportada.'
-      : (quantity > 0 ? '' : 'Informe uma quantidade maior que zero.'),
-    weightTon: weightTon === null
-      ? 'Informe o peso em toneladas.'
-      : (weightTon > 0 ? '' : 'Informe um peso em toneladas maior que zero.'),
+    quantity: measureErrors.quantity,
+    weightTon: measureErrors.weightTon,
     // Catálogos: validamos o ITEM resolvido (e não só o código no form), porque
     // é o item que vira payload — código órfão geraria `unit`/`residue` nulos.
     unitCode: selectedUnitCatalogItem.value ? '' : 'Selecione a unidade.',
@@ -377,6 +376,58 @@ const weightSummary = computed(() => {
 });
 
 const measuresSummary = computed(() => `${quantitySummary.value} · ${weightSummary.value}`);
+
+function normalizeCatalogText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replaceAll(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/**
+ * Aviso de coerência entre unidade e estado físico — ORIENTAÇÃO, não regra.
+ *
+ * O resumo mostrava "2 L · 1,5 ton" para um resíduo sólido sem nenhum sinal de
+ * que medir sólido em litro é, no mínimo, incomum. Aqui só apontamos o caso
+ * óbvio (sólido medido em volume) e deixamos a decisão com o operador: nada
+ * entra em `fieldErrors`, nada bloqueia rascunho ou envio. Quem define o que é
+ * válido continua sendo a CETESB.
+ */
+const VOLUME_UNIT_MARKERS = ['litro', 'metro cubico', 'metros cubicos'];
+const VOLUME_UNIT_SYMBOLS = ['l', 'ml', 'm3', 'm³'];
+
+const isVolumeUnit = computed(() => {
+  const item = selectedUnitCatalogItem.value;
+  if (!item) {
+    return false;
+  }
+
+  const label = normalizeCatalogText(item.name || item.description);
+  const symbol = normalizeCatalogText(item.shortName || item.symbol).trim();
+
+  return VOLUME_UNIT_MARKERS.some((marker) => label.includes(marker))
+    || VOLUME_UNIT_SYMBOLS.includes(symbol);
+});
+
+const isSolidState = computed(() => {
+  const item = selectedStateCatalogItem.value;
+  if (!item) {
+    return false;
+  }
+
+  return normalizeCatalogText(item.name || item.description).includes('solido');
+});
+
+const measuresCoherenceWarning = computed(() => {
+  if (!isSolidState.value || !isVolumeUnit.value) {
+    return '';
+  }
+
+  const unitLabel = describeCatalogItem(selectedUnitCatalogItem.value) || 'unidade de volume';
+  const stateLabel = describeCatalogItem(selectedStateCatalogItem.value) || 'sólido';
+
+  return `A unidade "${unitLabel}" mede volume e o estado físico informado é "${stateLabel}". Confira se é isso mesmo antes de enviar — o SICAT não altera nada por conta própria.`;
+});
 
 const reviewChecklist = computed(() => {
   const errors = fieldErrors.value;
@@ -578,15 +629,6 @@ function normalizeDigits(value) {
  * e mascarava "não informado" — com os defaults agora vazios isso viraria um
  * payload com quantidade/peso zerados.
  */
-function toNumber(value) {
-  if (value === null || value === undefined || String(value).trim() === '') {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 const decimalFormatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 
 function formatDecimal(value) {
@@ -1320,43 +1362,14 @@ async function handleCreate(shouldSubmitNow) {
           <v-card-text>
             <div v-show="currentStep === 1" class="wizard-step-body">
               <v-row>
-                <v-col cols="12" md="7">
-                  <div class="wizard-static-field mb-4">
-                    <span>Conta CETESB ativa</span>
-                    <strong>{{ activeAccountLabel }}</strong>
-                    <small>{{ activeAccountMeta || 'A conta ativa é preenchida automaticamente a partir da sessão.' }}</small>
-                    <!--
-                      Identificadores internos (acc_… / scx_…) não aparecem na
-                      tela: ficam recolhidos e só saem por cópia, para o suporte.
-                    -->
-                    <details v-if="hasTechnicalIdentifiers" class="wizard-technical-details">
-                      <summary>Detalhes técnicos</summary>
-                      <div class="wizard-technical-actions">
-                        <v-btn
-                          v-if="resolvedIntegrationAccountId"
-                          size="small"
-                          variant="text"
-                          prepend-icon="mdi-content-copy"
-                          data-testid="wizard-copy-account-id"
-                          @click="copyTechnicalIdentifier(resolvedIntegrationAccountId, 'Identificador da conta')"
-                        >
-                          Copiar identificador da conta
-                        </v-btn>
-                        <v-btn
-                          v-if="currentSessionContextId"
-                          size="small"
-                          variant="text"
-                          prepend-icon="mdi-content-copy"
-                          data-testid="wizard-copy-session-id"
-                          @click="copyTechnicalIdentifier(currentSessionContextId, 'Identificador da sessão')"
-                        >
-                          Copiar identificador da sessão
-                        </v-btn>
-                      </div>
-                    </details>
-                  </div>
-                </v-col>
-                <v-col v-if="!isSingleOnly" cols="12" md="5">
+                <!--
+                  A conta CETESB ativa NÃO é repetida aqui: ela é contexto da
+                  sessão (não um campo do passo) e já aparece no resumo lateral,
+                  que fica visível nos quatro passos. Antes a mesma conta era
+                  impressa três vezes na mesma tela (faixa da view + card do
+                  passo 1 + resumo lateral).
+                -->
+                <v-col v-if="!isSingleOnly" cols="12" md="4">
                   <v-text-field v-model.number="form.batchCount" type="number" min="1" max="100" step="1" label="Quantidade no lote *" :disabled="loading" :error-messages="visibleFieldError('batchCount')" hint="Use 1 para criação unitária. Valores maiores criam rascunhos idênticos." persistent-hint />
                 </v-col>
                 <v-col cols="12" md="4">
@@ -1417,6 +1430,7 @@ async function handleCreate(shouldSubmitNow) {
                     <small v-if="partnerSearch.carrier.error" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ partnerSearch.carrier.error }}</small>
                     <small v-else-if="visibleFieldError('carrier')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('carrier') }}</small>
                     <small v-else-if="selectedCarrier" class="text-medium-emphasis">{{ selectedCarrier.document || 'Sem documento' }} · {{ selectedCarrier.address?.city || 'Cidade não informada' }}/{{ selectedCarrier.address?.state || 'SP' }}</small>
+                    <small v-else-if="carrierSelectionHint" class="wizard-inline-notice" data-testid="wizard-carrier-selection-hint"><v-icon icon="mdi-cursor-default-click-outline" size="14" aria-hidden="true" />{{ carrierSelectionHint }}</small>
                     <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
                 </v-col>
@@ -1442,6 +1456,7 @@ async function handleCreate(shouldSubmitNow) {
                     <small v-if="partnerSearch.receiver.error" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ partnerSearch.receiver.error }}</small>
                     <small v-else-if="visibleFieldError('receiver')" class="wizard-inline-error" role="alert"><v-icon icon="mdi-alert-circle" size="14" aria-hidden="true" />{{ visibleFieldError('receiver') }}</small>
                     <small v-else-if="selectedReceiver" class="text-medium-emphasis">{{ selectedReceiver.document || 'Sem documento' }} · {{ selectedReceiver.address?.city || 'Cidade não informada' }}/{{ selectedReceiver.address?.state || 'SP' }}</small>
+                    <small v-else-if="receiverSelectionHint" class="wizard-inline-notice" data-testid="wizard-receiver-selection-hint"><v-icon icon="mdi-cursor-default-click-outline" size="14" aria-hidden="true" />{{ receiverSelectionHint }}</small>
                     <small v-else class="text-medium-emphasis">Busque e clique na opção desejada — nada é selecionado automaticamente.</small>
                   </div>
                 </v-col>
@@ -1560,6 +1575,19 @@ async function handleCreate(shouldSubmitNow) {
                   </div>
                 </v-col>
 
+                <!--
+                  Aviso de coerência unidade × estado físico: ORIENTA, não
+                  bloqueia. Nada aqui entra na validação nem trava o envio.
+                -->
+                <v-col v-if="measuresCoherenceWarning" cols="12">
+                  <SicatInlineAlert
+                    tone="warning"
+                    data-testid="wizard-measures-coherence"
+                    title="Confira a unidade"
+                    :message="measuresCoherenceWarning"
+                  />
+                </v-col>
+
                 <v-col cols="12">
                   <h4 class="wizard-subsection">Como está embalado</h4>
                 </v-col>
@@ -1629,6 +1657,15 @@ async function handleCreate(shouldSubmitNow) {
               </v-list>
 
               <SicatInlineAlert
+                v-if="measuresCoherenceWarning"
+                class="mt-5"
+                tone="warning"
+                data-testid="wizard-review-measures-coherence"
+                title="Confira a unidade"
+                :message="measuresCoherenceWarning"
+              />
+
+              <SicatInlineAlert
                 v-if="submitBlockedMessage"
                 class="mt-5"
                 tone="warning"
@@ -1690,6 +1727,35 @@ async function handleCreate(shouldSubmitNow) {
                 <span>Conta ativa</span>
                 <strong>{{ activeAccountLabel }}</strong>
                 <small>{{ activeAccountMeta || 'CNPJ/CPF não informado' }}</small>
+                <!--
+                  Identificadores internos (acc_… / scx_…) não aparecem na tela:
+                  ficam recolhidos e só saem por cópia, para o suporte.
+                -->
+                <details v-if="hasTechnicalIdentifiers" class="wizard-technical-details">
+                  <summary>Detalhes técnicos</summary>
+                  <div class="wizard-technical-actions">
+                    <v-btn
+                      v-if="resolvedIntegrationAccountId"
+                      size="small"
+                      variant="text"
+                      prepend-icon="mdi-content-copy"
+                      data-testid="wizard-copy-account-id"
+                      @click="copyTechnicalIdentifier(resolvedIntegrationAccountId, 'Identificador da conta')"
+                    >
+                      Copiar identificador da conta
+                    </v-btn>
+                    <v-btn
+                      v-if="currentSessionContextId"
+                      size="small"
+                      variant="text"
+                      prepend-icon="mdi-content-copy"
+                      data-testid="wizard-copy-session-id"
+                      @click="copyTechnicalIdentifier(currentSessionContextId, 'Identificador da sessão')"
+                    >
+                      Copiar identificador da sessão
+                    </v-btn>
+                  </div>
+                </details>
               </div>
               <div class="wizard-summary-item">
                 <span>Transportador</span>
@@ -1886,7 +1952,6 @@ async function handleCreate(shouldSubmitNow) {
   gap: 18px;
 }
 
-.wizard-static-field,
 .wizard-flags-card,
 .wizard-review-card,
 .wizard-summary-item {
@@ -1907,7 +1972,6 @@ async function handleCreate(shouldSubmitNow) {
   padding-left: 10px;
 }
 
-.wizard-static-field span,
 .wizard-dropdown-field span,
 .wizard-summary-item span,
 .wizard-review-card span {
@@ -1920,21 +1984,20 @@ async function handleCreate(shouldSubmitNow) {
 /* a ajuda "?" alinha com o rótulo do campo */
 .wizard-dropdown-field span :deep(.sicat-help-hint) { vertical-align: -6px; }
 
-.wizard-static-field strong,
 .wizard-summary-item strong,
 .wizard-review-card strong {
   color: rgba(var(--v-theme-on-surface), 0.9);
 }
 
 /*
-  `:not(.wizard-inline-error)` é obrigatório: `.wizard-dropdown-field small` tem
-  especificidade MAIOR que `.wizard-inline-error` e pintava os erros dos
-  dropdowns de cinza (rgba(0,0,0,.6)) — idênticos ao texto de ajuda.
+  `:not(.wizard-inline-error, .wizard-inline-notice)` é obrigatório:
+  `.wizard-dropdown-field small` tem especificidade MAIOR que as classes de
+  estado e pintava erros/avisos dos dropdowns de cinza (rgba(0,0,0,.6)) —
+  idênticos ao texto de ajuda.
 */
-.wizard-static-field small,
 .wizard-summary-item small,
 .wizard-review-card small,
-.wizard-dropdown-field small:not(.wizard-inline-error) {
+.wizard-dropdown-field small:not(.wizard-inline-error):not(.wizard-inline-notice) {
   color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
@@ -2006,6 +2069,26 @@ async function handleCreate(shouldSubmitNow) {
 .wizard-inline-error :deep(.v-icon) {
   color: rgb(var(--v-theme-error));
   flex-shrink: 0;
+}
+
+/*
+  Aviso de "digitou mas não selecionou": informativo, não erro. Precisa ganhar
+  de `.wizard-dropdown-field small` (mais específico) para não sair cinza.
+*/
+.wizard-inline-notice {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: rgb(var(--v-theme-warning));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.wizard-inline-notice :deep(.v-icon) {
+  color: rgb(var(--v-theme-warning));
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .wizard-technical-details {

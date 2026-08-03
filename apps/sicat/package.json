@@ -15,6 +15,7 @@
     "start:worker": "npm --workspace backend run worker",
     "build:frontend": "npm --workspace frontend run build",
     "lint": "npm --workspace backend run lint",
-    "test": "npm --workspace backend run test"
+    "test": "npm --workspace backend run test",
+    "test:unit:frontend": "npm --workspace frontend run test:unit"
   }
 }

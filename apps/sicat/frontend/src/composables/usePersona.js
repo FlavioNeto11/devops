@@ -1,5 +1,6 @@
 import { computed } from 'vue';
 import { useAuthStore } from '../stores/auth.js';
+import { KNOWN_PERSONAS, PERSONA_LABELS } from '../lib/persona-access.js';
 
 /**
  * Fonte ÚNICA do PERFIL operacional do usuário, derivado do tipo da conta CETESB
@@ -9,13 +10,10 @@ import { useAuthStore } from '../stores/auth.js';
  * Use isto em vez de reler `activeAccount.accountType` solto em cada tela, para a
  * UX por perfil ficar consistente (hub, navegação, onboarding).
  */
-const PERSONA_LABELS = {
-  generator: 'Gerador',
-  carrier: 'Transportador',
-  receiver: 'Destinador'
-};
-
-export const KNOWN_PERSONAS = Object.keys(PERSONA_LABELS);
+// Rótulos e lista de perfis vêm do módulo PURO `lib/persona-access.js` (mesma
+// fonte usada pelo guard de rota) — reexportados para não quebrar quem já
+// importava KNOWN_PERSONAS daqui.
+export { KNOWN_PERSONAS, PERSONA_LABELS };
 
 export function usePersona() {
   const authStore = useAuthStore();

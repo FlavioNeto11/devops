@@ -64,12 +64,15 @@ const activeAccountLabel = computed(() => {
 
   const partnerName = String(activeAccount.partnerName || '').trim();
   const partnerCode = String(activeAccount.partnerCode || '').trim();
+  const partnerDocument = String(activeAccount.partnerDocument || '').trim();
 
   if (partnerName && partnerCode) {
     return `${partnerName} (cód. ${partnerCode})`;
   }
 
-  return partnerName || partnerCode || String(activeAccount.accountId || 'Conta ativa').trim();
+  // O identificador técnico da conta (`acc_...`) NUNCA vai para a tela: sem nome,
+  // código ou documento, o rótulo cai para um texto humano ("Conta ativa").
+  return partnerName || partnerCode || partnerDocument || 'Conta ativa';
 });
 
 function toggleTheme() {

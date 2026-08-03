@@ -97,10 +97,21 @@ export function clearSicatSessionStorage() {
   dispatchSessionLifecycleEvent(SICAT_SESSION_CLEARED_EVENT);
 }
 
+// A SPA é servida sob um base path (`/sicat/` em produção, `/` em dev). Montar a URL
+// de login sem esse prefixo tira o usuário da SPA e cai no 404 do portal, por isso
+// toda navegação de sessão expirada passa por aqui.
+function buildAppPath(routePath) {
+  const rawBase = String(import.meta.env.BASE_URL || '/');
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  return `${base}${String(routePath).replace(/^\/+/, '')}`;
+}
+
 function redirectToLoginIfNeeded() {
-  const isLoginRoute = globalThis.location?.pathname === '/login';
+  const loginPath = buildAppPath('login');
+  const currentPath = String(globalThis.location?.pathname || '');
+  const isLoginRoute = currentPath === loginPath || currentPath === loginPath.replace(/\/$/, '');
   if (!isLoginRoute) {
-    globalThis.location.href = '/login?reason=expired';
+    globalThis.location.href = `${loginPath}?reason=expired`;
   }
 }
 
