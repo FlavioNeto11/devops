@@ -18,6 +18,7 @@ import { pluralize } from '../lib/plural-pt.js';
 import { createFilterApplicationTracker, hasPendingFilterChanges, resolveSelectionState } from '../lib/filter-application-state.js';
 import { buildManifestUrlQuery, isSameManifestUrlQuery, parseManifestUrlFilters } from '../lib/manifest-url-filters.js';
 import { buildManifestSelectionLabel } from '../lib/manifest-selection-label.js';
+import { resolvePartnerSuggestionMenu } from '../lib/partner-suggestion-menu.js';
 import {
   buildBatchPrintZipFileName,
   buildFriendlyCancelFailureMessage,
@@ -787,6 +788,8 @@ async function clearFilters() {
   filters.manifestNumber = '';
   filters.carrierQuery = '';
   filters.receiverQuery = '';
+  partnerSearchTerms.carrier = '';
+  partnerSearchTerms.receiver = '';
   filters.dateFrom = today;
   filters.dateTo = today;
   filters.page = 1;
@@ -1200,6 +1203,66 @@ const receiverSuggestions = ref([]);
 const receiverSuggestionsLoading = ref(false);
 const partnerSuggestionTimers = { carrier: 0, receiver: 0 };
 
+/*
+ * MENU EM BRANCO do "Transportador" (e do "Destinador", gêmeo idêntico).
+ *
+ * O campo abria um overlay VAZIO — painel branco de ~64px, sem uma linha de
+ * texto — que ainda cobria os chips de período logo abaixo. O `no-data-text`
+ * daqui era LETRA MORTA: o VCombobox da Vuetify nasce com `hideNoData: true`
+ * (`makeSelectProps({ hideNoData: true })`), e o item de "sem dados" só é
+ * renderizado quando `!props.hideNoData`. Sem itens e com `hideNoData` ligado o
+ * menu também perde a lista (`hasList` falso) — mas o menu que já estava aberto
+ * não se fecha sozinho: sobra a casca do overlay.
+ *
+ * Agora: termo digitado + estado da busca decidem se o menu abre e QUAL frase
+ * ele carrega (regra pura em `lib/partner-suggestion-menu.js`, mensagens de
+ * `lib/partner-selection-messages.js`). Sem nada a mostrar, o menu nem abre — e
+ * se já estava aberto, é fechado à mão.
+ */
+const partnerSearchTerms = reactive({ carrier: '', receiver: '' });
+const carrierMenuOpen = ref(false);
+const receiverMenuOpen = ref(false);
+
+const carrierMenuState = computed(() => resolvePartnerSuggestionMenu({
+  query: partnerSearchTerms.carrier,
+  roleLabel: 'transportador',
+  loading: carrierSuggestionsLoading.value,
+  itemCount: carrierSuggestions.value.length
+}));
+
+const receiverMenuState = computed(() => resolvePartnerSuggestionMenu({
+  query: partnerSearchTerms.receiver,
+  roleLabel: 'destinador',
+  loading: receiverSuggestionsLoading.value,
+  itemCount: receiverSuggestions.value.length
+}));
+
+watch(() => carrierMenuState.value.shouldCloseMenu, (shouldClose) => {
+  if (shouldClose) {
+    carrierMenuOpen.value = false;
+  }
+});
+
+watch(() => receiverMenuState.value.shouldCloseMenu, (shouldClose) => {
+  if (shouldClose) {
+    receiverMenuOpen.value = false;
+  }
+});
+
+/*
+ * Geometria do menu igual à do combobox do wizard (`FilterableDropdown`):
+ * altura máxima de 260px (`LIST_MAX_HEIGHT`, em vez dos 310 do padrão da
+ * Vuetify) e 6px de folga do campo (`LIST_GAP`), para o painel ocupar o mínimo
+ * de tela e a estratégia "connected" da Vuetify ter espaço para virá-lo para
+ * cima quando não couber embaixo. `contentClass` dá um seletor estável para
+ * medir sobreposição por hit-test (o menu é teleportado para fora da view).
+ */
+const partnerSuggestionMenuProps = {
+  maxHeight: 260,
+  offset: 6,
+  contentClass: 'sicat-partner-suggestions-menu'
+};
+
 function buildPartnerSuggestionItems(items) {
   const seen = new Set();
   const options = [];
@@ -1254,6 +1317,9 @@ async function fetchPartnerSuggestions(role, term) {
 
 function schedulePartnerSuggestions(role, term) {
   const normalized = String(term || '').trim();
+  // O termo é registrado ANTES do corte de 1 caractere: é ele que decide a
+  // frase do estado vazio ("digite pelo menos 2 caracteres").
+  partnerSearchTerms[role] = normalized;
   clearTimeout(partnerSuggestionTimers[role]);
   if (normalized.length === 1) {
     return;
@@ -2109,8 +2175,13 @@ onUnmounted(() => {
                   />
                 </v-col>
                 <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 6 : 4">
+                  <!-- `:hide-no-data` e `:no-data-text` vêm do resolvedor:
+                       sem nada a mostrar o menu NÃO abre (não cobre os chips de
+                       período); com termo digitado ele abre com texto real
+                       ("Nenhum transportador encontrado para ..."). -->
                   <v-combobox
                     v-model="filters.carrierQuery"
+                    v-model:menu="carrierMenuOpen"
                     :items="carrierSuggestions"
                     item-title="title"
                     item-value="value"
@@ -2119,9 +2190,12 @@ onUnmounted(() => {
                     placeholder="Digite para ver sugestões"
                     clearable
                     :loading="carrierSuggestionsLoading"
-                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    :hide-no-data="carrierMenuState.hideNoData"
+                    :no-data-text="carrierMenuState.emptyText"
+                    :menu-props="partnerSuggestionMenuProps"
                     @focus="schedulePartnerSuggestions('carrier', filters.carrierQuery)"
                     @update:search="schedulePartnerSuggestions('carrier', $event)"
+                    @click:clear="schedulePartnerSuggestions('carrier', '')"
                     @keydown.enter="applyFiltersFromField"
                   />
                 </v-col>
@@ -2130,6 +2204,7 @@ onUnmounted(() => {
                 <v-col v-if="!isReceiverOperationalMode" cols="12" sm="6" md="4">
                   <v-combobox
                     v-model="filters.receiverQuery"
+                    v-model:menu="receiverMenuOpen"
                     :items="receiverSuggestions"
                     item-title="title"
                     item-value="value"
@@ -2138,9 +2213,12 @@ onUnmounted(() => {
                     placeholder="Digite para ver sugestões"
                     clearable
                     :loading="receiverSuggestionsLoading"
-                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    :hide-no-data="receiverMenuState.hideNoData"
+                    :no-data-text="receiverMenuState.emptyText"
+                    :menu-props="partnerSuggestionMenuProps"
                     @focus="schedulePartnerSuggestions('receiver', filters.receiverQuery)"
                     @update:search="schedulePartnerSuggestions('receiver', $event)"
+                    @click:clear="schedulePartnerSuggestions('receiver', '')"
                     @keydown.enter="applyFiltersFromField"
                   />
                 </v-col>
