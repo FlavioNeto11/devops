@@ -13,6 +13,8 @@ import {
 } from './dmrUiHelpers.js';
 import { useConfirmDialog } from '../../composables/useConfirmDialog.js';
 import { useNotification } from '../../composables/useNotification.js';
+// Mesma tradução de "não encontrado" da tela de manifesto (fonte única).
+import { describeDetailLoadError } from '../../lib/detail-load-error.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../../components/shell/SicatPageHeader.vue';
 import SicatCard from '../../components/sicat/SicatCard.vue';
@@ -50,6 +52,36 @@ const {
 } = store;
 
 const dmrId = computed(() => String(route.params.dmrId || '').trim());
+
+// Falha de carregamento traduzida (pt-BR, sem id interno).
+const detailErrorInfo = computed(() => describeDetailLoadError(detailError.value, 'dmr'));
+
+/**
+ * O cabeçalho NUNCA pode ficar preso em "Carregando…": antes o título só saía
+ * do placeholder quando a declaração chegava — e num id inválido ela nunca
+ * chegava, deixando a tela em carregamento eterno.
+ */
+const headerTitle = computed(() => {
+  if (selectedDmr.value) return formatDmrPeriodLabel(selectedDmr.value);
+  if (detailErrorInfo.value) return detailErrorInfo.value.title;
+  if (loadingDetail.value) return 'Carregando…';
+  return 'Declaração não encontrada';
+});
+
+const headerDescription = computed(() => {
+  if (selectedDmr.value) return `${roleLabel(selectedDmr.value.role)} · CNPJ ${selectedDmr.value.cnpj || '-'}`;
+  if (detailErrorInfo.value) return detailErrorInfo.value.message;
+  if (loadingDetail.value) return '';
+  return 'Esta declaração não existe ou não pertence à conta CETESB ativa nesta sessão.';
+});
+
+const pageError = computed(() => {
+  if (!detailErrorInfo.value) return null;
+  return {
+    message: [detailErrorInfo.value.message, detailErrorInfo.value.hint].filter(Boolean).join(' '),
+    code: detailErrorInfo.value.code
+  };
+});
 
 const submitDialog = ref(false);
 const addItemDialog = ref(false);
@@ -227,15 +259,15 @@ function goBack() {
 </script>
 
 <template>
-  <SicatPageLayout :loading="loadingDetail && !selectedDmr" :error="detailError">
+  <SicatPageLayout :loading="loadingDetail && !selectedDmr" :error="pageError">
     <template #header>
       <SicatPageHeader
         kicker="Resíduos · DMR · Detalhe"
-        :title="selectedDmr ? formatDmrPeriodLabel(selectedDmr) : 'Carregando…'"
-        :description="selectedDmr ? `${roleLabel(selectedDmr.role)} · CNPJ ${selectedDmr.cnpj || '-'}` : ''"
+        :title="headerTitle"
+        :description="headerDescription"
       >
         <template #actions>
-          <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar</v-btn>
+          <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar para a lista de DMRs</v-btn>
         </template>
       </SicatPageHeader>
     </template>

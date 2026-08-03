@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { nextTick } from 'vue';
 import { useAuthStore } from './stores/auth.js';
 import { useNotification } from './composables/useNotification.js';
 import {
@@ -6,6 +7,13 @@ import {
   resolveActivePersona,
   routeAllowsPersona
 } from './lib/persona-access.js';
+import {
+  ROUTE_DENIAL_REASONS,
+  buildRouteDenialNotice,
+  queueRouteDenialNotice,
+  takeRouteDenialNotice
+} from './lib/route-denial-notice.js';
+import { decideStaleBundleRecovery } from './lib/stale-bundle-recovery.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
 import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
@@ -33,6 +41,7 @@ import MtrReportsView from './modules/mtr-reports/MtrReportsView.vue';
 import CommandCenterView from './modules/command-center/CommandCenterView.vue';
 import CdfListView from './views/CdfListView.vue';
 import CdfCreateView from './views/CdfCreateView.vue';
+import NotFoundView from './views/NotFoundView.vue';
 
 // Destino inicial do admin/SRE (persona de sistema) — não exige conta CETESB.
 const ADMIN_HOME = '/operacao/dashboard';
@@ -383,6 +392,23 @@ const routes = [
       audience: 'system',
       breadcrumb: ['Dev', 'Componentes Sicat']
     }
+  },
+  {
+    // Catch-all: URL desconhecida vira 404 DE VERDADE (título próprio,
+    // explicação e caminho de volta) em vez de um card genérico do shell.
+    // Precisa ser a ÚLTIMA rota. Sem `requiresSicatAuth` para não transformar
+    // um endereço errado em "sessão expirada"; quem está logado vê o 404 dentro
+    // do shell (com o menu como saída), quem não está vê a versão pública.
+    path: '/:pathMatch(.*)*',
+    name: 'NaoEncontrado',
+    component: NotFoundView,
+    meta: {
+      requiresSicatAuth: false,
+      // A view é o próprio cabeçalho; o header genérico do shell repetiria o
+      // título e ainda descreveria a tela como se fosse uma tela de operação.
+      hidePageHeader: true,
+      breadcrumb: ['Página não encontrada']
+    }
   }
 ];
 
@@ -484,10 +510,13 @@ router.beforeEach(async (to, from, next) => {
     if (!hasAdminAccess) {
       // O aviso é genérico de propósito: o path negado não vai para a URL nem
       // para a tela, para não expor o mapa de rotas internas a quem não tem acesso.
-      useNotification().warning(
-        'Você não tem permissão para acessar esta área.',
-        { detail: 'Fale com o administrador do SICAT da sua organização se precisar deste acesso.' }
-      );
+      // Ele é ENFILEIRADO aqui e emitido no afterEach (ver lib/route-denial-notice.js):
+      // emitir agora fazia o toast nascer e expirar enquanto a tela de destino
+      // ainda carregava — o redirect parecia silencioso.
+      queueRouteDenialNotice(buildRouteDenialNotice({
+        reason: ROUTE_DENIAL_REASONS.ADMIN,
+        redirectTo: OPERATOR_HOME
+      }));
       next(OPERATOR_HOME);
       return;
     }
@@ -497,15 +526,11 @@ router.beforeEach(async (to, from, next) => {
   // exclusivas de um perfil ficam bloqueadas também por URL direta, e não só
   // ocultas no menu.
   if (!routeAllowsPersona(to, resolveActivePersona(authStore))) {
-    const required = describeRequiredPersonas(to);
-    useNotification().warning(
-      'Esta tela não faz parte do seu perfil nesta conta CETESB.',
-      {
-        detail: required
-          ? `Ela é exclusiva do perfil ${required}. Se você também opera com esse perfil, troque a conta CETESB ativa em "Minha sessão".`
-          : 'Se você também opera com outro perfil, troque a conta CETESB ativa em "Minha sessão".'
-      }
-    );
+    queueRouteDenialNotice(buildRouteDenialNotice({
+      reason: ROUTE_DENIAL_REASONS.PERSONA,
+      requiredPersonas: describeRequiredPersonas(to),
+      redirectTo: OPERATOR_HOME
+    }));
     next(OPERATOR_HOME);
     return;
   }
@@ -519,6 +544,117 @@ router.afterEach((to) => {
   const crumbs = Array.isArray(to.meta?.breadcrumb) ? to.meta.breadcrumb : null;
   const page = crumbs?.length ? crumbs[crumbs.length - 1] : (typeof to.name === 'string' ? to.name : '');
   document.title = page && page !== 'Início' ? `${page} · SICAT` : 'SICAT — Transporte de Resíduos CETESB-SP';
+
+  // Rota negada: o aviso enfileirado pelo guard só é EMITIDO agora, com a
+  // navegação já concluída e o host de notificação montado. Emitir dentro do
+  // beforeEach fazia o toast começar a contar o tempo de vida enquanto o
+  // destino ainda carregava — e o redirect chegava mudo ao operador.
+  const denialNotice = takeRouteDenialNotice(to.path, Date.now());
+  if (denialNotice) {
+    void nextTick(() => {
+      useNotification().warning(denialNotice.message, {
+        detail: denialNotice.detail,
+        timeout: denialNotice.timeout
+      });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Recuperação de sessão presa em bundle antigo (ver lib/stale-bundle-recovery.js).
+// ---------------------------------------------------------------------------
+
+const STALE_BUNDLE_STORAGE_KEY = 'sicat:stale-bundle-reload-at';
+
+function readLastStaleBundleReloadAt() {
+  try {
+    return Number(globalThis.sessionStorage?.getItem(STALE_BUNDLE_STORAGE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function rememberStaleBundleReload(at) {
+  try {
+    globalThis.sessionStorage?.setItem(STALE_BUNDLE_STORAGE_KEY, String(at));
+  } catch {
+    /* sessionStorage indisponível (modo restrito) — segue sem a trava persistida. */
+  }
+}
+
+/**
+ * Alvo do reload: quando a navegação para `to` falhou, a barra de endereço
+ * ainda mostra a tela ANTERIOR — recarregar direto levaria o operador de volta
+ * ao ponto errado. `router.resolve` devolve o href já com o base `/sicat/`.
+ */
+function resolveReloadHref(to) {
+  try {
+    return to ? router.resolve(to).href : '';
+  } catch {
+    return '';
+  }
+}
+
+function recoverFromStaleBundle(error, to) {
+  const decision = decideStaleBundleRecovery({
+    error,
+    lastReloadAt: readLastStaleBundleReloadAt(),
+    now: Date.now()
+  });
+
+  if (decision.action === 'ignore') {
+    return false;
+  }
+
+  const notify = useNotification();
+
+  if (decision.action === 'reload') {
+    rememberStaleBundleReload(Date.now());
+    // timeout 0: o aviso precisa estar visível no instante do reload.
+    notify.info(decision.message, { detail: decision.detail, timeout: 0 });
+
+    const href = resolveReloadHref(to);
+    // Pequeno atraso para o aviso pintar antes de a página ser trocada.
+    setTimeout(() => {
+      if (href) {
+        globalThis.location?.assign(href);
+        return;
+      }
+      globalThis.location?.reload();
+    }, 400);
+
+    return true;
+  }
+
+  // Já recarregamos há pouco: recarregar de novo viraria laço. Damos a saída
+  // manual, explícita, em vez de deixar a tela travada sem explicação.
+  notify.error(decision.message, {
+    detail: decision.detail,
+    actionLabel: decision.actionLabel,
+    onAction: () => {
+      rememberStaleBundleReload(Date.now());
+      globalThis.location?.reload();
+    }
+  });
+
+  return true;
+}
+
+router.onError((error, to) => {
+  if (recoverFromStaleBundle(error, to)) {
+    return;
+  }
+
+  console.error('[router] navegação falhou', error);
+});
+
+// Falha de PRELOAD de chunk/CSS não passa pelo router.onError — o Vite emite
+// este evento na window. Mesmo tratamento (é o mesmo sintoma).
+globalThis.addEventListener?.('vite:preloadError', (event) => {
+  const handled = recoverFromStaleBundle(event?.payload || event, null);
+  if (handled) {
+    event?.preventDefault?.();
+  }
 });
 
 export default router;
