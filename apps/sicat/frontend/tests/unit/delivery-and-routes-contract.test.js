@@ -99,6 +99,38 @@ test('o guard ENFILEIRA o aviso e o afterEach o entrega', () => {
   assert.match(afterEachBlock, /useNotification\(\)\.warning\(/);
 });
 
+test('TODO redirect do guard enfileira aviso — nenhum sai calado', () => {
+  const beforeEachBlock = routerSource.slice(
+    routerSource.indexOf('router.beforeEach('),
+    routerSource.indexOf('router.afterEach(')
+  );
+
+  // O redirect do admin/SRE saindo de uma tela de operador era o único que
+  // devolvia o usuário para outra área sem explicar nada.
+  assert.match(
+    beforeEachBlock,
+    /ROUTE_DENIAL_REASONS\.AUDIENCE/,
+    'admin/SRE mandado para a visão de Sistema precisa saber por quê'
+  );
+
+  for (const reason of ['ADMIN', 'PERSONA', 'AUDIENCE']) {
+    assert.match(
+      beforeEachBlock,
+      new RegExp(`reason: ROUTE_DENIAL_REASONS\\.${reason}`),
+      `o guard precisa enfileirar a razão ${reason}`
+    );
+  }
+
+  // `deniedPath` é o que permite entregar o aviso quando o redirect tem dois saltos.
+  const queuedNotices = beforeEachBlock.match(/queueRouteDenialNotice\(/g) || [];
+  const deniedPaths = beforeEachBlock.match(/deniedPath: to\.path/g) || [];
+  assert.equal(
+    deniedPaths.length,
+    queuedNotices.length,
+    'todo aviso enfileirado precisa dizer de qual rota o usuário foi barrado'
+  );
+});
+
 // --- 404 -------------------------------------------------------------------
 
 test('existe rota catch-all de 404, e ela é a ÚLTIMA', () => {
