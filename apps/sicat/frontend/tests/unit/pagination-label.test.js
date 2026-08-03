@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RANGE_SEPARATOR,
+  formatFooterPageText,
   formatPageCounter,
   formatPaginationCounter,
   resolveOffsetRange,
@@ -52,6 +53,24 @@ test('resolveOffsetRange cobre listas por offset/limit', () => {
   assert.deepEqual(resolveOffsetRange({ offset: 0, limit: 50, itemsOnPage: 12 }), { start: 1, end: 12 });
   assert.deepEqual(resolveOffsetRange({ offset: 50, limit: 50, itemsOnPage: 50 }), { start: 51, end: 100 });
   assert.deepEqual(resolveOffsetRange({ offset: 50, limit: 50, itemsOnPage: 0 }), { start: 0, end: 0 });
+});
+
+test('rodapé de tabela: template com marcadores e substantivo concordado', () => {
+  // O painel e /dmr/pendentes diziam "Mostrando 0–0 de 0" — 0 de quê?
+  assert.equal(formatFooterPageText(0, 'manifesto'), 'Mostrando {0}–{1} de {2} manifestos');
+  assert.equal(formatFooterPageText(1, 'manifesto'), 'Mostrando {0}–{1} de {2} manifesto');
+  assert.equal(
+    formatFooterPageText(12, 'declaração', 'declarações'),
+    'Mostrando {0}–{1} de {2} declarações'
+  );
+  // Mesma abertura e mesmo travessão do contador escrito pelas telas.
+  assert.ok(formatFooterPageText(3, 'manifesto').startsWith('Mostrando '));
+  assert.ok(formatFooterPageText(3, 'manifesto').includes(RANGE_SEPARATOR));
+});
+
+test('rodapé sem substantivo mantém o texto padrão do locale', () => {
+  assert.equal(formatFooterPageText(10), null);
+  assert.equal(formatFooterPageText(10, '   '), null);
 });
 
 test('formatPageCounter combina faixa e frase', () => {

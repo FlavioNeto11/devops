@@ -213,6 +213,14 @@ onMounted(async () => {
 
 <template>
   <div class="chat-view">
+    <!-- HIERARQUIA SEMÂNTICA: esta tela não passa por SicatPageHeader (ela é um
+         layout de altura cheia, próprio) e por isso não tinha NENHUM heading —
+         h1..h3 = 0. Sem título, quem navega por cabeçalhos (leitor de tela,
+         atalho "próximo heading") não tem como saber onde está nem pular entre
+         as regiões. Os títulos abaixo são só para tecnologia assistiva
+         (.chat-sr-heading): a tela continua pixel a pixel igual. -->
+    <h1 class="chat-sr-heading">Assistente operacional</h1>
+
     <!-- Compact action bar: context line + buttons -->
     <div class="chat-view-bar">
       <div class="chat-view-context">
@@ -304,7 +312,14 @@ onMounted(async () => {
     </div>
 
     <!-- Quick action pills (com conversa em andamento) -->
-    <div v-if="messages.length && quickActions.length" class="chat-quick-pills" aria-label="Ações guiadas">
+    <!-- `aria-label` num <div> sem papel é ignorado pelo leitor de tela; a
+         região vira <section> rotulada pelo próprio heading. -->
+    <section
+      v-if="messages.length && quickActions.length"
+      class="chat-quick-pills"
+      aria-labelledby="chat-quick-actions-heading"
+    >
+      <h2 id="chat-quick-actions-heading" class="chat-sr-heading">Ações guiadas</h2>
       <button
         v-for="action in quickActions"
         :key="action.id"
@@ -317,15 +332,16 @@ onMounted(async () => {
         <v-icon v-if="action.icon" size="13">{{ action.icon }}</v-icon>
         {{ action.title }}
       </button>
-    </div>
+    </section>
 
     <!-- Thread -->
     <div class="chat-thread-wrap">
+      <h2 id="chat-thread-heading" class="chat-sr-heading">Conversa</h2>
       <section
         ref="threadRef"
         class="chat-thread"
         aria-live="polite"
-        aria-label="Conversa"
+        aria-labelledby="chat-thread-heading"
         @scroll.passive="updateNearBottom"
       >
         <!-- Estado vazio: hero clean + sugestões em cards (sem mensagem fake) -->
@@ -333,7 +349,10 @@ onMounted(async () => {
           <div class="chat-empty-icon">
             <v-icon size="26" color="primary">mdi-message-text-outline</v-icon>
           </div>
-          <h2 class="chat-empty-title">Como posso ajudar?</h2>
+          <!-- h3: está DENTRO da região "Conversa" (h2) — o nível acompanha o
+               aninhamento. O tamanho vem da classe, não da tag: o visual não
+               muda. -->
+          <h3 class="chat-empty-title">Como posso ajudar?</h3>
           <p class="chat-empty-sub">
             Consultas operacionais sobre manifestos, processamentos, auditoria e o painel —
             sempre no contexto da conta CETESB ativa.
@@ -479,7 +498,8 @@ onMounted(async () => {
     </div>
 
     <!-- Composer -->
-    <form class="chat-composer" @submit.prevent="onSubmitComposer">
+    <form class="chat-composer" aria-labelledby="chat-composer-heading" @submit.prevent="onSubmitComposer">
+      <h2 id="chat-composer-heading" class="chat-sr-heading">Escrever mensagem</h2>
       <!-- variant="plain": o textarea fica transparente e SEM o overlay do
            solo-filled (que rendia o efeito de degradê). Quem faz o papel de
            "campo" é o cartão .chat-composer, com anel de foco no acento. -->
@@ -533,6 +553,23 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   gap: 10px;
+}
+
+/* Títulos só para tecnologia assistiva: dão à tela a hierarquia h1>h2>h3 que
+   faltava SEM alterar um pixel. `position: absolute` tira o elemento do fluxo
+   flex/grid (não cria coluna nem consome o `gap`) e `clip-path` o esconde
+   visualmente mantendo-o na árvore de acessibilidade — `display: none` ou
+   `visibility: hidden` o apagariam também para o leitor de tela. */
+.chat-sr-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 /* Bar: context line + action buttons */

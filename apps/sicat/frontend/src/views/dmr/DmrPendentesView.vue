@@ -70,6 +70,8 @@ onMounted(async () => {
         :items="rows"
         :loading="loadingPending"
         :error="pendingError"
+        count-noun="declaração"
+        count-noun-plural="declarações"
         :empty="{ title: 'Sem DMRs pendentes', description: 'Não há declarações aguardando submissão para a conta ativa.', icon: 'mdi-check-circle-outline' }"
         @row-click="(row) => row?.id && goToDetail(row.id)"
       >

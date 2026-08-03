@@ -1,3 +1,4 @@
+import { buildManifestListQueryParams } from './manifest-list-query.js';
 import { buildPartnerSearchQueryParams } from './partner-search-query.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080';
@@ -508,7 +509,9 @@ function toQueryString(params = {}) {
 }
 
 export function listManifests(params) {
-  return request(`/v1/manifestos${toQueryString(params)}`);
+  // Lista branca (manifest-list-query.js): parâmetro que o backend não lê não
+  // sai na URL — nada de filtro fantasma respondendo 200 e devolvendo tudo.
+  return request(`/v1/manifestos${toQueryString(buildManifestListQueryParams(params))}`);
 }
 
 export function getManifestById(id) {

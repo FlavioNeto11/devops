@@ -74,3 +74,65 @@ export function snapshotFilters(source, keys = []) {
   }
   return snapshot;
 }
+
+/**
+ * SEQUENCIAMENTO DAS BUSCAS (requisição superada).
+ *
+ * O reconciliador anterior olhava só o `loading` da lista: fotografava os
+ * filtros quando ele virava `true` e promovia a foto a "aplicado" quando virava
+ * `false`. Com DOIS cliques seguidos (ex.: "Recebidos" e, 250 ms depois,
+ * "Cancelados") o `loading` já estava `true` no segundo clique — a segunda busca
+ * nunca era fotografada — e voltava a `false` no fim da PRIMEIRA. Resultado: o
+ * chip novo ficava eternamente "pendente" (relógio) mesmo depois de a lista
+ * mudar, e uma resposta antiga chegando fora de ordem podia sobrescrever a foto
+ * da mais recente.
+ *
+ * Aqui cada busca ganha um ID crescente. Só a resposta da requisição MAIS
+ * RECENTE promove o snapshot para "aplicado"; respostas superadas ou fora de
+ * ordem são descartadas em silêncio. Módulo PURO — testado em
+ * tests/unit/filter-application-state.test.js.
+ */
+export function createFilterApplicationTracker(keys = []) {
+  const observedKeys = [...keys];
+  const inFlightSnapshots = new Map();
+  let lastIssuedId = 0;
+  let latestIssuedId = 0;
+  let applied = null;
+
+  /** Registra uma busca prestes a sair e devolve o ID dela. */
+  function begin(source) {
+    lastIssuedId += 1;
+    latestIssuedId = lastIssuedId;
+    inFlightSnapshots.set(lastIssuedId, snapshotFilters(source, observedKeys));
+    return lastIssuedId;
+  }
+
+  /**
+   * Liquida a busca `requestId`. Devolve `true` só quando ela era a mais recente
+   * (e, portanto, promoveu os filtros para "aplicados").
+   */
+  function settle(requestId) {
+    const snapshot = inFlightSnapshots.get(requestId);
+    inFlightSnapshots.delete(requestId);
+
+    // Desconhecida (ou já liquidada) e superada caem no mesmo lugar: descartar.
+    if (!snapshot || requestId !== latestIssuedId) {
+      return false;
+    }
+
+    applied = snapshot;
+    return true;
+  }
+
+  /** O que a última busca CONCLUÍDA e não superada levou (`null` antes da 1ª). */
+  function appliedFilters() {
+    return applied;
+  }
+
+  /** Buscas registradas e ainda não liquidadas (diagnóstico/teste). */
+  function inFlightCount() {
+    return inFlightSnapshots.size;
+  }
+
+  return { begin, settle, appliedFilters, inFlightCount };
+}
