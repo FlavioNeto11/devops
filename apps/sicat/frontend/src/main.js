@@ -15,6 +15,7 @@ import '@fontsource/manrope/800.css';
 import '@fontsource/material-symbols-outlined';
 import vuetify from './plugins/vuetify.js';
 import { bootstrapDocumentTheme } from './composables/useAppTheme.js';
+import { startVersionWatch } from './lib/version-watch.js';
 import './styles/base.css';
 
 bootstrapDocumentTheme();
@@ -24,3 +25,8 @@ app.use(createPinia());
 app.use(router);
 app.use(vuetify);
 app.mount('#app');
+
+// Aba presa na versão antiga pelo cache do navegador é INVISÍVEL (nenhum asset
+// dá 404). A checagem de versão pergunta pela rede, ignorando o cache HTTP —
+// ver src/lib/version-check.js.
+startVersionWatch({ router });
