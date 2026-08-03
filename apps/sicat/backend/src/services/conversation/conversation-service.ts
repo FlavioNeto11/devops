@@ -284,7 +284,7 @@ function buildSensitiveActionTemplateFromToolCall(toolCall: LlmToolCall | null, 
 
   if (intent === 'cdf.generate_from_manifest_selection') {
     actionLabel = `Gerar CDF/CDR para os manifesto(s): ${manifestLabel}.`;
-    preRequirements = 'Sessao CETESB ativa, manifesto(s) elegivel(is) e cdfPayload validado com dados obrigatorios.';
+    preRequirements = 'Sessao CETESB ativa, manifesto(s) elegivel(is) e dados obrigatorios do certificado conferidos.';
   } else if (intent.includes('manifest')) {
     actionLabel = `Executar acao operacional ${intent} para: ${manifestLabel}.`;
     preRequirements = 'Conta/sessao CETESB ativa, conjunto validado em preview e snapshot de confirmacao valido.';
@@ -413,7 +413,7 @@ function resolveOperationalErrorMessageByCode(code: string, context: LooseRecord
   }
 
   if (code === 'CONVERSATION_RECEIPT_PAYLOAD_REQUIRED') {
-    return 'Para receber manifesto preciso de receiptPayload. Envie os dados de recebimento (hash/codigo, quantidades e observacao).';
+    return 'Para dar baixa no manifesto preciso dos dados do recebimento: numero (ou codigo) do MTR, as quantidades efetivamente recebidas e a observacao, quando houver.';
   }
 
   if (code === 'CONVERSATION_BATCH_LIMIT_EXCEEDED') {
@@ -438,7 +438,7 @@ function resolveOperationalErrorMessageByCode(code: string, context: LooseRecord
   }
 
   if (code === 'CONVERSATION_CDF_PAYLOAD_REQUIRED') {
-    return 'Para gerar CDF/CDR envie cdfPayload com os dados obrigatorios e confirme a acao.';
+    return 'Para gerar o certificado (CDF/CDR) informe os dados obrigatorios do certificado (responsavel e manifestos que entram nele) e confirme a acao.';
   }
 
   if (code === 'CONVERSATION_CDF_DOCUMENT_SET_REQUIRED') {

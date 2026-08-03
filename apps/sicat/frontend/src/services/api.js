@@ -1,3 +1,5 @@
+import { buildPartnerSearchQueryParams } from './partner-search-query.js';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080';
 const DEFAULT_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 20000);
 
@@ -683,18 +685,7 @@ export function getCatalog(catalogName, params) {
 }
 
 export function searchPartners(params = {}) {
-  const normalizedParams = {
-    integrationAccountId: params.integrationAccountId,
-    role: params.role,
-    q: params.q,
-    search: params.search ?? params.q,
-    code: params.code,
-    page: params.page,
-    pageSize: params.pageSize,
-    sessionContextId: params.sessionContextId
-  };
-
-  return dedupedGet(`/v1/partners/search${toQueryString(normalizedParams)}`);
+  return dedupedGet(`/v1/partners/search${toQueryString(buildPartnerSearchQueryParams(params))}`);
 }
 
 export function getPartnerInfo(document) {
