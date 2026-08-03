@@ -107,3 +107,70 @@ test('aviso velho é descartado — nunca aparece fora de contexto', () => {
 test('CONTROLE NEGATIVO: sem nada enfileirado, nada é entregue', () => {
   assert.equal(takeRouteDenialNotice('/dashboard', Date.now()), null);
 });
+
+// --- 2ª rodada: o aviso continuava sumindo em casos reais -------------------
+
+test('aviso enfileirado ANTES da navegação continua disponível DEPOIS dela', () => {
+  const queuedAt = 3_000_000;
+  queueRouteDenialNotice(buildRouteDenialNotice({
+    reason: ROUTE_DENIAL_REASONS.PERSONA,
+    deniedPath: '/manifestos/novo',
+    requiredPersonas: 'Gerador',
+    redirectTo: '/dashboard',
+    queuedAt
+  }));
+
+  // Enquanto a navegação ainda está na rota negada, a fila SEGURA o aviso.
+  assert.equal(takeRouteDenialNotice('/manifestos/novo', queuedAt + 1), null);
+  assert.notEqual(peekRouteDenialNotice(), null);
+
+  // Navegação concluída no destino: o aviso chega inteiro.
+  const delivered = takeRouteDenialNotice('/dashboard', queuedAt + 900);
+  assert.equal(delivered.message, 'Esta tela não faz parte do seu perfil nesta conta CETESB.');
+  assert.equal(delivered.timeout, 0);
+});
+
+test('redirect em DOIS SALTOS ainda entrega o aviso', () => {
+  // Exigir pouso exato em `redirectTo` engolia o aviso quando o destino também
+  // redirecionava (operador sem conta CETESB ativa acaba em /login/cetesb).
+  const queuedAt = 4_000_000;
+  queueRouteDenialNotice(buildRouteDenialNotice({
+    reason: ROUTE_DENIAL_REASONS.ADMIN,
+    deniedPath: '/sistema/jobs',
+    redirectTo: '/dashboard',
+    queuedAt
+  }));
+
+  const delivered = takeRouteDenialNotice('/login/cetesb', queuedAt + 50);
+  assert.equal(delivered.reason, ROUTE_DENIAL_REASONS.ADMIN);
+  assert.equal(peekRouteDenialNotice(), null);
+});
+
+test('admin/SRE mandado para a visão de Sistema também é avisado', () => {
+  const notice = buildRouteDenialNotice({
+    reason: ROUTE_DENIAL_REASONS.AUDIENCE,
+    deniedPath: '/manifestos/novo',
+    redirectTo: '/operacao/dashboard'
+  });
+
+  assert.equal(notice.message, 'Esta tela é da área do operador.');
+  assert.match(notice.detail, /visão de Sistema/);
+  assert.equal(notice.timeout, 0);
+});
+
+test('a rota negada NUNCA aparece na mensagem (só serve para a fila)', () => {
+  for (const reason of Object.values(ROUTE_DENIAL_REASONS)) {
+    const notice = buildRouteDenialNotice({
+      reason,
+      deniedPath: '/sistema/jobs',
+      redirectTo: '/dashboard'
+    });
+
+    assert.equal(notice.deniedPath, '/sistema/jobs');
+    assert.doesNotMatch(
+      `${notice.message} ${notice.detail}`,
+      /\/sistema|\/admin|\/operacao|\/dev|\/manifestos/,
+      `o aviso de "${reason}" não pode expor o mapa de rotas internas`
+    );
+  }
+});

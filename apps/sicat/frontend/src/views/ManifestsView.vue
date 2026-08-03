@@ -16,6 +16,7 @@ import { evaluateDateRange } from '../utils/date-range-validation.js';
 import { formatPageCounter } from '../lib/pagination-label.js';
 import { pluralize } from '../lib/plural-pt.js';
 import { createFilterApplicationTracker, hasPendingFilterChanges, resolveSelectionState } from '../lib/filter-application-state.js';
+import { buildManifestUrlQuery, isSameManifestUrlQuery, parseManifestUrlFilters } from '../lib/manifest-url-filters.js';
 import { buildManifestSelectionLabel } from '../lib/manifest-selection-label.js';
 import {
   buildBatchPrintZipFileName,
@@ -360,7 +361,33 @@ const MAX_SEARCH_RERUNS = 4;
 let searchRunner = null;
 let rerunRequested = false;
 
+/*
+ * A URL É FONTE DE VERDADE DOS FILTROS (ver `lib/manifest-url-filters.js`).
+ *
+ * Antes ela não participava do estado: abrir a tela com `?externalStatus=...`
+ * mostrava o chip em "Todos" e parâmetros injetados (`groupId`, `search`, ...)
+ * sobreviviam a "Limpar filtros" e a novas buscas. Aqui a URL é reescrita na
+ * forma CANÔNICA a cada busca aplicada — só chave conhecida, só valor válido —
+ * e por isso a tela vira linkável: o endereço descreve exatamente a lista.
+ */
+function syncFiltersToUrl() {
+  // Busca que só terminou depois de o operador abrir um manifesto não pode
+  // arrastar a navegação de volta para a lista.
+  if (route.path !== '/manifestos') {
+    return;
+  }
+
+  const nextQuery = buildManifestUrlQuery(filters);
+  if (isSameManifestUrlQuery(route.query, nextQuery)) {
+    return;
+  }
+
+  router.replace({ path: '/manifestos', query: nextQuery }).catch(() => {});
+}
+
 async function runManifestSearch() {
+  syncFiltersToUrl();
+
   if (searchRunner) {
     // Já há busca em voo: em vez de disparar outra em paralelo, marca a
     // re-execução — ela sai com os filtros que estiverem valendo ao final.
@@ -765,6 +792,12 @@ async function clearFilters() {
   filters.page = 1;
   updateDateFilterFeedback({ showWideWindowInfo: false });
   await runManifestSearch();
+}
+
+// Paginação também é estado linkável: a store busca, a URL acompanha.
+async function goToPage(nextPage) {
+  await changePage(nextPage);
+  syncFiltersToUrl();
 }
 
 function openManifest(id) {
@@ -1928,6 +1961,15 @@ onMounted(async () => {
 
   const operationalContext = await syncWithActiveOperationalContext();
 
+  // A URL manda nos filtros: o que veio no endereço (e é válido) sobrescreve o
+  // que estava persistido em localStorage. Chave desconhecida e valor inválido
+  // não entram aqui — e somem da URL na primeira sincronização (ver
+  // `syncFiltersToUrl`), para o endereço nunca descrever uma tela diferente.
+  const urlFilters = parseManifestUrlFilters(route.query).filters;
+  if (Object.keys(urlFilters).length) {
+    Object.assign(filters, urlFilters);
+  }
+
   // Filtro de situação persistido pode ser de OUTRA persona (troca de conta entre
   // sessões): reconcilia antes da primeira busca para não abrir a tela vazia com
   // um filtro que nem aparece nos chips.
@@ -1959,11 +2001,9 @@ onMounted(async () => {
   // janela em hoje para que as falhas/rascunhos contados lá apareçam na lista.
   if (focusFromQuery && !refreshRequested) {
     const focusApplied = applyDashboardFocus(focusFromQuery);
-    // Remove ?focus= da URL para o filtro não "grudar" em reloads/navegações futuras.
-    const nextQuery = { ...route.query };
-    delete nextQuery.focus;
-    await router.replace({ path: '/manifestos', query: nextQuery }).catch(() => {});
-
+    // `?focus=` é parâmetro de NAVEGAÇÃO, não filtro: `syncFiltersToUrl` (chamado
+    // por `runManifestSearch`) reescreve a URL canônica e ele some sozinho — junto
+    // com qualquer chave desconhecida que tenha vindo colada.
     if (focusApplied) {
       filters.dateFrom = getTodayBr();
       filters.dateTo = getTodayBr();
@@ -1987,13 +2027,17 @@ onMounted(async () => {
       cancelFeedback.value = `${batchCountFromQuery} manifestos criados no grupo ${groupIdFromQuery}.`;
     }
 
-    await router.replace({ path: '/manifestos' });
+    syncFiltersToUrl();
     return;
   }
 
   if (!items.value.length && updateDateFilterFeedback()) {
     await runManifestSearch();
   }
+
+  // Rede de segurança: mesmo quando nenhuma busca roda (ex.: período inválido),
+  // a URL não pode continuar carregando parâmetro desconhecido ou valor inválido.
+  syncFiltersToUrl();
 });
 
 onUnmounted(() => {
@@ -2418,8 +2462,8 @@ onUnmounted(() => {
               {{ resultsCounterLabel }}
             </span>
             <div class="d-flex ga-2">
-              <v-btn variant="outlined" size="small" :disabled="!canGoPreviousPage" prepend-icon="mdi-chevron-left" @click="changePage(Number(page) - 1)">Anterior</v-btn>
-              <v-btn variant="outlined" size="small" :disabled="!canGoNextPage" append-icon="mdi-chevron-right" @click="changePage(Number(page) + 1)">Próxima</v-btn>
+              <v-btn variant="outlined" size="small" :disabled="!canGoPreviousPage" prepend-icon="mdi-chevron-left" @click="goToPage(Number(page) - 1)">Anterior</v-btn>
+              <v-btn variant="outlined" size="small" :disabled="!canGoNextPage" append-icon="mdi-chevron-right" @click="goToPage(Number(page) + 1)">Próxima</v-btn>
             </div>
           </v-card-text>
         </v-card>
