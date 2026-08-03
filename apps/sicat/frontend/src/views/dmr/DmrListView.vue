@@ -18,6 +18,8 @@ import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
 import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
 import { formatDateBr, isoDaysAgo, isoToday } from '../../utils/date-format.js';
+import { formatPaginationCounter, resolveOffsetRange } from '../../lib/pagination-label.js';
+import { pluralize } from '../../lib/plural-pt.js';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -116,8 +118,17 @@ const canNext = computed(() => {
 
 const totalLabel = computed(() => {
   const value = Number(total.value || 0);
-  return `${value} ${value === 1 ? 'declaração encontrada' : 'declarações encontradas'}`;
+  return `${value} ${pluralize(value, 'declaração', 'declarações')} ${pluralize(value, 'encontrada', 'encontradas')}`;
 });
+
+// Contador ÚNICO do app: "Mostrando 1–20 de 243 declarações" (lib/pagination-label.js).
+// Antes esta tela dizia "Exibindo …" e as de MTR "Mostrando …".
+const resultsCounterLabel = computed(() => formatPaginationCounter({
+  ...resolveOffsetRange({ offset: filters.offset, limit: filters.limit, itemsOnPage: items.value.length }),
+  total: total.value,
+  singular: 'declaração',
+  plural: 'declarações'
+}));
 
 onMounted(async () => {
   await fetchList();
@@ -252,7 +263,7 @@ onMounted(async () => {
             Anterior
           </v-btn>
           <span class="text-caption text-medium-emphasis">
-            Exibindo {{ Math.min(Number(filters.offset || 0) + 1, Number(total || 0)) }}–{{ Math.min(Number(filters.offset || 0) + Number(filters.limit || 50), Number(total || 0)) }} de {{ Number(total || 0) }} declarações
+            {{ resultsCounterLabel }}
           </span>
           <v-btn variant="text" :disabled="!canNext" append-icon="mdi-chevron-right" @click="changeOffset(Number(filters.limit || 50))">
             Próxima

@@ -1,5 +1,8 @@
 <script setup>
-defineProps({
+import { computed } from 'vue';
+import { pluralize } from '../../lib/plural-pt.js';
+
+const props = defineProps({
   /** Posição da barra. */
   position: {
     type: String,
@@ -8,10 +11,17 @@ defineProps({
   },
   /** Número de itens selecionados (modo seleção em lote). */
   selectionCount: { type: Number, default: 0 },
-  selectionLabel: { type: String, default: 'selecionado(s)' }
+  /** Rótulo da seleção. Em branco, concorda sozinho: "selecionado"/"selecionados". */
+  selectionLabel: { type: String, default: '' }
 });
 
 const emit = defineEmits(['clear-selection']);
+
+// "selecionado(s)" era o app terceirizando a concordância para quem lê — a
+// contagem está aqui, então a palavra sai certa (lib/plural-pt.js).
+const resolvedSelectionLabel = computed(() =>
+  String(props.selectionLabel || '').trim() || pluralize(props.selectionCount, 'selecionado', 'selecionados')
+);
 </script>
 
 <template>
@@ -26,7 +36,7 @@ const emit = defineEmits(['clear-selection']);
         @click="emit('clear-selection')"
       />
       <strong>{{ selectionCount }}</strong>
-      <span>{{ selectionLabel }}</span>
+      <span>{{ resolvedSelectionLabel }}</span>
       <slot name="selection" />
     </div>
 

@@ -11,8 +11,11 @@ import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, listManifests as listManifestsApi, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useManifestsStore } from '../stores/manifests.js';
-import { brDateToIsoDate, getTodayBr, isoDateToBrDate, isoDaysAgo, isoToday, normalizeBrDateInput } from '../utils/date-format.js';
+import { brDateToIsoDate, getTodayBr, isoDateToBrDate, isoDaysAgo, normalizeBrDateInput } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
+import { pluralize } from '../lib/plural-pt.js';
+import { hasPendingFilterChanges, resolveSelectionState, snapshotFilters } from '../lib/filter-application-state.js';
 import {
   buildBatchPrintZipFileName,
   buildFriendlyCancelFailureMessage,
@@ -80,11 +83,14 @@ const {
   syncWithActiveOperationalContext
 } = store;
 
-const pageDescription = computed(() => {
-  const start = items.value.length ? (Number(page.value) - 1) * Number(filters.pageSize) + 1 : 0;
-  const end = items.value.length ? start + items.value.length - 1 : 0;
-  return { start, end };
-});
+// Contador ÚNICO do app: "Mostrando 1–20 de 38 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: page.value,
+  pageSize: filters.pageSize,
+  itemsOnPage: items.value.length,
+  total: totalItems.value,
+  singular: 'manifesto'
+}));
 
 const canGoPreviousPage = computed(() => Number(page.value) > 1 && !loadingList.value);
 const canGoNextPage = computed(() => {
@@ -299,17 +305,97 @@ const selectedResponsibleCode = computed({
   }
 });
 
-// Presets de período: um clique em vez de digitar duas datas.
-const activeDatePresetDays = computed(() => {
-  const fromIso = brDateToIsoDate(filters.dateFrom);
-  const toIso = brDateToIsoDate(filters.dateTo);
-  const todayIso = isoToday();
-  if (!fromIso || !toIso || toIso !== todayIso) {
-    return null;
+/*
+ * CHIP QUE ACENDE ANTES DE VALER.
+ *
+ * Os chips pintavam de primário no clique, mas o clique só ENFILEIRA a busca:
+ * enquanto ela não volta — e ela pode nem sair, se a validação de datas barrar —
+ * a lista continua sendo a de antes. Some-se a isso os campos de texto do mesmo
+ * painel, que só entram em vigor no "Aplicar filtros": o painel inteiro afirmava
+ * um estado que não estava valendo.
+ *
+ * Mantemos o modelo em LOTE (o botão explícito) porque as datas se beneficiam
+ * dele — o que muda é a honestidade do visual: `appliedFilters` guarda o que a
+ * última busca CONCLUÍDA levou, e cada chip se declara "aplicado" (preenchido,
+ * com ✓) ou "selecionado, ainda não aplicado" (contorno, com relógio). O botão
+ * "Aplicar filtros" avisa quando há mudança pendente; Enter dentro do formulário
+ * aplica (o v-form já submete).
+ */
+const OBSERVED_FILTER_KEYS = Object.freeze([
+  'status',
+  'externalStatus',
+  'groupId',
+  'manifestNumber',
+  'carrierQuery',
+  'receiverQuery',
+  'dateFrom',
+  'dateTo',
+  'pageSize'
+]);
+
+const appliedFilters = ref(null);
+let inFlightFilters = null;
+
+// A busca sai com os filtros do instante em que loadingList vira true; só viram
+// "aplicados" quando ela TERMINA — antes disso a lista ainda é a antiga.
+watch(loadingList, (isLoading) => {
+  if (isLoading) {
+    inFlightFilters = snapshotFilters(filters, OBSERVED_FILTER_KEYS);
+    return;
   }
-  const span = Math.round((new Date(`${toIso}T12:00:00`) - new Date(`${fromIso}T12:00:00`)) / 86400000) + 1;
-  return [1, 7, 30].includes(span) ? span : null;
+
+  if (inFlightFilters) {
+    appliedFilters.value = inFlightFilters;
+    inFlightFilters = null;
+  }
 });
+
+const hasPendingFilterEdits = computed(() =>
+  hasPendingFilterChanges(filters, appliedFilters.value, OBSERVED_FILTER_KEYS));
+
+function situationChipState(option) {
+  return resolveSelectionState(
+    { status: option.status, externalStatus: option.externalStatus },
+    filters,
+    appliedFilters.value,
+    ['status', 'externalStatus']
+  );
+}
+
+function datePresetTarget(days) {
+  const span = Math.max(1, Number(days) || 1);
+  return {
+    dateTo: getTodayBr(),
+    dateFrom: isoDateToBrDate(isoDaysAgo(span - 1)) || getTodayBr()
+  };
+}
+
+function datePresetState(days) {
+  return resolveSelectionState(datePresetTarget(days), filters, appliedFilters.value, ['dateFrom', 'dateTo']);
+}
+
+/** Aparência honesta do chip: aplicado ≠ pendente ≠ inativo. */
+function filterChipAttrs(state, label) {
+  if (state === 'applied') {
+    return {
+      variant: 'flat',
+      color: 'primary',
+      prependIcon: 'mdi-check',
+      title: `${label}: filtro aplicado nesta lista`
+    };
+  }
+
+  if (state === 'pending') {
+    return {
+      variant: 'outlined',
+      color: 'primary',
+      prependIcon: 'mdi-clock-outline',
+      title: `${label}: selecionado, ainda não aplicado — use “Aplicar filtros”`
+    };
+  }
+
+  return { variant: 'tonal', color: undefined, prependIcon: undefined, title: undefined };
+}
 
 // Resumo legível dos filtros ativos (usado no empty state para tirar o
 // mistério do "cadê meus manifestos?" causado por filtros persistidos).
@@ -1190,9 +1276,9 @@ function buildReceiveManifestPayload(manifest) {
 }
 
 function buildReceiveSuccessMessage(acceptedCount, blockedCount) {
-  let message = `${acceptedCount} recebimento(s) enfileirado(s) com sucesso.`;
+  let message = `${acceptedCount} ${pluralize(acceptedCount, 'recebimento')} ${pluralize(acceptedCount, 'enfileirado')} com sucesso.`;
   if (blockedCount) {
-    message += ` ${blockedCount} manifesto(s) ficaram bloqueados antes do envio.`;
+    message += ` ${blockedCount} ${pluralize(blockedCount, 'manifesto')} ${pluralize(blockedCount, 'ficou', 'ficaram')} ${pluralize(blockedCount, 'bloqueado')} antes do envio.`;
   }
   return message;
 }
@@ -1402,12 +1488,12 @@ async function requestBatchPrintManifests() {
       processed += 1;
     }
 
-    cancelFeedback.value = `Compactando ${printableManifests.length} PDF(s) em um arquivo ZIP...`;
+    cancelFeedback.value = `Compactando ${printableManifests.length} ${pluralize(printableManifests.length, 'PDF', 'PDFs')} em um arquivo ZIP...`;
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     triggerBrowserDownload(zipBlob, buildBatchPrintZipFileName(printableManifests));
 
     cancelFeedbackError.value = '';
-    cancelFeedback.value = `ZIP gerado com ${printableManifests.length} PDF(s). Download iniciado.`;
+    cancelFeedback.value = `ZIP gerado com ${printableManifests.length} ${pluralize(printableManifests.length, 'PDF', 'PDFs')}. Download iniciado.`;
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao solicitar impressão em lote.';
   } finally {
@@ -1535,10 +1621,12 @@ async function requestBatchSubmitManifests() {
   const submittableCount = selectedSubmittableManifestIds.value.length;
   const ignoredCount = selectedManifestCount.value - submittableCount;
   const groupNote = String(filters.groupId || '').trim() ? ` Serão etiquetados no grupo ${filters.groupId}.` : '';
-  const ignoredNote = ignoredCount > 0 ? ` ${ignoredCount} selecionado(s) não elegíveis serão ignorados.` : '';
+  const ignoredNote = ignoredCount > 0
+    ? ` ${ignoredCount} ${pluralize(ignoredCount, 'selecionado')} não ${pluralize(ignoredCount, 'elegível', 'elegíveis')} ${pluralize(ignoredCount, 'será', 'serão')} ${pluralize(ignoredCount, 'ignorado')}.`
+    : '';
   const confirmed = await confirm({
     title: 'Enviar manifestos à CETESB',
-    message: `Enviar ${submittableCount} manifesto(s) à CETESB agora?${groupNote}${ignoredNote}`,
+    message: `Enviar ${submittableCount} ${pluralize(submittableCount, 'manifesto')} à CETESB agora?${groupNote}${ignoredNote}`,
     confirmLabel: 'Enviar em lote'
   });
   if (!confirmed) {
@@ -1727,7 +1815,7 @@ async function resyncManifests() {
     if (summary && Number.isFinite(Number(summary.remoteItemsCount))) {
       const remoteItemsCount = Number(summary.remoteItemsCount);
       const deletedLocalMirrorCount = Number(summary.deletedLocalMirrorCount || 0);
-      resyncFeedback.value = `Sincronização com CETESB concluída. ${remoteItemsCount} registro(s) remoto(s) processado(s); ${deletedLocalMirrorCount} registro(s) local(is) do espelho limpo(s).`;
+      resyncFeedback.value = `Sincronização com CETESB concluída. ${remoteItemsCount} ${pluralize(remoteItemsCount, 'registro remoto', 'registros remotos')} ${pluralize(remoteItemsCount, 'processado')}; ${deletedLocalMirrorCount} ${pluralize(deletedLocalMirrorCount, 'registro local', 'registros locais')} do espelho ${pluralize(deletedLocalMirrorCount, 'limpo')}.`;
     } else {
       resyncFeedback.value = 'Sincronização com CETESB concluída. Lista atualizada.';
     }
@@ -1870,15 +1958,16 @@ onUnmounted(() => {
             <div class="text-h6 font-weight-semibold mb-3">Filtros</div>
             <v-form @submit.prevent="applyFilters">
               <!-- Situação: chips por persona em vez de combo de status interno.
-                   Aplicam ao clicar — zero digitação, zero decisão técnica. -->
+                   O clique dispara a busca, mas o chip só fica PREENCHIDO (✓)
+                   quando a lista já está mostrando aquele filtro; até lá aparece
+                   com contorno e relógio ("selecionado, ainda não aplicado"). -->
               <div class="d-flex align-center flex-wrap ga-2 mb-4">
                 <span class="text-caption text-medium-emphasis mr-1">Situação:</span>
                 <v-chip
                   v-for="option in situationChipOptions"
                   :key="option.key"
                   size="small"
-                  :variant="activeSituationKey === option.key ? 'flat' : 'tonal'"
-                  :color="activeSituationKey === option.key ? 'primary' : undefined"
+                  v-bind="filterChipAttrs(situationChipState(option), option.label)"
                   @click="applySituationChip(option)"
                 >
                   {{ option.label }}
@@ -1987,17 +2076,27 @@ onUnmounted(() => {
                 </v-col>
                 <v-col cols="12" md="6" class="d-flex align-center flex-wrap ga-2">
                   <span class="text-caption text-medium-emphasis">Período rápido:</span>
-                  <v-chip size="small" :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 1 ? 'primary' : undefined" @click="applyDatePreset(1)">Hoje</v-chip>
-                  <v-chip size="small" :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 7 ? 'primary' : undefined" @click="applyDatePreset(7)">7 dias</v-chip>
-                  <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(1), 'Hoje')" @click="applyDatePreset(1)">Hoje</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(7), '7 dias')" @click="applyDatePreset(7)">7 dias</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(30), '30 dias')" @click="applyDatePreset(30)">30 dias</v-chip>
                 </v-col>
               </v-row>
               <div v-if="String(filters.manifestNumber || '').trim()" class="text-caption text-medium-emphasis mt-1">
                 Busca por número de MTR ignora o período selecionado.
               </div>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar filtros</v-btn>
+                <v-btn
+                  color="primary"
+                  type="submit"
+                  :loading="loadingList"
+                  :append-icon="hasPendingFilterEdits && !loadingList ? 'mdi-alert-circle-outline' : undefined"
+                >Aplicar filtros</v-btn>
                 <v-btn variant="outlined" type="button" @click="clearFilters">Limpar filtros</v-btn>
+                <span
+                  v-if="hasPendingFilterEdits && !loadingList"
+                  class="text-caption text-warning"
+                  aria-live="polite"
+                >Há filtros alterados que ainda não estão valendo — clique em “Aplicar filtros” (ou tecle Enter).</span>
               </div>
             </v-form>
           </v-card-text>
@@ -2019,7 +2118,7 @@ onUnmounted(() => {
           <v-card-text>
             <v-row align="center">
               <v-col>
-                <strong>{{ selectedManifestCount }}</strong> manifesto(s) selecionado(s) — cada botão mostra quantos são elegíveis.
+                <strong>{{ selectedManifestCount }}</strong> {{ pluralize(selectedManifestCount, 'manifesto') }} {{ pluralize(selectedManifestCount, 'selecionado') }} — cada botão mostra quantos são elegíveis.
               </v-col>
               <v-col cols="auto" class="d-flex flex-wrap ga-2">
                 <v-btn v-if="isReceiverOperationalMode && selectedReceivableManifests.length" color="primary" size="small" :loading="receiveModalLoading" @click="openReceiveModal()">Receber ({{ selectedReceivableManifests.length }})</v-btn>
@@ -2038,7 +2137,7 @@ onUnmounted(() => {
             <v-row align="center">
               <v-col>
                 <div class="text-h6 font-weight-semibold">Resultados</div>
-                <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifestos</div>
+                <div class="text-caption text-medium-emphasis">{{ resultsCounterLabel }}</div>
               </v-col>
               <v-col cols="auto" class="d-flex align-center ga-2">
                 <v-btn
@@ -2241,7 +2340,7 @@ onUnmounted(() => {
           </v-table>
           <v-card-text class="d-flex align-center justify-space-between pt-3">
             <span class="text-caption text-medium-emphasis">
-              Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifestos
+              {{ resultsCounterLabel }}
             </span>
             <div class="d-flex ga-2">
               <v-btn variant="outlined" size="small" :disabled="!canGoPreviousPage" prepend-icon="mdi-chevron-left" @click="changePage(Number(page) - 1)">Anterior</v-btn>
@@ -2276,7 +2375,7 @@ onUnmounted(() => {
               <v-btn icon="mdi-close" variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal" />
             </v-card-title>
             <v-card-text>
-              <p class="text-body-2 mb-1">Serão cancelados: <strong>{{ selectedCancelableManifestIds.length }}</strong> manifesto(s)</p>
+              <p class="text-body-2 mb-1">{{ pluralize(selectedCancelableManifestIds.length, 'Será cancelado', 'Serão cancelados') }}: <strong>{{ selectedCancelableManifestIds.length }}</strong> {{ pluralize(selectedCancelableManifestIds.length, 'manifesto') }}</p>
               <p v-if="selectedManifestCount > selectedCancelableManifestIds.length" class="text-caption text-medium-emphasis mb-3">
                 {{ selectedManifestCount - selectedCancelableManifestIds.length }} dos {{ selectedManifestCount }} selecionados não são canceláveis e serão ignorados.
               </p>
@@ -2286,7 +2385,7 @@ onUnmounted(() => {
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal">Voltar</v-btn>
-              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Cancelar {{ selectedCancelableManifestIds.length }} manifesto(s)</v-btn>
+              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Cancelar {{ selectedCancelableManifestIds.length }} {{ pluralize(selectedCancelableManifestIds.length, 'manifesto') }}</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -2380,7 +2479,7 @@ onUnmounted(() => {
               <v-checkbox v-model="receiveForm.printReceiptAfterReceive" label="Baixar e persistir comprovante PDF após o recebimento" :disabled="receiveModalLoading" density="compact" hide-details class="mt-2" />
               <!-- Bloqueados com a RAZÃO antes do envio (não depois, truncado) -->
               <v-alert v-if="receiveBlockedManifestEntries.length" type="info" variant="tonal" density="compact" class="mt-2">
-                <div class="font-weight-medium mb-1">{{ receiveBlockedManifestEntries.length }} manifesto(s) serão ignorados:</div>
+                <div class="font-weight-medium mb-1">{{ receiveBlockedManifestEntries.length }} {{ pluralize(receiveBlockedManifestEntries.length, 'manifesto') }} {{ pluralize(receiveBlockedManifestEntries.length, 'será', 'serão') }} {{ pluralize(receiveBlockedManifestEntries.length, 'ignorado') }}:</div>
                 <ul class="manifests-blocked-list">
                   <li v-for="entry in receiveBlockedManifestEntries" :key="resolveManifestIdentifier(entry.manifest)">
                     {{ formatManifestLabel(entry.manifest) }} — {{ entry.reason }}

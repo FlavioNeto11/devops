@@ -5,6 +5,13 @@ import { useNotification } from '../composables/useNotification.js';
 import { useAuthStore } from '../stores/auth.js';
 import { normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import { createEmptyManifestForm, resolveMeasureErrors, toNumber } from '../features/mtr/create/manifestFormState.js';
+import {
+  PARTNER_QUERY_MIN_LENGTH,
+  buildPartnerEmptyText,
+  buildPartnerSelectionError,
+  buildPartnerSelectionHint
+} from '../lib/partner-selection-messages.js';
+import { pluralize } from '../lib/plural-pt.js';
 import FilterableDropdown from './FilterableDropdown.vue';
 import SicatInlineAlert from './sicat/SicatInlineAlert.vue';
 import SicatHelpHint from './sicat/SicatHelpHint.vue';
@@ -100,7 +107,7 @@ const partnerSearch = reactive({
   }
 });
 
-const PARTNER_SEARCH_MIN_LENGTH = 2;
+const PARTNER_SEARCH_MIN_LENGTH = PARTNER_QUERY_MIN_LENGTH;
 const PARTNER_SEARCH_DEBOUNCE_MS = 350;
 const partnerSearchTimers = {
   carrier: null,
@@ -224,43 +231,30 @@ const catalogContextWarning = computed(() => {
 });
 const PARTNER_MIN_SEARCH_TEXT = `Digite pelo menos ${PARTNER_SEARCH_MIN_LENGTH} caracteres para buscar.`;
 
-/**
- * Estado vazio honesto: com menos de 2 caracteres o componente pede mais texto;
- * com a busca já feita e zero resultados, diz que não encontrou (citando o termo).
+/*
+ * As TRÊS mensagens do autocomplete de parceiro (estado vazio do menu, aviso
+ * inline do campo e erro da validação) saem do mesmo módulo puro
+ * lib/partner-selection-messages.js. Antes o aviso inline citava o termo
+ * digitado ("\"LV\" é só o termo da busca…") enquanto a validação continuava
+ * dizendo o genérico "Selecione o destinador." — quem digitou e não escolheu
+ * lia um erro que não descrevia o seu caso.
  */
-function buildPartnerEmptyText(type, roleLabel) {
-  const query = String(partnerSearch[type].query || '').trim();
-  if (query.length < PARTNER_SEARCH_MIN_LENGTH) {
-    return PARTNER_MIN_SEARCH_TEXT;
-  }
-
-  return `Nenhum ${roleLabel} encontrado para "${query}".`;
+function partnerMessageInput(type, roleLabel, selectedPartner) {
+  return {
+    query: partnerSearch[type].query,
+    roleLabel,
+    hasSelection: Boolean(selectedPartner),
+    minLength: PARTNER_SEARCH_MIN_LENGTH
+  };
 }
 
-const carrierEmptyText = computed(() => buildPartnerEmptyText('carrier', 'transportador'));
-const receiverEmptyText = computed(() => buildPartnerEmptyText('receiver', 'destinador'));
+const carrierEmptyText = computed(() => buildPartnerEmptyText(partnerMessageInput('carrier', 'transportador', null)));
+const receiverEmptyText = computed(() => buildPartnerEmptyText(partnerMessageInput('receiver', 'destinador', null)));
 
-/**
- * "Digitei, logo escolhi" é a confusão que fazia sair MTR com o transportador
- * errado. O texto digitado é só busca; enquanto não houver clique/Enter numa
- * opção, o campo avisa em voz alta que NADA está selecionado — sem esperar a
- * tentativa de avançar de passo.
- */
-function buildPartnerSelectionHint(type, roleLabel, selectedPartner) {
-  if (selectedPartner) {
-    return '';
-  }
-
-  const query = String(partnerSearch[type].query || '').trim();
-  if (query.length < PARTNER_SEARCH_MIN_LENGTH) {
-    return '';
-  }
-
-  return `"${query}" é só o termo da busca — nenhum ${roleLabel} foi selecionado. Clique na opção desejada (ou use as setas e Enter).`;
-}
-
-const carrierSelectionHint = computed(() => buildPartnerSelectionHint('carrier', 'transportador', selectedCarrier.value));
-const receiverSelectionHint = computed(() => buildPartnerSelectionHint('receiver', 'destinador', selectedReceiver.value));
+const carrierSelectionHint = computed(() =>
+  buildPartnerSelectionHint(partnerMessageInput('carrier', 'transportador', selectedCarrier.value)));
+const receiverSelectionHint = computed(() =>
+  buildPartnerSelectionHint(partnerMessageInput('receiver', 'destinador', selectedReceiver.value)));
 
 const currentStep = ref(1);
 const stepDefinitions = [
@@ -311,8 +305,10 @@ const fieldErrors = computed(() => {
       ? (toApiDate(form.expeditionDate) ? '' : 'Informe a data de expedição no formato dd/mm/yyyy.')
       : 'Informe a data de expedição.',
     batchCount: batchCountIsValid ? '' : 'Informe uma quantidade de manifestos válida entre 1 e 100.',
-    carrier: selectedCarrier.value ? '' : 'Selecione o transportador.',
-    receiver: selectedReceiver.value ? '' : 'Selecione o destinador.',
+    // Com termo digitado e nada escolhido, o erro diz EXATAMENTE isso (mesma
+    // frase do aviso inline); sem termo, volta a ser "Selecione o …".
+    carrier: buildPartnerSelectionError(partnerMessageInput('carrier', 'transportador', selectedCarrier.value)),
+    receiver: buildPartnerSelectionError(partnerMessageInput('receiver', 'destinador', selectedReceiver.value)),
     quantity: measureErrors.quantity,
     weightTon: measureErrors.weightTon,
     // Catálogos: validamos o ITEM resolvido (e não só o código no form), porque
@@ -540,7 +536,11 @@ const wizardProgressStatus = computed(() => {
   }
 
   if (currentStep.value >= stepDefinitions.length) {
-    return { label: `Faltam ${draftBlockers.value.length} item(ns) obrigatório(s)`, tone: 'warning' };
+    const missingCount = draftBlockers.value.length;
+    return {
+      label: `${pluralize(missingCount, 'Falta', 'Faltam')} ${missingCount} ${pluralize(missingCount, 'item', 'itens')} ${pluralize(missingCount, 'obrigatório', 'obrigatórios')}`,
+      tone: 'warning'
+    };
   }
 
   return { label: `Em elaboração · passo ${currentStep.value} de ${stepDefinitions.length}`, tone: 'running' };
@@ -1632,7 +1632,7 @@ async function handleCreate(shouldSubmitNow) {
                 <div class="wizard-review-card">
                   <span>Contexto</span>
                   <strong>{{ activeAccountLabel }}</strong>
-                  <small>{{ form.batchCount }} manifesto(s) · Saída em {{ form.expeditionDate || 'data não informada' }}</small>
+                  <small>{{ form.batchCount }} {{ pluralize(form.batchCount, 'manifesto') }} · Saída em {{ form.expeditionDate || 'data não informada' }}</small>
                 </div>
                 <div class="wizard-review-card">
                   <span>Participantes</span>

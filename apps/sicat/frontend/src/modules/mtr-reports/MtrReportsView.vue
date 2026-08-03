@@ -8,6 +8,7 @@ import SicatCard from '../../components/sicat/SicatCard.vue';
 import SicatFiltersPanel from '../../components/sicat/SicatFiltersPanel.vue';
 import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
+import { formatPageCounter } from '../../lib/pagination-label.js';
 
 const notify = useNotification();
 
@@ -47,6 +48,15 @@ const rows = computed(() =>
     receiver: item.receiver?.description || '—'
   }))
 );
+
+// Contador ÚNICO do app: "Mostrando 1–20 de 243 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: filters.page,
+  pageSize: filters.pageSize,
+  itemsOnPage: items.value.length,
+  total: totalItems.value,
+  singular: 'manifesto'
+}));
 
 const activeChips = computed(() => {
   const chips = [];
@@ -169,7 +179,7 @@ onMounted(load);
           <small class="text-medium-emphasis d-block">{{ item.externalStatus }}</small>
         </template>
         <template #footer>
-          <span class="text-caption text-medium-emphasis">Página {{ filters.page }} de {{ totalPages || 1 }} · {{ totalItems }} resultados</span>
+          <span class="text-caption text-medium-emphasis">{{ resultsCounterLabel }} · página {{ filters.page }} de {{ totalPages || 1 }}</span>
           <div>
             <v-btn variant="text" :disabled="filters.page <= 1" @click="changePage(-1)">Anterior</v-btn>
             <v-btn variant="text" :disabled="filters.page >= totalPages" @click="changePage(1)">Próxima</v-btn>

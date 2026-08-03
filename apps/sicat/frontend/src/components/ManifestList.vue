@@ -1,5 +1,7 @@
 <script setup>
+import { computed } from 'vue';
 import { formatDateBr } from '../utils/date-format.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
 
 const props = defineProps({
   items: {
@@ -29,6 +31,15 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['select', 'page-change']);
+
+// Contador ÚNICO do app: "Mostrando 1–20 de 38 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: props.page,
+  pageSize: props.pageSize,
+  itemsOnPage: props.items.length,
+  total: props.totalItems,
+  singular: 'manifesto'
+}));
 
 function formatDate(value) {
   return formatDateBr(value);
@@ -67,7 +78,7 @@ function displayManifestLabel(manifest) {
         <h2>Manifestos</h2>
       </div>
       <p class="text-muted">
-        {{ totalItems }} registro(s) · página {{ page }} de {{ totalPages || 1 }}
+        {{ resultsCounterLabel }} · página {{ page }} de {{ totalPages || 1 }}
       </p>
     </div>
 

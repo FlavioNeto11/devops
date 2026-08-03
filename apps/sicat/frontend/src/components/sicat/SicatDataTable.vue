@@ -31,9 +31,12 @@ const props = defineProps({
   selected: { type: Array, default: () => [] },
   /**
    * Mostra o footer de paginação (padrão ERP). Desligue com :show-footer="false".
-   * Os textos do rodapé ("1-10 de 100", "Itens por página:") vêm do locale pt-BR
-   * configurado em plugins/vuetify.js — não passe literais aqui (o Vuetify roda
-   * essas props pelo tradutor e uma string crua gera aviso de chave inexistente).
+   * Os textos do rodapé ("Mostrando 1–10 de 100", "Itens por página:") vêm do
+   * locale pt-BR configurado em plugins/vuetify.js — não passe literais aqui (o
+   * Vuetify roda essas props pelo tradutor e uma string crua gera aviso de chave
+   * inexistente). O formato é o MESMO do contador das telas: quem escreve o
+   * contador por fora usa `formatPageCounter` de lib/pagination-label.js, que
+   * acrescenta o substantivo ("… de 38 manifestos").
    */
   showFooter: { type: Boolean, default: true },
   /** Itens por página (padrão 10). Use -1 para mostrar tudo. */
