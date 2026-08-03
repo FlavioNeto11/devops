@@ -455,7 +455,7 @@ export function describeCancelManifestRestriction(manifest) {
     return 'Aguarde o processamento terminar.';
   }
   if (status.includes('draft')) {
-    return 'Rascunho local — nao ha o que cancelar na CETESB.';
+    return 'Rascunho local — não há o que cancelar na CETESB.';
   }
   return 'Manifesto indisponivel para cancelamento.';
 }

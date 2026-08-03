@@ -19,7 +19,10 @@ onMounted(async () => {
     );
     const ok = await authStore.loginWithKeycloakToken(accessToken);
     if (!ok) {
-      throw new Error(authStore.error.value || 'Falha no login via Keycloak.');
+      // Mesma regra do services/keycloak.js: o operador lê uma frase de usuário,
+      // o motivo técnico fica no console.
+      console.error(`[sso] sessão do SICAT não foi criada a partir do token do provedor de identidade: ${authStore.error.value || 'sem detalhe'}`);
+      throw new Error('Não foi possível concluir o login. Tente novamente.');
     }
     // Mesmo destino do login local: admin -> dashboard; senao -> selecao CETESB.
     router.replace(authStore.canAccessAdmin.value ? '/operacao/dashboard' : '/login/cetesb');

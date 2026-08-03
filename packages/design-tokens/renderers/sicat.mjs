@@ -30,8 +30,14 @@ const STATUS_ORDER = [
   'status-error-bg', 'status-error-fg',
   'status-warning-bg', 'status-warning-fg',
 ];
+// `on-primary` é DECLARADO (não derivado): o Vuetify só inventa a cor do texto
+// quando ela falta (genOnColors) e, pela regra dele ("prefira branco quando os
+// dois passarem no APCA"), punha BRANCO sobre o verde do tema escuro — 2,59:1,
+// abaixo do mínimo AA de 4,5:1. O valor vem do token que a paleta CSS já usava
+// nos botões próprios (`--color-primary-contrast`), então o Vuetify passa a
+// dizer o mesmo que o CSS. Travado em frontend/tests/unit/theme-contrast.test.js.
 const VUETIFY_ORDER = [
-  'primary', 'secondary', 'success', 'warning', 'error', 'info',
+  'primary', 'on-primary', 'secondary', 'success', 'warning', 'error', 'info',
   'background', 'surface', 'surface-bright', 'surface-light',
 ];
 

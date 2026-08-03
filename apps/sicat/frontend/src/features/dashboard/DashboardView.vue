@@ -323,6 +323,7 @@ onMounted(loadDashboard);
         :headers="recentHeaders"
         :items="recentRows"
         density="compact"
+        count-noun="manifesto"
         :empty="recentEmptyState"
         @row-click="(row) => row?.id && router.push(`/manifestos/${row.id}`)"
       >

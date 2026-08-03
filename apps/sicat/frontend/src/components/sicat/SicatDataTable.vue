@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { formatFooterPageText } from '../../lib/pagination-label.js';
 import SicatLoadingState from './SicatLoadingState.vue';
 import SicatEmptyState from './SicatEmptyState.vue';
 import SicatErrorState from './SicatErrorState.vue';
@@ -31,14 +32,22 @@ const props = defineProps({
   selected: { type: Array, default: () => [] },
   /**
    * Mostra o footer de paginação (padrão ERP). Desligue com :show-footer="false".
-   * Os textos do rodapé ("Mostrando 1–10 de 100", "Itens por página:") vêm do
-   * locale pt-BR configurado em plugins/vuetify.js — não passe literais aqui (o
-   * Vuetify roda essas props pelo tradutor e uma string crua gera aviso de chave
-   * inexistente). O formato é o MESMO do contador das telas: quem escreve o
-   * contador por fora usa `formatPageCounter` de lib/pagination-label.js, que
-   * acrescenta o substantivo ("… de 38 manifestos").
+   * Os textos do rodapé ("Mostrando 1–10 de 100", "Itens por página") vêm do
+   * locale pt-BR configurado em plugins/vuetify.js. O formato é o MESMO do
+   * contador das telas (lib/pagination-label.js); para o rodapé dizer TAMBÉM o
+   * substantivo, passe `count-noun` (abaixo).
    */
   showFooter: { type: Boolean, default: true },
+  /**
+   * Substantivo do que a tabela lista ("manifesto", "declaração"). Com ele o
+   * rodapé diz "Mostrando 1–10 de 38 manifestos" em vez do anônimo
+   * "Mostrando 0–0 de 0" — que não informava 0 de quê. A concordância usa o
+   * total (nº de itens entregues à tabela) via lib/plural-pt.js; só declare
+   * `countNounPlural` quando o plural for irregular (declaração/declarações).
+   * Sem `countNoun` o texto padrão do locale continua valendo.
+   */
+  countNoun: { type: String, default: '' },
+  countNounPlural: { type: String, default: '' },
   /** Itens por página (padrão 10). Use -1 para mostrar tudo. */
   itemsPerPage: { type: Number, default: 10 },
   /** Opções do seletor "itens por página". */
@@ -61,6 +70,14 @@ const emptyConfig = computed(() => ({
   description: props.empty?.description || '',
   icon: props.empty?.icon || 'mdi-tray-remove'
 }));
+
+// Contador do rodapé COM substantivo. O Vuetify monta a frase por marcadores
+// ({0} início, {1} fim, {2} total) e o tradutor devolve a string crua quando ela
+// não começa por "$vuetify." (vuetify/lib/locale/adapters/vuetify.js) — o
+// template daqui passa direto. `undefined` mantém o texto do locale pt-BR.
+const footerPageText = computed(
+  () => formatFooterPageText(props.items.length, props.countNoun, props.countNounPlural) ?? undefined
+);
 
 const normalizedError = computed(() => {
   if (!props.error) return null;
@@ -106,6 +123,7 @@ function onSelectionUpdate(value) {
       :items-per-page="itemsPerPage"
       :items-per-page-options="itemsPerPageOptions"
       :hide-default-footer="!showFooter"
+      :page-text="footerPageText"
       class="sicat-data-table__table"
       @update:model-value="onSelectionUpdate"
       @click:row="(event, ctx) => emit('row-click', ctx?.item)"

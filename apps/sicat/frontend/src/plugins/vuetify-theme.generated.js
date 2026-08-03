@@ -10,6 +10,7 @@ export const sicatVuetifyThemes = {
     dark: false,
     colors: {
       primary: '#0e6e5c',
+      'on-primary': '#ffffff',
       secondary: '#45565e',
       success: '#1f7e58',
       warning: '#b06a14',
@@ -25,6 +26,7 @@ export const sicatVuetifyThemes = {
     dark: true,
     colors: {
       primary: '#35b493',
+      'on-primary': '#08110e',
       secondary: '#97a8b0',
       success: '#4cc28e',
       warning: '#dca557',
