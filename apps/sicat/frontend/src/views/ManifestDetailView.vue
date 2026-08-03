@@ -10,13 +10,19 @@ import SicatStatusTimeline from '../components/sicat/SicatStatusTimeline.vue';
 // exatamente como a lista diz, e não o código cru do backend ("submitted").
 import { resolveManifestStatusLabel } from '../features/mtr/list/manifestHelpers.js';
 import { useNotification } from '../composables/useNotification.js';
+// Tradução única de "não encontrado" (mesma das outras telas de detalhe):
+// mensagem em pt-BR, sem o identificador interno, com caminho de volta.
+import { describeDetailLoadError } from '../lib/detail-load-error.js';
+import SicatErrorState from '../components/sicat/SicatErrorState.vue';
 
 const route = useRoute();
 const router = useRouter();
 const operationalContextStore = useOperationalContextStore();
 const notify = useNotification();
 const loading = ref(false);
-const error = ref('');
+// Descritor de erro já traduzido (nunca a mensagem crua do backend: ela vinha
+// em inglês e com o id interno dentro — "Manifesto man_… was not found.").
+const loadError = ref(null);
 const manifest = ref(null);
 const autoRefreshing = ref(false);
 const autoRefreshTerminalReached = ref(false);
@@ -231,19 +237,31 @@ function extractAvailableDocuments(currentManifest) {
 
 async function loadManifest() {
   const id = route.params.id;
-  if (!id) return;
+  if (!id) {
+    manifest.value = null;
+    loadError.value = describeDetailLoadError({ status: 404 }, 'manifest');
+    loading.value = false;
+    return;
+  }
 
   loading.value = true;
-  error.value = '';
+  loadError.value = null;
 
   try {
     manifest.value = await getManifestById(id);
   } catch (err) {
-    error.value = err?.message || 'Falha ao carregar detalhe do manifesto.';
+    manifest.value = null;
+    loadError.value = describeDetailLoadError(err, 'manifest');
   } finally {
     loading.value = false;
   }
 }
+
+// Texto único do estado de erro: mensagem + orientação, sem id interno.
+const loadErrorText = computed(() => {
+  if (!loadError.value) return '';
+  return [loadError.value.message, loadError.value.hint].filter(Boolean).join(' ');
+});
 
 function goBack() {
   const shouldForceSync = autoRefreshTerminalReached.value || String(route.query.autoRefresh || '') === '1';
@@ -328,7 +346,9 @@ onUnmounted(() => {
             <!-- Sem título aqui: o cabeçalho da página (shell) já anuncia
                  "MTR · Detalhe do manifesto". Repetir gerava dois títulos, com
                  capitalização diferente entre eles. -->
-            <p class="text-body-2 text-medium-emphasis mb-0">Acompanhe participantes, dados operacionais e resíduos deste manifesto.</p>
+            <p v-if="!loadError" class="text-body-2 text-medium-emphasis mb-0">Acompanhe participantes, dados operacionais e resíduos deste manifesto.</p>
+            <!-- Sem manifesto carregado, prometer "acompanhe participantes…" seria mentira. -->
+            <p v-else class="text-body-2 text-medium-emphasis mb-0">Não há manifesto para exibir neste endereço.</p>
           </v-col>
           <v-col cols="auto">
             <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar</v-btn>
@@ -337,7 +357,20 @@ onUnmounted(() => {
       </v-card-text>
     </v-card>
 
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
+    <SicatErrorState
+      v-if="loadError"
+      :title="loadError.title"
+      :message="loadErrorText"
+      :code="loadError.code"
+      :icon="loadError.notFound ? 'mdi-file-search-outline' : 'mdi-alert-circle-outline'"
+      class="mb-3"
+    >
+      <template #actions>
+        <v-btn color="primary" variant="flat" prepend-icon="mdi-format-list-bulleted" @click="goBack">
+          Voltar para a listagem de manifestos
+        </v-btn>
+      </template>
+    </SicatErrorState>
     <v-card v-else-if="loading" class="mb-3">
       <v-card-text class="text-medium-emphasis">Carregando detalhes…</v-card-text>
     </v-card>
@@ -460,7 +493,20 @@ onUnmounted(() => {
       </v-card>
     </template>
 
-    <v-alert v-else type="info" variant="tonal" density="compact">Manifesto não encontrado.</v-alert>
+    <!-- Rede de segurança: sem manifesto, sem erro e sem carregamento em curso.
+         Nunca deixa a tela muda nem presa em "Carregando…". -->
+    <SicatErrorState
+      v-else
+      title="Manifesto não encontrado"
+      message="Este manifesto não existe ou não pertence à conta CETESB ativa nesta sessão. Confira o número do MTR na listagem de manifestos."
+      icon="mdi-file-search-outline"
+    >
+      <template #actions>
+        <v-btn color="primary" variant="flat" prepend-icon="mdi-format-list-bulleted" @click="goBack">
+          Voltar para a listagem de manifestos
+        </v-btn>
+      </template>
+    </SicatErrorState>
   </section>
 </template>
 
