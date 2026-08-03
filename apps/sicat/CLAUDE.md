@@ -86,7 +86,21 @@ Na plataforma: `basePath: /sicat`, namespace `apps`, hosts `dev.nvit.com.br` (p�
     múltiplas vezes (resposta HTTP + trilha de auditoria) e **estourava o heap** (OOM → CrashLoop →
     Cloudflare "invalid/incomplete response"). A tela `/v1/cdf/certificates` mantém o payload do contrato.
     Backend roda com `NODE_OPTIONS=--max-old-space-size=1536` e limite 2Gi (`k8s/backend.yaml`).
-11. **Deploy sob Argo (`selfHeal: true`)**: imagem é `:local` (build local) — `docker build` + recriar
+11. **Validar deploy do frontend: afirme o HASH do bundle a cada navegação.** `Cache-Control:
+    no-cache` no `index.html` **não** conserta a cópia que o navegador **já** guardou sem
+    validador (`ETag`/`Last-Modified`): ele aplica *frescor heurístico* e serve a cópia velha
+    **sem consultar o servidor** — na PRIMEIRA transição depois do deploy o avaliador continua
+    no bundle antigo (autocura nas seguintes). Já custou uma rodada inteira de revalidação:
+    achados "grandes" que eram cache do browser. Protocolo: **hard reload** + comparar, **a cada
+    tela**, `assets/index-<hash>.js` do `curl` no servidor com
+    `performance.getEntriesByType('resource')` da página aberta. E **`grep` no bundle não prova
+    comportamento** — o build minifica (identificadores locais viram `a`, `b`, `c`; só literais
+    de string sobrevivem). Verifique no **código-fonte** e com **teste**: lógica pura em
+    `frontend/tests/unit` (`cd frontend/tests/unit && node --test`), layout/interação em
+    `frontend/tests/ui` (Playwright — ex.: `fab-overlap-audit.spec.js`, que mede sobreposição do
+    FAB por hit-test e traz um *controle negativo* para provar que o medidor enxerga). Detalhe
+    em [`../../TROUBLESHOOTING.md`](../../TROUBLESHOOTING.md) §14.3.
+12. **Deploy sob Argo (`selfHeal: true`)**: imagem é `:local` (build local) — `docker build` + recriar
     pod basta para **código**. Mudança de **manifesto** (memória/env) tem de ir pelo **git**: `apply`
     solto é revertido pelo selfHeal. Sequência: build → commit → push → forçar refresh
     (`kubectl annotate application sicat -n argocd argocd.argoproj.io/refresh=hard --overwrite`) → Argo
