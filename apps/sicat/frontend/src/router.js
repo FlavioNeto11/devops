@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { nextTick } from 'vue';
 import { useAuthStore } from './stores/auth.js';
 import { useNotification } from './composables/useNotification.js';
 import {
@@ -490,6 +489,18 @@ router.beforeEach(async (to, from, next) => {
   // não acessa telas de operador (audience 'operator') — é redirecionado ao Sistema.
   if (hasSicatAuth && isAdmin) {
     if (to.path === '/login/cetesb' || to.meta.audience === 'operator') {
+      // Este redirect era o ÚNICO silencioso que sobrou: mandava o admin/SRE para
+      // a visão de Sistema sem enfileirar nada (o `return` acontece antes das duas
+      // razões abaixo). A seleção de conta CETESB continua muda de propósito — ali
+      // o admin não "perdeu" tela nenhuma, ele simplesmente não usa esse fluxo.
+      if (to.meta.audience === 'operator') {
+        queueRouteDenialNotice(buildRouteDenialNotice({
+          reason: ROUTE_DENIAL_REASONS.AUDIENCE,
+          deniedPath: to.path,
+          redirectTo: ADMIN_HOME
+        }));
+      }
+
       next(ADMIN_HOME);
       return;
     }
@@ -515,6 +526,7 @@ router.beforeEach(async (to, from, next) => {
       // ainda carregava — o redirect parecia silencioso.
       queueRouteDenialNotice(buildRouteDenialNotice({
         reason: ROUTE_DENIAL_REASONS.ADMIN,
+        deniedPath: to.path,
         redirectTo: OPERATOR_HOME
       }));
       next(OPERATOR_HOME);
@@ -528,6 +540,7 @@ router.beforeEach(async (to, from, next) => {
   if (!routeAllowsPersona(to, resolveActivePersona(authStore))) {
     queueRouteDenialNotice(buildRouteDenialNotice({
       reason: ROUTE_DENIAL_REASONS.PERSONA,
+      deniedPath: to.path,
       requiredPersonas: describeRequiredPersonas(to),
       redirectTo: OPERATOR_HOME
     }));
@@ -551,11 +564,13 @@ router.afterEach((to) => {
   // destino ainda carregava — e o redirect chegava mudo ao operador.
   const denialNotice = takeRouteDenialNotice(to.path, Date.now());
   if (denialNotice) {
-    void nextTick(() => {
-      useNotification().warning(denialNotice.message, {
-        detail: denialNotice.detail,
-        timeout: denialNotice.timeout
-      });
+    // Emissão SÍNCRONA: a fila de toasts é estado de módulo (useNotification) e o
+    // host (<SicatSnackbar/>) fica na raiz do App — ele não é desmontado na troca
+    // de rota, então o aviso empilhado aqui é renderizado assim que a tela pinta.
+    // Adiar por nextTick só acrescentava um elo que podia se perder.
+    useNotification().warning(denialNotice.message, {
+      detail: denialNotice.detail,
+      timeout: denialNotice.timeout
     });
   }
 });
