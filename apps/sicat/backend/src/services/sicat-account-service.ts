@@ -464,6 +464,41 @@ export async function removeSicatCetesbAccount(sicatUser: SicatUserInput, accoun
   };
 }
 
+/**
+ * Contexto operacional CONFIÁVEL de um usuário: a conta CETESB ativa e a sessão CETESB corrente,
+ * lidas do banco a partir do `userId` já autenticado.
+ *
+ * Existe para que a camada conversacional pare de confiar em `context.integrationAccountId` /
+ * `context.sessionContextId` vindos do corpo da requisição (onde qualquer valor podia ser declarado,
+ * inclusive de outro usuário). Mantém a regra do prefixo `acc_` centralizada em
+ * `buildIntegrationAccountId` — ver o aviso acima daquela função.
+ *
+ * Devolve `null` quando o usuário não tem conta CETESB ativa (estado legítimo: logou no SICAT mas
+ * ainda não escolheu a conta).
+ */
+export async function resolveActiveAccountContext(userId: string): Promise<{
+  accountId: string;
+  accountType: string;
+  integrationAccountId: string;
+  sessionContextId: string | null;
+} | null> {
+  const accounts = (await listByUserId(userId)) as SicatAccountEntity[];
+  const active = accounts.find((item) => item.isActive) || null;
+  if (!active) return null;
+
+  const integrationAccountId = buildIntegrationAccountId(active);
+  const sessionContext = await findLatestActiveSessionContextByIntegrationAccount(
+    integrationAccountId
+  ) as SessionContextSummary | undefined;
+
+  return {
+    accountId: active.id,
+    accountType: active.accountType || 'unknown',
+    integrationAccountId,
+    sessionContextId: sessionContext?.id || null
+  };
+}
+
 export async function getSicatActiveSession(sicatUser: SicatUserInput) {
   const accounts = (await listByUserId(sicatUser.userId)) as SicatAccountEntity[];
   const active = accounts.find((item) => item.isActive) || null;

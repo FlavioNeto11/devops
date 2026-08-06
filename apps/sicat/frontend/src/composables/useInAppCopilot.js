@@ -173,28 +173,12 @@ function mapBackendActionToUiAction(action) {
   };
 }
 
-function buildRequestedBy(user) {
-  if (!user || typeof user !== 'object') {
-    return null;
-  }
-
-  return toNullableString(user.userId) || toNullableString(user.email) || toNullableString(user.name);
-}
-
 function buildUserId(user) {
   if (!user || typeof user !== 'object') {
     return null;
   }
 
   return toNullableString(user.userId) || toNullableString(user.email);
-}
-
-function buildChannelSessionKey(userId, integrationAccountId) {
-  return [
-    'inapp',
-    userId || 'anonymous',
-    integrationAccountId || 'no-account'
-  ].join(':');
 }
 
 function detectLocalIntent(rawText) {
@@ -544,9 +528,6 @@ export function useInAppCopilot() {
   }
 
   async function sendToBackend(userInput, options = {}) {
-    const user = authStore.user.value || null;
-    const requestedBy = buildRequestedBy(user);
-    const userId = buildUserId(user);
     const screenContext = currentScreenContext.value;
     const metadata = {
       source: 'inapp-copilot-panel',
@@ -565,16 +546,14 @@ export function useInAppCopilot() {
       message: {
         text: userInput
       },
+      // Identidade (usuário, conta CETESB, sessão CETESB, chave de sessão do canal) é resolvida NO
+      // SERVIDOR a partir do token SICAT — ver backend `conversation-principal.ts`. Aqui vai só o
+      // contexto de TELA, que é o que o cliente de fato conhece.
       context: {
-        integrationAccountId: screenContext.integrationAccountId,
-        sessionContextId: screenContext.sessionContextId,
         manifestId: screenContext.manifestId,
         jobId: screenContext.jobId,
         auditCorrelationId: screenContext.auditCorrelationId,
-        requestedBy,
         currentScreen: screenContext.screenKey,
-        channelSessionKey: buildChannelSessionKey(userId, screenContext.integrationAccountId),
-        userId,
         accountId: screenContext.accountId,
         routeName: screenContext.routeName,
         routePath: screenContext.routePath,

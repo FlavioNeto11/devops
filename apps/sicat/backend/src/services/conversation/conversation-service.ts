@@ -5,6 +5,7 @@ import { insertConversationActionLog } from '../../repositories/conversation-act
 import { insertConversationMessage, listConversationMessages } from '../../repositories/conversation-message-repo.js';
 import { upsertConversationSession } from '../../repositories/conversation-session-repo.js';
 import { buildConversationContext } from './conversation-context-service.js';
+import type { ConversationPrincipal } from './conversation-principal.js';
 import { getAiConfig } from './ai-config.js';
 import {
   evaluateConversationPolicy,
@@ -81,6 +82,12 @@ type IngestManifestSummary = {
 
 type ProcessTurnInput = {
   body: ConversationTurnBody;
+  /**
+   * Identidade confiável do turno, montada no servidor (`conversation-principal.ts`). Define canal,
+   * usuário e conta CETESB — o `body` não decide mais nada disso. Quem chama é a rota HTTP
+   * (via `sicatAuthMiddleware`) ou o adaptador de canal externo.
+   */
+  principal: ConversationPrincipal;
   correlationId: string | null;
   headers: Record<string, string | undefined>;
   idempotencyKey?: string;
@@ -2435,7 +2442,7 @@ export function createConversationService(dependencies?: {
   return {
     async processTurn(input: ProcessTurnInput): Promise<ProcessTurnOutput> {
       const context = buildConversationContext({
-        channel: input.body.channel,
+        principal: input.principal,
         conversationSessionId: input.body.conversationSessionId,
         context: input.body.context,
         metadata: input.body.metadata,
@@ -2455,8 +2462,11 @@ export function createConversationService(dependencies?: {
         upsertConversationSession({
           id: context.conversationSessionId,
           channelType: context.channel,
-          channelSessionKey: rawContext.channelSessionKey,
-          userId: rawContext.userId || context.requestedBy,
+          // Chave de sessão e usuário saem do principal — antes vinham do corpo (`rawContext`), o que
+          // permitia a um cliente assumir a sessão conversacional de outro usuário só declarando a
+          // mesma `channelSessionKey`.
+          channelSessionKey: context.channelSessionKey,
+          userId: context.userId,
           accountId: rawContext.accountId,
           integrationAccountId: context.integrationAccountId,
           sessionContextId: context.sessionContextId,

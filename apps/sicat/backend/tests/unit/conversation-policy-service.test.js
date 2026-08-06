@@ -4,16 +4,21 @@ import { evaluateConversationPolicy } from '../../src/services/conversation/conv
 
 function buildContext() {
   return {
+    // Campos resolvidos pelo principal no servidor (conversation-principal.ts)
     channel: 'inapp',
+    userId: 'usr_test',
+    integrationAccountId: 'acc_test',
+    sessionContextId: 'scx_test',
+    channelSessionKey: 'inapp:usr_test:acc_test',
+    permissionKeys: [],
+    requestedBy: 'tester',
+    // Derivados da requisição
     correlationId: 'corr_test_conversation_policy',
     conversationSessionId: 'csn_test',
     conversationTurnId: 'ctn_test',
-    integrationAccountId: 'acc_test',
-    sessionContextId: 'scx_test',
     manifestId: 'man_test',
     jobId: null,
     auditCorrelationId: null,
-    requestedBy: 'tester',
     idempotencyKey: null,
     metadata: {}
   };
@@ -185,11 +190,11 @@ describe('conversation-policy-service', () => {
   });
 
   it('bloqueia operacao quando permissionKeys existe e nao contem permissao requerida', () => {
+    // As permissões vêm do PRINCIPAL (resolvidas no banco a partir do usuário autenticado) — não
+    // mais de `metadata`, que era declarado pelo próprio cliente.
     const contextWithPermissions = {
       ...buildContext(),
-      metadata: {
-        permissionKeys: ['manifest.read']
-      }
+      permissionKeys: ['manifest.read']
     };
 
     const decision = evaluateConversationPolicy({

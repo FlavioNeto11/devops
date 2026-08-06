@@ -234,14 +234,24 @@ function toNormalizedPermissionSet(value: unknown): Set<string> {
 }
 
 function buildPermissionContext(input: ConversationPolicyInput): PermissionContext {
-  const metadata = toRecord(input.context.metadata);
+  // As permissões vêm do principal (resolvidas no banco a partir do usuário autenticado). Antes eram
+  // lidas de `context.metadata.permissionKeys` — ou seja, o próprio cliente dizia o que podia fazer.
   return {
-    permissionKeys: toNormalizedPermissionSet(metadata.permissionKeys)
+    permissionKeys: toNormalizedPermissionSet(input.context.permissionKeys)
   };
 }
 
 function hasConversationPermission(permissionContext: PermissionContext, requiredPermission: string | null): boolean {
   if (!requiredPermission) return true;
+
+  // ⚠️ FAIL-OPEN DELIBERADO E TEMPORÁRIO.
+  // `access_permissions` está VAZIA no banco (verificado em 2026-08-06: 0 linhas, contra 5 usuários e
+  // 191 sessões conversacionais). A migration 008 cria as tabelas de RBAC mas não semeia catálogo
+  // algum, e nada em `bootstrap/base-data.ts` semeia depois. Fechar aqui hoje faria TODA ação do chat
+  // responder PERMISSION_DENIED para todo mundo.
+  // Fechar isto exige, na ordem: (1) semear o catálogo de permissões, (2) criar o papel de operador
+  // padrão, (3) atribuí-lo aos usuários existentes, (4) trocar este `return true` por `false`.
+  // É pré-requisito de liberar ações R3/R4 por WhatsApp — cadeia `whatsapp-channel-sicat`, fase 4.5.
   if (permissionContext.permissionKeys.size === 0) return true;
 
   return permissionContext.permissionKeys.has(requiredPermission.toLowerCase());

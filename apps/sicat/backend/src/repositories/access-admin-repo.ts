@@ -275,6 +275,36 @@ export async function getAdminAccessUserById(userId: string) {
   };
 }
 
+/**
+ * Chaves de permissão EFETIVAS de um usuário (papéis não expirados × permissões ativas).
+ *
+ * Usado pelo principal conversacional para resolver as permissões NO SERVIDOR — antes elas vinham
+ * em `context.metadata.permissionKeys`, declaradas pelo próprio cliente.
+ *
+ * ⚠️ Hoje `access_permissions` está vazia, então isto devolve `[]` para todo mundo e
+ * `hasConversationPermission` continua fail-open (`conversation-policy-service.ts`). O encanamento
+ * já está correto: quando o catálogo de permissões for semeado, o gate passa a valer sem outra
+ * mudança de código. Ver a cadeia `whatsapp-channel-sicat`, fase 4.5.
+ */
+export async function listPermissionKeysByUserId(userId: string): Promise<string[]> {
+  const result = await query<{ permission_key: string }>(
+    `select distinct ap.permission_key
+       from access_user_roles aur
+       inner join access_role_permissions arp on arp.role_id = aur.role_id
+       inner join access_permissions ap on ap.id = arp.permission_id
+       inner join access_roles ar on ar.id = aur.role_id
+      where aur.user_id = $1
+        and ap.is_active = true
+        and ar.is_active = true
+        and (aur.expires_at is null or aur.expires_at > now())`,
+    [userId]
+  );
+
+  return result.rows
+    .map((row) => String(row.permission_key || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export async function listAdminAccessRoles() {
   const result = await query(
     `select
