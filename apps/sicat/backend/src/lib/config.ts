@@ -57,7 +57,17 @@ type ConfigKey =
   | 'sicatBootstrapName'
   | 'keycloakRealmUrl'
   | 'keycloakUserinfoUrl'
-  | 'keycloakClientId';
+  | 'keycloakClientId'
+  | 'whatsappProvider'
+  | 'whatsappWebhookUrl'
+  | 'whatsappTwilioAccountSid'
+  | 'whatsappTwilioAuthToken'
+  | 'whatsappTwilioFrom'
+  | 'whatsappMetaPhoneNumberId'
+  | 'whatsappMetaAccessToken'
+  | 'whatsappMetaAppSecret'
+  | 'whatsappMetaVerifyToken'
+  | 'whatsappMetaGraphVersion';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -123,5 +133,20 @@ export const config = {
   // Keycloak SSO (login PROPRIO do SICAT via OIDC). NAO afeta a auth SIGOR/CETESB.
   get keycloakRealmUrl() { return getConfigValue('keycloakRealmUrl', process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'); },
   get keycloakUserinfoUrl() { return getConfigValue('keycloakUserinfoUrl', process.env.KEYCLOAK_USERINFO_URL || `${process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'}/protocol/openid-connect/userinfo`); },
-  get keycloakClientId() { return getConfigValue('keycloakClientId', process.env.KEYCLOAK_CLIENT_ID || 'sicat'); }
+  get keycloakClientId() { return getConfigValue('keycloakClientId', process.env.KEYCLOAK_CLIENT_ID || 'sicat'); },
+  // Canal WhatsApp (cadeia `whatsapp-channel-sicat`). Default DESLIGADO: o canal só existe onde foi
+  // explicitamente configurado. `twilio` = dev/homolog (sandbox), `meta` = produção (Cloud API).
+  get whatsappProvider() { return getConfigValue('whatsappProvider', process.env.WHATSAPP_PROVIDER || 'disabled'); },
+  /** URL pública do webhook, como o provedor a enxerga. Entra no HMAC do Twilio — se divergir, a assinatura não bate. */
+  get whatsappWebhookUrl() { return getConfigValue('whatsappWebhookUrl', process.env.WHATSAPP_WEBHOOK_URL || 'https://dev.nvit.com.br/sicat/api/v1/channels/whatsapp/webhook'); },
+  get whatsappTwilioAccountSid() { return getConfigValue('whatsappTwilioAccountSid', process.env.WHATSAPP_TWILIO_ACCOUNT_SID || ''); },
+  get whatsappTwilioAuthToken() { return getConfigValue('whatsappTwilioAuthToken', process.env.WHATSAPP_TWILIO_AUTH_TOKEN || ''); },
+  get whatsappTwilioFrom() { return getConfigValue('whatsappTwilioFrom', process.env.WHATSAPP_TWILIO_FROM || ''); },
+  get whatsappMetaPhoneNumberId() { return getConfigValue('whatsappMetaPhoneNumberId', process.env.WHATSAPP_META_PHONE_NUMBER_ID || ''); },
+  get whatsappMetaAccessToken() { return getConfigValue('whatsappMetaAccessToken', process.env.WHATSAPP_META_ACCESS_TOKEN || ''); },
+  /** Segredo do app Meta — assina o webhook (X-Hub-Signature-256). Sem ele a verificação é fail-closed. */
+  get whatsappMetaAppSecret() { return getConfigValue('whatsappMetaAppSecret', process.env.WHATSAPP_META_APP_SECRET || ''); },
+  /** Token do desafio de verificação do webhook (GET hub.verify_token). */
+  get whatsappMetaVerifyToken() { return getConfigValue('whatsappMetaVerifyToken', process.env.WHATSAPP_META_VERIFY_TOKEN || ''); },
+  get whatsappMetaGraphVersion() { return getConfigValue('whatsappMetaGraphVersion', process.env.WHATSAPP_META_GRAPH_VERSION || 'v21.0'); }
 };

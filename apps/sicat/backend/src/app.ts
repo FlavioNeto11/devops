@@ -37,7 +37,17 @@ export function createApp() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Correlation-Id'],
     maxAge: 3600
   }));
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({
+    limit: '2mb',
+    // Guarda o corpo BRUTO só das rotas de canal externo: a Meta assina o webhook com HMAC-SHA256
+    // sobre os bytes exatos, e qualquer reserialização do JSON parseado muda o digest. Escopado por
+    // caminho de propósito — não faz sentido reter uma cópia de até 2 MB em toda requisição.
+    verify: (req, _res, buffer) => {
+      if (String(req.url || '').startsWith('/v1/channels/')) {
+        (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+      }
+    }
+  }));
   app.use(morgan('dev'));
   app.use(requestContextMiddleware);
   app.use(authMiddleware);

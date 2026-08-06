@@ -1,0 +1,227 @@
+/**
+ * Adapter Twilio WhatsApp.
+ *
+ * Papel: **desenvolvimento e homologação**. O sandbox do Twilio permite exercitar o canal inteiro
+ * hoje, sem esperar verificação de negócio da Meta. Produção usa `meta-cloud-provider.ts`.
+ *
+ * Referência de estilo (fail-soft, sem SDK, só `fetch`): `apps/gymops/apps/api/src/lib/whatsapp.ts`,
+ * que já roda em produção na plataforma. Aqui o contrato é maior (webhook + assinatura + mídia +
+ * template), mas a decisão de não trazer o SDK é a mesma: uma dependência a menos para auditar.
+ */
+
+import crypto from 'node:crypto';
+import { config } from '../../../../lib/config.js';
+import { AppError } from '../../../../lib/problem.js';
+import {
+  normalizePhone,
+  type WhatsAppInboundMessage,
+  type WhatsAppProvider,
+  type WhatsAppSendMediaInput,
+  type WhatsAppSendResult,
+  type WhatsAppSendTemplateInput,
+  type WhatsAppSendTextInput,
+  type WhatsAppWebhookVerificationInput
+} from './types.js';
+
+const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01';
+
+/** Twilio exige o prefixo `whatsapp:` e o `+` no E.164. */
+function toTwilioAddress(phone: string): string {
+  const digits = normalizePhone(phone);
+  return `whatsapp:+${digits}`;
+}
+
+function toStringRecord(body: Record<string, unknown>): Record<string, string> {
+  const entries = Object.entries(body).map(([key, value]) => [key, String(value ?? '')] as const);
+  return Object.fromEntries(entries);
+}
+
+/**
+ * Assinatura do Twilio: HMAC-SHA1, em base64, sobre `URL + concat(chave+valor)` com os parâmetros do
+ * POST ordenados alfabeticamente pela chave.
+ *
+ * Note que NÃO usa o corpo bruto — usa os params já parseados. É por isso que
+ * `WhatsAppWebhookVerificationInput` carrega os dois.
+ */
+export function buildTwilioSignature(authToken: string, url: string, params: Record<string, string>): string {
+  const payload = Object.keys(params)
+    .sort()
+    .reduce((accumulator, key) => `${accumulator}${key}${params[key] ?? ''}`, url);
+
+  return crypto.createHmac('sha1', authToken).update(Buffer.from(payload, 'utf8')).digest('base64');
+}
+
+function timingSafeEquals(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a, 'utf8');
+  const bufferB = Buffer.from(b, 'utf8');
+  // `timingSafeEqual` lança se os tamanhos diferem — checar antes é obrigatório.
+  if (bufferA.length !== bufferB.length) return false;
+  return crypto.timingSafeEqual(bufferA, bufferB);
+}
+
+function resolveInboundType(mimeType: string | null): WhatsAppInboundMessage['type'] {
+  if (!mimeType) return 'text';
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType === 'application/pdf' || mimeType.startsWith('application/')) return 'document';
+  return 'unsupported';
+}
+
+export function createTwilioWhatsAppProvider(): WhatsAppProvider {
+  function requireCredentials() {
+    const accountSid = config.whatsappTwilioAccountSid;
+    const authToken = config.whatsappTwilioAuthToken;
+    const from = config.whatsappTwilioFrom;
+
+    if (!accountSid || !authToken || !from) {
+      throw new AppError(
+        503,
+        'Service Unavailable',
+        'Provedor WhatsApp (twilio) não configurado: faltam WHATSAPP_TWILIO_ACCOUNT_SID, WHATSAPP_TWILIO_AUTH_TOKEN ou WHATSAPP_TWILIO_FROM.',
+        { code: 'WHATSAPP_PROVIDER_NOT_CONFIGURED' }
+      );
+    }
+
+    return { accountSid, authToken, from };
+  }
+
+  async function postMessage(form: Record<string, string>): Promise<WhatsAppSendResult> {
+    const { accountSid, authToken, from } = requireCredentials();
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+    const response = await fetch(`${TWILIO_API_BASE}/Accounts/${accountSid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({ From: toTwilioAddress(from), ...form }).toString()
+    });
+
+    if (!response.ok) {
+      // O corpo de erro do Twilio traz `message`/`code`, mas pode conter o texto da mensagem —
+      // então NÃO propagamos o corpo inteiro, só o status e o código.
+      let providerCode: string | number | null = null;
+      try {
+        const payload = await response.json() as { code?: number };
+        providerCode = payload?.code ?? null;
+      } catch {
+        providerCode = null;
+      }
+
+      throw new AppError(
+        502,
+        'Bad Gateway',
+        `Falha ao enviar mensagem pelo Twilio (HTTP ${response.status}${providerCode ? `, código ${providerCode}` : ''}).`,
+        { code: 'WHATSAPP_SEND_FAILED' }
+      );
+    }
+
+    const payload = await response.json() as { sid?: string };
+    return { providerMessageId: payload?.sid || null };
+  }
+
+  return {
+    name: 'twilio',
+
+    verifyWebhookSignature(input: WhatsAppWebhookVerificationInput): boolean {
+      const authToken = config.whatsappTwilioAuthToken;
+      const received = input.headers['x-twilio-signature'];
+
+      // Fail-closed: sem segredo configurado ou sem header, o webhook não é confiável.
+      if (!authToken || !received) return false;
+
+      const expected = buildTwilioSignature(authToken, input.url, toStringRecord(input.parsedBody));
+      return timingSafeEquals(expected, received);
+    },
+
+    parseInboundMessages({ body }): WhatsAppInboundMessage[] {
+      const params = toStringRecord(body);
+
+      // Callbacks de status (entregue/lido/falhou) chegam na mesma URL e NÃO são mensagem de usuário.
+      // Identificá-los pela ausência de `From`/`Body` seria frágil: um status traz `MessageStatus` e
+      // nenhum `Body`, mas TRAZ `From`.
+      if (params.MessageStatus || params.SmsStatus) return [];
+
+      const from = normalizePhone(params.From);
+      if (!from) return [];
+
+      const mediaCount = Number(params.NumMedia || '0');
+      const hasMedia = Number.isFinite(mediaCount) && mediaCount > 0;
+      const mimeType = hasMedia ? (params.MediaContentType0 || null) : null;
+      const text = params.Body ? String(params.Body) : null;
+
+      return [{
+        providerMessageId: params.MessageSid || params.SmsMessageSid || '',
+        from,
+        to: normalizePhone(params.To),
+        // O Twilio não manda timestamp no webhook de entrada; o adaptador carimba o recebimento.
+        timestamp: null,
+        type: hasMedia ? resolveInboundType(mimeType) : 'text',
+        text,
+        media: hasMedia
+          ? {
+            mediaId: null,
+            mediaUrl: params.MediaUrl0 || null,
+            mimeType,
+            fileName: null
+          }
+          : null
+      }];
+    },
+
+    async sendText(input: WhatsAppSendTextInput): Promise<WhatsAppSendResult> {
+      return postMessage({ To: toTwilioAddress(input.to), Body: input.text });
+    },
+
+    async sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult> {
+      // O Twilio busca a mídia por URL — não aceita upload de bytes na API de Messages. Enviar
+      // `content` exigiria hospedar o arquivo antes, o que é papel da fase 6 (URL assinada).
+      if (!input.mediaUrl) {
+        throw new AppError(
+          501,
+          'Not Implemented',
+          'O adapter Twilio envia mídia por URL pública; upload direto de bytes não é suportado.',
+          { code: 'WHATSAPP_MEDIA_URL_REQUIRED' }
+        );
+      }
+
+      return postMessage({
+        To: toTwilioAddress(input.to),
+        MediaUrl: input.mediaUrl,
+        ...(input.caption ? { Body: input.caption } : {})
+      });
+    },
+
+    async sendTemplate(input: WhatsAppSendTemplateInput): Promise<WhatsAppSendResult> {
+      // No Twilio, template aprovado é um Content SID (`HX…`). Quando `templateName` não é um SID, o
+      // sandbox aceita o texto direto — por isso o fallback, que mantém dev/homolog funcionais sem
+      // exigir aprovação de conteúdo.
+      if (input.templateName.startsWith('HX')) {
+        const variables = (input.variables || []).reduce<Record<string, string>>(
+          (accumulator, value, index) => ({ ...accumulator, [String(index + 1)]: value }),
+          {}
+        );
+
+        return postMessage({
+          To: toTwilioAddress(input.to),
+          ContentSid: input.templateName,
+          ...(input.variables?.length ? { ContentVariables: JSON.stringify(variables) } : {})
+        });
+      }
+
+      const rendered = (input.variables || []).reduce(
+        (text, value, index) => text.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), value),
+        input.templateName
+      );
+
+      return postMessage({ To: toTwilioAddress(input.to), Body: rendered });
+    },
+
+    handleVerificationChallenge(): string | null {
+      // Twilio não usa desafio de verificação — a URL do webhook é configurada no console.
+      return null;
+    }
+  };
+}
