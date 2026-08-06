@@ -85,6 +85,7 @@ import {
 import { config } from '../lib/config.js';
 import { registerDmrRoutes } from './dmr-routes.js';
 import { registerMtrProvisorioRoutes } from './mtr-provisorio-routes.js';
+import { registerChannelLinkRoutes } from './channel-link-routes.js';
 
 const { Client } = pg;
 
@@ -1062,6 +1063,9 @@ export function createApiRouter() {
 
   // MTR provisório endpoints (cadeia mtr-provisorio-fluxo-base, fase 04)
   registerMtrProvisorioRoutes(router);
+
+  // Vínculo telefone <-> usuário por OTP (cadeia whatsapp-channel-sicat, fase 02)
+  registerChannelLinkRoutes(router);
 
   return router;
 }

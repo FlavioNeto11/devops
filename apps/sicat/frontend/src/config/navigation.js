@@ -128,13 +128,27 @@ export const NAVIGATION_GROUPS = [
   {
     // Nomenclatura única do conceito: "Assistente" (menu, aba do chat e o botão
     // flutuante). O que ele faz fica na descrição, não em um segundo nome.
+    // Virou grupo na fase 02 de whatsapp-channel-sicat: o assistente passou a ter
+    // dois lugares — a conversa e o canal por onde ela chega.
     id: 'conversacional',
     label: 'Assistente',
     icon: 'mdi-chat-processing-outline',
-    kind: 'direct',
+    kind: 'group',
     module: 'operacao',
-    to: '/conversacional/chat',
-    description: 'Tire dúvidas e peça ajuda com a operação'
+    items: [
+      {
+        to: '/conversacional/chat',
+        label: 'Conversar',
+        icon: 'mdi-chat-processing-outline',
+        description: 'Tire dúvidas e peça ajuda com a operação'
+      },
+      {
+        to: '/perfil/canais',
+        label: 'WhatsApp',
+        icon: 'mdi-whatsapp',
+        description: 'Vincule seu número para falar pelo WhatsApp'
+      }
+    ]
   },
   {
     id: 'sistema',

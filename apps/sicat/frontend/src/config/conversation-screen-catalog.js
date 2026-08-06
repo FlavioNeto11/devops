@@ -382,6 +382,49 @@ const SHELL_SCREEN_CATALOG = {
       }
     ]
   },
+  PerfilCanais: {
+    title: 'WhatsApp do assistente',
+    description: 'Vinculação do número de WhatsApp que pode conversar com o assistente do SICAT.',
+    purpose: 'Explicar a verificação por código e a revogação de um número, sem nunca pedir ou repetir o código.',
+    fieldHints: [
+      {
+        label: 'Número do WhatsApp',
+        description: 'Informe com DDD. O código de 6 dígitos chega no WhatsApp desse número e vale por 10 minutos.'
+      },
+      {
+        label: 'Números vinculados',
+        description: 'Cada número vinculado fala com o SICAT em nome do usuário — remover o vínculo corta esse acesso na hora.'
+      }
+    ],
+    quickActions: [
+      {
+        id: 'channel-links-screen-overview',
+        label: 'Explique esta tela',
+        kind: 'local',
+        intent: 'screen_overview',
+        icon: 'mdi-compass-outline'
+      },
+      {
+        id: 'channel-links-go-chat',
+        label: 'Abrir o assistente',
+        kind: 'navigate',
+        to: '/conversacional/chat',
+        icon: 'mdi-chat-processing-outline'
+      }
+    ],
+    relatedRoutes: [
+      {
+        label: 'Assistente',
+        to: '/conversacional/chat',
+        description: 'Conversar pelo navegador, sem depender do WhatsApp.'
+      },
+      {
+        label: 'Minha sessão',
+        to: '/sessao',
+        description: 'Conferir a sessão e a conta CETESB ativa.'
+      }
+    ]
+  },
   AdminAcessos: {
     title: 'Perfis e acessos',
     description: 'Visão administrativa de usuários, perfis, permissões e sessões recentes.',

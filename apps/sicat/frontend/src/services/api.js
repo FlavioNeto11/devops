@@ -1437,6 +1437,71 @@ export function printMtrProvisorio(id, payload = {}, { idempotencyKey } = {}) {
 }
 
 // =============================================================================
+// Vínculos de canal (WhatsApp) — cadeia whatsapp-channel-sicat (fase 02).
+//
+// Vinculação de telefone ↔ usuário SICAT por OTP SEMPRE iniciado no app: o
+// usuário autenticado informa o número, recebe 6 dígitos pelo WhatsApp e
+// confirma na tela. A identidade sai do Bearer no backend — nenhuma destas
+// chamadas manda `userId`.
+//
+// O telefone trafega SÓ no corpo do POST de criação; as demais rotas endereçam
+// `challengeId`/`linkId`. PII em path/query vira log de acesso do Traefik e
+// cabeçalho Referer.
+//
+// Estas rotas NÃO mandam `Idempotency-Key`: não existe middleware de idempotência
+// em /v1/sicat/channel-links, e um header que ninguém lê aparenta uma garantia que
+// não existe. A deduplicação real é do servidor — índice único PARCIAL do desafio
+// vivo (`conversation_channel_verifications_live_idx`: canal + telefone + usuário
+// enquanto `consumed_at is null`) mais os limitadores (cooldown de reenvio, teto de
+// envios, teto de vínculos por usuário). `request()` já
+// não repete POST/DELETE (`shouldRetryRequest`), então o cliente não gera duplicata
+// sozinho.
+// =============================================================================
+
+function buildChannelLinkCommandHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+export function listChannelLinks(params = {}) {
+  return request(`/v1/sicat/channel-links${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function startChannelLink(payload) {
+  return request('/v1/sicat/channel-links', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function resendChannelLinkChallenge(challengeId) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/resend`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify({})
+  });
+}
+
+export function confirmChannelLinkChallenge(challengeId, payload = {}) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/confirm`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function cancelChannelLinkChallenge(challengeId, params = {}) {
+  return request(
+    `/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}${toQueryString(params)}`,
+    { method: 'DELETE' }
+  );
+}
+
+export function deleteChannelLink(linkId) {
+  return request(`/v1/sicat/channel-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+}
+
+// =============================================================================
 // AI Control Center — governança, observabilidade e runtime da IA SICAT.
 // Todos os endpoints exigem Bearer admin (o client já injeta o token).
 // Contrato em /v1/ai-control/*.

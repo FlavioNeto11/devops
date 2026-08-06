@@ -67,7 +67,18 @@ type ConfigKey =
   | 'whatsappMetaAccessToken'
   | 'whatsappMetaAppSecret'
   | 'whatsappMetaVerifyToken'
-  | 'whatsappMetaGraphVersion';
+  | 'whatsappMetaGraphVersion'
+  | 'channelLinkOtpTtlSeconds'
+  | 'channelLinkOtpMaxAttempts'
+  | 'channelLinkOtpMaxSends'
+  | 'channelLinkOtpResendCooldownSeconds'
+  | 'channelLinkMaxPerUser'
+  | 'channelLinkVictimShieldDistinctUsers'
+  | 'channelLinkVictimShieldWindowHours'
+  | 'channelLinkAllowTransfer'
+  | 'channelLinkDefaultCountryCode'
+  | 'whatsappLinkOtpTemplate'
+  | 'whatsappLinkOtpTemplateLanguage';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -148,5 +159,35 @@ export const config = {
   get whatsappMetaAppSecret() { return getConfigValue('whatsappMetaAppSecret', process.env.WHATSAPP_META_APP_SECRET || ''); },
   /** Token do desafio de verificação do webhook (GET hub.verify_token). */
   get whatsappMetaVerifyToken() { return getConfigValue('whatsappMetaVerifyToken', process.env.WHATSAPP_META_VERIFY_TOKEN || ''); },
-  get whatsappMetaGraphVersion() { return getConfigValue('whatsappMetaGraphVersion', process.env.WHATSAPP_META_GRAPH_VERSION || 'v21.0'); }
+  get whatsappMetaGraphVersion() { return getConfigValue('whatsappMetaGraphVersion', process.env.WHATSAPP_META_GRAPH_VERSION || 'v21.0'); },
+  // Vínculo telefone <-> usuário por OTP (fase 2 da cadeia `whatsapp-channel-sicat`).
+  // O TTL aparece LITERAL no texto do template: mudar um obriga a mudar o outro.
+  get channelLinkOtpTtlSeconds() { return getConfigValue('channelLinkOtpTtlSeconds', Number(process.env.CHANNEL_LINK_OTP_TTL_SECONDS || 600)); },
+  get channelLinkOtpMaxAttempts() { return getConfigValue('channelLinkOtpMaxAttempts', Number(process.env.CHANNEL_LINK_OTP_MAX_ATTEMPTS || 5)); },
+  get channelLinkOtpMaxSends() { return getConfigValue('channelLinkOtpMaxSends', Number(process.env.CHANNEL_LINK_OTP_MAX_SENDS || 3)); },
+  get channelLinkOtpResendCooldownSeconds() { return getConfigValue('channelLinkOtpResendCooldownSeconds', Number(process.env.CHANNEL_LINK_OTP_RESEND_COOLDOWN_SECONDS || 60)); },
+  get channelLinkMaxPerUser() { return getConfigValue('channelLinkMaxPerUser', Number(process.env.CHANNEL_LINK_MAX_PER_USER || 3)); },
+  /** Contas DISTINTAS que podem pedir código para o MESMO número na janela — escudo anti-bombing da vítima. */
+  get channelLinkVictimShieldDistinctUsers() { return getConfigValue('channelLinkVictimShieldDistinctUsers', Number(process.env.CHANNEL_LINK_VICTIM_SHIELD_DISTINCT_USERS || 3)); },
+  get channelLinkVictimShieldWindowHours() { return getConfigValue('channelLinkVictimShieldWindowHours', Number(process.env.CHANNEL_LINK_VICTIM_SHIELD_WINDOW_HOURS || 24)); },
+  /**
+   * Posse comprovada TRANSFERE o vínculo. Desligar é a opção INSEGURA no longo prazo: operadoras
+   * reciclam números e, a partir da fase 3, um `from` verificado vira identidade — o novo dono do
+   * chip entraria como o usuário antigo. Default ligado; `false` só como trava de emergência.
+   */
+  get channelLinkAllowTransfer() { return getConfigValue('channelLinkAllowTransfer', String(process.env.CHANNEL_LINK_ALLOW_TRANSFER ?? 'true').trim().toLowerCase() !== 'false'); },
+  get channelLinkDefaultCountryCode() { return getConfigValue('channelLinkDefaultCountryCode', process.env.CHANNEL_LINK_DEFAULT_COUNTRY_CODE || '55'); },
+  /**
+   * Nome do template AUTHENTICATION aprovado (Meta) ou Content SID `HX…` (Twilio). Quando não é um
+   * SID, o adapter Twilio renderiza `{{1}}` no próprio corpo — por isso o default é o texto pt-BR,
+   * que mantém dev/homolog funcionando sem aprovação de conteúdo.
+   */
+  get whatsappLinkOtpTemplate() {
+    return getConfigValue(
+      'whatsappLinkOtpTemplate',
+      process.env.WHATSAPP_LINK_OTP_TEMPLATE
+        || 'SICAT: seu código de verificação é {{1}}. Vale por 10 minutos, é de uso único. Se não foi você, ignore esta mensagem e nunca compartilhe este código.'
+    );
+  },
+  get whatsappLinkOtpTemplateLanguage() { return getConfigValue('whatsappLinkOtpTemplateLanguage', process.env.WHATSAPP_LINK_OTP_TEMPLATE_LANGUAGE || 'pt_BR'); }
 };
