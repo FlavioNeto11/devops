@@ -12,6 +12,7 @@
 import crypto from 'node:crypto';
 import { config } from '../../../../lib/config.js';
 import { AppError } from '../../../../lib/problem.js';
+import { withProviderTimeout } from './provider-http.js';
 import {
   normalizePhone,
   type WhatsAppInboundMessage,
@@ -86,40 +87,45 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
     return { accountSid, authToken, from };
   }
 
-  async function postMessage(form: Record<string, string>): Promise<WhatsAppSendResult> {
+  // Mesma regra do adapter da Meta: `fetch` sem `AbortSignal` pendura o worker para sempre. Aqui o
+  // risco é idêntico mesmo sendo o provedor de dev/homolog — é o mesmo processo e a mesma fila.
+  async function postMessage(form: Record<string, string>, operation: string): Promise<WhatsAppSendResult> {
     const { accountSid, authToken, from } = requireCredentials();
     const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
-    const response = await fetch(`${TWILIO_API_BASE}/Accounts/${accountSid}/Messages.json`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({ From: toTwilioAddress(from), ...form }).toString()
-    });
+    return withProviderTimeout({ providerName: 'twilio', operation }, async (signal) => {
+      const response = await fetch(`${TWILIO_API_BASE}/Accounts/${accountSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ From: toTwilioAddress(from), ...form }).toString(),
+        signal
+      });
 
-    if (!response.ok) {
-      // O corpo de erro do Twilio traz `message`/`code`, mas pode conter o texto da mensagem —
-      // então NÃO propagamos o corpo inteiro, só o status e o código.
-      let providerCode: string | number | null = null;
-      try {
-        const payload = await response.json() as { code?: number };
-        providerCode = payload?.code ?? null;
-      } catch {
-        providerCode = null;
+      if (!response.ok) {
+        // O corpo de erro do Twilio traz `message`/`code`, mas pode conter o texto da mensagem —
+        // então NÃO propagamos o corpo inteiro, só o status e o código.
+        let providerCode: string | number | null = null;
+        try {
+          const payload = await response.json() as { code?: number };
+          providerCode = payload?.code ?? null;
+        } catch {
+          providerCode = null;
+        }
+
+        throw new AppError(
+          502,
+          'Bad Gateway',
+          `Falha ao enviar mensagem pelo Twilio (HTTP ${response.status}${providerCode ? `, código ${providerCode}` : ''}).`,
+          { code: 'WHATSAPP_SEND_FAILED' }
+        );
       }
 
-      throw new AppError(
-        502,
-        'Bad Gateway',
-        `Falha ao enviar mensagem pelo Twilio (HTTP ${response.status}${providerCode ? `, código ${providerCode}` : ''}).`,
-        { code: 'WHATSAPP_SEND_FAILED' }
-      );
-    }
-
-    const payload = await response.json() as { sid?: string };
-    return { providerMessageId: payload?.sid || null };
+      const payload = await response.json() as { sid?: string };
+      return { providerMessageId: payload?.sid || null };
+    });
   }
 
   return {
@@ -159,6 +165,10 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
         // O Twilio não manda timestamp no webhook de entrada; o adaptador carimba o recebimento.
         timestamp: null,
         type: hasMedia ? resolveInboundType(mimeType) : 'text',
+        // O Twilio não declara um "tipo" — o que ele dá é o MIME. Figurinha chega como
+        // `image/webp`, e é isso que o adaptador precisa enxergar para tratá-la igual ao
+        // `type: 'sticker'` da Meta.
+        rawType: hasMedia ? (mimeType || 'media') : 'text',
         text,
         media: hasMedia
           ? {
@@ -172,7 +182,7 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
     },
 
     async sendText(input: WhatsAppSendTextInput): Promise<WhatsAppSendResult> {
-      return postMessage({ To: toTwilioAddress(input.to), Body: input.text });
+      return postMessage({ To: toTwilioAddress(input.to), Body: input.text }, 'sendText');
     },
 
     async sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult> {
@@ -191,7 +201,7 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
         To: toTwilioAddress(input.to),
         MediaUrl: input.mediaUrl,
         ...(input.caption ? { Body: input.caption } : {})
-      });
+      }, 'sendMedia');
     },
 
     async sendTemplate(input: WhatsAppSendTemplateInput): Promise<WhatsAppSendResult> {
@@ -208,7 +218,7 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
           To: toTwilioAddress(input.to),
           ContentSid: input.templateName,
           ...(input.variables?.length ? { ContentVariables: JSON.stringify(variables) } : {})
-        });
+        }, 'sendTemplate');
       }
 
       const rendered = (input.variables || []).reduce(
@@ -216,7 +226,7 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
         input.templateName
       );
 
-      return postMessage({ To: toTwilioAddress(input.to), Body: rendered });
+      return postMessage({ To: toTwilioAddress(input.to), Body: rendered }, 'sendTemplate');
     },
 
     handleVerificationChallenge(): string | null {

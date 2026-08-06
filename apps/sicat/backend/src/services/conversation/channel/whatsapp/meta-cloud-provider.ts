@@ -9,6 +9,7 @@
 import crypto from 'node:crypto';
 import { config } from '../../../../lib/config.js';
 import { AppError } from '../../../../lib/problem.js';
+import { withProviderTimeout } from './provider-http.js';
 import {
   normalizePhone,
   type WhatsAppInboundMedia,
@@ -80,39 +81,44 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
     return { phoneNumberId, accessToken, graphVersion: config.whatsappMetaGraphVersion };
   }
 
-  async function postToGraph(path: string, body: LooseRecord): Promise<WhatsAppSendResult> {
+  // O bloco INTEIRO (fetch + leitura do corpo) roda sob o teto: um provedor que devolve o cabeçalho e
+  // trava no corpo prende o worker exatamente como um que nunca responde.
+  async function postToGraph(path: string, body: LooseRecord, operation: string): Promise<WhatsAppSendResult> {
     const { accessToken, graphVersion } = requireCredentials();
 
-    const response = await fetch(`https://graph.facebook.com/${graphVersion}/${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    return withProviderTimeout({ providerName: 'meta', operation }, async (signal) => {
+      const response = await fetch(`https://graph.facebook.com/${graphVersion}/${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        signal
+      });
 
-    if (!response.ok) {
-      // O erro do Graph pode ecoar o payload enviado (incluindo o texto da mensagem), então só
-      // propagamos status e o código do provedor — nunca o corpo inteiro.
-      let providerCode: number | null = null;
-      try {
-        const payload = await response.json() as { error?: { code?: number } };
-        providerCode = payload?.error?.code ?? null;
-      } catch {
-        providerCode = null;
+      if (!response.ok) {
+        // O erro do Graph pode ecoar o payload enviado (incluindo o texto da mensagem), então só
+        // propagamos status e o código do provedor — nunca o corpo inteiro.
+        let providerCode: number | null = null;
+        try {
+          const payload = await response.json() as { error?: { code?: number } };
+          providerCode = payload?.error?.code ?? null;
+        } catch {
+          providerCode = null;
+        }
+
+        throw new AppError(
+          502,
+          'Bad Gateway',
+          `Falha ao enviar mensagem pela Cloud API (HTTP ${response.status}${providerCode ? `, código ${providerCode}` : ''}).`,
+          { code: 'WHATSAPP_SEND_FAILED' }
+        );
       }
 
-      throw new AppError(
-        502,
-        'Bad Gateway',
-        `Falha ao enviar mensagem pela Cloud API (HTTP ${response.status}${providerCode ? `, código ${providerCode}` : ''}).`,
-        { code: 'WHATSAPP_SEND_FAILED' }
-      );
-    }
-
-    const payload = await response.json() as { messages?: Array<{ id?: string }> };
-    return { providerMessageId: payload?.messages?.[0]?.id || null };
+      const payload = await response.json() as { messages?: Array<{ id?: string }> };
+      return { providerMessageId: payload?.messages?.[0]?.id || null };
+    });
   }
 
   /** Sobe bytes para o Graph e devolve o `mediaId` reutilizável no envio. */
@@ -124,30 +130,35 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
     form.append('type', input.mimeType);
     form.append('file', new Blob([new Uint8Array(input.content)], { type: input.mimeType }), input.fileName);
 
-    const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/media`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: form
-    });
-
-    if (!response.ok) {
-      throw new AppError(
-        502,
-        'Bad Gateway',
-        `Falha ao subir mídia para a Cloud API (HTTP ${response.status}).`,
-        { code: 'WHATSAPP_MEDIA_UPLOAD_FAILED' }
-      );
-    }
-
-    const payload = await response.json() as { id?: string };
-    const mediaId = payload?.id;
-    if (!mediaId) {
-      throw new AppError(502, 'Bad Gateway', 'Cloud API não devolveu id da mídia enviada.', {
-        code: 'WHATSAPP_MEDIA_UPLOAD_FAILED'
+    // Teto PRÓPRIO (`kind: 'upload'`): subir bytes é legitimamente mais lento que postar um texto, e
+    // um teto de texto aqui derrubaria upload sadio. Ainda MUITO abaixo do claim stale (300 s).
+    return withProviderTimeout({ providerName: 'meta', operation: 'uploadMedia', kind: 'upload' }, async (signal) => {
+      const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: form,
+        signal
       });
-    }
 
-    return mediaId;
+      if (!response.ok) {
+        throw new AppError(
+          502,
+          'Bad Gateway',
+          `Falha ao subir mídia para a Cloud API (HTTP ${response.status}).`,
+          { code: 'WHATSAPP_MEDIA_UPLOAD_FAILED' }
+        );
+      }
+
+      const payload = await response.json() as { id?: string };
+      const mediaId = payload?.id;
+      if (!mediaId) {
+        throw new AppError(502, 'Bad Gateway', 'Cloud API não devolveu id da mídia enviada.', {
+          code: 'WHATSAPP_MEDIA_UPLOAD_FAILED'
+        });
+      }
+
+      return mediaId;
+    });
   }
 
   return {
@@ -195,6 +206,7 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
                 to: businessNumber,
                 timestamp: toIsoTimestamp(message.timestamp),
                 type: 'text',
+                rawType: declaredType,
                 text: toNullableString(toRecord(message.text).body),
                 media: null
               });
@@ -209,6 +221,7 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
                 to: businessNumber,
                 timestamp: toIsoTimestamp(message.timestamp),
                 type: declaredType,
+                rawType: declaredType,
                 // Legenda da mídia é o texto do turno.
                 text: toNullableString(toRecord(message[declaredType]).caption),
                 media
@@ -222,6 +235,10 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
               to: businessNumber,
               timestamp: toIsoTimestamp(message.timestamp),
               type: declaredType === 'location' ? 'location' : 'unsupported',
+              // `sticker`, `reaction`, `contacts`, `interactive`… todos colapsam em `unsupported`.
+              // O tipo cru é o que permite ao adaptador distinguir figurinha (gesto social, merece
+              // resposta) de reação (descarte silencioso).
+              rawType: declaredType,
               text: null,
               media: null
             });
@@ -242,7 +259,7 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
         // `preview_url: false` evita que a Meta expanda links da resposta (um link de artefato do
         // SICAT não deve virar card com preview buscado por um terceiro).
         text: { body: input.text, preview_url: false }
-      });
+      }, 'sendText');
     },
 
     async sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult> {
@@ -268,7 +285,7 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
           filename: input.fileName,
           ...(input.caption ? { caption: input.caption } : {})
         }
-      });
+      }, 'sendMedia');
     },
 
     async sendTemplate(input: WhatsAppSendTemplateInput): Promise<WhatsAppSendResult> {
@@ -292,7 +309,7 @@ export function createMetaCloudWhatsAppProvider(): WhatsAppProvider {
             }
             : {})
         }
-      });
+      }, 'sendTemplate');
     },
 
     handleVerificationChallenge(query: Record<string, unknown>): string | null {

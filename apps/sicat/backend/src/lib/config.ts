@@ -78,7 +78,22 @@ type ConfigKey =
   | 'channelLinkAllowTransfer'
   | 'channelLinkDefaultCountryCode'
   | 'whatsappLinkOtpTemplate'
-  | 'whatsappLinkOtpTemplateLanguage';
+  | 'whatsappLinkOtpTemplateLanguage'
+  | 'whatsappBusinessNumber'
+  | 'whatsappInboundMaxMessagesPerPost'
+  | 'whatsappInboundMaxAgeSeconds'
+  | 'whatsappAnswerMaxAgeSeconds'
+  | 'whatsappInboundGlobalPerMinute'
+  | 'whatsappInboundPerLink'
+  | 'whatsappInboundPerLinkWindowMs'
+  | 'whatsappInboundMaxTextChars'
+  | 'whatsappReplyMaxChars'
+  | 'whatsappTurnTimeoutMs'
+  | 'whatsappMaxSendAttempts'
+  | 'whatsappProviderTimeoutMs'
+  | 'whatsappProviderUploadTimeoutMs'
+  | 'whatsappExpiredNoticeWindowMs'
+  | 'whatsappUnlinkedNoticeEnabled';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -189,5 +204,50 @@ export const config = {
         || 'SICAT: seu código de verificação é {{1}}. Vale por 10 minutos, é de uso único. Se não foi você, ignore esta mensagem e nunca compartilhe este código.'
     );
   },
-  get whatsappLinkOtpTemplateLanguage() { return getConfigValue('whatsappLinkOtpTemplateLanguage', process.env.WHATSAPP_LINK_OTP_TEMPLATE_LANGUAGE || 'pt_BR'); }
+  get whatsappLinkOtpTemplateLanguage() { return getConfigValue('whatsappLinkOtpTemplateLanguage', process.env.WHATSAPP_LINK_OTP_TEMPLATE_LANGUAGE || 'pt_BR'); },
+  // ── Webhook de entrada do canal (fase 3 da cadeia `whatsapp-channel-sicat`) ──────────────────────
+  /**
+   * Número de negócio que este SICAT atende, em E.164 sem `+`. Numa WABA/subconta COMPARTILHADA, uma
+   * mensagem endereçada a OUTRO número da mesma app chega validamente assinada — o `to` é a única
+   * coisa que distingue. Vazio = guarda pulada (com WARN no boot), porque exigir a variável quebraria
+   * qualquer ambiente de sandbox que ainda não conhece o próprio número.
+   */
+  get whatsappBusinessNumber() { return getConfigValue('whatsappBusinessNumber', process.env.WHATSAPP_BUSINESS_NUMBER || ''); },
+  /** Teto de mensagens processadas por POST. Um corpo assinado de 2 MB pode conter milhares. */
+  get whatsappInboundMaxMessagesPerPost() { return getConfigValue('whatsappInboundMaxMessagesPerPost', Number(process.env.WHATSAPP_INBOUND_MAX_MESSAGES_PER_POST || 20)); },
+  /** Frescor da mensagem na RECEPÇÃO. 24 h = a própria janela de atendimento do WhatsApp. */
+  get whatsappInboundMaxAgeSeconds() { return getConfigValue('whatsappInboundMaxAgeSeconds', Number(process.env.WHATSAPP_INBOUND_MAX_AGE_SECONDS || 86400)); },
+  /** Frescor na EXECUÇÃO. Responder 10 minutos depois é pior que não responder. */
+  get whatsappAnswerMaxAgeSeconds() { return getConfigValue('whatsappAnswerMaxAgeSeconds', Number(process.env.WHATSAPP_ANSWER_MAX_AGE_SECONDS || 300)); },
+  get whatsappInboundGlobalPerMinute() { return getConfigValue('whatsappInboundGlobalPerMinute', Number(process.env.WHATSAPP_INBOUND_GLOBAL_PER_MINUTE || 600)); },
+  get whatsappInboundPerLink() { return getConfigValue('whatsappInboundPerLink', Number(process.env.WHATSAPP_INBOUND_PER_LINK || 12)); },
+  get whatsappInboundPerLinkWindowMs() { return getConfigValue('whatsappInboundPerLinkWindowMs', Number(process.env.WHATSAPP_INBOUND_PER_LINK_WINDOW_MS || 300000)); },
+  get whatsappInboundMaxTextChars() { return getConfigValue('whatsappInboundMaxTextChars', Number(process.env.WHATSAPP_INBOUND_MAX_TEXT_CHARS || 2000)); },
+  /** Acima de ~4096 o provedor REJEITA a mensagem e o usuário fica MUDO. Truncar é correção, não estética. */
+  get whatsappReplyMaxChars() { return getConfigValue('whatsappReplyMaxChars', Number(process.env.WHATSAPP_REPLY_MAX_CHARS || 3500)); },
+  /** Teto do turno no worker. Folgadamente abaixo de `workerClaimStaleTimeoutMs` (300 s), senão o claim fica stale e o turno roda DUAS vezes. */
+  get whatsappTurnTimeoutMs() { return getConfigValue('whatsappTurnTimeoutMs', Number(process.env.WHATSAPP_TURN_TIMEOUT_MS || 120000)); },
+  get whatsappMaxSendAttempts() { return getConfigValue('whatsappMaxSendAttempts', Number(process.env.WHATSAPP_MAX_SEND_ATTEMPTS || 2)); },
+  /**
+   * Teto de UMA chamada HTTP ao provedor (envio de texto/template). Sem ele, um `fetch` que abre a
+   * conexão e nunca responde prende o worker INTEIRO: o teto de turno (`whatsappTurnTimeoutMs`) só
+   * envolve `processTurn`, e o heartbeat de claim mantém o job vivo. Enquanto `WORKER_LANE` não
+   * estiver aplicado, esse worker é o mesmo que processa `manifest.submit` — um travamento da Meta
+   * pararia a emissão de MTR. Conservador de propósito: a Graph API responde em < 2 s no normal.
+   */
+  get whatsappProviderTimeoutMs() { return getConfigValue('whatsappProviderTimeoutMs', Number(process.env.WHATSAPP_PROVIDER_TIMEOUT_MS || 15000)); },
+  /** Teto do upload de mídia (bytes na rede). Maior que o de texto, ainda MUITO abaixo do claim stale (300 s). */
+  get whatsappProviderUploadTimeoutMs() { return getConfigValue('whatsappProviderUploadTimeoutMs', Number(process.env.WHATSAPP_PROVIDER_UPLOAD_TIMEOUT_MS || 30000)); },
+  /**
+   * Janela de supressão do aviso "sua mensagem expirou" POR VÍNCULO. Um worker que volta depois de 6
+   * minutos drena o backlog inteiro de uma vez; sem esta janela a pessoa receberia um aviso por
+   * mensagem enfileirada. Um aviso por janela diz a mesma coisa sem virar flood.
+   */
+  get whatsappExpiredNoticeWindowMs() { return getConfigValue('whatsappExpiredNoticeWindowMs', Number(process.env.WHATSAPP_EXPIRED_NOTICE_WINDOW_MS || 600000)); },
+  /**
+   * Cortesia para número NÃO vinculado. Default **desligado**: responder é custo por mensagem contra
+   * tráfego arbitrário e amplificação de spam. Quando ligado, o texto é IDÊNTICO para número
+   * desconhecido, vínculo `pending` e telefone inválido — não vira oráculo de enumeração.
+   */
+  get whatsappUnlinkedNoticeEnabled() { return getConfigValue('whatsappUnlinkedNoticeEnabled', toBool(process.env.WHATSAPP_UNLINKED_NOTICE_ENABLED, false)); }
 };

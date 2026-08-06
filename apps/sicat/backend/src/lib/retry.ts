@@ -72,7 +72,8 @@ type RetryableOperation =
   | 'cdf.download'
   | 'catalog.sync'
   | 'cadastro.submit'
-  | 'conversation.bundle_documents';
+  | 'conversation.bundle_documents'
+  | 'whatsapp.inbound_message';
 
 type JobLike = {
   attempts: number;
@@ -308,7 +309,12 @@ export function calculateJobPriority(operation: string): number {
     'cdf.download': 5,             // Média prioridade - obtenção de PDF
     'catalog.sync': 3,             // Baixa prioridade - sincronização
     'cadastro.submit': 6,          // Média-alta prioridade
-    'conversation.bundle_documents': 4 // Média-baixa - compactação de arquivos
+    'conversation.bundle_documents': 4, // Média-baixa - compactação de arquivos
+    // Abaixo de `catalog.sync` (3) DE PROPÓSITO. `claimJobs` ordena por `priority desc, queued_at
+    // asc` e o worker é consumidor SERIAL: enquanto a raia dedicada (`WORKER_LANE=channel`) não
+    // estiver no ar, um turno de conversa e um `manifest.submit` disputam o mesmo consumidor. Nesse
+    // modo degradado a conversa NUNCA pode preemptar operação CETESB.
+    'whatsapp.inbound_message': 2
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -440,6 +446,23 @@ export function getRetryConfig(operation: string): RetryConfig {
       strategy: 'exponential',
       baseDelayMs: 1500,
       maxDelayMs: 120000
+    },
+    /*
+     * Mensagem recebida no WhatsApp. Os QUATRO campos divergem do default herdado
+     * (`{ jobMaxAttempts||5, 'exponential', 1000, 300000 }`) e a divergência é o ponto:
+     *
+     *  - `fixed` + `maxDelayMs: 15000` — o backoff exponencial padrão chega a 5 MINUTOS, e uma
+     *    resposta de WhatsApp que chega 5 minutos depois é pior que nenhuma;
+     *  - `maxAttempts: 3` — o retry aqui é de ENTREGA, não de LLM: o caminho rápido do handler relê
+     *    `payload.replyText` e, se a resposta já foi preparada, PULA o turno e só reenvia. Sem essa
+     *    garantia, 5 tentativas significariam 5 chamadas de LLM e 5 respostas diferentes para a
+     *    mesma pergunta.
+     */
+    'whatsapp.inbound_message': {
+      maxAttempts: 3,
+      strategy: 'fixed',
+      baseDelayMs: 5000,
+      maxDelayMs: 15000
     }
   };
 

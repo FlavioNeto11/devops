@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import type { PoolClient, QueryResultRow } from 'pg';
+import { CHANNEL_LANE_OPERATIONS, type WorkerLane } from '../lib/job-lanes.js';
 
 type DbClient = Pick<PoolClient, 'query'> | null;
 type JobStatus = 'queued' | 'running' | 'retry_wait' | 'failed' | 'succeeded' | 'dlq' | 'cancelled';
@@ -391,8 +392,25 @@ export async function updateJobWithOptimisticLock(jobId: string, expectedVersion
   return mapJob(result.rows[0]);
 }
 
-export async function claimJobs(batchSize: number) {
+/**
+ * Predicado de raia (`job-lanes.ts`). `all` é o comportamento histórico: NENHUM predicado extra e
+ * nenhum parâmetro extra, para que o SQL seja idêntico ao de antes da fase 3.
+ *
+ * `<> all(...)` em Postgres é "diferente de todos os elementos" = NOT IN; `= any(...)` é IN. As duas
+ * metades saem da mesma constante para não dessincronizarem.
+ */
+function buildLanePredicate(lane: WorkerLane): { sql: string; operations: string[] | null } {
+  if (lane === 'default') return { sql: 'and operation <> all($3::text[])', operations: [...CHANNEL_LANE_OPERATIONS] };
+  if (lane === 'channel') return { sql: 'and operation = any($3::text[])', operations: [...CHANNEL_LANE_OPERATIONS] };
+  return { sql: '', operations: null };
+}
+
+export async function claimJobs(batchSize: number, options: { lane?: WorkerLane } = {}) {
   const workerName = process.env.WORKER_NAME || `worker-${process.pid}`;
+  const lane = buildLanePredicate(options.lane ?? 'all');
+  const params: unknown[] = lane.operations
+    ? [batchSize, workerName, lane.operations]
+    : [batchSize, workerName];
 
   return withTransaction(async (client) => {
     const result = await client.query(
@@ -401,6 +419,7 @@ export async function claimJobs(batchSize: number) {
          from jobs
          where status in ('queued', 'retry_wait')
            and coalesce(next_retry_at, now()) <= now()
+           ${lane.sql}
          order by priority desc, queued_at asc
          for update skip locked
          limit $1
@@ -416,7 +435,7 @@ export async function claimJobs(batchSize: number) {
        from candidate
        where j.job_id = candidate.job_id
        returning j.*`,
-      [batchSize, workerName]
+      params
     );
     return result.rows.map((row) => mapJob(row)).filter((row): row is JobEntity => row != null);
   });

@@ -48,6 +48,29 @@ describe('rate-limit', () => {
     assert.equal(limiter.check('a').allowed, true, 'hit antigo saiu da janela');
   });
 
+  it('peek decide SEM consumir — é o que permite cobrar a cota só depois do trabalho', () => {
+    // Nasce da recepção do WhatsApp: reação com emoji e reentrega duplicada não podem consumir a cota
+    // de perguntas de verdade da pessoa, mas a decisão de barrar precisa vir ANTES de gravar o job.
+    const limiter = createRateLimiter(1, 60_000);
+
+    assert.equal(limiter.peek('a').allowed, true);
+    assert.equal(limiter.peek('a').allowed, true, 'mil peeks não gastam nada');
+    assert.equal(limiter.peek('a').remaining, 1);
+
+    assert.equal(limiter.check('a').allowed, true, 'a cota inteira continuava disponível');
+    assert.equal(limiter.peek('a').allowed, false, 'depois do débito, o peek enxerga o bloqueio');
+    assert.equal(limiter.check('a').allowed, false);
+  });
+
+  it('peek de chave desconhecida não cria entrada nem devolve bloqueio', () => {
+    const limiter = createRateLimiter(2, 60_000);
+
+    const decision = limiter.peek('nunca-vista');
+    assert.equal(decision.allowed, true);
+    assert.equal(decision.remaining, 2, 'nada foi consumido');
+    assert.equal(decision.retryAfterSeconds, 0);
+  });
+
   it('reset limpa o estado', () => {
     const limiter = createRateLimiter(1, 60_000);
 

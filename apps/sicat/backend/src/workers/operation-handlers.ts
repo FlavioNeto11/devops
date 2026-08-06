@@ -39,6 +39,11 @@ import {
 } from '../services/conversation/conversation-persistence-service.js';
 import { createPrefixedId } from '../lib/ids.js';
 import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/retry.js';
+import { patchJobPayload } from './job-payload-patch.js';
+import { findConversationChannelLinkForChannel } from '../repositories/conversation-channel-link-repo.js';
+import { runWhatsAppInboundTurn } from '../services/conversation/channel/whatsapp/whatsapp-turn-service.js';
+import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsapp/index.js';
+import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
 
 const TRANSIENT_MANIFEST_SUBMIT_STATUSES = new Set(['queued_submit', 'submitting', 'processing']);
 
@@ -802,6 +807,74 @@ export async function applyConversationArtifactTerminalFailureSideEffect(job: Jo
   });
 }
 
+/**
+ * Mensagem recebida no WhatsApp (fase 3 da cadeia `whatsapp-channel-sicat`).
+ *
+ * O corpo do turno vive em `whatsapp-turn-service.ts`; aqui só a costura com a fila. Todo desfecho de
+ * NEGÓCIO — vínculo revogado, mensagem expirada, já respondida, disposição estática, timeout — volta
+ * como `{ outcome }` e termina com `finishJob`, no molde do `DMR_GATEWAY_PENDING_HAR`. Um `Error`
+ * cru seria classificado como RETENTÁVEL por `isRetryableJobError` (`retry.ts` devolve `true` quando
+ * não reconhece a mensagem) e viraria retry + DLQ com o rastro da mensagem do usuário.
+ */
+async function handleWhatsAppInboundMessage(job: JobEntity) {
+  const result = await runWhatsAppInboundTurn({
+    job: {
+      jobId: job.jobId,
+      entityId: job.entityId,
+      correlationId: job.correlationId ?? null,
+      claimedBy: job.claimedBy ?? null,
+      payload: job.payload
+    },
+    patchJobPayload: (target, patch) => patchJobPayload(target, patch)
+  });
+
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+/**
+ * Falha TERMINAL de um job de canal: avisa o usuário que a mensagem dele morreu.
+ *
+ * Sem isto, um job que vai para `failed`/`dlq` deixa a pessoa esperando para sempre — o WhatsApp não
+ * tem "spinner que some". Filtra por PAYLOAD (molde de
+ * `applyConversationArtifactTerminalFailureSideEffect`) e não por `entityType`.
+ *
+ * O corpo INTEIRO é try/catch: `handleDlqTransition` é awaited dentro do `catch` de
+ * `processClaimedJob`, que não tem catch externo — um `throw` daqui sobe até o `while` de
+ * `runWorkerLoop` e MATA O WORKER.
+ */
+export async function applyWhatsAppInboundTerminalFailureSideEffect(
+  job: JobEntity,
+  terminalFailure: TerminalFailure = {},
+  _error: unknown = null
+) {
+  try {
+    const channelLinkId = toNonEmptyString(job.payload?.channelLinkId);
+    if (!channelLinkId) return null;
+
+    // Já avisado no caminho feliz (a resposta saiu e o job morreu depois): não repetir.
+    if (job.payload?.userNotified === true) return null;
+
+    const terminalAction = String(terminalFailure.action || '').toLowerCase();
+    if (!['failed', 'dlq', 'cancelled'].includes(terminalAction)) return null;
+
+    const provider = resolveWhatsAppProvider();
+    if (!provider) return null;
+
+    const link = await findConversationChannelLinkForChannel(null, channelLinkId);
+    if (!link || !link.userId || link.verificationStatus !== 'verified') return null;
+
+    await provider.sendText({
+      to: link.externalUserKey,
+      text: buildWhatsAppTerminalFailureNotice(job.correlationId ?? null)
+    });
+
+    return { notified: true };
+  } catch (error) {
+    console.warn(`[worker] aviso de falha terminal do canal WhatsApp não pôde ser enviado (job ${job.jobId}): ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
 async function logExchange(job: JobEntity, exchange: {
   request?: LooseRecord;
   response?: LooseRecord;
@@ -883,6 +956,11 @@ export async function processJob(job: JobEntity, gateway: {
       return handleDmrSubmit(job, gateway);
     case 'conversation.bundle_documents':
       return handleConversationBundleDocuments(job);
+    // SEM o parâmetro `gateway`, no molde de `handleConversationBundleDocuments`: o tipo acima é um
+    // literal inline com 14 métodos OBRIGATÓRIOS e qualquer teste que chame `processJob` teria de
+    // fabricar todos. Dependências deste handler entram por import direto.
+    case 'whatsapp.inbound_message':
+      return handleWhatsAppInboundMessage(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

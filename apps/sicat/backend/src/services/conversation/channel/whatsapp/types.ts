@@ -25,6 +25,16 @@ export type WhatsAppInboundMessage = {
   /** ISO 8601. Quando o provedor não informa, o adaptador carimba a hora de recebimento. */
   timestamp: string | null;
   type: 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'unsupported';
+  /**
+   * Tipo CRU declarado pelo provedor, antes da normalização em `type`.
+   *
+   * Existe por um caso concreto e chato: FIGURINHA. A Meta manda `type: 'sticker'`, que não está no
+   * conjunto de mídia conhecido e vira `unsupported` com `text: null` — indistinguível de uma REAÇÃO
+   * (que deve ser descartada em silêncio). O Twilio manda a mesma figurinha como mídia `image/webp`.
+   * Sem este campo, a MESMA figurinha recebe "não consigo abrir anexos" num provedor e silêncio no
+   * outro. É a única informação que a normalização precisa preservar e não consegue representar.
+   */
+  rawType: string;
   /** Texto da mensagem (ou legenda da mídia). `null` quando não há. */
   text: string | null;
   media: WhatsAppInboundMedia | null;

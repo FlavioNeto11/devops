@@ -13,6 +13,8 @@ import { createSystemRouter } from './routes/system-routes.js';
 import { createApiRouter } from './routes/api-routes.js';
 import { createConversationRouter } from './routes/conversation-routes.js';
 import { createAiControlRouter } from './routes/ai-control-routes.js';
+import { createChannelWebhookRouter } from './routes/channel-webhook-routes.js';
+import { captureChannelRawBody, isChannelRequestUrl } from './lib/raw-body.js';
 import healthRoutes from './routes/health-routes.js';
 
 export function createApp() {
@@ -37,18 +39,17 @@ export function createApp() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Correlation-Id'],
     maxAge: 3600
   }));
-  app.use(express.json({
-    limit: '2mb',
-    // Guarda o corpo BRUTO só das rotas de canal externo: a Meta assina o webhook com HMAC-SHA256
-    // sobre os bytes exatos, e qualquer reserialização do JSON parseado muda o digest. Escopado por
-    // caminho de propósito — não faz sentido reter uma cópia de até 2 MB em toda requisição.
-    verify: (req, _res, buffer) => {
-      if (String(req.url || '').startsWith('/v1/channels/')) {
-        (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
-      }
-    }
+  // O `verify` guarda o corpo BRUTO das rotas de canal externo (HMAC da Meta é sobre os bytes
+  // exatos). Extraído para `lib/raw-body.ts` porque o router de canal monta um SEGUNDO parser
+  // (`express.urlencoded`, para o Twilio) e os dois têm de capturar pela MESMA regra.
+  app.use(express.json({ limit: '2mb', verify: captureChannelRawBody }));
+  app.use(morgan('dev', {
+    // O `:url` do morgan loga `originalUrl` COM query string, e o GET de verificação do Meta carrega
+    // `hub.verify_token` ali — que iria para stdout → Promtail → Loki. (O access log do Traefik
+    // registra a URI antes do app e está fora do alcance deste skip: trate
+    // `WHATSAPP_META_VERIFY_TOKEN` como segredo de uso único e rotacione após a verificação.)
+    skip: (req) => req.method === 'GET' && isChannelRequestUrl(req.url)
   }));
-  app.use(morgan('dev'));
   app.use(requestContextMiddleware);
   app.use(authMiddleware);
 
@@ -66,6 +67,8 @@ export function createApp() {
   app.use(createApiRouter());
   app.use(createConversationRouter());
   app.use(createAiControlRouter());
+  // Canal externo (Meta/Twilio): público por contrato, autenticado por HMAC na própria rota.
+  app.use(createChannelWebhookRouter());
   app.use(notFoundMiddleware);
   app.use(errorHandlerMiddleware);
 

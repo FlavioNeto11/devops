@@ -13,9 +13,11 @@ import {
   applyAsyncOperationTerminalFailureSideEffect,
   applyConversationArtifactTerminalFailureSideEffect,
   applyManifestCancelTerminalFailureSideEffect,
-  applyManifestSubmitTerminalFailureSideEffect
+  applyManifestSubmitTerminalFailureSideEffect,
+  applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
+import { resolveWorkerLane } from '../lib/job-lanes.js';
 
 const gateway = createCetesbGateway();
 
@@ -315,6 +317,9 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error);
   await applyManifestCancelTerminalFailureSideEffect(effectJob, transition, error);
   await applyConversationArtifactTerminalFailureSideEffect(effectJob, transition, error);
+  // Registrado AQUI e em `handleFailedTransition`. Registrar em só um dos dois produz a assimetria
+  // mais difícil de enxergar em produção: falha definitiva avisa, DLQ não (ou o inverso).
+  await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -353,6 +358,8 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error);
     await applyManifestCancelTerminalFailureSideEffect(effectJob, transition, error);
     await applyConversationArtifactTerminalFailureSideEffect(effectJob, transition, error);
+    // Par obrigatório da chamada em `handleDlqTransition` — ver comentário lá.
+    await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;
@@ -403,7 +410,8 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   }
 
   await requeueStaleJobsIfNeeded();
-  const jobs = await claimJobs(config.workerBatchSize);
+  // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
+  const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {
     if (once) {
       return false;

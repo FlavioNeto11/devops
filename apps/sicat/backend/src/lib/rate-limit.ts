@@ -25,7 +25,20 @@ export type RateLimitDecision = {
 };
 
 export type RateLimiter = {
+  /** Decide E CONSOME uma unidade da janela quando permitido. */
   check(key: string): RateLimitDecision;
+  /**
+   * Mesma decisão de `check`, **sem** consumir a janela.
+   *
+   * Existe para quem precisa decidir cedo (barrar antes de gastar trabalho) mas só pode cobrar a cota
+   * DEPOIS de saber que o trabalho de fato aconteceu — no canal WhatsApp, uma reentrega duplicada ou
+   * uma reação com emoji não podem consumir a cota de perguntas de verdade da pessoa.
+   *
+   * `peek` + `check` posterior NÃO é atômico: duas requisições concorrentes podem passar as duas.
+   * Aceitável aqui porque a janela é de minutos e existe um teto global antes deste — mas quem usar
+   * precisa saber que o teto é aproximado por cima, não exato.
+   */
+  peek(key: string): RateLimitDecision;
   /** Descarta o estado — usado por testes. */
   reset(): void;
 };
@@ -50,35 +63,53 @@ export function createRateLimiter(limit: number, windowMs: number): RateLimiter 
     }
   }
 
-  return {
-    check(key: string): RateLimitDecision {
-      const now = Date.now();
-      const cutoff = now - windowMs;
+  function decide(key: string, consume: boolean): RateLimitDecision {
+    const now = Date.now();
+    const cutoff = now - windowMs;
 
-      const bucket = buckets.get(key) || { hits: [] };
-      // Descarta os hits que saíram da janela.
-      const hits = bucket.hits.filter((timestamp) => timestamp > cutoff);
+    const bucket = buckets.get(key) || { hits: [] };
+    // Descarta os hits que saíram da janela.
+    const hits = bucket.hits.filter((timestamp) => timestamp > cutoff);
 
-      if (hits.length >= limit) {
-        buckets.set(key, { hits });
-        // `hits` não é vazio aqui (length >= limit >= 1), mas o tsconfig é estrito com índices.
-        const oldest = hits[0] ?? now;
-        return {
-          allowed: false,
-          remaining: 0,
-          retryAfterSeconds: Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
-        };
-      }
-
-      hits.push(now);
+    if (hits.length >= limit) {
       buckets.set(key, { hits });
-      prune(now);
+      // `hits` não é vazio aqui (length >= limit >= 1), mas o tsconfig é estrito com índices.
+      const oldest = hits[0] ?? now;
+      return {
+        allowed: false,
+        remaining: 0,
+        retryAfterSeconds: Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
+      };
+    }
 
+    if (!consume) {
+      // Não grava nada: `peek` sobre chave desconhecida não pode criar entrada (o balde cresceria com
+      // tráfego arbitrário sem nunca ter cobrado nada).
       return {
         allowed: true,
         remaining: Math.max(0, limit - hits.length),
         retryAfterSeconds: 0
       };
+    }
+
+    hits.push(now);
+    buckets.set(key, { hits });
+    prune(now);
+
+    return {
+      allowed: true,
+      remaining: Math.max(0, limit - hits.length),
+      retryAfterSeconds: 0
+    };
+  }
+
+  return {
+    check(key: string): RateLimitDecision {
+      return decide(key, true);
+    },
+
+    peek(key: string): RateLimitDecision {
+      return decide(key, false);
     },
 
     reset(): void {

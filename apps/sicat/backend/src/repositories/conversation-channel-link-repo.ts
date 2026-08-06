@@ -151,6 +151,33 @@ export async function findConversationChannelLinkById(
   return mapConversationChannelLink(result.rows[0]);
 }
 
+/**
+ * Vínculo por id, SEM escopo de usuário — para o worker do canal (fase 3).
+ *
+ * A irmã `findConversationChannelLinkById` exige `userId` porque atende a superfície autenticada
+ * (o dono lendo os próprios vínculos). Aqui é o oposto: o job de mensagem recebida deliberadamente
+ * **não** carrega `userId` no payload, para que a revogação seja efetiva — quem manda é a linha
+ * RELIDA no momento da execução, não uma cópia congelada na fila. Passar o `userId` do payload como
+ * filtro reintroduziria exatamente o congelamento que se quis evitar.
+ *
+ * O chamador é obrigado a conferir `verificationStatus === 'verified'`: esta função devolve a linha
+ * como ela está, inclusive `pending`.
+ */
+export async function findConversationChannelLinkForChannel(
+  client: PoolClient | null,
+  id: string
+) {
+  const result = await run<ConversationChannelLinkRow>(
+    client,
+    `select *
+       from conversation_channel_links
+      where id = $1
+      limit 1`,
+    [id]
+  );
+  return mapConversationChannelLink(result.rows[0]);
+}
+
 /** Teto de vínculos por usuário. Conta só o que já está verificado — `pending` não ocupa vaga. */
 export async function countConversationChannelLinksByUser(
   client: PoolClient | null,
