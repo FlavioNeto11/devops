@@ -47,6 +47,10 @@ default). A adoção dos tokens é **opt-in explícito por marca** no `build.mjs
 em `renderers/<app>.mjs` que **transcreve a paleta atual do app** (zero mudança visual):
 - **sicat** → `apps/sicat/frontend/src/styles/tokens.generated.css` + `src/plugins/vuetify-theme.generated.js`
   (tema Vuetify importado pelo plugin). Fonte: `tokens.json` (`brands.sicat`).
+- **gymops** → bloco de vars hsl **entre marcadores** `/* @generated-tokens:start */ ... :end */`
+  dentro de `apps/gymops/apps/web/src/app/globals.css` (o arquivo é do app — as diretivas
+  `@tailwind` precisam seguir no topo do pipeline Next.js; o codegen substitui só o bloco).
+  Fonte: `tokens.json` (`brands.gymops.hsl`), consumida pelo `tailwind.config.ts` via `hsl(var(--x))`.
 
 ## Roadmap das próximas camadas (ver plano de UX/design)
 - **B — `packages/ui-react`**: primitivos React (Button/Card/Input/EmptyState/Skeleton/DataTable/AiPanel…).
