@@ -20,7 +20,7 @@
     @retry="load"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/audit-logs">Voltar à trilha</UiButton>
+      <UiButton variant="ghost" to="/audit-logs">Voltar</UiButton>
     </template>
 
     <!-- Banner de tipo de ação (cor + ícone textual) -->
@@ -40,7 +40,7 @@
           <strong>{{ entityLabel(event.entity_type) }}</strong>
           <span v-if="event.entity_id"> #<span class="ald-mono">{{ event.entity_id }}</span></span>
         </span>
-        <span class="ald-banner-ts">{{ format.formatDateTime(event.created_at) }}</span>
+        <span class="ald-banner-ts">{{ formatDateTimeSeconds(event.created_at) }}</span>
       </div>
     </template>
 
@@ -72,7 +72,7 @@
           hint="Tipo de objeto afetado"
         />
         <UiMetricCard
-          label="Ator"
+          label="Usuário"
           :value="event.actor || 'Sistema'"
           tone="neutral"
           hint="Quem executou"
@@ -81,7 +81,7 @@
           label="Ocorreu em"
           :value="relativeTime"
           tone="neutral"
-          :hint="format.formatDateTime(event.created_at)"
+          :hint="formatDateTimeSeconds(event.created_at)"
         />
       </section>
 
@@ -114,12 +114,16 @@
               </dd>
             </div>
             <div class="ald-kv-item">
-              <dt>Ator</dt>
+              <dt>Usuário</dt>
               <dd>{{ display(event.actor) }}</dd>
             </div>
             <div class="ald-kv-item">
+              <dt>IP</dt>
+              <dd class="ald-mono">{{ display(event.ip_address) }}</dd>
+            </div>
+            <div class="ald-kv-item">
               <dt>Ocorreu em</dt>
-              <dd class="ald-datetime">{{ format.formatDateTime(event.created_at) }}</dd>
+              <dd class="ald-datetime">{{ formatDateTimeSeconds(event.created_at) }}</dd>
             </div>
           </dl>
         </UiCard>
@@ -152,10 +156,10 @@
         </UiCard>
       </div>
 
-      <!-- MetadataDiffViewer — diff de → para nos metadados do evento -->
+      <!-- Payload do evento — diff de → para ou dados brutos registrados na ação -->
       <UiCard
-        title="Metadados do evento"
-        subtitle="Diff antes → depois registrado no momento da ação"
+        title="Payload"
+        subtitle="Dados registrados no momento da ação (diff antes → depois quando aplicável)"
       >
         <!-- Sem metadados -->
         <UiEmptyState
@@ -328,6 +332,18 @@ const actionTone = (v) => ACTION_TONES[norm(v)] || 'neutral';
 const entityLabel = (v) => ENTITY_LABELS[norm(v)] || (v ? format.humanize(v) : '—');
 const display = (v) => (v === null || v === undefined || v === '' ? '—' : String(v));
 
+// Formata timestamp com segundos (dd/MM/yyyy HH:mm:ss) — timeStyle 'medium' inclui segundos em pt-BR.
+function formatDateTimeSeconds(value) {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(d);
+  } catch {
+    return d.toISOString();
+  }
+}
+
 // ── Cabeçalho dinâmico ───────────────────────────────────────────────────────────
 const pageTitle = computed(() => {
   if (loading.value || !event.value.id) return 'Evento de auditoria';
@@ -341,7 +357,7 @@ const pageSubtitle = computed(() => {
   const parts = [];
   if (event.value.actor) parts.push('por ' + event.value.actor);
   if (event.value.entity_id) parts.push('entidade #' + event.value.entity_id);
-  if (event.value.created_at) parts.push(format.formatDateTime(event.value.created_at));
+  if (event.value.created_at) parts.push(formatDateTimeSeconds(event.value.created_at));
   return parts.length ? parts.join(' · ') : 'Detalhe do evento.';
 });
 
