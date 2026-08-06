@@ -174,6 +174,9 @@ const MIGRATIONS = [
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
+  // REF-NEUROEVOLUI-0045: event_type e schedule por preferência de notificação
+  `ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'all'`,
+  `ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS schedule TEXT NOT NULL DEFAULT 'immediate'`,
 ];
 export async function migrate() {
   const c = await pool.connect();
