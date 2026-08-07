@@ -93,7 +93,11 @@ type ConfigKey =
   | 'whatsappProviderTimeoutMs'
   | 'whatsappProviderUploadTimeoutMs'
   | 'whatsappExpiredNoticeWindowMs'
-  | 'whatsappUnlinkedNoticeEnabled';
+  | 'whatsappUnlinkedNoticeEnabled'
+  | 'whatsappRenderMaxItems'
+  | 'whatsappRenderMaxCards'
+  | 'whatsappSegmentSoftChars'
+  | 'whatsappReplyMaxSegments';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -249,5 +253,26 @@ export const config = {
    * tráfego arbitrário e amplificação de spam. Quando ligado, o texto é IDÊNTICO para número
    * desconhecido, vínculo `pending` e telefone inválido — não vira oráculo de enumeração.
    */
-  get whatsappUnlinkedNoticeEnabled() { return getConfigValue('whatsappUnlinkedNoticeEnabled', toBool(process.env.WHATSAPP_UNLINKED_NOTICE_ENABLED, false)); }
+  get whatsappUnlinkedNoticeEnabled() { return getConfigValue('whatsappUnlinkedNoticeEnabled', toBool(process.env.WHATSAPP_UNLINKED_NOTICE_ENABLED, false)); },
+  /* ── Renderer de resultado estruturado (fase 4) ────────────────────────────────────────────────
+   * ORÇAMENTO ANTES, SEGMENTAÇÃO DEPOIS: estes tetos rodam no renderer, ANTES de qualquer
+   * empacotamento. É o que torna o estouro estruturalmente impossível e o resultado determinístico —
+   * uma lista de 500 itens sempre produz o mesmo corpo e declara sempre o mesmo número omitido.
+   * NÃO são estética: o OOM deste módulo veio de materializar a lista inteira antes de cortar. */
+  /** Itens de lista exibidos por resposta. 8 ≈ um rolar de polegar; o resto vira contagem honesta. */
+  get whatsappRenderMaxItems() { return getConfigValue('whatsappRenderMaxItems', Number(process.env.WHATSAPP_RENDER_MAX_ITEMS || 8)); },
+  /** Cartões (detalhe multi-linha) por resposta. Única família que naturalmente pede 2 segmentos. */
+  get whatsappRenderMaxCards() { return getConfigValue('whatsappRenderMaxCards', Number(process.env.WHATSAPP_RENDER_MAX_CARDS || 3)); },
+  /**
+   * Alvo de UX por mensagem (~15 linhas de celular). É teto MOLE: quem manda no limite técnico é
+   * `whatsappReplyMaxChars`. Acima de ~2000 o cliente do WhatsApp colapsa a mensagem atrás de
+   * "Ler mais" — perda SILENCIOSA, a mesma classe de falha que a truncagem honesta elimina.
+   */
+  get whatsappSegmentSoftChars() { return getConfigValue('whatsappSegmentSoftChars', Number(process.env.WHATSAPP_SEGMENT_SOFT_CHARS || 1200)); },
+  /**
+   * Quantas mensagens uma resposta pode ocupar. A segunda é GANHA, não consequência de estouro: cada
+   * mensagem é paga e uma rajada lê como spam (bloqueio do número é dano permanente de canal). Se 2
+   * não bastam, o problema é o escopo da pergunta, não a formatação.
+   */
+  get whatsappReplyMaxSegments() { return getConfigValue('whatsappReplyMaxSegments', Number(process.env.WHATSAPP_REPLY_MAX_SEGMENTS || 2)); }
 };

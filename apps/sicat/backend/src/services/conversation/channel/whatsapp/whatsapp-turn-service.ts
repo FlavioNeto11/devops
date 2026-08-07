@@ -15,6 +15,25 @@
  * │ É isto que torna o retry do job um retry de ENTREGA e nunca de LLM. Sem ele, `maxAttempts: 3`   │
  * │ significaria até 3 chamadas de LLM e 3 respostas DIFERENTES para a mesma pergunta.              │
  * └───────────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * ┌─ FASE 4: O MESMO LIVRO-RAZÃO, AGORA POR SEGMENTO ─────────────────────────────────────────────┐
+ * │ Com N mensagens, os escalares `(replyText, replySentAt)` só admitem DOIS desfechos: carimbar   │
+ * │ no fim → o retry reenvia tudo e a pessoa recebe duplicata; carimbar na primeira → as demais    │
+ * │ nunca saem e o job fecha como SUCESSO MUDO. O segundo é exatamente a falha que a fase 3 gastou │
+ * │ o bloco de EXPIRAÇÃO DE BACKLOG para eliminar. O terceiro desfecho — RETOMAR do índice — só    │
+ * │ existe se o índice do último entregue for persistido DEPOIS DE CADA envio.                     │
+ * │                                                                                                │
+ * │ REGRA DE OURO DA MIGRAÇÃO: com **N === 1**, a sequência de patches, os NOMES DE CHAVE e o      │
+ * │ texto enviado são BYTE-IDÊNTICOS à fase 3. `replySegments`/`sentSegmentCount`/                 │
+ * │ `segmentMessageIds`/`replyFullyDelivered` só aparecem no payload quando N >= 2. Isso é         │
+ * │ requisito de projeto, não consequência feliz: é o que faz os testes-âncora do livro-razão      │
+ * │ passarem SEM EDIÇÃO. Editar um deles é sinal de que o desenho foi violado.                     │
+ * │                                                                                                │
+ * │ Ordem inegociável: PERSISTE → ENVIA → CARIMBA, por segmento. `sendAttempts` incrementado ANTES │
+ * │ de cada chamada (é o que limita o loop quando o processo morre DENTRO do fetch);               │
+ * │ `sentSegmentCount` carimbado DEPOIS de cada sucesso. Inverter qualquer par faz o retry voltar  │
+ * │ a ser retry de TURNO — e aí cada falha de rede do provedor custa uma chamada de LLM inteira.   │
+ * └───────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
 import { config } from '../../../../lib/config.js';
@@ -27,6 +46,7 @@ import {
   buildWhatsAppExpiredNotice,
   buildWhatsAppTurnTimeoutNotice,
   composeStaticWhatsAppReply,
+  composeWhatsAppNotice,
   composeWhatsAppReply,
   type ComposableTurnOutput,
   type WhatsAppDisposition
@@ -103,6 +123,31 @@ function toNonEmptyString(value: unknown): string | null {
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Segmentos já preparados por uma execução anterior.
+ *
+ * O fallback para `replyText` NÃO é higiene, é risco de ROLLOUT: jobs enfileirados pela versão
+ * anterior têm só `replyText` e, sem ele, reexecutariam o LLM — custo dobrado e resposta possivelmente
+ * DIVERGENTE da que a pessoa já recebeu. É uma linha de código, e a ausência dela é silenciosa.
+ */
+function readPreparedSegments(payload: LooseRecord): string[] {
+  const stored = payload.replySegments;
+  if (Array.isArray(stored)) {
+    const segments = stored
+      .map((segment) => toNonEmptyString(segment))
+      .filter((segment): segment is string => segment !== null);
+    if (segments.length > 0) return segments;
+  }
+  const single = toNonEmptyString(payload.replyText);
+  return single ? [single] : [];
+}
+
+function readStoredMessageIds(payload: LooseRecord): Array<string | null> {
+  const stored = payload.segmentMessageIds;
+  if (!Array.isArray(stored)) return [];
+  return stored.map((value) => toNonEmptyString(value));
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -220,12 +265,36 @@ export async function runWhatsAppInboundTurn(input: {
   // ── C1: CAMINHO RÁPIDO DE ENTREGA, antes de qualquer LLM ──────────────────────────────────────
   if (toNonEmptyString(payload.replySentAt)) {
     // Cobre `requeueStaleRunningJobs` (WORKER_CLAIM_STALE) depois de um envio bem-sucedido.
-    return { outcome: 'whatsapp_inbound_already_answered', patch: { text: null, replyText: null } };
+    //
+    // `replySegments`/`segmentMessageIds` TAMBÉM zerados: `finishJob` faz MERGE
+    // (`payload: { ...job.payload, ...patch }`), não rewrite. Numa resposta de N>=2 que morreu entre
+    // o último `sendText` e o `finishJob`, sem estas duas chaves o job conclui como `succeeded` com
+    // os segmentos RESIDENTES na tabela `jobs` — carregando nome de gerador, transportador,
+    // destinador, motorista e placa. É a mesma decisão de privacidade que o caminho feliz honra.
+    return {
+      outcome: 'whatsapp_inbound_already_answered',
+      patch: { text: null, replyText: null, replySegments: null, segmentMessageIds: null }
+    };
   }
 
-  const preparedReply = toNonEmptyString(payload.replyText);
-  const sendAttempts = toNumber(payload.sendAttempts);
-  if (sendAttempts >= (Number(config.whatsappMaxSendAttempts) || 2) && !toNonEmptyString(payload.replySentAt)) {
+  const preparedSegments = readPreparedSegments(payload);
+  const sentSegmentCount = Math.max(0, Math.min(toNumber(payload.sentSegmentCount), preparedSegments.length));
+  let sendAttempts = toNumber(payload.sendAttempts);
+
+  // Teto ESCALADO, não zerado por avanço: `sendAttempts` continua significando "quantas vezes bati
+  // no provedor por este job" (é campo lido em painel de fila fora deste módulo). Escalar preserva a
+  // semântica e mantém o orçamento de retry em `whatsappMaxSendAttempts` por chamada NOVA. Com N=1
+  // o valor é idêntico ao da fase 3.
+  const attemptsCeiling = (Number(config.whatsappMaxSendAttempts) || 2)
+    + Math.max(0, preparedSegments.length - 1);
+  if (sendAttempts >= attemptsCeiling && !toNonEmptyString(payload.replySentAt)) {
+    // Entrega PARCIAL não pode virar sucesso mudo no painel — é a falha que a fase 3 eliminou.
+    if (sentSegmentCount > 0) {
+      return {
+        outcome: 'whatsapp_inbound_partially_answered',
+        patch: { text: null, replyText: null, replySegments: null, segmentMessageIds: null, userNotified: true }
+      };
+    }
     return { outcome: 'whatsapp_inbound_reply_undeliverable', patch: { text: null, replyText: null } };
   }
 
@@ -243,11 +312,11 @@ export async function runWhatsAppInboundTurn(input: {
   }
 
   const disposition = (toNonEmptyString(payload.disposition) || 'process_turn') as WhatsAppDisposition;
-  let replyText = preparedReply;
+  let segments = preparedSegments;
   let conversationTurnId: string | null = null;
   let outcome = 'whatsapp_inbound_answered';
 
-  if (!replyText) {
+  if (segments.length === 0) {
     // ── C3: FRESCOR DE EXECUÇÃO ────────────────────────────────────────────────────────────────
     // Só vale quando NADA foi preparado: senão um reenvio legítimo seria abortado. Responder a
     // pergunta 10 minutos depois é pior que não responder — mas SUMIR não é opção: o desfecho é
@@ -275,72 +344,144 @@ export async function runWhatsAppInboundTurn(input: {
     if (expiry?.notice) {
       // Zero LLM: a resposta útil não existe mais. O que sai é o aviso, pelo mesmo livro-razão de
       // entrega (persiste → envia → carimba), então retry aqui também é retry de ENTREGA.
-      replyText = expiry.notice;
+      //
+      // Correção de graça da fase 4: este aviso e o de timeout eram os ÚNICOS textos que saíam sem
+      // passar pelo funil de higiene (iam direto para `replyText`). Agora vão.
+      segments = composeWhatsAppNotice(expiry.notice, { correlationId });
       outcome = 'whatsapp_inbound_expired';
     } else if (disposition !== 'process_turn') {
       // ── C4: disposição estática. Zero LLM. ───────────────────────────────────────────────────
-      replyText = composeStaticWhatsAppReply(disposition, { correlationId });
+      segments = composeStaticWhatsAppReply(disposition, { correlationId });
       outcome = `whatsapp_inbound_${disposition}`;
-      if (!replyText) {
+      if (segments.length === 0) {
         return { outcome: 'whatsapp_inbound_ignored', patch: { text: null, replyText: null } };
       }
     } else {
       const turn = await runProcessTurn({ job, link, payload, correlationId });
-      replyText = turn.replyText;
+      segments = turn.segments;
       conversationTurnId = turn.conversationTurnId;
       outcome = turn.outcome;
     }
 
+    if (segments.length === 0) {
+      return { outcome: 'whatsapp_inbound_ignored', patch: { text: null, replyText: null } };
+    }
+
     // ── C6: PERSISTE A RESPOSTA ANTES DE ENVIAR ──────────────────────────────────────────────────
-    await patchJobPayload(job, { replyText, replyPreparedAt: new Date(dependencies.now()).toISOString() });
+    // Os segmentos são PERSISTIDOS e nunca re-renderizados no retry: dado que mudou entregaria um
+    // segmento 2 incoerente com o segmento 1 já entregue.
+    //
+    // Com N === 1 o patch é EXATAMENTE `{ replyText, replyPreparedAt }` — mesmas chaves, mesma
+    // ordem, mesmo texto da fase 3.
+    const preparePatch: LooseRecord = {
+      replyText: segments[0],
+      replyPreparedAt: new Date(dependencies.now()).toISOString()
+    };
+    if (segments.length >= 2) {
+      preparePatch.replySegments = segments;
+      preparePatch.sentSegmentCount = 0;
+    }
+    await patchJobPayload(job, preparePatch);
   }
 
   // ── C7: ENVIO ────────────────────────────────────────────────────────────────────────────────
   const provider = dependencies.resolveProvider();
   if (!provider) {
     // Canal desligado entre o enqueue e a execução. Não é falha técnica; retentar não resolve.
-    return { outcome: 'whatsapp_inbound_channel_disabled', patch: { text: null, replyText: null } };
+    //
+    // Este ramo roda DEPOIS de C6 ter persistido os segmentos, então é a segunda das duas únicas
+    // saídas que podem ocorrer com `replySegments` já no payload — e `finishJob` faz MERGE. Sem
+    // zerar, o texto do operador fica residente em `jobs`.
+    return {
+      outcome: 'whatsapp_inbound_channel_disabled',
+      patch: { text: null, replyText: null, replySegments: null, segmentMessageIds: null }
+    };
   }
 
-  // Incrementado ANTES da chamada: é isto que limita o loop quando o processo morre DENTRO do fetch.
-  await patchJobPayload(job, { sendAttempts: sendAttempts + 1 });
+  const multiSegment = segments.length >= 2;
+  const messageIds = readStoredMessageIds(payload);
+  let replyChars = 0;
+  for (const segment of segments) replyChars += segment.length;
 
-  let replyProviderMessageId: string | null = null;
-  try {
-    const sent = await provider.sendText({ to: link.externalUserKey, text: replyText });
-    replyProviderMessageId = sent?.providerMessageId ?? null;
-  } catch (error) {
-    await patchJobPayload(job, { lastSendErrorCode: extractErrorCode(error) });
-    // LANÇA: quem decide retry/DLQ é o `job-runner`. O retry é barato porque C1 pula o turno.
-    throw error;
+  for (let index = sentSegmentCount; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (!segment) continue;
+
+    // Incrementado ANTES da chamada: é isto que limita o loop quando o processo morre DENTRO do fetch.
+    sendAttempts += 1;
+    await patchJobPayload(job, { sendAttempts });
+
+    let providerMessageId: string | null = null;
+    try {
+      const sent = await provider.sendText({ to: link.externalUserKey, text: segment });
+      providerMessageId = sent?.providerMessageId ?? null;
+    } catch (error) {
+      const failurePatch: LooseRecord = { lastSendErrorCode: extractErrorCode(error) };
+      if (multiSegment) failurePatch.partialDelivery = index > 0;
+      await patchJobPayload(job, failurePatch);
+      // LANÇA: quem decide retry/DLQ é o `job-runner`. O retry é barato porque C1 pula o turno E
+      // retoma do índice — nem reexecuta o LLM, nem reenvia o que já saiu.
+      throw error;
+    }
+
+    messageIds[index] = providerMessageId;
+    const isLast = index === segments.length - 1;
+
+    if (!multiSegment) {
+      await patchJobPayload(job, {
+        replySentAt: new Date(dependencies.now()).toISOString(),
+        replyProviderMessageId: providerMessageId,
+        userNotified: true
+      });
+      continue;
+    }
+
+    // `userNotified: true` já no PRIMEIRO segmento: ele é autossuficiente por construção (resposta +
+    // contagem honesta + saída para o SICAT), então morrer depois dele é TRUNCAGEM, não silêncio —
+    // e disparar "não consegui processar sua última mensagem" para quem acabou de receber a resposta
+    // seria pior (e ainda custaria uma mensagem).
+    const deliveryPatch: LooseRecord = {
+      sentSegmentCount: index + 1,
+      segmentMessageIds: messageIds,
+      userNotified: true
+    };
+    if (isLast) {
+      // `replySentAt` SÓ QUANDO TUDO SAIU — é o carimbo de "acabei" que C1 lê.
+      deliveryPatch.replySentAt = new Date(dependencies.now()).toISOString();
+      deliveryPatch.replyProviderMessageId = messageIds[0] ?? null;
+      deliveryPatch.replyFullyDelivered = true;
+    }
+    await patchJobPayload(job, deliveryPatch);
   }
-
-  await patchJobPayload(job, {
-    replySentAt: new Date(dependencies.now()).toISOString(),
-    replyProviderMessageId,
-    userNotified: true
-  });
 
   await safeAudit({
     correlationId,
     entityId: job.entityId,
     direction: 'outbound',
-    body: { maskedUserKey, disposition, outcome, replyChars: replyText.length }
+    // `replyChars` preserva o NOME (os painéis leem esse campo) e passa a ser a SOMA.
+    body: multiSegment
+      ? { maskedUserKey, disposition, outcome, replyChars, replySegmentCount: segments.length }
+      : { maskedUserKey, disposition, outcome, replyChars }
   });
 
   // ── C9 (parte do patch): `text`/`replyText` zerados no caminho feliz. `finishJob` REESCREVE o
   // payload inteiro, então aqui o conteúdo deixa de existir em `jobs`. Só jobs que MORRERAM retêm o
   // texto — e neles ele é a evidência de diagnóstico.
-  return {
-    outcome,
-    patch: {
-      conversationTurnId,
-      replyChars: replyText.length,
-      userNotified: true,
-      text: null,
-      replyText: null
-    }
+  const finalPatch: LooseRecord = {
+    conversationTurnId,
+    replyChars,
+    userNotified: true,
+    text: null,
+    replyText: null
   };
+  if (multiSegment) {
+    // Sem isto o texto do operador (com nomes de gerador e motorista) ficaria residente na tabela
+    // `jobs` — regressão direta de uma decisão de privacidade que a fase 3 já pagou.
+    finalPatch.replySegments = null;
+    finalPatch.segmentMessageIds = null;
+  }
+
+  return { outcome, patch: finalPatch };
 }
 
 async function runProcessTurn(input: {
@@ -348,7 +489,7 @@ async function runProcessTurn(input: {
   link: ChannelLinkLike;
   payload: LooseRecord;
   correlationId: string | null;
-}): Promise<{ replyText: string; conversationTurnId: string | null; outcome: string }> {
+}): Promise<{ segments: string[]; conversationTurnId: string | null; outcome: string }> {
   const { job, link, payload, correlationId } = input;
 
   // ── C5.1: PRINCIPAL montado AQUI, com contexto fresco ─────────────────────────────────────────
@@ -408,7 +549,7 @@ async function runProcessTurn(input: {
       // Pendência funcional: retentar um timeout custa outros 120 s. A promise órfã continua rodando
       // e ainda grava o registro do turno — o que se descarta é a RESPOSTA, não o custo.
       return {
-        replyText: buildWhatsAppTurnTimeoutNotice(correlationId),
+        segments: composeWhatsAppNotice(buildWhatsAppTurnTimeoutNotice(correlationId), { correlationId }),
         conversationTurnId: null,
         outcome: 'whatsapp_inbound_timeout'
       };
@@ -418,8 +559,10 @@ async function runProcessTurn(input: {
     throw error;
   }
 
-  // ── C5.4: ALLOWLIST de saída ─────────────────────────────────────────────────────────────────
-  const replyText = composeWhatsAppReply(output, {
+  // ── C5.4: ALLOWLIST de saída + FICHA (fase 4) ────────────────────────────────────────────────
+  // `output.result` existia em runtime desde sempre e era descartado em silêncio — todo o
+  // `ConversationStructuredResult` ia para o lixo. É ele que o renderer lê agora.
+  const segments = composeWhatsAppReply(output, {
     correlationId,
     mediaIgnored: payload.mediaIgnored === true,
     textTruncated: payload.textTruncated === true
@@ -438,7 +581,7 @@ async function runProcessTurn(input: {
   });
 
   return {
-    replyText,
+    segments,
     conversationTurnId: toNonEmptyString(output.conversationTurnId),
     outcome: `whatsapp_inbound_${output.status}`
   };

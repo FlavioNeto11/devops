@@ -1093,6 +1093,17 @@ describe('worker — pendência funcional × falha técnica', () => {
 /* 8. Compositor de resposta (ALLOWLIST)                                                          */
 /* -------------------------------------------------------------------------------------------- */
 
+/**
+ * A fase 4 mudou o CONTRATO destas funções: elas devolvem `string[]` (uma entrada por mensagem do
+ * WhatsApp), porque uma resposta pode ocupar mais de uma bolha. Os casos abaixo continuam medindo a
+ * mesma coisa — a ALLOWLIST por status — só que sobre o texto entregue, que é a concatenação das
+ * mensagens na ordem em que a pessoa as recebe.
+ */
+function deliveredText(segments) {
+  assert.ok(Array.isArray(segments), 'o compositor entrega uma lista de mensagens');
+  return segments.join('\n\n');
+}
+
 describe('compositor — allowlist de saída', () => {
   it('INTEGRATION_ACCOUNT_REQUIRED nunca repassa o responseText do motor', () => {
     // O texto original é ou "selecione uma conta ativa NO CHAT" (UI que não existe aqui), ou ~700
@@ -1104,7 +1115,7 @@ describe('compositor — allowlist de saída', () => {
       policy: { reasonCode: 'INTEGRATION_ACCOUNT_REQUIRED' }
     };
 
-    const reply = composeWhatsAppReply(output, { correlationId: 'corr_1' });
+    const reply = deliveredText(composeWhatsAppReply(output, { correlationId: 'corr_1' }));
 
     assert.ok(!reply.includes('Prévia da ação'));
     assert.ok(!reply.toLowerCase().includes('confirmo'));
@@ -1112,33 +1123,33 @@ describe('compositor — allowlist de saída', () => {
   });
 
   it('CHANNEL_BLOCKED explica o read-only sem instruir uma confirmação impossível', () => {
-    const reply = composeWhatsAppReply({
+    const reply = deliveredText(composeWhatsAppReply({
       status: 'blocked',
       responseText: 'responda "confirmo manifest.cancel"',
       policy: { reasonCode: 'CHANNEL_BLOCKED' }
-    });
+    }));
 
     assert.ok(!reply.toLowerCase().includes('confirmo'));
     assert.match(reply, /só consulto/);
   });
 
   it('reasonCode DESCONHECIDO cai no genérico, nunca no responseText (fail-closed)', () => {
-    const reply = composeWhatsAppReply({
+    const reply = deliveredText(composeWhatsAppReply({
       status: 'blocked',
       responseText: 'texto interno que não pode sair',
       policy: { reasonCode: 'REASON_QUE_AINDA_NAO_EXISTE' }
-    });
+    }));
 
     assert.ok(!reply.includes('texto interno'));
     assert.match(reply, /Tente pelo SICAT no navegador/);
   });
 
   it('failed/PROVIDER_UNAVAILABLE não vaza reasonCode nem correlationId no corpo', () => {
-    const reply = composeWhatsAppReply({
+    const reply = deliveredText(composeWhatsAppReply({
       status: 'failed',
       responseText: 'Provedor LLM indisponivel no momento. reasonCode=PROVIDER_UNAVAILABLE correlationId=corr_abc.',
       policy: { reasonCode: 'PROVIDER_UNAVAILABLE' }
-    }, { correlationId: 'corr_abc' });
+    }, { correlationId: 'corr_abc' }));
 
     assert.ok(!reply.includes('reasonCode='));
     assert.ok(!reply.includes('correlationId='));
@@ -1146,11 +1157,11 @@ describe('compositor — allowlist de saída', () => {
   });
 
   it('responded entrega o texto do LLM com higiene de markdown', () => {
-    const reply = composeWhatsAppReply({
+    const reply = deliveredText(composeWhatsAppReply({
       status: 'responded',
       responseText: '## Resumo\n**3 MTRs** hoje\n- MTR 1\n- MTR 2',
       policy: { reasonCode: null }
-    });
+    }));
 
     assert.ok(!reply.includes('**'), '`**x**` aparece LITERAL na tela do WhatsApp');
     assert.ok(!reply.includes('## '));
@@ -1160,35 +1171,35 @@ describe('compositor — allowlist de saída', () => {
 
   it('resposta acima do teto é truncada com sufixo honesto', () => {
     setConfigOverride('whatsappReplyMaxChars', 200);
-    const reply = composeWhatsAppReply({
+    const reply = deliveredText(composeWhatsAppReply({
       status: 'responded',
       responseText: 'a'.repeat(5000),
       policy: { reasonCode: null }
-    });
+    }));
 
     assert.ok(reply.length <= 200, 'acima de ~4096 o provedor REJEITA e o usuário fica MUDO');
     assert.match(reply, /foi cortada aqui/);
   });
 
   it('rodapés de mídia e truncagem vão na MESMA mensagem, depois da resposta útil', () => {
-    const reply = composeWhatsAppReply(
+    const reply = deliveredText(composeWhatsAppReply(
       { status: 'responded', responseText: 'Resposta útil.', policy: { reasonCode: null } },
       { mediaIgnored: true, textTruncated: true }
-    );
+    ));
 
     assert.ok(reply.indexOf('Resposta útil.') < reply.indexOf('não consigo abrir arquivos'));
     assert.match(reply, /sua mensagem era longa/);
   });
 
   it('saudação apresenta o canal como read-only e traz o cardápio', () => {
-    const reply = composeStaticWhatsAppReply('greeting');
+    const reply = deliveredText(composeStaticWhatsAppReply('greeting'));
     assert.match(reply, /\*consulto\*/);
     assert.match(reply, /não emito, não imprimo e não cancelo/);
     assert.match(reply, /meus MTRs de hoje/);
   });
 
   it('mídia sem legenda promete o chat web, que de fato lê PDF e imagem', () => {
-    assert.match(composeStaticWhatsAppReply('unsupported_media'), /lê PDF e imagem/);
+    assert.match(deliveredText(composeStaticWhatsAppReply('unsupported_media')), /lê PDF e imagem/);
   });
 });
 

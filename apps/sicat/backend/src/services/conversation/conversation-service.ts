@@ -1034,7 +1034,7 @@ async function executeToolWithFallback(input: {
       });
     });
 
-    const assistantResponseText = await resolveAssistantResponseText(llmPlan.outputText, enrichedToolResult, input.messageText, input.synthesizer);
+    const assistantResponseText = await resolveAssistantResponseText(llmPlan.outputText, enrichedToolResult, input.messageText, input.synthesizer, context.channel);
 
     const resultingJobId = (enrichedToolResult as { jobId?: string | null }).jobId || null;
     const conversationMemory = buildToolConversationMemory({
@@ -1197,7 +1197,8 @@ async function executeToolWithFallback(input: {
           userMessage: input.messageText,
           toolName: toolCall.name,
           reasonCode,
-          correlationId: context.correlationId
+          correlationId: context.correlationId,
+          channel: context.channel
         });
       } catch (unsupportedError: unknown) {
         if (unsupportedError instanceof AppError && unsupportedError.code === 'PROVIDER_UNAVAILABLE') {
@@ -1777,10 +1778,15 @@ export type ConversationSynthesizer = (input: {
   userMessage: string;
   evidence: string;
   fallbackSummary: string | null;
+  /**
+   * Canal de entrega, resolvido no servidor. Opcional para não quebrar synthesizers injetados por
+   * teste; quem ignora o campo mantém exatamente o comportamento anterior.
+   */
+  channel?: string | null;
 }) => Promise<string | null>;
 
-const defaultConversationSynthesizer: ConversationSynthesizer = async ({ userMessage, evidence }) =>
-  synthesizeNaturalResponse({ userMessage, toolSummary: evidence });
+const defaultConversationSynthesizer: ConversationSynthesizer = async ({ userMessage, evidence, channel }) =>
+  synthesizeNaturalResponse({ userMessage, toolSummary: evidence, channel });
 
 /**
  * Serializa a EVIDÊNCIA estruturada de consultas de manifesto por recência para o
@@ -1891,6 +1897,7 @@ async function synthesizeToolResponse(input: {
   evidence: string;
   fallbackSummary: string | null;
   synthesizer: ConversationSynthesizer;
+  channel?: string | null;
 }): Promise<string> {
   if (input.fallbackSummary && shouldBypassNaturalSynthesis(input.toolResult)) {
     return input.fallbackSummary;
@@ -1902,7 +1909,8 @@ async function synthesizeToolResponse(input: {
       synthesized = await input.synthesizer({
         userMessage: input.userMessage,
         evidence: input.evidence,
-        fallbackSummary: input.fallbackSummary
+        fallbackSummary: input.fallbackSummary,
+        channel: input.channel ?? null
       });
     } catch (error: unknown) {
       // Síntese indisponível: degrada para o resumo determinístico quando houver.
@@ -1934,7 +1942,8 @@ async function resolveAssistantResponseText(
   defaultText: string,
   toolResult: unknown,
   userMessage: string,
-  synthesizer: ConversationSynthesizer
+  synthesizer: ConversationSynthesizer,
+  channel?: string | null
 ): Promise<string> {
   const hasExecutionPlaceholder = /^executando acao:/i.test(normalizeDefaultAssistantText(defaultText));
   const { assistantSummary, evidence } = resolveResponseInputs(toolResult);
@@ -1945,7 +1954,8 @@ async function resolveAssistantResponseText(
       userMessage,
       evidence,
       fallbackSummary: assistantSummary,
-      synthesizer
+      synthesizer,
+      channel
     });
   }
 
@@ -1961,6 +1971,9 @@ async function resolveUnsupportedToolResponseText(input: {
   toolName: string;
   reasonCode: string;
   correlationId: string;
+  /** Segundo call site do canal: aqui `synthesizeNaturalResponse` é chamado DIRETO, fora do
+   *  synthesizer injetável. Sem isto, o "não sei fazer isso" sairia em prosa de navegador. */
+  channel?: string | null;
 }): Promise<string> {
   const toolSummary = [
     `Falha tecnica: ${input.reasonCode}.`,
@@ -1971,7 +1984,8 @@ async function resolveUnsupportedToolResponseText(input: {
 
   const synthesized = await synthesizeNaturalResponse({
     userMessage: input.userMessage,
-    toolSummary
+    toolSummary,
+    channel: input.channel ?? null
   });
 
   if (synthesized) {
@@ -2877,7 +2891,8 @@ export function createConversationService(dependencies?: {
           userMessage: messageText,
           toolName: toolCall.name,
           reasonCode,
-          correlationId: context.correlationId
+          correlationId: context.correlationId,
+          channel: context.channel
         });
         const structuredError = normalizeConversationStructuredError({
           correlationId: context.correlationId,

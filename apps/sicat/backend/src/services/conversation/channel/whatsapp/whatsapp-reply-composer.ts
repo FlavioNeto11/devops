@@ -17,15 +17,44 @@
  * Por isso a regra é **allowlist, não blocklist**: só `responded`/`executed` entregam texto do LLM.
  * Todo o resto passa por um mapa próprio, e `reasonCode` desconhecido cai num genérico — nunca no
  * `responseText`. Uma blocklist falharia aberto no primeiro `reasonCode` novo.
+ *
+ * ┌─ FASE 4: A FICHA ─────────────────────────────────────────────────────────────────────────────┐
+ * │ A allowlist continua sendo daqui. O que mudou é que o ramo `responded`/`executed` agora        │
+ * │ consulta o RESULTADO ESTRUTURADO (`output.result`) além do `responseText`, e devolve           │
+ * │ `string[]` — uma entrada por mensagem do WhatsApp.                                             │
+ * │                                                                                                │
+ * │ `blocked` e `failed` ficam INTOCADOS: a fronteira de policy não é assunto desta fase, e é      │
+ * │ deles que vem a prévia de ação. Só `executed` tem `result` (em `responded` não houve tool),    │
+ * │ então `responded` degrada para o comportamento de hoje sem nenhum ramo novo.                   │
+ * │                                                                                                │
+ * │ A divisão de trabalho é: **prosa = manchete, ficha = dado**. Onde os dois divergirem, quem     │
+ * │ manda é a ficha — ela lê campo por campo de uma allowlist, a prosa pode INVENTAR número de     │
+ * │ MTR, data e situação. Por isso, havendo ficha, só o PRIMEIRO parágrafo da prosa sobrevive.     │
+ * │ Não há comparação de similaridade entre as duas: heurística chumbada falha de forma            │
+ * │ imprevisível justamente nos casos raros. A divisão é CONTRATUAL, via prompt de canal.          │
+ * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
 import { config } from '../../../../lib/config.js';
+import { buildBlock, cutAtGrapheme, type RenderBlock } from './whatsapp-render-blocks.js';
+import { renderStructuredResultForWhatsApp } from './whatsapp-result-renderer.js';
+import { splitIntoSegments } from './whatsapp-segmenter.js';
 
 /** Subconjunto de `ProcessTurnOutput` que o compositor precisa — evita acoplar ao tipo inteiro. */
 export type ComposableTurnOutput = {
   status: 'responded' | 'blocked' | 'executed' | 'failed';
   responseText: string;
   policy?: { reasonCode?: string | null } | null;
+  /**
+   * `ConversationStructuredResult` na forma CRUA do dispatcher. JÁ EXISTIA em runtime (o
+   * turn-service tipa a saída como `ComposableTurnOutput & LooseRecord`); era invisível ao contrato,
+   * e por isso um grep por `result` neste módulo dava zero.
+   *
+   * `unknown` e não `ConversationStructuredResult`: `inferTypeFromPayload` faz um cast NÃO CHECADO e
+   * `withNormalizedShape` injeta `'list'|'detail'|'action'|'status'`, fora da união. Tipar com a
+   * união seria uma mentira que o `tsc` cobraria de nós e não do payload.
+   */
+  result?: unknown;
 };
 
 export type WhatsAppDisposition =
@@ -150,21 +179,45 @@ export function applyWhatsAppMarkdownHygiene(text: string): string {
     .replace(/\n{3,}/g, '\n\n');
 }
 
+/** Teto do provedor quando o config vem inválido. É o mesmo default de `lib/config`. */
+const DEFAULT_REPLY_MAX_CHARS = 3500;
+
+/**
+ * Leitura DEFENSIVA de teto numérico.
+ *
+ * Declarada aqui, acima do primeiro uso, porque `truncateWhatsAppReply` e `finalizeSegment` liam
+ * `config.whatsappReplyMaxChars` CRU: com `WHATSAPP_REPLY_MAX_CHARS=0` ou não-numérico no Secret
+ * (`Number(process.env… || 3500)` produz `0`/`NaN`), a truncagem devolvia o texto INTACTO e os
+ * caminhos que não passam pelo segmentador (`composeWhatsAppNotice`, ramo `blocked`, ramo `failed`
+ * operacional, avisos de expiração/timeout) ficavam sem teto nenhum — mensagem rejeitada pelo
+ * provedor, operador MUDO. O resto do compositor já lia por aqui: era a divergência entre as duas
+ * leituras que escondia o defeito.
+ */
+function readPositiveConfig(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
 /**
  * Truncagem em `whatsappReplyMaxChars`.
  *
  * NÃO é estética: acima de ~4096 caracteres o provedor REJEITA a mensagem e o usuário fica MUDO —
  * o pior desfecho possível, porque nem erro ele vê. O sufixo é honesto (diz que cortou e o que fazer)
  * e cabe DENTRO do teto, senão a própria correção estouraria o limite.
+ *
+ * O corte é `cutAtGrapheme`, NUNCA `slice`. Esta função é a última etapa de TODO segmento que sai
+ * (`finalizeSegment`) e também o corte da prosa sem ficha: um `slice` cru em unidades UTF-16 parte
+ * par surrogate na fronteira (basta um emoji cair ali), o payload vira UTF-16 inválido e o provedor
+ * pode REJEITÁ-LO — o mesmo desfecho mudo que a truncagem existe para evitar.
  */
-export function truncateWhatsAppReply(text: string, maxChars = config.whatsappReplyMaxChars): string {
+export function truncateWhatsAppReply(text: string, maxChars: unknown = config.whatsappReplyMaxChars): string {
   const value = String(text ?? '');
-  const limit = Number(maxChars);
-  if (!Number.isFinite(limit) || limit <= 0 || value.length <= limit) return value;
+  const limit = readPositiveConfig(maxChars, DEFAULT_REPLY_MAX_CHARS);
+  if (value.length <= limit) return value;
 
   const suffix = '\n\n[...] A resposta era longa e foi cortada aqui. Peça um período menor ou veja a lista completa no SICAT.';
   const room = Math.max(0, limit - suffix.length);
-  return `${value.slice(0, room).trimEnd()}${suffix}`;
+  return `${cutAtGrapheme(value, room)}${suffix}`;
 }
 
 function buildFooters(ctx: ReplyContext): string {
@@ -181,10 +234,40 @@ function buildFooters(ctx: ReplyContext): string {
   return `\n\n—\n${notes.join('\n')}`;
 }
 
-/** Pipeline final, comum a todo texto que sai pelo canal. */
-function finalize(text: string, ctx: ReplyContext): string {
+/**
+ * Pipeline final, comum a todo texto que sai pelo canal — agora POR SEGMENTO.
+ *
+ * As três etapas (leakage → markdown → truncagem) são locais e idempotentes, e a truncagem só faz
+ * sentido contra o teto do PROVEDOR, que é por mensagem.
+ *
+ * `sanitizeWhatsAppLeakage` continua obrigatório mesmo sobre texto do renderer: o renderer não
+ * reimplementa nada dela, e é ela que remove nome de tool e `reasonCode=` caso escapem por um campo
+ * livre. `applyWhatsAppMarkdownHygiene` existe pelo LEAD, que vem do LLM — o renderer não emite
+ * markdown de navegador para ser convertido depois.
+ *
+ * Posicionamento com porquê: rodapés e `Protocolo:` no ÚLTIMO segmento (perdê-los é sobrevivível);
+ * `(n/N)` como última linha e SÓ quando N > 1 — em N=1 não aparece, o que preserva byte-a-byte a
+ * saída da fase 3 e evita o absurdo de "(1/1)". Quando N > 1 é OBRIGATÓRIO: a ordem de entrega entre
+ * chamadas separadas de API não é garantida pelo protocolo e sem numeração o operador não remonta.
+ */
+function finalizeSegment(text: string, ctx: ReplyContext, index: number, total: number): string {
   const body = applyWhatsAppMarkdownHygiene(sanitizeWhatsAppLeakage(text)).trim();
-  return truncateWhatsAppReply(`${body}${buildFooters(ctx)}`);
+  const isLast = index === total - 1;
+  const withFooters = isLast ? `${body}${buildFooters(ctx)}` : body;
+
+  const marker = total > 1 ? `\n\n(${index + 1}/${total})` : '';
+  if (!marker) return truncateWhatsAppReply(withFooters);
+
+  // O marcador entra DENTRO do orçamento: acrescentá-lo depois da truncagem estouraria o teto e o
+  // desfecho é mensagem REJEITADA pelo provedor — operador mudo, sem ver nem o erro.
+  const limit = readPositiveConfig(config.whatsappReplyMaxChars, DEFAULT_REPLY_MAX_CHARS);
+  const room = Math.max(1, limit - marker.length);
+  return `${truncateWhatsAppReply(withFooters, room)}${marker}`;
+}
+
+/** Aviso pronto (expiração, timeout) que vira UMA mensagem, pelo mesmo funil de higiene. */
+export function composeWhatsAppNotice(notice: string, ctx: ReplyContext = {}): string[] {
+  return [finalizeSegment(notice, ctx, 0, 1)];
 }
 
 /** Saudação/ajuda/menu — o único momento em que a pessoa aprende o que o canal faz. */
@@ -266,49 +349,78 @@ export function buildWhatsAppTurnTimeoutNotice(correlationId?: string | null): s
 export function composeStaticWhatsAppReply(
   disposition: WhatsAppDisposition,
   ctx: ReplyContext & { hasActiveAccount?: boolean } = {}
-): string {
+): string[] {
   switch (disposition) {
     case 'greeting':
-      return finalize(buildWhatsAppGreeting({ hasActiveAccount: ctx.hasActiveAccount }), {});
+      return composeWhatsAppNotice(buildWhatsAppGreeting({ hasActiveAccount: ctx.hasActiveAccount }));
     case 'unsupported_audio':
       // Resposta DISTINTA de "arquivo": a expectativa de quem manda áudio é forte, e um texto
       // genérico faz a pessoa reenviar o mesmo áudio achando que falhou o upload.
-      return finalize('Ainda não escuto áudios por aqui. Me manda por escrito? Pode ser curtinho, tipo "MTRs de hoje".', {});
+      return composeWhatsAppNotice('Ainda não escuto áudios por aqui. Me manda por escrito? Pode ser curtinho, tipo "MTRs de hoje".');
     case 'unsupported_media':
       // A promessa sobre o chat web é verdadeira: ele já tem ingestão multimodal (PDF e imagem).
-      return finalize([
+      return composeWhatsAppNotice([
         'Recebi seu arquivo, mas ainda não consigo abrir anexos por aqui.',
         '',
         'Me escreve o que você precisa? Ou use o chat do SICAT no navegador, que lê PDF e imagem.'
-      ].join('\n'), {});
+      ].join('\n'));
     case 'unsupported_location':
-      return finalize('Recebi sua localização, mas ainda não uso isso. Me escreve o que você precisa?', {});
+      return composeWhatsAppNotice('Recebi sua localização, mas ainda não uso isso. Me escreve o que você precisa?');
     case 'sticker':
-      return finalize('Estou por aqui! Me diz o que você precisa: "meus MTRs de hoje", "MTR 123456", "meus CDFs do mês".', {});
+      return composeWhatsAppNotice('Estou por aqui! Me diz o que você precisa: "meus MTRs de hoje", "MTR 123456", "meus CDFs do mês".');
     case 'ignore_silent':
     case 'process_turn':
     default:
-      // Nunca deveria chegar: quem chama já filtrou. String vazia = nada a enviar (fail-safe).
-      return '';
+      // Nunca deveria chegar: quem chama já filtrou. Lista vazia = nada a enviar (fail-safe).
+      return [];
   }
+}
+
+/** Cap do lead quando HÁ ficha. Acima disso o LLM está listando — e a lista é da ficha. */
+const LEAD_MAX_CHARS = 350;
+
+/**
+ * Primeiro parágrafo da prosa, cortado em fronteira de frase.
+ *
+ * O resto é descartado QUANDO HÁ FICHA, por três razões: (i) a prosa pode omitir e pode INVENTAR
+ * número de MTR, data e situação, enquanto a ficha lê campo por campo de uma allowlist; (ii)
+ * `shouldBypassNaturalSynthesis` faz o `responseText` sair SEM LLM, como template escrito para
+ * navegador — a poda conserta o caso do LLM e o caso determinístico com a mesma regra; (iii)
+ * `validateIntentResponseGuardrails` já exige que a redação cite um número da evidência, então o
+ * primeiro parágrafo é, por contrato, a manchete numérica.
+ */
+function buildLeadText(prose: string, maxChars: number): string {
+  const firstParagraph = prose.split(/\n{2,}/)[0] ?? '';
+  const trimmed = firstParagraph.trim();
+  if (!trimmed || trimmed.length <= maxChars) return trimmed;
+
+  const window = trimmed.slice(0, maxChars);
+  const sentenceEnd = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '));
+  if (sentenceEnd >= Math.floor(maxChars * 0.4)) return trimmed.slice(0, sentenceEnd + 1);
+  return `${cutAtGrapheme(trimmed, Math.max(1, maxChars - 1))}…`;
 }
 
 /**
  * Resposta a partir da saída do turno. ALLOWLIST por `status`.
+ *
+ * Devolve `string[]` em TODOS os caminhos (`length >= 1` sempre que há o que dizer); `blocked`,
+ * `failed` e os estáticos devolvem exatamente 1. Uniformizar (em vez de `string | string[]`) tira do
+ * turn-service qualquer ramo condicional — e ramo condicional em livro-razão de entrega é onde nasce
+ * mensagem duplicada.
  */
-export function composeWhatsAppReply(output: ComposableTurnOutput, ctx: ReplyContext = {}): string {
+export function composeWhatsAppReply(output: ComposableTurnOutput, ctx: ReplyContext = {}): string[] {
   const reasonCode = String(output.policy?.reasonCode || '').trim();
 
   if (output.status === 'blocked') {
     // O `responseText` de `blocked` NUNCA é considerado — nem como fallback. É ele que traz a prévia
     // de ação sensível e o 'responda "confirmo …"'.
     const mapped = BLOCKED_TEXTS[reasonCode] || BLOCKED_FALLBACK_TEXT;
-    return finalize(mapped, ctx);
+    return composeWhatsAppNotice(mapped, ctx);
   }
 
   if (output.status === 'failed') {
     if (OPAQUE_FAILURE_REASON_CODES.has(reasonCode)) {
-      return finalize([
+      return composeWhatsAppNotice([
         'Não consegui responder agora — meu assistente está fora do ar. Tente de novo em alguns minutos.',
         '',
         'Se for urgente, o SICAT no navegador está funcionando normalmente.'
@@ -317,11 +429,46 @@ export function composeWhatsAppReply(output: ComposableTurnOutput, ctx: ReplyCon
     // Falha OPERACIONAL (erro de execução de tool): `mapOperationalToolErrorToOperatorMessage` já
     // produz pt-BR escrito para humano. Passa — mas pelo sanitizador e pela truncagem.
     const operational = String(output.responseText || '').trim();
-    return finalize(operational || 'Não consegui completar essa consulta agora. Pode tentar de novo?', ctx);
+    return composeWhatsAppNotice(operational || 'Não consegui completar essa consulta agora. Pode tentar de novo?', ctx);
   }
 
   // `responded` | `executed` — o ÚNICO caminho em que texto do LLM chega ao usuário.
-  const text = String(output.responseText || '').trim();
-  if (!text) return finalize(DONT_UNDERSTAND_TEXT, ctx);
-  return finalize(text, ctx);
+  const prose = String(output.responseText || '').trim();
+  const hardChars = readPositiveConfig(config.whatsappReplyMaxChars, 3500);
+  // INVARIANTE: o alvo de UX nunca pode passar do teto TÉCNICO. Sem o clamp, um
+  // `WHATSAPP_REPLY_MAX_CHARS` baixo faria o corte honesto acontecer no teto errado e ser depois
+  // decapitado pelo teto certo — truncagem em duas etapas, com o aviso perdido no meio.
+  const softChars = Math.min(readPositiveConfig(config.whatsappSegmentSoftChars, 1200), hardChars);
+  const ficha = renderStructuredResultForWhatsApp(output.result, {
+    itemCap: readPositiveConfig(config.whatsappRenderMaxItems, 8),
+    cardCap: readPositiveConfig(config.whatsappRenderMaxCards, 3),
+    nowMs: Date.now()
+  });
+
+  let blocks: RenderBlock[];
+  if (ficha.refusal) {
+    // ÚNICO caso em `executed` que descarta a prosa — e é justificado: nessa família a prosa É a
+    // prévia de ação, com `responda "confirmo <intent>"`, dados do payload e token de snapshot.
+    blocks = ficha.blocks;
+  } else if (ficha.blocks.length === 0) {
+    // Sem ficha (tipo desconhecido, lista vazia, `responded` sem tool): comportamento de HOJE.
+    // `truncateWhatsAppReply` aqui já é o corte honesto — nunca um `slice` mudo.
+    const alone = buildBlock('note', truncateWhatsAppReply(prose, softChars));
+    blocks = alone ? [alone] : [];
+  } else {
+    const lead = buildBlock('note', buildLeadText(prose, LEAD_MAX_CHARS));
+    blocks = lead ? [lead, ...ficha.blocks] : ficha.blocks;
+  }
+
+  if (blocks.length === 0) return composeWhatsAppNotice(DONT_UNDERSTAND_TEXT, ctx);
+
+  const segments = splitIntoSegments(blocks, {
+    softChars,
+    hardChars,
+    maxSegments: readPositiveConfig(config.whatsappReplyMaxSegments, 2),
+    minLeftoverBlocksForExtraSegment: 2
+  }).segments.filter((segment) => segment.trim());
+
+  if (segments.length === 0) return composeWhatsAppNotice(DONT_UNDERSTAND_TEXT, ctx);
+  return segments.map((segment, index) => finalizeSegment(segment, ctx, index, segments.length));
 }
