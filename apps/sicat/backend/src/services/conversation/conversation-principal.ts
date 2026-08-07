@@ -23,11 +23,50 @@
 
 import { AppError } from '../../lib/problem.js';
 import { listPermissionKeysByUserId } from '../../repositories/access-admin-repo.js';
+import { findById as findSicatUserById } from '../../repositories/sicat-user-repo.js';
 import { resolveActiveAccountContext } from '../sicat-account-service.js';
 import type { ConversationChannel } from './conversation-context-service.js';
 
 /** Canais que um cliente HTTP autenticado pode declarar. Deliberadamente NÃO inclui `whatsapp`. */
 const CLIENT_DECLARABLE_CHANNELS = new Set<ConversationChannel>(['native_chat', 'inapp']);
+
+/**
+ * SEAM DE INJEÇÃO — existe por causa de duas mutações que SOBREVIVERAM ao teste de mutação da fase
+ * 4.5, ambas invisíveis para toda a suíte:
+ *
+ *  (a) trocar `where aur.user_id = $1` de `PERMISSION_KEYS_BY_USER_SQL` por `where ($1::text is not
+ *      null)` — a consulta devolveria as chaves de TODOS os usuários;
+ *  (b) trocar o SUJEITO aqui embaixo: `listPermissionKeysByUserId(userId)` →
+ *      `listPermissionKeysByUserId(String(input.integrationAccountId))`.
+ *
+ * As duas dão a um usuário as permissões de OUTRO — o oposto exato do que esta fase existe para
+ * garantir. Nenhuma delas é pegável afirmando sobre a STRING do SQL nem chamando a função de
+ * resolução isolada: só um teste que observe COM QUE ARGUMENTO o principal chama o repositório, e o
+ * que o principal faz com a resposta, distingue os dois casos.
+ *
+ * Mesmo padrão de `setChannelLinkRepositoriesForTests` (fase 2) e `setWhatsAppProviderOverrideForTests`
+ * (fase 1): nenhum caminho de produção chama o setter, e o teste DEVE restaurar no `afterEach`.
+ */
+export type ConversationPrincipalDependencies = {
+  listPermissionKeysByUserId: typeof listPermissionKeysByUserId;
+  findSicatUserById: typeof findSicatUserById;
+  resolveActiveAccountContext: typeof resolveActiveAccountContext;
+};
+
+const DEFAULT_DEPENDENCIES: ConversationPrincipalDependencies = {
+  listPermissionKeysByUserId,
+  findSicatUserById,
+  resolveActiveAccountContext
+};
+
+let dependencies: ConversationPrincipalDependencies = DEFAULT_DEPENDENCIES;
+
+/** **SÓ para testes.** `null` restaura os repositórios reais. */
+export function setConversationPrincipalDependenciesForTests(
+  overrides: Partial<ConversationPrincipalDependencies> | null
+): void {
+  dependencies = overrides ? { ...DEFAULT_DEPENDENCIES, ...overrides } : DEFAULT_DEPENDENCIES;
+}
 
 export type ConversationPrincipal = {
   /** Canal efetivo do turno. Resolvido no servidor — nunca copiado cru do corpo. */
@@ -40,7 +79,7 @@ export type ConversationPrincipal = {
   sessionContextId: string | null;
   /** Chave estável de sessão conversacional, derivada da identidade — não do cliente. */
   channelSessionKey: string;
-  /** Permissões efetivas resolvidas no servidor (hoje `[]` — ver `listPermissionKeysByUserId`). */
+  /** Permissões efetivas resolvidas no servidor a cada turno (ver `listPermissionKeysByUserId`). */
   permissionKeys: string[];
   /** Rótulo de autoria para trilha de auditoria. */
   requestedBy: string;
@@ -124,9 +163,12 @@ export async function resolveHttpPrincipal(input: {
   }
 
   // Conta ativa e permissões saem do banco, não do corpo. Em paralelo: são leituras independentes.
+  //
+  // ⚠️ O SUJEITO das duas chamadas é `userId` — o do TOKEN VERIFICADO. Trocar qualquer um dos dois por
+  // outro identificador do escopo (conta, sessão) entrega a alguém as permissões de outro.
   const [accountContext, permissionKeys] = await Promise.all([
-    resolveActiveAccountContext(userId),
-    listPermissionKeysByUserId(userId)
+    dependencies.resolveActiveAccountContext(userId),
+    dependencies.listPermissionKeysByUserId(userId)
   ]);
 
   const integrationAccountId = accountContext?.integrationAccountId || null;
@@ -169,9 +211,25 @@ export async function resolveChannelPrincipal(input: {
     );
   }
 
+  // Usuário DESATIVADO derruba o turno inteiro, não só as permissões.
+  //
+  // No HTTP o dano de um desligamento já era limitado pelo TTL de 1 h do access token. No canal não
+  // há token: a identidade vem do vínculo em `conversation_channel_links`, que não expira — desativar
+  // um funcionário NÃO desligava o WhatsApp dele, nunca. O join de `is_active` em
+  // `listPermissionKeysByUserId` zera as permissões, mas sozinho não basta: as tools sem chave
+  // exigida e o próprio turno continuariam rodando.
+  const channelUser = await dependencies.findSicatUserById(userId);
+  if (!channelUser?.isActive) {
+    throw new AppError(401, 'Unauthorized', 'Usuário SICAT vinculado ao canal está inativo.', {
+      code: 'CONVERSATION_PRINCIPAL_USER_INACTIVE'
+    });
+  }
+
+  // ⚠️ SUJEITO: `userId` (o do VÍNCULO verificado), nunca `input.integrationAccountId`. Ver o
+  // comentário do seam — esta é a linha exata da mutação (b) que sobreviveu.
   const [accountContext, permissionKeys] = await Promise.all([
-    resolveActiveAccountContext(userId),
-    listPermissionKeysByUserId(userId)
+    dependencies.resolveActiveAccountContext(userId),
+    dependencies.listPermissionKeysByUserId(userId)
   ]);
 
   // O vínculo do canal pode fixar uma conta específica; senão vale a conta ativa do usuário.

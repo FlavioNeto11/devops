@@ -2,6 +2,7 @@ import { AppError } from '../lib/problem.js';
 import { createPrefixedId } from '../lib/ids.js';
 import { parsePage, parsePageSize } from '../lib/pagination.js';
 import { hashPassword } from '../lib/sicat-security.js';
+import { ADMIN_ROLE_NAME_ALIASES, listCatalogPermissionKeys } from '../lib/conversation-permission-catalog.js';
 import {
   hasAdminGlobalAccessByUserId,
   listAdminAccessUsers as repoListAdminAccessUsers,
@@ -44,12 +45,12 @@ type AuditActionInput = {
   actionStatus?: string;
 };
 
-const ADMIN_ROLE_TOKENS = new Set([
-  'admin',
-  'admin.global',
-  'admin_global',
-  'role_admin_global'
-]);
+/**
+ * Fonte única em `lib/conversation-permission-catalog.ts` — a mesma lista que
+ * `hasAdminGlobalAccessByUserId` usa no SQL e que o seed de RBAC verifica contra colisão de nome.
+ * Antes havia duas cópias literais (aqui e no repositório), livres para divergir.
+ */
+const ADMIN_ROLE_TOKENS = new Set(ADMIN_ROLE_NAME_ALIASES);
 
 function hasAdminRoleInToken(sicatUser: SicatUser | null | undefined) {
   const roles = Array.isArray(sicatUser?.roles) ? sicatUser.roles : [];
@@ -588,6 +589,33 @@ export async function deleteAdminAccessPermission(sicatUser: SicatUser, permissi
   const existing = await findAdminAccessPermissionById(permissionId);
   if (!existing) {
     throw new AppError(404, 'Not Found', `Permissão ${permissionId} não encontrada.`);
+  }
+
+  /**
+   * As 8 chaves do catálogo conversacional não podem ser desativadas pela API. É a única guarda que o
+   * código consegue dar, já que `access_permissions` não tem `is_system` (migration 008).
+   *
+   * O motivo é a combinação de duas coisas: (a) desativar uma chave faz o OPOSTO do intuitivo —
+   * `listPermissionKeysByUserId` filtra `ap.is_active = true`, então a chave some do conjunto de
+   * TODOS e a integridade por chave torna aquela ação insatisfazível para o mundo inteiro, inclusive
+   * os `admin.global`; (b) é IRREVERSÍVEL pelo produto — não há rota que devolva `is_active = true`,
+   * o seed mantém `is_active` fora de todo `do update` (propriedade por coluna), e recriar a chave
+   * bate 23505 → 409. A recuperação hoje exige `update access_permissions set is_active = true` no
+   * Postgres, às 2h da manhã, por alguém que não sabia que estava entrando num caminho sem volta.
+   *
+   * Destravar é SEMPRE no sentido de CONCEDER papel; degradar o regime é
+   * `CONVERSATION_PERMISSION_ENFORCEMENT=observe`, que é reversível por env.
+   */
+  if (listCatalogPermissionKeys().includes(String(existing.permissionKey || '').toLowerCase())) {
+    throw new AppError(
+      409,
+      'Conflict',
+      `A permissão ${existing.permissionKey} pertence ao catálogo do gate conversacional e não pode ser `
+        + 'desativada pela API: desativá-la nega aquela operação para TODOS os usuários (inclusive '
+        + 'administradores) e não há caminho de volta pelo produto. Para destravar alguém, CONCEDA um '
+        + 'papel; para degradar o regime inteiro, use CONVERSATION_PERMISSION_ENFORCEMENT=observe.',
+      { code: 'ACCESS_PERMISSION_IS_CATALOG_KEY' }
+    );
   }
 
   const removed = await deactivateAdminAccessPermissionById(permissionId);

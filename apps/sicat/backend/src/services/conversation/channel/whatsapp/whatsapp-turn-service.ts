@@ -311,6 +311,21 @@ export async function runWhatsAppInboundTurn(input: {
     return { outcome: 'whatsapp_inbound_link_revoked', patch: { text: null, replyText: null } };
   }
 
+  // ── DÍVIDA NOMEADA: usuário DESATIVADO ainda é exceção técnica, não desfecho de canal ─────────
+  // `resolveChannelPrincipal` lança 401 para usuário inativo (`CONVERSATION_PRINCIPAL_USER_INACTIVE`),
+  // e 401 está em `NON_RETRYABLE_HTTP_STATUSES` (`lib/retry.ts`) — logo `resolveFailureTransition`
+  // marca o job como `failed` na PRIMEIRA tentativa: sem retry, sem DLQ e sem resposta. Funcionário
+  // desligado com número vinculado fica MUDO indefinidamente (o vínculo continua `verified`) e a fila
+  // acumula jobs `failed` com cara de incidente de infra.
+  //
+  // A forma certa é tratá-lo AQUI, ao lado do vínculo revogado — mesma classe de condição permanente,
+  // mesmo desfecho terminal (`whatsapp_inbound_user_inactive`). NÃO foi feito nesta rodada porque
+  // exige uma dependência nova (`findSicatUserById`) no seam de teste deste módulo, e os doubles das
+  // suítes de canal não a injetam: a mudança sozinha derruba 33 testes que nada têm a ver com RBAC, e
+  // consertá-los é do agente de teste. Fica como item da fase 5, quando este arquivo for reaberto.
+  //
+  // O comportamento HOJE é FAIL-CLOSED (o turno não roda), só é ilegível na fila e mudo para a pessoa.
+
   const disposition = (toNonEmptyString(payload.disposition) || 'process_turn') as WhatsAppDisposition;
   let segments = preparedSegments;
   let conversationTurnId: string | null = null;
@@ -554,8 +569,15 @@ async function runProcessTurn(input: {
         outcome: 'whatsapp_inbound_timeout'
       };
     }
-    // Falha técnica legítima (`resolveChannelPrincipal` 401, `loadConversationPlanningState`, ramo
-    // `TOOL_NOT_SUPPORTED`): sobe para retry. SEM este try/catch a pessoa ficaria muda.
+    // Falha técnica legítima (`loadConversationPlanningState`, indisponibilidade de banco/LLM): sobe
+    // para o `job-runner`, que decide retry × DLQ por `resolveFailureTransition`.
+    //
+    // ⚠️ CORRIGIDO nesta rodada: a versão anterior deste comentário citava o 401 de
+    // `resolveChannelPrincipal` como exemplo de "sobe para retry". Era falso em dois níveis — a
+    // chamada está FORA deste try (linha ~499), e 401 está em `NON_RETRYABLE_HTTP_STATUSES`
+    // (`lib/retry.ts`), logo viraria `failed` na primeira tentativa, sem retry e sem resposta. O
+    // caso que o comentário descrevia (usuário inativo) passou a ser tratado em C2b, como desfecho
+    // terminal de canal.
     throw error;
   }
 

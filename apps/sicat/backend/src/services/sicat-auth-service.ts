@@ -15,6 +15,8 @@ import {
   verifyPassword
 } from '../lib/sicat-security.js';
 import { resolveAdminAccessSummary } from './access-admin-service.js';
+import { ensureFloorRoleForUser } from '../repositories/access-admin-repo.js';
+import { FLOOR_ROLE_NAME } from '../lib/conversation-permission-catalog.js';
 import { validateKeycloakToken } from '@flavioneto11/oidc-kit';
 
 // Validacao /userinfo via @flavioneto11/oidc-kit. OIDC_KIT=off volta ao fetch inline (rollback).
@@ -118,7 +120,74 @@ async function getValidatedUser(email: unknown, password: unknown) {
   return user;
 }
 
+/**
+ * SEAM DE INJEÇÃO do papel-piso — existe por causa de uma mutação que SOBREVIVEU: apagar
+ * `await ensureDefaultRoleForUser(user.id)` de `issueTokenPair` não quebrava teste nenhum, e é a
+ * ÚNICA coisa que impede o usuário auto-cadastrado (DL-043) de nascer sem permissão e com o chat
+ * quebrado desde o primeiro minuto.
+ *
+ * O ponto de concessão é ÚNICO e é `issueTokenPair`. Verificado nesta rodada: os quatro fluxos que
+ * emitem sessão (`loginSicat`, `registerSicat`, `refreshSicatSession`, `loginSicatViaKeycloak`)
+ * passam por ele, e os três sítios que criam `sicat_users` (`ensureBootstrapUserIfNeeded`,
+ * `registerSicat`, o provisionamento por e-mail do Keycloak) desembocam nos mesmos quatro. Não há
+ * caminho de criação de usuário que produza sessão sem passar aqui.
+ *
+ * Mesmo padrão de `setChannelLinkRepositoriesForTests` (fase 2): produção nunca chama o setter.
+ */
+export type SicatAuthAccessControlDependencies = {
+  ensureFloorRoleForUser: typeof ensureFloorRoleForUser;
+};
+
+const DEFAULT_ACCESS_CONTROL_DEPENDENCIES: SicatAuthAccessControlDependencies = {
+  ensureFloorRoleForUser
+};
+
+let accessControlDependencies: SicatAuthAccessControlDependencies = DEFAULT_ACCESS_CONTROL_DEPENDENCIES;
+
+/** **SÓ para testes.** `null` restaura o repositório real. */
+export function setSicatAuthAccessControlDependenciesForTests(
+  overrides: Partial<SicatAuthAccessControlDependencies> | null
+): void {
+  accessControlDependencies = overrides
+    ? { ...DEFAULT_ACCESS_CONTROL_DEPENDENCIES, ...overrides }
+    : DEFAULT_ACCESS_CONTROL_DEPENDENCIES;
+}
+
+/**
+ * Papel-PISO no funil ÚNICO de autenticação.
+ *
+ * `issueTokenPair` é por onde passam os 4 fluxos (login, register, keycloak, refresh), então uma
+ * chamada idempotente aqui cobre os TRÊS sítios que criam usuário (`ensureBootstrapUserIfNeeded`,
+ * `registerSicat`, `loginSicatViaKeycloak` — DL-043) sem instrumentar nenhum deles. Instrumentar os
+ * sítios de criação seria pior: não conserta quem já existe (viraria migration de dados) e faria o
+ * endpoint PÚBLICO de registro conceder papel no ato da criação.
+ *
+ * BEST-EFFORT de propósito: se o grant falhar, o usuário entra com ZERO permissões — o que, com o
+ * gate fechado, é fail-CLOSED. Nunca "conceder tudo por segurança". A janela é limitada pelo backfill
+ * do próximo boot e pelo próximo login.
+ *
+ * O papel NÃO vai para o JWT: `hasAdminRoleInToken` concede administração a partir do claim `roles`,
+ * então empurrar o papel real para o token abriria escalada por token. O papel vive no banco; o gate
+ * lê do banco, por turno.
+ */
+async function ensureDefaultRoleForUser(userId: string): Promise<void> {
+  try {
+    await accessControlDependencies.ensureFloorRoleForUser({
+      grantId: createPrefixedId('aur'),
+      userId,
+      roleName: FLOOR_ROLE_NAME
+    });
+  } catch (error: unknown) {
+    console.warn(
+      `[sicat-auth] falha ao garantir o papel-piso '${FLOOR_ROLE_NAME}' para ${userId}; a sessao segue `
+        + `sem permissao de chat ate o proximo boot ou login: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
 async function issueTokenPair(user: SicatUserLike, metadata: LooseRecord = {}) {
+  await ensureDefaultRoleForUser(user.id);
+
   const accessToken = createAccessToken({
     sub: user.id,
     email: user.email,

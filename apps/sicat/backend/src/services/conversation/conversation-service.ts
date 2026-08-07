@@ -122,6 +122,13 @@ type ProcessTurnOutput = {
     reason: string | null;
     requiresConfirmation: boolean;
     riskLevel: string | null;
+    /**
+     * Lacuna de permissão do turno (fase 4.5). Presente também quando `allowed: true` — é assim que o
+     * modo `observe` e a degradação de catálogo aparecem na trilha, que já carrega o `userId`. O
+     * contador Prometheus não pode ter `userId` como label (cardinalidade + PII), então este campo é
+     * o único lugar onde "QUEM precisaria de qual chave" fica registrado.
+     */
+    permissionShortfall?: { required: string; catalogSatisfiable: boolean } | null;
   };
   context: {
     integrationAccountId: string | null;
@@ -752,7 +759,24 @@ function buildConversationTracePayload(input: {
         reasonCode: input.policy.reasonCode,
         reason: input.policy.reason,
         riskLevel: input.policy.riskLevel,
-        requiresConfirmation: input.policy.requiresConfirmation
+        requiresConfirmation: input.policy.requiresConfirmation,
+        /**
+         * ⚠️ SEM ESTA LINHA a janela `observe` não mede nada acionável.
+         *
+         * O contador `sicat_conversation_permission_decision_total` não tem — e não pode ter — label
+         * `userId` (cardinalidade + PII). Logo, `would_deny{permission="manifest.submit"} 47` diz
+         * QUANTAS vezes e nunca A QUEM conceder `sicat.operator`, que é o passo "CONCEDER ANTES DE
+         * NEGAR" do runbook e o pré-requisito do flip. Esta é a ÚNICA superfície que cruza a lacuna
+         * com o usuário: `persistConversationAction` grava `userId` ao lado.
+         *
+         * No canal WhatsApp é ainda mais crítico: lá o objeto de resposta é consumido pelo composer e
+         * descartado dentro do processo — sem a trilha, a informação não existe em lugar nenhum.
+         *
+         * PII: o campo é `{ required, catalogSatisfiable }` — chave de permissão e um booleano.
+         * Nenhum telefone, nome ou dado pessoal. Ampliá-lo com identificador de canal quebraria a
+         * mesma decisão de privacidade que `requestedBy: whatsapp:<mascarado>` honra.
+         */
+        permissionShortfall: input.policy.permissionShortfall ?? null
       }
       : null,
     confirmation: input.policy
@@ -866,6 +890,27 @@ async function maybePostToolReroute(input: {
     activeWindowBlock
   });
   if (verdict.answersIntent || !verdict.reroute) return null;
+
+  // ── O GATE TAMBÉM VALE PARA A TOOL RE-ROTEADA ────────────────────────────────────────────────
+  // A tool de destino é ESCOLHIDA PELO LLM e despachada direto, sem passar de novo pelo funil do
+  // turno. O raciocínio "policy roda uma vez" vale para o agente de diagnóstico (cuja allow-list foi
+  // fechada), mas não aqui: o GATILHO inclui `orchestrate_manifest_operation`, cujos intents de ação
+  // exigem `manifest.cancel`/`submit`/`create`/`receive`/`replicate`, enquanto TODO alvo de reroute
+  // exige `manifest.read`. Um papel CUSTOMIZADO com chave de ação e sem `manifest.read` executaria
+  // `list_manifests` sem a chave. Inalcançável com os papéis semeados — e é exatamente por isso que
+  // não pode depender deles: o gate tem de ser a fronteira ÚNICA, inclusive no dia em que alguém
+  // criar um papel fino pela API administrativa.
+  //
+  // Negado → mantém o resultado original. O caminho já degrada sem quebrar (o `catch` abaixo).
+  const reroutePolicy = evaluateConversationPolicy({
+    toolName: verdict.reroute.name,
+    toolArgs: verdict.reroute.arguments || {},
+    channel: context.channel,
+    confirmed: false,
+    allowActions: false,
+    context
+  });
+  if (!reroutePolicy.allowed) return null;
 
   try {
     const rawResult = await dispatchConversationTool({
@@ -2754,7 +2799,8 @@ export function createConversationService(dependencies?: {
         reasonCode: policyDecision.reasonCode,
         reason: policyDecision.reason,
         requiresConfirmation: policyDecision.requiresConfirmation,
-        riskLevel: policyDecision.riskLevel
+        riskLevel: policyDecision.riskLevel,
+        permissionShortfall: policyDecision.permissionShortfall ?? null
       };
 
       if (!policyDecision.allowed) {

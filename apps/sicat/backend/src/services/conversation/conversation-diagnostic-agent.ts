@@ -7,12 +7,20 @@ import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conve
  * Agente de DIAGNÓSTICO operacional (Fase 3 — loop agêntico multi-step ReAct).
  *
  * Encadeia tools READ-ONLY (list_manifests, list_jobs, get_dashboard_overview,
- * list_cdf_certificates, get_audit_trail, get_operations_overview), raciocinando
- * entre os passos, para produzir um diagnóstico fundamentado + próximos passos.
+ * list_cdf_certificates), raciocinando entre os passos, para produzir um
+ * diagnóstico fundamentado + próximos passos.
  *
  * SEGURANÇA: o loop NUNCA executa ações sensíveis/mutações — só leitura. Qualquer
  * tool fora da allow-list é recusada. Há um teto de passos (anti-loop). A execução
  * real das tools é delegada ao dispatcher (mesma plumbing/contexto), via `dispatch`.
+ *
+ * ⚠️ O dispatch interno NÃO passa pela policy: `evaluateConversationPolicy` roda UMA vez, na tool
+ * externa `diagnose_operation` (`conversation-service.ts`), e `handleOperationDiagnose` chama
+ * `dispatchConversationTool` direto. Logo esta allow-list é a ÚNICA fronteira aqui dentro, e ela tem
+ * de ser IGUAL ao conjunto declarado em `DIAGNOSTIC_TOOLS` — era mais larga (6 nomes contra 4
+ * definições) e incluía justamente `get_audit_trail`, que a partir da fase 4.5 exige `audit.read`.
+ * Quem tivesse só `manifest.read` lia a trilha de auditoria por aqui. As 4 restantes exigem
+ * `manifest.read`, que `diagnose_operation` agora também exige — logo não há elevação possível.
  */
 
 type LooseRecord = Record<string, unknown>;
@@ -21,9 +29,7 @@ const READ_ONLY_TOOL_NAMES = new Set<string>([
   'list_manifests',
   'list_jobs',
   'get_dashboard_overview',
-  'list_cdf_certificates',
-  'get_audit_trail',
-  'get_operations_overview'
+  'list_cdf_certificates'
 ]);
 
 // Definições (formato OpenAI function-tool) que o agente pode chamar no diagnóstico.

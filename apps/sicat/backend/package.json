@@ -14,6 +14,7 @@
     "prepare": "husky",
     "worker:once": "tsx src/worker.ts --once",
     "migrate": "tsx scripts/migrate.js",
+    "seed:access-control:print": "tsx scripts/print-access-control-seed.ts",
     "validate:openapi": "tsx scripts/run-node-clean-env.js scripts/validate-openapi.js scripts/validate-cetesb-source-of-truth.js scripts/validate-markdown-links.js",
     "validate:openapi:clean": "tsx scripts/run-node-clean-env.js scripts/validate-openapi.js scripts/validate-cetesb-source-of-truth.js scripts/validate-markdown-links.js",
     "validate:agents": "tsx scripts/run-node-clean-env.js scripts/validate-agent-architecture.js",

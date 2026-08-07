@@ -7179,6 +7179,14 @@ components:
         permissionId:
           type: string
           example: perm_access_users_read
+        permissionKey:
+          type: string
+          description: >-
+            Chave que o gate conversacional compara, por igualdade EXATA (sem prefixo, sem curinga).
+            Aditiva na fase 4.5: a API omitia a chave enquanto permitia alterar resource/action e
+            permission_key de forma independente — dava para a chave real divergir do que a tela
+            mostra, sem aviso.
+          example: manifest.read
         resource:
           type: string
           example: access.users

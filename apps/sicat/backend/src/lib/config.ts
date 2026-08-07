@@ -58,6 +58,7 @@ type ConfigKey =
   | 'keycloakRealmUrl'
   | 'keycloakUserinfoUrl'
   | 'keycloakClientId'
+  | 'conversationPermissionEnforcement'
   | 'whatsappProvider'
   | 'whatsappWebhookUrl'
   | 'whatsappTwilioAccountSid'
@@ -119,6 +120,29 @@ function resolveCetesbGatewayMode(): 'real' {
   throw new Error(`CETESB_GATEWAY_MODE invalido: ${raw}. Valor aceito: real.`);
 }
 
+export type ConversationPermissionEnforcement = 'observe' | 'enforce';
+
+/**
+ * Modo do gate de permissão conversacional (fase 4.5 da cadeia `whatsapp-channel-sicat`).
+ *
+ * `enforce` (default) NEGA quem não tem a chave exigida. `observe` decide EXATAMENTE igual e permite
+ * mesmo assim, registrando `would_deny` na métrica — é a janela de medição antes do flip.
+ *
+ * Default INSEGURO seria `observe`: por isso o default do código é `enforce` e o valor frouxo tem de
+ * estar EXPLÍCITO no YAML, legível no diff. O flip é remover a linha.
+ *
+ * Valor desconhecido LANÇA no boot, seguindo `resolveCetesbGatewayMode`. Um typo (`enfore`) que
+ * silenciosamente reabrisse o gate é precisamente o modo de falha que esta fase existe para eliminar:
+ * pod que não sobe é visível, gate aberto por typo não é.
+ */
+function resolveConversationPermissionEnforcement(): ConversationPermissionEnforcement {
+  const raw = String(process.env.CONVERSATION_PERMISSION_ENFORCEMENT || 'enforce').trim().toLowerCase();
+  if (raw === 'enforce' || raw === 'observe') return raw;
+  throw new Error(
+    `CONVERSATION_PERMISSION_ENFORCEMENT invalido: ${raw}. Valores aceitos: enforce, observe.`
+  );
+}
+
 export const config = {
   get port() { return getConfigValue('port', Number(process.env.PORT || 8080)); },
   get nodeEnv() { return getConfigValue('nodeEnv', process.env.NODE_ENV || 'development'); },
@@ -164,6 +188,12 @@ export const config = {
   get keycloakRealmUrl() { return getConfigValue('keycloakRealmUrl', process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'); },
   get keycloakUserinfoUrl() { return getConfigValue('keycloakUserinfoUrl', process.env.KEYCLOAK_USERINFO_URL || `${process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'}/protocol/openid-connect/userinfo`); },
   get keycloakClientId() { return getConfigValue('keycloakClientId', process.env.KEYCLOAK_CLIENT_ID || 'sicat'); },
+  get conversationPermissionEnforcement(): ConversationPermissionEnforcement {
+    return getConfigValue<ConversationPermissionEnforcement>(
+      'conversationPermissionEnforcement',
+      resolveConversationPermissionEnforcement()
+    );
+  },
   // Canal WhatsApp (cadeia `whatsapp-channel-sicat`). Default DESLIGADO: o canal só existe onde foi
   // explicitamente configurado. `twilio` = dev/homolog (sandbox), `meta` = produção (Cloud API).
   get whatsappProvider() { return getConfigValue('whatsappProvider', process.env.WHATSAPP_PROVIDER || 'disabled'); },

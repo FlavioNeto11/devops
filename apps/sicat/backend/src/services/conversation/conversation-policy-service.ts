@@ -7,6 +7,13 @@ import {
 import type { ConversationToolName, ConversationToolPolicy, ConversationToolRiskLevel } from './tools/tool-types.js';
 import { resolveEffectiveToolPolicy, isRuntimeToolEnabled } from '../ai-control/ai-runtime-registry-service.js';
 import { isAiControlReadOnly } from '../ai-control/ai-control-config.js';
+import { config } from '../../lib/config.js';
+import { DENY_WHEN_CATALOG_DEGRADED } from '../../lib/conversation-permission-catalog.js';
+import { isConversationPermissionSatisfiable } from './conversation-permission-catalog-state.js';
+import {
+  recordConversationPermissionDecision,
+  type ConversationPermissionOutcome
+} from '../../lib/conversation-permission-metrics.js';
 
 export type ConversationRiskLevel = ConversationToolRiskLevel;
 
@@ -43,6 +50,22 @@ export type ConversationPolicyInput = {
   context: ConversationContext;
 };
 
+/**
+ * Lacuna de permissão do turno. Preenchida nos TRÊS desfechos não-triviais (negado, `would_deny` do
+ * modo `observe`, e catálogo degradado) — nunca quando a permissão foi de fato satisfeita.
+ *
+ * Existe além do contador Prometheus de propósito: contador não é assertável em teste unitário de
+ * forma honesta, e um marcador que só o chamador enxergasse seria buraco silencioso. O contador vive
+ * DENTRO do policy-service; este campo é o que os testes afirmam e o que vai para a trilha do turno
+ * (que já carrega o `userId`).
+ */
+export type ConversationPermissionShortfall = {
+  /** Chave exigida, normalizada em minúsculas. */
+  required: string;
+  /** `false` = a chave não existe (ou está inativa) em `access_permissions`: ninguém pode tê-la. */
+  catalogSatisfiable: boolean;
+};
+
 export type ConversationPolicyDecision = {
   allowed: boolean;
   reasonCode: string | null;
@@ -52,6 +75,7 @@ export type ConversationPolicyDecision = {
   isAction: boolean;
   maxBatchSize?: number | null;
   enforcedScope?: 'account' | 'session' | 'profile' | null;
+  permissionShortfall?: ConversationPermissionShortfall | null;
 };
 
 function toToolPolicy(toolName: ConversationToolName): ToolPolicy {
@@ -71,141 +95,84 @@ function toToolPolicy(toolName: ConversationToolName): ToolPolicy {
   };
 }
 
+const ALL_CHANNELS: ConversationChannel[] = ['whatsapp', 'native_chat', 'inapp'];
+const IN_APP_CHANNELS: ConversationChannel[] = ['native_chat', 'inapp'];
+
+/** Consulta/preview: sem confirmação, sem ação, disponível em todos os canais. */
+function readOnlyIntentPolicy(riskLevel: ConversationRiskLevel): ToolPolicy {
+  return { riskLevel, allowChannels: ALL_CHANNELS, requiresConfirmation: false, isAction: false };
+}
+
+/** Ação operacional: confirmação obrigatória, nunca por WhatsApp (até a fase 5). */
+function confirmedActionIntentPolicy(riskLevel: ConversationRiskLevel): ToolPolicy {
+  return { riskLevel, allowChannels: IN_APP_CHANNELS, requiresConfirmation: true, isAction: true };
+}
+
+/**
+ * Política por intent orquestrado, em TABELA — antes era uma cadeia de `if`.
+ *
+ * A tabela não é estética: ela torna o conjunto de intents SUPORTADOS enumerável, e é isso que
+ * permite ao teste comparar, nos dois sentidos, contra `ORCHESTRATED_INTENT_PERMISSION`. Com a cadeia
+ * de `if`, acrescentar um intent sem mapear permissão passava despercebido — exatamente a quebra
+ * silenciosa que esta fase existe para fechar.
+ */
+const ORCHESTRATED_INTENT_POLICY: Record<string, ToolPolicy> = {
+  'manifest.preview_cancel_recent_excluding_first': readOnlyIntentPolicy('R2'),
+  'manifest.preview_batch_submit_selected': readOnlyIntentPolicy('R2'),
+  'manifest.preview_batch_print_selected': readOnlyIntentPolicy('R2'),
+  'manifest.preview_batch_cancel_selected': readOnlyIntentPolicy('R2'),
+  'manifest.preview_create_from_payload': readOnlyIntentPolicy('R2'),
+  'cdf.preview_download_batch_selected': readOnlyIntentPolicy('R2'),
+
+  'manifest.cancel_recent_excluding_first': confirmedActionIntentPolicy('R4'),
+  'manifest.batch_cancel_selected': confirmedActionIntentPolicy('R4'),
+  'manifest.batch_submit_selected': confirmedActionIntentPolicy('R3'),
+  'manifest.batch_print_selected': confirmedActionIntentPolicy('R3'),
+  'manifest.create_from_payload': confirmedActionIntentPolicy('R3'),
+  'manifest.receive_with_receipt': confirmedActionIntentPolicy('R3'),
+  'manifest.replicate_with_patch': confirmedActionIntentPolicy('R3'),
+  'manifest.replicate_segmented': confirmedActionIntentPolicy('R3'),
+  'cdf.generate_from_manifest_selection': confirmedActionIntentPolicy('R3'),
+  'cdf.download_batch_selected': confirmedActionIntentPolicy('R3'),
+
+  // Rascunho é ação, mas não sai da fronteira do SICAT — por isso R1 e sem confirmação.
+  'manifest.create_draft': {
+    riskLevel: 'R1',
+    allowChannels: IN_APP_CHANNELS,
+    requiresConfirmation: false,
+    isAction: true
+  },
+
+  'cdf.resolve_by_manifest_reference': readOnlyIntentPolicy('R1'),
+  'cdf.list_by_manifest_selection': readOnlyIntentPolicy('R1'),
+  'manifest.list_recent_top': readOnlyIntentPolicy('R1'),
+  'manifest.group_recent_top': readOnlyIntentPolicy('R1'),
+  'manifest.detail_selected_set': readOnlyIntentPolicy('R1'),
+  'manifest.lookup_generator_by_number': readOnlyIntentPolicy('R1'),
+  'memory.list_asked_manifests': readOnlyIntentPolicy('R1')
+};
+
+/**
+ * Consulta em tabela SEM cair no protótipo.
+ *
+ * `map['constructor']` devolve uma função herdada de `Object.prototype` — verdadeira o bastante para
+ * passar por um `|| null`. Com a política por INTENT em tabela, um intent chamado `constructor` ou
+ * `toString` viraria "suportado" e explodiria adiante em `effectivePolicy.allowChannels.includes`
+ * (500 no lugar de `INTENT_NOT_SUPPORTED`). A cadeia de `if` que esta tabela substituiu não tinha
+ * essa aresta — este helper a devolve.
+ */
+function lookupOwn<T>(map: Record<string, T>, key: string): T | null {
+  if (!key) return null;
+  return Object.prototype.hasOwnProperty.call(map, key) ? (map[key] ?? null) : null;
+}
+
 function resolveOrchestratedIntentPolicy(intent: string): ToolPolicy | null {
-  if (
-    intent === 'manifest.preview_cancel_recent_excluding_first'
-    || intent === 'manifest.preview_batch_submit_selected'
-    || intent === 'manifest.preview_batch_print_selected'
-    || intent === 'manifest.preview_batch_cancel_selected'
-    || intent === 'manifest.preview_create_from_payload'
-    || intent === 'cdf.preview_download_batch_selected'
-  ) {
-    return {
-      riskLevel: 'R2',
-      allowChannels: ['whatsapp', 'native_chat', 'inapp'],
-      requiresConfirmation: false,
-      isAction: false
-    };
-  }
+  return lookupOwn(ORCHESTRATED_INTENT_POLICY, intent);
+}
 
-  if (intent === 'manifest.cancel_recent_excluding_first') {
-    return {
-      riskLevel: 'R4',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (
-    intent === 'manifest.batch_submit_selected'
-    || intent === 'manifest.batch_print_selected'
-  ) {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'manifest.batch_cancel_selected') {
-    return {
-      riskLevel: 'R4',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'manifest.create_draft') {
-    return {
-      riskLevel: 'R1',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: false,
-      isAction: true
-    };
-  }
-
-  if (intent === 'manifest.create_from_payload') {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'manifest.receive_with_receipt') {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'cdf.resolve_by_manifest_reference') {
-    return {
-      riskLevel: 'R1',
-      allowChannels: ['whatsapp', 'native_chat', 'inapp'],
-      requiresConfirmation: false,
-      isAction: false
-    };
-  }
-
-  if (intent === 'manifest.replicate_with_patch') {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'manifest.replicate_segmented') {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'cdf.generate_from_manifest_selection' || intent === 'cdf.download_batch_selected') {
-    return {
-      riskLevel: 'R3',
-      allowChannels: ['native_chat', 'inapp'],
-      requiresConfirmation: true,
-      isAction: true
-    };
-  }
-
-  if (intent === 'cdf.list_by_manifest_selection') {
-    return {
-      riskLevel: 'R1',
-      allowChannels: ['whatsapp', 'native_chat', 'inapp'],
-      requiresConfirmation: false,
-      isAction: false
-    };
-  }
-
-  if (
-    intent === 'manifest.list_recent_top'
-    || intent === 'manifest.lookup_generator_by_number'
-    || intent === 'memory.list_asked_manifests'
-    || intent === 'manifest.detail_selected_set'
-    || intent === 'manifest.group_recent_top'
-  ) {
-    return {
-      riskLevel: 'R1',
-      allowChannels: ['whatsapp', 'native_chat', 'inapp'],
-      requiresConfirmation: false,
-      isAction: false
-    };
-  }
-
-  return null;
+/** Intents que a policy reconhece. Fonte do teste de cobertura 1:1 com o catálogo. */
+export function listSupportedOrchestratedIntents(): string[] {
+  return Object.keys(ORCHESTRATED_INTENT_POLICY).sort();
 }
 
 function toRecord(value: unknown): Record<string, unknown> {
@@ -241,22 +208,119 @@ function buildPermissionContext(input: ConversationPolicyInput): PermissionConte
   };
 }
 
-function hasConversationPermission(permissionContext: PermissionContext, requiredPermission: string | null): boolean {
-  if (!requiredPermission) return true;
+type PermissionVerdict = {
+  allowed: boolean;
+  shortfall: ConversationPermissionShortfall | null;
+};
 
-  // ⚠️ FAIL-OPEN DELIBERADO E TEMPORÁRIO.
-  // `access_permissions` está VAZIA no banco (verificado em 2026-08-06: 0 linhas, contra 5 usuários e
-  // 191 sessões conversacionais). A migration 008 cria as tabelas de RBAC mas não semeia catálogo
-  // algum, e nada em `bootstrap/base-data.ts` semeia depois. Fechar aqui hoje faria TODA ação do chat
-  // responder PERMISSION_DENIED para todo mundo.
-  // Fechar isto exige, na ordem: (1) semear o catálogo de permissões, (2) criar o papel de operador
-  // padrão, (3) atribuí-lo aos usuários existentes, (4) trocar este `return true` por `false`.
-  // É pré-requisito de liberar ações R3/R4 por WhatsApp — cadeia `whatsapp-channel-sicat`, fase 4.5.
-  if (permissionContext.permissionKeys.size === 0) return true;
+/**
+ * GATE DE PERMISSÃO — três estados, integridade avaliada POR CHAVE.
+ *
+ * O fail-open por usuário morreu aqui: `permissionKeys.size === 0` costumava devolver `true`, ou
+ * seja, quem não tinha papel nenhum virava superusuário do chat. Nenhuma variante dessa linha
+ * sobrevive — inclusive a variante "se o catálogo estiver vazio, abre tudo".
+ *
+ * O lugar dela é o passo 4, que é POR CHAVE e ASSIMÉTRICO entre leitura e ação:
+ *
+ *   1. sem permissão exigida             -> PERMITE
+ *   2. usuário TEM a chave               -> PERMITE
+ *   3. modo `observe`                    -> PERMITE, registrando `would_deny`
+ *   4. chave AUSENTE/INATIVA no catálogo -> ninguém no mundo pode tê-la:
+ *        ação, ou chave em `DENY_WHEN_CATALOG_DEGRADED` -> NEGA  (`catalog_degraded_denied`)
+ *        demais leituras                               -> PERMITE (`catalog_degraded_allowed`)
+ *   5. caso contrário                    -> NEGA (`PERMISSION_DENIED`)
+ *
+ * Por que POR CHAVE e não globalmente: com integridade global, o operador que desativa
+ * `manifest.cancel` DE PROPÓSITO jogaria o gate INTEIRO em degradado e liberaria leitura para todo
+ * mundo. Por chave, ele desarma exatamente aquela ação — para todos, inclusive os admins. É o efeito
+ * que ele queria.
+ *
+ * ⚠️ `codeIsAction`, e não o `isAction` EFETIVO: a classificação leitura×ação do ramo degradado é
+ * decisão de SEGURANÇA e não pode vir do overlay mutável do AI Control Center (`ai_tools`).
+ * `normalizePolicyOverride` aceita `isAction` do `defaultPolicyJson` sem restrição — com o catálogo
+ * degradado e um override `isAction: false` em `submit_manifest`, o passo 4 classificaria a submissão
+ * à CETESB como LEITURA e devolveria `allowed: true` para quem tem ZERO permissões (e de quebra
+ * `requiresConfirmation` cairia junto). O overlay pode afrouxar apresentação e confirmação; nunca a
+ * fronteira que o gate usa para decidir.
+ *
+ * Comparação é igualdade EXATA de string: não há prefixo nem curinga (`manifest.*` não concede nada).
+ */
+function evaluateConversationPermission(input: {
+  permissionContext: PermissionContext;
+  requiredPermission: string | null;
+  /** Classificação do DEFAULT DE CÓDIGO — imune ao override de `ai_tools`. */
+  codeIsAction: boolean;
+  channel: ConversationChannel;
+}): PermissionVerdict {
+  if (!input.requiredPermission) {
+    return { allowed: true, shortfall: null };
+  }
 
-  return permissionContext.permissionKeys.has(requiredPermission.toLowerCase());
+  const required = input.requiredPermission.toLowerCase();
+  if (input.permissionContext.permissionKeys.has(required)) {
+    return { allowed: true, shortfall: null };
+  }
+
+  const mode = config.conversationPermissionEnforcement;
+  const catalogSatisfiable = isConversationPermissionSatisfiable(required);
+  const shortfall: ConversationPermissionShortfall = { required, catalogSatisfiable };
+
+  const record = (outcome: ConversationPermissionOutcome) => {
+    recordConversationPermissionDecision({
+      mode,
+      outcome,
+      permission: required,
+      channel: input.channel,
+      // Sem este label, `observe` (que retorna ANTES da checagem de integridade) produziria a mesma
+      // amostra para "usuário sem papel" e para "catálogo quebrado" durante a janela inteira.
+      catalogSatisfiable
+    });
+  };
+
+  if (mode === 'observe') {
+    record('would_deny');
+    return { allowed: true, shortfall };
+  }
+
+  if (!catalogSatisfiable) {
+    if (input.codeIsAction || DENY_WHEN_CATALOG_DEGRADED.has(required)) {
+      record('catalog_degraded_denied');
+      return { allowed: false, shortfall };
+    }
+    record('catalog_degraded_allowed');
+    return { allowed: true, shortfall };
+  }
+
+  record('denied');
+  return { allowed: false, shortfall };
 }
 
+/**
+ * `isAction` do DEFAULT DE CÓDIGO, sem passar pelo overlay de `ai_tools`. Desconhecido → `true`
+ * (fail-closed: uma tool que o inventário não conhece é tratada como ação no ramo degradado).
+ */
+function resolveCodeIsAction(toolName: string, intent: string): boolean {
+  if (toolName === 'orchestrate_manifest_operation') {
+    return resolveOrchestratedIntentPolicy(intent)?.isAction ?? true;
+  }
+  return getConversationToolInventoryItem(toolName as ConversationToolName)?.policy.isAction ?? true;
+}
+
+const READ_ONLY_TOOL_PERMISSION = 'manifest.read';
+
+/**
+ * Tools cobertas por `manifest.read`.
+ *
+ * As três últimas eram ÓRFÃS (`requiredPermission === null`) e passavam com o gate fechado, para
+ * qualquer usuário. `diagnose_operation` em especial era amplificador de bypass: a policy roda UMA
+ * vez, na tool externa, e `handleOperationDiagnose` chama o dispatcher direto para as tools internas.
+ * Custo de continuidade zero — o papel-piso já dá `manifest.read` a todo usuário ativo.
+ *
+ * ⚠️ `enqueue_cdf_download` é R3/`isAction` e continua aqui: um `sicat.reader` gera e baixa CDF
+ * contra a CETESB. Risco ACEITO E NOMEADO — separá-lo numa chave `cdf.download` é a fase 4.6, pelo
+ * mesmo protocolo `observe` → medir → conceder → flip. Dois estreitamentos no mesmo flip tornam
+ * impossível saber qual quebrou quem.
+ */
 const READ_ONLY_TOOLS = new Set<string>([
   'list_manifests',
   'get_manifest_details',
@@ -268,14 +332,21 @@ const READ_ONLY_TOOLS = new Set<string>([
   'list_mtr_provisorio',
   'enqueue_cdf_download',
   'query_catalog',
-  'search_partners'
+  'search_partners',
+  'get_job_status',
+  'get_dashboard_overview',
+  'diagnose_operation'
 ]);
 
 const DIRECT_TOOL_PERMISSION: Record<string, string> = {
   submit_manifest: 'manifest.submit',
   print_manifest: 'manifest.print',
   cancel_manifest: 'manifest.cancel',
-  replicate_manifest: 'manifest.replicate'
+  replicate_manifest: 'manifest.replicate',
+  // Chave PRÓPRIA, não `manifest.read`: `get_audit_trail` é a única tool que expõe a trilha de
+  // auditoria E `requiresOperationalAccount` devolve `false` para ela — ou seja, um estranho
+  // auto-cadastrado pelo endpoint público de registro lia a trilha sem conta operacional nenhuma.
+  get_audit_trail: 'audit.read'
 };
 
 const ORCHESTRATED_INTENT_PERMISSION: Record<string, string> = {
@@ -317,22 +388,49 @@ const BATCH_LIMITS_BY_INTENT: Record<string, Record<ConversationChannel, number>
   'manifest.cancel_recent_excluding_first': { whatsapp: 3, native_chat: 10, inapp: 20 }
 };
 
-function resolveRequiredPermission(input: ConversationPolicyInput): string | null {
-  if (READ_ONLY_TOOLS.has(input.toolName)) {
-    return 'manifest.read';
+/**
+ * Permissão exigida por (tool, intent). É a fonte ÚNICA do gate — e a mesma função que o teste de
+ * cobertura percorre, para provar que nenhuma tool registrada resolve permissão nula.
+ */
+export function getRequiredPermissionForTool(toolName: string, intent?: string | null): string | null {
+  if (READ_ONLY_TOOLS.has(toolName)) {
+    return READ_ONLY_TOOL_PERMISSION;
   }
 
-  const directPermission = DIRECT_TOOL_PERMISSION[input.toolName];
+  const directPermission = lookupOwn(DIRECT_TOOL_PERMISSION, toolName);
   if (directPermission) {
     return directPermission;
   }
 
-  if (input.toolName !== 'orchestrate_manifest_operation') {
+  if (toolName !== 'orchestrate_manifest_operation') {
     return null;
   }
 
-  const intent = toNullableString(input.toolArgs?.intent) || '';
-  return ORCHESTRATED_INTENT_PERMISSION[intent] || null;
+  return lookupOwn(ORCHESTRATED_INTENT_PERMISSION, String(intent || ''));
+}
+
+/**
+ * Todas as chaves que este serviço consulta, derivadas dos SEUS PRÓPRIOS mapas.
+ *
+ * O teste compara este conjunto com `CONVERSATION_PERMISSION_CATALOG` (o que o seed escreve) nos dois
+ * sentidos. Um lado é função de produção, então não é um double concordando consigo mesmo: mapear uma
+ * tool nova para uma chave que ninguém semeia QUEBRA o teste.
+ */
+export function listRequiredPermissionKeys(): string[] {
+  const keys = new Set<string>();
+  if (READ_ONLY_TOOLS.size > 0) keys.add(READ_ONLY_TOOL_PERMISSION);
+  for (const key of Object.values(DIRECT_TOOL_PERMISSION)) keys.add(key);
+  for (const key of Object.values(ORCHESTRATED_INTENT_PERMISSION)) keys.add(key);
+  return [...keys].sort();
+}
+
+/** Intents com permissão mapeada. Par de `listSupportedOrchestratedIntents` no teste bidirecional. */
+export function listOrchestratedIntentsWithPermission(): string[] {
+  return Object.keys(ORCHESTRATED_INTENT_PERMISSION).sort();
+}
+
+function resolveRequiredPermission(input: ConversationPolicyInput): string | null {
+  return getRequiredPermissionForTool(input.toolName, toNullableString(input.toolArgs?.intent));
 }
 
 function requiresOperationalAccount(input: ConversationPolicyInput): boolean {
@@ -476,6 +574,7 @@ function buildPolicyBlockedDecision(input: {
   reasonCode: string;
   reason: string;
   policy: ToolPolicy;
+  permissionShortfall?: ConversationPermissionShortfall | null;
 }): ConversationPolicyDecision {
   return {
     allowed: false,
@@ -485,11 +584,15 @@ function buildPolicyBlockedDecision(input: {
     riskLevel: input.policy.riskLevel,
     isAction: input.policy.isAction,
     maxBatchSize: null,
-    enforcedScope: null
+    enforcedScope: null,
+    permissionShortfall: input.permissionShortfall ?? null
   };
 }
 
-function buildAllowedPolicyDecision(policy: ToolPolicy): ConversationPolicyDecision {
+function buildAllowedPolicyDecision(
+  policy: ToolPolicy,
+  permissionShortfall: ConversationPermissionShortfall | null = null
+): ConversationPolicyDecision {
   return {
     allowed: true,
     reasonCode: null,
@@ -498,7 +601,8 @@ function buildAllowedPolicyDecision(policy: ToolPolicy): ConversationPolicyDecis
     riskLevel: policy.riskLevel,
     isAction: policy.isAction,
     maxBatchSize: null,
-    enforcedScope: null
+    enforcedScope: null,
+    permissionShortfall
   };
 }
 
@@ -595,11 +699,32 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
     effectivePolicy = intentPolicy;
   }
 
+  // ── AVALIAR CEDO, APLICAR TARDE ───────────────────────────────────────────────────────────────
+  // A permissão é avaliada AQUI, antes de `CHANNEL_BLOCKED` e `INTEGRATION_ACCOUNT_REQUIRED`, mas o
+  // veredito só é APLICADO depois deles: a precedência dos reasonCodes não muda (as duas guardas
+  // continuam vencendo), o que muda é que a métrica passa a existir.
+  //
+  // Sem isto, o critério OBJETIVO do flip (`would_deny` estável em zero) daria zero por construção nos
+  // dois casos que mais importam: (1) usuário sem conta CETESB ativa nunca gerava sinal, e receberia
+  // `PERMISSION_DENIED` no primeiro dia em que selecionasse conta — depois do flip; (2) no canal
+  // `whatsapp` TODA ação para em `CHANNEL_BLOCKED` (nenhuma tool de ação lista `whatsapp` em
+  // `allowChannels` até a fase 5), então a janela fecharia com zero `would_deny{channel="whatsapp"}`
+  // e esse zero seria lido como "seguro para a fase 5" — sendo que a fase 5 é justamente quem
+  // desbloqueia o canal e exercita essas chaves pela primeira vez.
+  const requiredPermission = resolveRequiredPermission(input);
+  const permissionVerdict = evaluateConversationPermission({
+    permissionContext,
+    requiredPermission,
+    codeIsAction: resolveCodeIsAction(input.toolName, intent),
+    channel: input.channel
+  });
+
   if (!effectivePolicy.allowChannels.includes(input.channel)) {
     return buildPolicyBlockedDecision({
       reasonCode: 'CHANNEL_BLOCKED',
       reason: `A ferramenta ${input.toolName} nao e permitida para o canal ${input.channel}.`,
-      policy: effectivePolicy
+      policy: effectivePolicy,
+      permissionShortfall: permissionVerdict.shortfall
     });
   }
 
@@ -607,42 +732,53 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
     return buildPolicyBlockedDecision({
       reasonCode: 'INTEGRATION_ACCOUNT_REQUIRED',
       reason: 'Selecione uma conta CETESB ativa antes de executar esta operacao no chat.',
-      policy: effectivePolicy
+      policy: effectivePolicy,
+      permissionShortfall: permissionVerdict.shortfall
     });
   }
 
-  const requiredPermission = resolveRequiredPermission(input);
-  if (!hasConversationPermission(permissionContext, requiredPermission)) {
+  if (!permissionVerdict.allowed) {
+    // Reutiliza `PERMISSION_DENIED` de propósito, inclusive na negação por catálogo degradado: é o
+    // reasonCode que os dois composers (chat e WhatsApp) já traduzem em texto. A CAUSA vai no
+    // `permissionShortfall` e na métrica — não invento código novo que dois composers teriam que
+    // aprender.
     return buildPolicyBlockedDecision({
       reasonCode: 'PERMISSION_DENIED',
       reason: `Seu perfil nao possui a permissao ${requiredPermission} para esta operacao.`,
-      policy: effectivePolicy
+      policy: effectivePolicy,
+      permissionShortfall: permissionVerdict.shortfall
     });
   }
+
+  /** Carimba a lacuna de permissão (modo `observe` / catálogo degradado) em qualquer desfecho adiante. */
+  const finalize = (decision: ConversationPolicyDecision): ConversationPolicyDecision => ({
+    ...decision,
+    permissionShortfall: permissionVerdict.shortfall
+  });
 
   // Modo somente-leitura global do AI Control Center bloqueia qualquer ação operacional.
   if (effectivePolicy.isAction && isAiControlReadOnly()) {
-    return buildPolicyBlockedDecision({
+    return finalize(buildPolicyBlockedDecision({
       reasonCode: 'AI_CONTROL_READONLY',
       reason: 'O AI Control Center esta em modo somente-leitura (AI_CONTROL_READONLY). Acoes operacionais estao bloqueadas.',
       policy: effectivePolicy
-    });
+    }));
   }
 
   if (effectivePolicy.isAction && input.allowActions === false) {
-    return buildPolicyBlockedDecision({
+    return finalize(buildPolicyBlockedDecision({
       reasonCode: 'ACTIONS_DISABLED',
       reason: 'A execucao de acoes operacionais foi desativada para esta requisicao.',
       policy: effectivePolicy
-    });
+    }));
   }
 
   if (effectivePolicy.requiresConfirmation && input.confirmed !== true) {
-    return buildPolicyBlockedDecision({
+    return finalize(buildPolicyBlockedDecision({
       reasonCode: 'CONFIRMATION_REQUIRED',
       reason: `A ferramenta ${input.toolName} exige confirmacao explicita antes da execucao.`,
       policy: effectivePolicy
-    });
+    }));
   }
 
   // Batch limit validation (R3+R4 actions with batch semantics)
@@ -655,11 +791,11 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
     });
 
     if (!batchValidation.isValid) {
-      return buildBatchLimitExceededDecision(
+      return finalize(buildBatchLimitExceededDecision(
         effectivePolicy,
         batchValidation.maxSize || 10,
         batchItemCount
-      );
+      ));
     }
   }
 
@@ -673,7 +809,7 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
     });
 
     if (!crossAccountCheck.isValid) {
-      return buildCrossAccountViolationDecision(effectivePolicy, crossAccountCheck.message || '');
+      return finalize(buildCrossAccountViolationDecision(effectivePolicy, crossAccountCheck.message || ''));
     }
   }
 
@@ -693,9 +829,9 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
 
     const sessionValidation = validateSessionScope(currentScope, snapshotScope);
     if (!sessionValidation.isValid) {
-      return buildSessionScopeViolationDecision(effectivePolicy, sessionValidation.message || '');
+      return finalize(buildSessionScopeViolationDecision(effectivePolicy, sessionValidation.message || ''));
     }
   }
 
-  return buildAllowedPolicyDecision(effectivePolicy);
+  return buildAllowedPolicyDecision(effectivePolicy, permissionVerdict.shortfall);
 }

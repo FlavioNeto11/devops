@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateConversationPolicy } from '../../src/services/conversation/conversation-policy-service.js';
+import {
+  evaluateConversationPolicy,
+  listRequiredPermissionKeys
+} from '../../src/services/conversation/conversation-policy-service.js';
 
 function buildContext(overrides = {}) {
   return {
@@ -10,7 +13,9 @@ function buildContext(overrides = {}) {
     integrationAccountId: 'acc_test_001',
     sessionContextId: 'scx_test_001',
     channelSessionKey: 'inapp:usr_test_001:acc_test_001',
-    permissionKeys: [],
+    // Operador COMPLETO — ver a nota em `conversation-policy-service.test.js`: com `[]` estes casos
+    // paravam no fail-open e nunca chegavam nos controles de lote/escopo que dizem exercitar.
+    permissionKeys: listRequiredPermissionKeys(),
     requestedBy: 'tester',
     // Derivados da requisição
     correlationId: 'corr_test_conversation_policy',
