@@ -441,6 +441,75 @@ export async function listPotentialGhostManifestsForMirrorWindow(filters: {
   return result.rows.map((row) => mapRow(row));
 }
 
+// Mesmo conjunto transiente de submit definido em
+// workers/operation-handlers.ts e services/manifest-service.ts
+// (TRANSIENT_MANIFEST_SUBMIT_STATUSES): manifestos que iniciaram o submit
+// mas ainda nao receberam confirmacao da CETESB.
+export const TRANSIENT_SUBMIT_MANIFEST_STATUSES = ['queued_submit', 'submitting', 'processing'] as const;
+
+// Funcao irma de listPotentialGhostManifestsForMirrorWindow, para o caso
+// OPOSTO: a irma exige external_hash_code preenchido e status pos-submit,
+// entao nunca enxerga o manifesto cuja RESPOSTA de submit se perdeu — ele
+// fica preso em status transiente com external_hash_code NULO. Esta funcao
+// lista exatamente esses candidatos para o reconciliador casar por
+// marcador/atributos (payload, datas, parceiros) contra a busca CETESB.
+// Aditiva: nao altera a irma nem seus consumidores.
+export async function listUnconfirmedSubmitManifestsForReconciliation(filters: {
+  integrationAccountId?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  updatedSince?: string | null;
+}) {
+  const manifestFilterDateSql = getManifestFilterDateSql();
+  const values: string[] = [];
+
+  if (!filters?.integrationAccountId) {
+    return [];
+  }
+
+  // Janela de tempo obrigatoria: sem recorte (janela de negocio dateFrom/dateTo
+  // ou janela de atividade updatedSince) a varredura degeneraria em full scan.
+  if (!filters.dateFrom && !filters.updatedSince) {
+    return [];
+  }
+
+  values.push(filters.integrationAccountId);
+  const where = [
+    `integration_account_id = $${values.length}`,
+    `coalesce(requested_by, '') <> 'cetesb.search'`,
+    `external_hash_code is null`
+  ];
+
+  const statusPlaceholders: string[] = [];
+  for (const status of TRANSIENT_SUBMIT_MANIFEST_STATUSES) {
+    values.push(status);
+    statusPlaceholders.push(`$${values.length}`);
+  }
+  where.push(`status in (${statusPlaceholders.join(', ')})`);
+
+  if (filters.dateFrom) {
+    values.push(filters.dateFrom);
+    where.push(`${manifestFilterDateSql} >= date($${values.length})`);
+  }
+
+  if (filters.dateTo) {
+    values.push(filters.dateTo);
+    where.push(`${manifestFilterDateSql} <= date($${values.length})`);
+  }
+
+  if (filters.updatedSince) {
+    values.push(filters.updatedSince);
+    where.push(`updated_at >= $${values.length}::timestamptz`);
+  }
+
+  const result = await query<ManifestRow>(
+    `select * from manifests where ${where.join(' and ')} order by updated_at desc`,
+    values
+  );
+
+  return result.rows.map((row) => mapRow(row));
+}
+
 export async function upsertManifestFromExternalSearch(input: {
   id: string;
   integrationAccountId: string;
