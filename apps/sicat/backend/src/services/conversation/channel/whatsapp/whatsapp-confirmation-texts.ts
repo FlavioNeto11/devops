@@ -213,12 +213,23 @@ export function buildWhatsAppConfirmationPreview(input: ConfirmationPreviewInput
 /**
  * Confirmado: o que entrou na fila. Nunca repete o código (ele já foi queimado).
  *
- * ┌─ NÃO PROMETA O QUE O CANAL NÃO FAZ ───────────────────────────────────────────────────────────┐
- * │ Este texto dizia "Te aviso aqui quando terminar." e o aviso de conclusão                       │
- * │ (`whatsapp.outbound_notice`) NÃO EXISTE: não há job, handler nem chamada de saída de desfecho.  │
- * │ A promessa era pior que o silêncio — quem confia nela não vai conferir, e se o job falhar na    │
- * │ CETESB ou for para a DLQ ninguém no telefone fica sabendo. Enquanto o aviso não entrar, o texto │
- * │ manda para onde a informação REALMENTE está. Quando entrar, esta é a linha a trocar.            │
+ * ┌─ PROMESSA SOLDADA AO MECANISMO — a troca condicional da fase 6 ───────────────────────────────┐
+ * │ Este texto dizia "Te aviso aqui quando terminar." quando o aviso de conclusão NÃO EXISTIA, e a │
+ * │ fase 5 teve de corrigi-lo: promessa sem mecanismo é pior que silêncio, porque quem confia nela │
+ * │ não vai conferir.                                                                              │
+ * │                                                                                                │
+ * │ Na fase 6 o mecanismo existe — mas a promessa NÃO passa a ser incondicional, e essa é a lição  │
+ * │ inteira. Ela depende de `noticeEnqueued`, que é o retorno REAL do INSERT do job de aviso naquela│
+ * │ confirmação específica. `false` (INSERT falhou, ou nada foi despachado) devolve as DUAS LINHAS │
+ * │ DE HOJE, palavra por palavra.                                                                  │
+ * │                                                                                                │
+ * │ ⚠️ O texto não verifica a condição sozinho — ela chega por parâmetro. Se um refactor futuro     │
+ * │ passar `true` fixo, a promessa sem mecanismo volta pela porta dos fundos. É por isso que o teste│
+ * │ que remove `noticeEnqueued` do caminho de confirmação é OBRIGATÓRIO, não opcional.             │
+ * │                                                                                                │
+ * │ E a segunda metade da frase não é hedge: é a única parte honesta quando a janela de 24 h fecha │
+ * │ antes do desfecho. SEM PRAZO PROMETIDO — a duração da chamada à CETESB não está medida em lugar│
+ * │ nenhum do repo, então "menos de um minuto" seria invenção.                                     │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 export function buildWhatsAppConfirmedText(input: {
@@ -226,12 +237,19 @@ export function buildWhatsAppConfirmedText(input: {
   itemCount: number;
   ticketId: string;
   windowLine?: string | null;
+  /** `true` SOMENTE quando o job de aviso daquela confirmação existe. Ver o bloco acima. */
+  noticeEnqueued?: boolean;
 }): string {
   const plural = input.itemCount === 1 ? 'a operação' : `as ${input.itemCount} operações`;
-  const lines = [
-    `Confirmado. Coloquei ${plural} na fila.`,
-    'Ainda nao consigo te avisar por aqui quando terminar: acompanhe em *MTRs* no SICAT, ou me pergunte daqui a pouco.'
-  ];
+  const lines = input.noticeEnqueued === true
+    ? [
+      `Confirmado. Coloquei ${plural} na fila.`,
+      'Te aviso aqui assim que terminar - deu certo ou nao. Se a conversa esfriar antes disso, o resultado fica em *MTRs* no SICAT.'
+    ]
+    : [
+      `Confirmado. Coloquei ${plural} na fila.`,
+      'Ainda nao consigo te avisar por aqui quando terminar: acompanhe em *MTRs* no SICAT, ou me pergunte daqui a pouco.'
+    ];
   if (input.windowLine) lines.push('', input.windowLine);
   lines.push('', `Protocolo: ${input.ticketId}`);
   return lines.join('\n');

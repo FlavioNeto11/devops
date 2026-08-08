@@ -587,10 +587,16 @@ export async function startChannelLinkService(
   // Limitador de TELEFONE (escudo de TRÁFEGO): só aqui a chave existe, porque depende do número já
   // canonicalizado. O dono já verificado PULA o balde pelo motivo acima — re-verificar o próprio
   // telefone não é bombing, e o custo dele continua limitado pelo balde de usuário da rota.
+  //
+  // PEEK aqui, DÉBITO só depois das recusas baratas (escudo da vítima e teto de vínculos). Consumir
+  // com `check` neste ponto deixava UMA conta de atacante já no teto de 3 vínculos DRENAR os 6 hits/h
+  // do número da vítima só disparando `start`: a mensagem nunca sairia (o 409 de teto barra adiante),
+  // mas o balde que protege a vítima já teria sido gasto — sem nenhuma escrita no banco. `peek` recusa
+  // cedo quem já estourou a janela, sem cobrar a cota de quem vai ser barrado logo abaixo por um
+  // motivo mais barato.
+  const phoneRateKey = buildDispatchPhoneRateKey(channelType, externalUserKey);
   if (!isOwnVerifiedNumber) {
-    const phoneDecision = DISPATCH_PHONE_RATE_LIMIT.check(
-      buildDispatchPhoneRateKey(channelType, externalUserKey)
-    );
+    const phoneDecision = DISPATCH_PHONE_RATE_LIMIT.peek(phoneRateKey);
     if (!phoneDecision.allowed) {
       throw rateLimited(
         `Limite de envios para este número atingido. Tente novamente em ${phoneDecision.retryAfterSeconds}s.`,
@@ -645,6 +651,14 @@ export async function startChannelLinkService(
       `Limite de ${config.channelLinkMaxPerUser} números vinculados atingido. Remova um número antes de vincular outro.`,
       { code: 'CHANNEL_LINK_MAX_LINKS_REACHED' }
     );
+  }
+
+  // Débito do balde de TELEFONE — só AGORA, passadas as recusas baratas (escudo da vítima e teto de
+  // vínculos). `peek` (acima) + `check` (aqui) não é atômico, mas o teto por USUÁRIO da rota já correu
+  // antes e o balde de telefone fica aproximado por cima em 1 unidade — preço consciente de não deixar
+  // uma recusa barata consumir a cota que existe para proteger a vítima.
+  if (!isOwnVerifiedNumber) {
+    DISPATCH_PHONE_RATE_LIMIT.check(phoneRateKey);
   }
 
   // Higiene oportunista — não é requisito de correção, só evita acúmulo de linhas vivas mortas.

@@ -27,6 +27,11 @@ import {
   resendChannelLinkChallengeService,
   startChannelLinkService
 } from '../services/conversation-channel-link-service.js';
+import {
+  getWhatsAppActionWindowService,
+  openWhatsAppActionWindowService,
+  revokeWhatsAppActionWindowService
+} from '../services/conversation/channel/whatsapp/whatsapp-action-window-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -128,6 +133,31 @@ export function registerChannelLinkRoutes(router: express.Router): void {
     // 202: o que foi aceito é o ENVIO. A entrega no aparelho não está confirmada e a UI nunca pode
     // afirmar que chegou — a copy é "código enviado".
     res.status(202).json(response);
+  }));
+
+  // ── Janela de ação (step-up do N2, fase 5) ───────────────────────────────────────────────────
+  // Registradas ANTES de `/:linkId` pelo mesmo motivo das de `/challenges/...`. Toda a superfície é
+  // Bearer (`sicatAuthMiddleware`): é a prova de posse da credencial SICAT que o telefone roubado não
+  // tem. Nenhum token em URL.
+  router.post('/v1/sicat/channel-links/whatsapp/action-window', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const user = requireSicatUser(req);
+    const window = await openWhatsAppActionWindowService(
+      user.userId,
+      (req.body || {}) as LooseRecord,
+      getCorrelationId(req)
+    );
+    res.status(201).json(window);
+  }));
+
+  router.get('/v1/sicat/channel-links/whatsapp/action-window', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const user = requireSicatUser(req);
+    res.json(await getWhatsAppActionWindowService(user.userId));
+  }));
+
+  router.delete('/v1/sicat/channel-links/whatsapp/action-window/:windowId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const user = requireSicatUser(req);
+    await revokeWhatsAppActionWindowService(user.userId, String(req.params.windowId || ''));
+    res.status(204).end();
   }));
 
   // IMPORTANTE: registrar as rotas de `/challenges/...` ANTES de `/:linkId`, senão o segmento

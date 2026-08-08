@@ -42,6 +42,7 @@ import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/ret
 import { patchJobPayload } from './job-payload-patch.js';
 import { findConversationChannelLinkForChannel } from '../repositories/conversation-channel-link-repo.js';
 import { runWhatsAppInboundTurn } from '../services/conversation/channel/whatsapp/whatsapp-turn-service.js';
+import { runWhatsAppOutboundNotice } from '../services/conversation/channel/whatsapp/whatsapp-outbound-notice-service.js';
 import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsapp/index.js';
 import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
 
@@ -832,11 +833,44 @@ async function handleWhatsAppInboundMessage(job: JobEntity) {
 }
 
 /**
+ * Aviso de conclusão de ação confirmada no WhatsApp (fase 6).
+ *
+ * Costura com a fila, no mesmo molde do handler acima: o corpo vive em
+ * `whatsapp-outbound-notice-service.ts` e todo desfecho de NEGÓCIO — vínculo revogado, vínculo
+ * transferido, janela fechada, canal desligado, não-entregue na última tentativa — volta como
+ * `{ outcome }` e termina em `finishJob`.
+ *
+ * O ÚNICO erro que sobe daqui é o reagendamento (`WHATSAPP_NOTICE_NOT_READY`, retentável) e a falha
+ * de envio fora da última tentativa. Na última tentativa o serviço nunca lança: aviso na DLQ é
+ * silêncio sobre o silêncio.
+ */
+async function handleWhatsAppOutboundNotice(job: JobEntity) {
+  const result = await runWhatsAppOutboundNotice({
+    job: {
+      jobId: job.jobId,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      correlationId: job.correlationId ?? null,
+      claimedBy: job.claimedBy ?? null,
+      payload: job.payload
+    },
+    patchJobPayload: (target, patch) => patchJobPayload(target, patch)
+  });
+
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+/**
  * Falha TERMINAL de um job de canal: avisa o usuário que a mensagem dele morreu.
  *
  * Sem isto, um job que vai para `failed`/`dlq` deixa a pessoa esperando para sempre — o WhatsApp não
- * tem "spinner que some". Filtra por PAYLOAD (molde de
- * `applyConversationArtifactTerminalFailureSideEffect`) e não por `entityType`.
+ * tem "spinner que some". Gatilho DUPLO: a operação tem de ser `whatsapp.inbound_message` E o payload
+ * tem de carregar `channelLinkId` (molde de `applyConversationArtifactTerminalFailureSideEffect`).
+ * O filtro por operação é obrigatório: o job `whatsapp.outbound_notice` também carrega `channelLinkId`
+ * no payload (de propósito, para não levar telefone), então sem ele um AVISO que morresse em
+ * `failed`/`dlq` dispararia "Não consegui processar sua última mensagem" — factualmente falso (a
+ * mensagem FOI processada), mensagem PAGA extra, e fora das guardas de janela de 24 h e de dono do
+ * ticket que o serviço de aviso construiu.
  *
  * O corpo INTEIRO é try/catch: `handleDlqTransition` é awaited dentro do `catch` de
  * `processClaimedJob`, que não tem catch externo — um `throw` daqui sobe até o `while` de
@@ -848,6 +882,10 @@ export async function applyWhatsAppInboundTerminalFailureSideEffect(
   _error: unknown = null
 ) {
   try {
+    // Só a mensagem de ENTRADA produz este aviso. O aviso de conclusão morrendo na DLQ é silêncio
+    // sobre o silêncio, por desenho — nunca uma segunda mensagem sem janela nem checagem de dono.
+    if (job.operation !== 'whatsapp.inbound_message') return null;
+
     const channelLinkId = toNonEmptyString(job.payload?.channelLinkId);
     if (!channelLinkId) return null;
 
@@ -961,6 +999,8 @@ export async function processJob(job: JobEntity, gateway: {
     // fabricar todos. Dependências deste handler entram por import direto.
     case 'whatsapp.inbound_message':
       return handleWhatsAppInboundMessage(job);
+    case 'whatsapp.outbound_notice':
+      return handleWhatsAppOutboundNotice(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

@@ -690,10 +690,36 @@ async function refreshDocumentArtifact(artifact: Awaited<ReturnType<typeof findC
   return artifact;
 }
 
-async function authorizeArtifactScope(input: {
+/**
+ * ESCOPO DO ARTEFATO — fechado em DOIS NÍVEIS na fase 6.
+ *
+ * ┌─ O DEFEITO QUE ESTAVA VIVO ───────────────────────────────────────────────────────────────────┐
+ * │ A forma anterior era `if (input.X && artifact.X && input.X !== artifact.X)` nos dois eixos:    │
+ * │ artefato com escopo e CHAMADOR SEM escopo pulava a checagem inteira. A fase 0 fechou o opt-in  │
+ * │ por query param (o escopo passou a vir do principal), mas NÃO fechou o `null`: qualquer        │
+ * │ usuário SICAT autenticado sem conta ativa que conhecesse um `artifactId` baixava artefato de   │
+ * │ outra conta CETESB. Isso não tem nada a ver com WhatsApp — está vivo na rota autenticada hoje. │
+ * └───────────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * NÍVEL GLOBAL — fechamento ASSIMÉTRICO. Eixo NÃO-NULO no artefato + eixo ausente no chamador ⇒ 403.
+ * Mata exatamente o vetor acima e NÃO PODE negar um chamador corretamente escopado: quem tem a conta
+ * certa continua passando, quem tem a errada já era negado. É o que honra a restrição de não quebrar
+ * o chat nativo.
+ *
+ * NÍVEL DO CANAL (`requirePositiveAxis`) — exigência de EIXO POSITIVO: pelo menos um eixo não-nulo
+ * dos DOIS lados e igual; zero comparações efetivas ⇒ recusa. Só o worker do aviso pede isso, porque
+ * lá os dois lados do escopo vêm do ticket e o código os controla.
+ *
+ * NÃO se exige eixo positivo globalmente: artefatos legados com os três eixos nulos são acessados
+ * pelo copiloto in-app, e não quebrar o chat nativo tem precedência sobre a conveniência de fechar
+ * tudo aqui. Contar essas linhas e decidir com NÚMERO — não com suposição — é item de fase 7; se
+ * houver volume, a saída é backfill de escopo, nunca relaxar a guarda de volta.
+ */
+export async function authorizeArtifactScope(input: {
   artifact: Awaited<ReturnType<typeof findConversationArtifactById>>;
   integrationAccountId?: string | null;
   sessionContextId?: string | null;
+  requirePositiveAxis?: boolean;
 }) {
   const { artifact } = input;
   if (!artifact) {
@@ -702,16 +728,33 @@ async function authorizeArtifactScope(input: {
     });
   }
 
-  if (input.integrationAccountId && artifact.integrationAccountId && input.integrationAccountId !== artifact.integrationAccountId) {
-    throw new AppError(403, 'Forbidden', 'Artifact nao pertence a integrationAccountId informada.', {
-      code: 'CONVERSATION_ARTIFACT_SCOPE_FORBIDDEN'
-    });
+  const deny = (message: string): never => {
+    throw new AppError(403, 'Forbidden', message, { code: 'CONVERSATION_ARTIFACT_SCOPE_FORBIDDEN' });
+  };
+
+  const callerAccountId = input.integrationAccountId || null;
+  const callerSessionContextId = input.sessionContextId || null;
+
+  if (artifact.integrationAccountId && !callerAccountId) {
+    deny('Artifact pertence a uma integrationAccountId e o chamador nao tem conta em escopo.');
+  }
+  if (callerAccountId && artifact.integrationAccountId && callerAccountId !== artifact.integrationAccountId) {
+    deny('Artifact nao pertence a integrationAccountId informada.');
   }
 
-  if (input.sessionContextId && artifact.sessionContextId && input.sessionContextId !== artifact.sessionContextId) {
-    throw new AppError(403, 'Forbidden', 'Artifact nao pertence a sessionContextId informada.', {
-      code: 'CONVERSATION_ARTIFACT_SCOPE_FORBIDDEN'
-    });
+  if (artifact.sessionContextId && !callerSessionContextId) {
+    deny('Artifact pertence a um sessionContextId e o chamador nao tem sessao em escopo.');
+  }
+  if (callerSessionContextId && artifact.sessionContextId && callerSessionContextId !== artifact.sessionContextId) {
+    deny('Artifact nao pertence a sessionContextId informada.');
+  }
+
+  if (input.requirePositiveAxis) {
+    const accountMatched = Boolean(callerAccountId && artifact.integrationAccountId);
+    const sessionMatched = Boolean(callerSessionContextId && artifact.sessionContextId);
+    if (!accountMatched && !sessionMatched) {
+      deny('Artifact sem eixo de escopo comparavel com o chamador.');
+    }
   }
 }
 
@@ -797,12 +840,15 @@ export async function getConversationArtifactContent(input: {
   artifactId: string;
   integrationAccountId?: string | null;
   sessionContextId?: string | null;
+  /** Só o canal externo pede: exige eixo de escopo POSITIVO. Ver `authorizeArtifactScope`. */
+  requirePositiveAxis?: boolean;
 }) {
   const artifact = await findConversationArtifactById(input.artifactId);
   await authorizeArtifactScope({
     artifact,
     integrationAccountId: input.integrationAccountId || null,
-    sessionContextId: input.sessionContextId || null
+    sessionContextId: input.sessionContextId || null,
+    requirePositiveAxis: input.requirePositiveAxis === true
   });
 
   const refreshed = artifact?.artifactType === 'document'

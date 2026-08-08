@@ -2542,13 +2542,23 @@ export function createConversationService(dependencies?: {
           lastTurnAt: new Date().toISOString()
         })
       );
-      // Adota o id CANÔNICO da sessão: quando já existe uma para este (channel_type, channel_session_key),
-      // o upsert reutiliza a linha existente e devolve o id original. Sem isto, um conversationSessionId
-      // novo a cada turno (front não reenvia um estável) faria as escritas filhas (mensagens, working-memory,
-      // trilhas, action logs) referenciarem uma sessão inexistente e cairem por FK. Propaga p/ todo o turno
-      // e p/ a resposta (assim o front passa a reenviar o id canônico).
-      if (upsertedSession?.id && upsertedSession.id !== context.conversationSessionId) {
+      // O id que passa a valer para TODAS as escritas filhas e para a leitura do histórico é o que o
+      // upsert DEVOLVEU — nunca o `conversationSessionId` declarado pelo cliente. Dois casos:
+      //  (a) upsert OK: quando já existe uma sessão para este (channel_type, channel_session_key), a
+      //      linha existente é reutilizada e devolve o id canônico — adotamos, e o front passa a
+      //      reenviar esse id. Sem isto, um id novo a cada turno faria as escritas filhas (mensagens,
+      //      working-memory, trilhas, action logs) referenciarem uma sessão inexistente e caírem por FK.
+      //  (b) upsert FALHOU (`undefined`, engolido por `persistSafely`): o caso perigoso é um
+      //      `conversationSessionId` de cliente que COLIDE na PK com a sessão de OUTRO usuário — o
+      //      `on conflict (channel_session_key)` não cobre a PK, o 23505 sobe e é engolido. Seguir com o
+      //      id declarado gravaria as mensagens DESTE turno na sessão da vítima (mesma conta CETESB, ou
+      //      ambos sem conta) e leria o histórico DELA para o LLM. Regeneramos um id próprio: o turno
+      //      degrada sem persistência de sessão (as escritas filhas caem por FK e `persistSafely` as
+      //      engole), mas JAMAIS escreve ou lê sob um id que não provamos ser nosso.
+      if (upsertedSession?.id) {
         context.conversationSessionId = upsertedSession.id;
+      } else {
+        context.conversationSessionId = createPrefixedId('csn');
       }
 
       await persistSafely('insert conversation_messages(user)', async () => {

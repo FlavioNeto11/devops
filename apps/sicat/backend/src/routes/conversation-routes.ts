@@ -27,9 +27,13 @@ type RequestWithContext = express.Request & {
 };
 
 /**
- * Teto de turnos por principal. Cada turno custa chamadas de LLM, e a partir da cadeia
+ * Teto de turnos por USUÁRIO. Cada turno custa chamadas de LLM, e a partir da cadeia
  * `whatsapp-channel-sicat` a superfície passa a ser alcançável por canal externo. Folgado para uso
  * humano (inclui rajadas de quick-actions do copiloto), apertado o bastante para conter abuso.
+ *
+ * A chave é o `userId`, NÃO o `channelSessionKey`: este último embute o canal declarado pelo cliente
+ * (`native_chat` × `inapp`), e chavear por ele dava ao mesmo usuário DOIS baldes de 40 — 80/5min só
+ * alternando o campo `channel` do corpo.
  */
 const TURN_RATE_LIMIT = createRateLimiter(40, 5 * 60 * 1000);
 
@@ -42,6 +46,34 @@ function requireSicatUser(req: express.Request): NonNullable<RequestWithContext[
     });
   }
   return sicatUser;
+}
+
+/**
+ * Teto de turnos, checado LOGO APÓS o auth — antes do multer e da extração de PDF do
+ * `conversationIngestMiddleware`, e antes das queries de `resolveHttpPrincipal`. Duas correções: a
+ * chave é o `userId` (não o `channelSessionKey`, que dobrava o orçamento), e o 429 barra o trabalho
+ * caro de upload/ingestão em vez de rodar depois dele.
+ *
+ * Síncrono e lança direto: o Express encaminha throws síncronos de middleware ao handler de erro,
+ * onde o `AppError` vira o Problem+JSON esperado.
+ */
+function enforceTurnRateLimit(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): void {
+  const sicatUser = requireSicatUser(req);
+  const decision = TURN_RATE_LIMIT.check(`turn:user:${sicatUser.userId}`);
+  if (!decision.allowed) {
+    res.setHeader('Retry-After', String(decision.retryAfterSeconds));
+    throw new AppError(
+      429,
+      'Too Many Requests',
+      `Limite de turnos atingido. Tente novamente em ${decision.retryAfterSeconds}s.`,
+      { code: 'CONVERSATION_RATE_LIMITED' }
+    );
+  }
+  next();
 }
 
 function toSingleString(value: unknown): string | undefined {
@@ -141,27 +173,18 @@ export function createConversationRouter() {
 
   // Multimodal: attachIngest é NO-OP em application/json (contrato textual intacto). Em multipart,
   // o multer popula req.body com os campos de TEXTO e req.ingested com o resultado da ingestão (fail-soft).
-  router.post('/v1/conversations/turns', sicatAuthMiddleware, conversationIngestMiddleware(), asyncHandler(async (req, res) => {
+  router.post('/v1/conversations/turns', sicatAuthMiddleware, enforceTurnRateLimit, conversationIngestMiddleware(), asyncHandler(async (req, res) => {
     // Instrumentação F0 (latência/outcome do turno) — só telemetria.
     const startedAt = Date.now();
 
     // Identidade resolvida ANTES de qualquer trabalho: define canal, usuário e conta CETESB.
     // `declaredChannel` só distingue chat nativo × copiloto in-app; declarar `whatsapp` aqui é 403.
+    // O teto de turnos JÁ correu em `enforceTurnRateLimit` (antes do multer/ingestão), keyado por
+    // `userId`.
     const principal: ConversationPrincipal = await resolveHttpPrincipal({
       sicatUser: requireSicatUser(req),
       declaredChannel: (req.body as Record<string, unknown> | undefined)?.channel
     });
-
-    const rateLimit = TURN_RATE_LIMIT.check(principal.channelSessionKey);
-    if (!rateLimit.allowed) {
-      res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
-      throw new AppError(
-        429,
-        'Too Many Requests',
-        `Limite de turnos atingido. Tente novamente em ${rateLimit.retryAfterSeconds}s.`,
-        { code: 'CONVERSATION_RATE_LIMITED' }
-      );
-    }
 
     // Quando vieram arquivos (multipart): dobra o TEXTO extraído na mensagem e carrega os blocos
     // nativos (imagem/PDF) p/ o LLM via userContent. Sem arquivos (JSON), `ingestedTurn` é null e o

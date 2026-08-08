@@ -50,6 +50,52 @@ const droppedCounter = ensureCounter<DropLabel>(
   ['channel', 'provider', 'reason']
 );
 
+/**
+ * Aviso de conclusão (fase 6). `outcome` = o desfecho agregado da ação (`succeeded`, `partial`,
+ * `failed`, `dlq`, `timeout`); `path` = o que o canal REALMENTE fez com ele.
+ *
+ * ⚠️ TELEFONE NUNCA VIRA LABEL — nem cru (é dado pessoal, restrição do módulo) nem mascarado (a
+ * cardinalidade explodiria a série). `channelLinkId` idem. Os dois vão no log estruturado, o
+ * telefone só por `maskChannelUserKey`.
+ *
+ * `skipped_media_oversize` é OBRIGATÓRIA: sem ela a degradação de anexo para texto fica invisível e
+ * o teto de `whatsappMediaMaxBytes` nunca é calibrado com dado real.
+ */
+type NoticeLabel = 'outcome' | 'path';
+
+const outboundNoticeCounter = ensureCounter<NoticeLabel>(
+  'sicat_channel_outbound_notice_total',
+  'Avisos de conclusão de ação confirmada emitidos no canal externo, por desfecho e caminho de entrega.',
+  ['outcome', 'path']
+);
+
+export type ChannelNoticePath =
+  | 'text'
+  | 'media'
+  | 'skipped_outside_window'
+  | 'skipped_link_revoked'
+  | 'skipped_link_transferred'
+  | 'skipped_media_oversize'
+  | 'skipped_media_disabled'
+  | 'skipped_undeliverable';
+
+export function recordChannelOutboundNotice(outcome: string, path: ChannelNoticePath, count = 1): void {
+  safeInc(outboundNoticeCounter, { outcome, path }, count);
+}
+
+export async function readChannelOutboundNoticeMetricsForTests(): Promise<Array<{ outcome: string; path: string; value: number }>> {
+  const metric = await outboundNoticeCounter.get();
+  return metric.values.map((entry) => ({
+    outcome: String(entry.labels.outcome ?? ''),
+    path: String(entry.labels.path ?? ''),
+    value: entry.value
+  }));
+}
+
+export function resetChannelOutboundNoticeMetricsForTests(): void {
+  outboundNoticeCounter.reset();
+}
+
 function safeInc<T extends string>(counter: promClient.Counter<T>, labels: Record<T, string>, count: number): void {
   if (!Number.isFinite(count) || count <= 0) return;
   try {

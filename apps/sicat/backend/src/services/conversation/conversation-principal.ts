@@ -198,6 +198,11 @@ export async function resolveChannelPrincipal(input: {
   externalUserKey: string;
   integrationAccountId?: string | null;
   requestedBy?: string | null;
+  /**
+   * Id OPACO do vínculo. Entra só para ser o fallback de `requestedBy` — ver o comentário no
+   * `return`. Opcional para não quebrar chamador antigo, mas o adaptador de canal SEMPRE passa.
+   */
+  channelLinkId?: string | null;
 }): Promise<ConversationPrincipal> {
   const userId = String(input.userId || '').trim();
   const externalUserKey = String(input.externalUserKey || '').trim();
@@ -244,6 +249,17 @@ export async function resolveChannelPrincipal(input: {
     sessionContextId: accountContext?.sessionContextId || null,
     channelSessionKey: `${input.channel}:${externalUserKey}`,
     permissionKeys,
-    requestedBy: input.requestedBy || externalUserKey
+    // ⚠️ O FALLBACK NUNCA É `externalUserKey` (o E.164 CRU) — fase 6.
+    //
+    // Precisão sobre o que isto é: NÃO é a correção de um vazamento em produção. O único chamador
+    // (`whatsapp-turn-service`) já passa `requestedBy` explícito e MASCARADO desde a fase 4, então o
+    // número cru não estava descendo por aqui. O que existia era uma ARMADILHA LATENTE: `requestedBy`
+    // desce para `body.requestedBy` de todo enqueue e fica em repouso em `jobs.payload.requestedBy`,
+    // que a DLQ copia junto com a linha. Um chamador novo que esquecesse o parâmetro gravaria
+    // telefone em claro numa superfície que o suporte consulta, e nada acusaria.
+    //
+    // O fallback agora é o id OPACO do vínculo; sem ele, só o nome do canal (não-pessoal).
+    requestedBy: input.requestedBy
+      || (input.channelLinkId ? `channel:${input.channelLinkId}` : `channel:${input.channel}`)
   };
 }

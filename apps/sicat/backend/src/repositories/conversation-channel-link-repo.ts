@@ -178,6 +178,32 @@ export async function findConversationChannelLinkForChannel(
   return mapConversationChannelLink(result.rows[0]);
 }
 
+/**
+ * Acrescenta chaves ao `metadata` do vínculo, sem reescrever o que já está lá (fase 6).
+ *
+ * O merge é feito pelo POSTGRES (`||` de jsonb), não em JavaScript: um read-modify-write daria lost
+ * update entre o pod da api (webhook) e o worker do canal, e a dívida de aviso — que é justamente o
+ * que mora aqui — sumiria sem erro nenhum.
+ *
+ * Só ACRESCENTA no primeiro nível; passar `{ pendingNotices: [...] }` SUBSTITUI o array inteiro, que
+ * é o comportamento desejado (quem monta a lista já aplicou teto e TTL antes de materializar).
+ */
+export async function patchConversationChannelLinkMetadata(
+  client: PoolClient | null,
+  input: { id: string; metadataPatch: JsonObject }
+) {
+  const result = await run<ConversationChannelLinkRow>(
+    client,
+    `update conversation_channel_links
+        set metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+            updated_at = now()
+      where id = $1
+      returning *`,
+    [input.id, JSON.stringify(input.metadataPatch || {})]
+  );
+  return mapConversationChannelLink(result.rows[0]);
+}
+
 /** Teto de vínculos por usuário. Conta só o que já está verificado — `pending` não ocupa vaga. */
 export async function countConversationChannelLinksByUser(
   client: PoolClient | null,

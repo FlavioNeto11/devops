@@ -40,6 +40,7 @@ import { calculateJobPriority, extractJobTags, getRetryConfig } from '../../../.
 import { findConversationChannelLink } from '../../../../repositories/conversation-channel-link-repo.js';
 import { insertJob } from '../../../../repositories/job-repo.js';
 import { requireChannelUserKey } from '../../../conversation-channel-link-service.js';
+import { cutAtGrapheme } from './whatsapp-render-blocks.js';
 import {
   WHATSAPP_RATE_LIMIT_NOTICE,
   WHATSAPP_UNLINKED_NOTICE,
@@ -230,7 +231,11 @@ export function classifyInboundMessage(message: WhatsAppInboundMessage): Classif
 
   const maxChars = Number(config.whatsappInboundMaxTextChars) || 2000;
   const truncated = rawText.length > maxChars;
-  const text = truncated ? rawText.slice(0, maxChars) : rawText;
+  // Corte por grafema/code point, NUNCA `slice` cru em unidades UTF-16: um par surrogate partido na
+  // fronteira (basta um emoji cair no teto) produz UTF-16 inválido que, ao ser serializado com
+  // `JSON.stringify` e gravado como `::jsonb` no payload do job, faz o insert falhar — a mensagem cai
+  // em `enqueue_failed`, o provedor recebe 200 e nunca reentrega: mensagem perdida em silêncio.
+  const text = truncated ? cutAtGrapheme(rawText, maxChars) : rawText;
 
   if (isWhatsAppGreeting(text)) {
     return { disposition: 'greeting', text, textTruncated: truncated, mediaIgnored: hasMedia };

@@ -221,7 +221,13 @@ export function truncateWhatsAppReply(text: string, maxChars: unknown = config.w
   if (value.length <= limit) return value;
 
   const suffix = '\n\n[...] A resposta era longa e foi cortada aqui. Peça um período menor ou veja a lista completa no SICAT.';
-  const room = Math.max(0, limit - suffix.length);
+  // Teto tão baixo que não sobra espaço ÚTIL de conteúdo depois do sufixo honesto (o sufixo tem
+  // ~106 chars): SUPRIME o sufixo e corta só o conteúdo no teto. Anexar o sufixo aqui degeneraria
+  // `room` a ~0 e a saída seria SÓ o sufixo — perdendo 100% da resposta e ainda estourando o próprio
+  // teto (o desfecho mudo que a truncagem existe para evitar).
+  const MIN_CONTENT_ROOM = 24;
+  const room = limit - suffix.length;
+  if (room < MIN_CONTENT_ROOM) return cutAtGrapheme(value, limit);
   return `${cutAtGrapheme(value, room)}${suffix}`;
 }
 
@@ -273,6 +279,40 @@ function finalizeSegment(text: string, ctx: ReplyContext, index: number, total: 
 /** Aviso pronto (expiração, timeout) que vira UMA mensagem, pelo mesmo funil de higiene. */
 export function composeWhatsAppNotice(notice: string, ctx: ReplyContext = {}): string[] {
   return [finalizeSegment(notice, ctx, 0, 1)];
+}
+
+/**
+ * CARONA DA DÍVIDA DE AVISO (fase 6) — o desfecho que a janela de 24 h impediu de empurrar, colado
+ * numa resposta que JÁ IA SAIR.
+ *
+ * Duas propriedades inegociáveis, e as duas são sobre não estragar o que já funciona:
+ *
+ *  1. **Não gera mensagem paga.** O bloco entra num segmento existente; um segmento novo seria um
+ *     `sendText` dedicado, que é exatamente o que a decisão de custo desta fase proíbe.
+ *  2. **Não danifica a resposta.** Se o bloco não couber no orçamento do último segmento, ele NÃO É
+ *     anexado — a dívida fica onde está e tenta de novo no turno seguinte. Truncar para caber
+ *     cortaria a cauda da resposta útil (é ela que fica no fim), e uma dívida entregue às custas da
+ *     resposta que a pessoa acabou de pedir é troca ruim.
+ *
+ * Limitação declarada: uma dívida grande diante de respostas sempre longas pode nunca caber, e aí
+ * morre pelo TTL — com contador (`pendingNoticesDropped`), nunca em silêncio.
+ *
+ * `null` = não coube (ou não havia dívida): quem chama NÃO deve limpar a dívida.
+ */
+export function attachPendingNoticeBlock(segments: string[], block: string | null): string[] | null {
+  if (!block || segments.length === 0) return null;
+
+  const lastIndex = segments.length - 1;
+  const last = segments[lastIndex];
+  if (!last) return null;
+
+  const joined = `${last}\n\n—\n${block}`;
+  const limit = readPositiveConfig(config.whatsappReplyMaxChars, DEFAULT_REPLY_MAX_CHARS);
+  if (joined.length > limit) return null;
+
+  const next = [...segments];
+  next[lastIndex] = joined;
+  return next;
 }
 
 /** Saudação/ajuda/menu — o único momento em que a pessoa aprende o que o canal faz. */

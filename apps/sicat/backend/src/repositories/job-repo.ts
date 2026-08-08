@@ -249,6 +249,57 @@ export async function insertJobDeduplicated(input: JobInsertInput, client: DbCli
   return insertJobInternal(input, { deduplicateActive: true, client });
 }
 
+/**
+ * INSERE SE O `command_id` AINDA NÃO EXISTE — a barreira "não notificar duas vezes" da fase 6.
+ *
+ * `jobs.command_id` é `text not null unique` e o unique é GLOBAL e PERMANENTE (ao contrário do índice
+ * parcial `ux_jobs_active_entity_operation`, que só cobre `queued|running|retry_wait`). Com
+ * `commandId = 'wa:notice:<ticketId>'`, o segundo aviso do mesmo ticket é IMPOSSÍVEL — mesmo com
+ * retry do job de ação, mesmo com dois workers, mesmo com o turno de confirmação reprocessado.
+ * Não existe `if` para neutralizar num teste nem para esquecer numa revisão.
+ *
+ * ⚠️ NÃO use `insertJobDeduplicated` para isto: o alvo de conflito dele é
+ * `(entity_type, entity_id, operation) where status in ('queued','running','retry_wait')`. Um aviso
+ * JÁ TERMINAL não dispara o `do nothing`, o INSERT prossegue e levanta 23505 no `command_id` — e
+ * dentro de uma transação isso abortaria também a escrita vizinha.
+ *
+ * `created: false` significa "já existe", nunca erro.
+ */
+export async function insertJobIfCommandAbsent(input: JobInsertInput, client: DbClient = null) {
+  const execute = getQueryExecutor(client);
+  const result = await execute<JobRow>(
+    `insert into jobs(
+      job_id, command_id, entity_type, entity_id, operation, payload, status, max_attempts,
+      correlation_id, idempotency_key, priority, retry_strategy, base_delay_ms, max_delay_ms, tags
+    ) values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+    on conflict (command_id) do nothing
+    returning *`,
+    [
+      input.jobId,
+      input.commandId,
+      input.entityType,
+      input.entityId,
+      input.operation,
+      JSON.stringify(input.payload || {}),
+      input.status,
+      input.maxAttempts,
+      input.correlationId,
+      input.idempotencyKey || null,
+      input.priority ?? 0,
+      input.retryStrategy || 'exponential',
+      input.baseDelayMs ?? 1000,
+      input.maxDelayMs ?? 300000,
+      JSON.stringify(input.tags || [])
+    ]
+  );
+
+  if ((result.rowCount || 0) === 0) return { job: null, created: false };
+
+  const mapped = mapJob(result.rows[0]);
+  await emitJobNotification(mapped, 'job.created');
+  return { job: mapped, created: true };
+}
+
 export async function findJobById(jobId: string, client: DbClient = null) {
   const execute = getQueryExecutor(client);
   const result = await execute<JobRow>('select * from jobs where job_id = $1', [jobId]);

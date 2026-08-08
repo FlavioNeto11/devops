@@ -26,6 +26,26 @@ import {
 
 const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01';
 
+/**
+ * Valores de `MessageStatus`/`SmsStatus` que representam um evento de ENTREGA (status-callback), não
+ * uma mensagem de usuário. Um webhook de entrada do Twilio pode trazer `SmsStatus=received` — que
+ * NÃO está aqui de propósito: `received` é sinal de INBOUND, não de entrega.
+ *
+ * ⚠️ O conjunto exato de campos do webhook de entrada do Twilio (e se ele traz mesmo `SmsStatus`)
+ * deve ser conferido contra uma CAPTURA REAL do provedor — a documentação e as afirmações de revisão
+ * divergem. O discriminador abaixo foi escrito para ser robusto sob as DUAS interpretações: só
+ * descarta quando há status de entrega E não há conteúdo de mensagem.
+ */
+const TWILIO_DELIVERY_STATUS_VALUES = new Set([
+  'queued',
+  'sending',
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+  'undelivered'
+]);
+
 /** Twilio exige o prefixo `whatsapp:` e o `+` no E.164. */
 function toTwilioAddress(phone: string): string {
   const digits = normalizePhone(phone);
@@ -145,21 +165,30 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
     parseInboundMessages({ body }): WhatsAppInboundMessage[] {
       const params = toStringRecord(body);
 
-      // Callbacks de status (entregue/lido/falhou) chegam na mesma URL e NÃO são mensagem de usuário.
-      // Identificá-los pela ausência de `From`/`Body` seria frágil: um status traz `MessageStatus` e
-      // nenhum `Body`, mas TRAZ `From`.
-      if (params.MessageStatus || params.SmsStatus) return [];
-
       const from = normalizePhone(params.From);
-      if (!from) return [];
-
       const mediaCount = Number(params.NumMedia || '0');
       const hasMedia = Number.isFinite(mediaCount) && mediaCount > 0;
       const mimeType = hasMedia ? (params.MediaContentType0 || null) : null;
       const text = params.Body ? String(params.Body) : null;
+      const messageSid = params.MessageSid || params.SmsMessageSid || '';
+
+      // Discriminador ROBUSTO de status-callback × mensagem de entrada. Callbacks de status
+      // (entregue/lido/falhou) chegam na MESMA URL e NÃO são mensagem de usuário — mas eles TRAZEM
+      // `From`, então a ausência de `From` não os identifica. O filtro antigo (`MessageStatus ||
+      // SmsStatus` presente ⇒ descartar) descartava mensagens de ENTRADA legítimas caso o provedor
+      // anexasse `SmsStatus=received` a elas.
+      //
+      // Regra: é status-callback (descartar) SÓ quando há um status com valor de ENTREGA E não há
+      // conteúdo de mensagem. Qualquer webhook com `From` + (`Body` ou `NumMedia>0`) + `MessageSid` é
+      // MANTIDO, mesmo trazendo `SmsStatus=received`.
+      const statusValue = String(params.MessageStatus || params.SmsStatus || '').trim().toLowerCase();
+      const hasInboundContent = Boolean(from) && Boolean(messageSid) && (Boolean(text) || hasMedia);
+      if (TWILIO_DELIVERY_STATUS_VALUES.has(statusValue) && !hasInboundContent) return [];
+
+      if (!from) return [];
 
       return [{
-        providerMessageId: params.MessageSid || params.SmsMessageSid || '',
+        providerMessageId: messageSid,
         from,
         to: normalizePhone(params.To),
         // O Twilio não manda timestamp no webhook de entrada; o adaptador carimba o recebimento.
@@ -221,8 +250,11 @@ export function createTwilioWhatsAppProvider(): WhatsAppProvider {
         }, 'sendTemplate');
       }
 
+      // Replacement como FUNÇÃO, não string: um `value` com `$$`, `$&`, `$\`` ou `$'` (o `$` de um
+      // valor em R$ é o caso real) seria interpretado como padrão de substituição pelo `String.replace`
+      // e corromperia o texto. A forma de função devolve o valor LITERAL, sem interpretação de `$`.
       const rendered = (input.variables || []).reduce(
-        (text, value, index) => text.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), value),
+        (text, value, index) => text.replace(new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'), () => value),
         input.templateName
       );
 

@@ -20,6 +20,8 @@ import {
   type AiAgentRecord
 } from '../../repositories/ai-tool-admin-repo.js';
 import type { AiRuntimeToolPolicy, AiToolSource } from './ai-control-types.js';
+import type { ConversationChannel } from '../conversation/conversation-context-service.js';
+import { resolveEffectiveAllowChannels } from '../conversation/channel/whatsapp/whatsapp-action-eligibility.js';
 
 type FunctionToolLike = {
   type: 'function';
@@ -93,6 +95,27 @@ function ensureFreshness(): void {
   }
 }
 
+/**
+ * Seam de teste: injeta o snapshot de `ai_tools` sem banco. `null` restaura o vazio (= só defaults de
+ * código). `loadedAt` é carimbado com `Date.now()` para que `ensureFreshness` não dispare um refresh
+ * real e apague a injeção no meio do caso.
+ */
+export function setRuntimeRegistryOverridesForTests(overrides: AiToolOverrideRecord[] | null): void {
+  const overridesByName = new Map<string, AiToolOverrideRecord>();
+  const disabled = new Set<string>();
+  for (const override of overrides || []) {
+    overridesByName.set(override.toolName, override);
+    if (!override.enabled) disabled.add(override.toolName);
+  }
+  snapshot = {
+    overridesByName,
+    disabledToolNames: disabled,
+    agentsByName: snapshot.agentsByName,
+    version: snapshot.version + 1,
+    loadedAt: overrides ? Date.now() : 0
+  };
+}
+
 export function isRuntimeToolEnabled(toolName: string): boolean {
   ensureFreshness();
   return !snapshot.disabledToolNames.has(toolName);
@@ -143,39 +166,106 @@ export function getActiveToolSchemas<T extends FunctionToolLike>(defaults: T[]):
   });
 }
 
-function normalizePolicyOverride(
+/**
+ * Canais conhecidos. Entrada desconhecida no jsonb é DESCARTADA aqui (defesa em profundidade) e
+ * recusada com 400 na rota administrativa — nunca substitui a lista silenciosamente.
+ */
+const KNOWN_CONVERSATION_CHANNELS: ReadonlySet<string> = new Set<string>(['whatsapp', 'native_chat', 'inapp']);
+
+/** `null` = o jsonb não declara canais (ou declara só lixo): o default de código vale inteiro. */
+export function normalizeOverrideChannels(raw: unknown): ConversationChannel[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const normalized = raw
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => KNOWN_CONVERSATION_CHANNELS.has(entry)) as ConversationChannel[];
+  return normalized.length > 0 ? [...new Set(normalized)] : null;
+}
+
+/**
+ * O OVERLAY SÓ PODE RESTRINGIR — exceto por adicionar canal dentro da elegibilidade de código.
+ *
+ * Três estreitamentos da fase 5, cada um fechando um caminho que hoje o PATCH abre:
+ *  · `riskLevel` e `isAction` passam a vir SEMPRE do default de código. A 4.5 já havia blindado o
+ *    ramo de catálogo degradado (`resolveCodeIsAction`); com a fase 5 abrindo canal externo, um
+ *    `isAction: false` em `submit_manifest` derrubaria de uma vez `AI_CONTROL_READONLY`,
+ *    `ACTIONS_DISABLED` e a classificação leitura×ação do gate.
+ *  · `requiresConfirmation: false` é IGNORADO (`true` é aceito). Zerar a confirmação de uma ação pela
+ *    tela de runtime é justamente o que a fase 5 torna perigoso: sem confirmação não há ticket, e sem
+ *    ticket a mensagem executa direto.
+ *  · `allowChannels` é validado ENTRADA A ENTRADA; a resolução final (elegibilidade + recusa
+ *    permanente) é de `resolveEffectiveAllowChannels`, aplicada por quem consulta a policy.
+ */
+export function applyRuntimePolicyOverlay(
   raw: Record<string, unknown> | null | undefined,
-  codeDefault: ConversationToolPolicy
+  codeDefault: ConversationToolPolicy,
+  eligibilityKey: string
 ): ConversationToolPolicy {
-  if (!raw || typeof raw !== 'object') {
-    return codeDefault;
-  }
-  const riskLevel =
-    typeof raw.riskLevel === 'string' ? (raw.riskLevel as ConversationToolPolicy['riskLevel']) : codeDefault.riskLevel;
-  const allowChannels =
-    Array.isArray(raw.allowChannels) && raw.allowChannels.length > 0
-      ? (raw.allowChannels as ConversationToolPolicy['allowChannels'])
-      : codeDefault.allowChannels;
+  const overlayChannels = raw && typeof raw === 'object' ? normalizeOverrideChannels(raw.allowChannels) : null;
+  const allowChannels = resolveEffectiveAllowChannels({
+    key: eligibilityKey,
+    codeChannels: codeDefault.allowChannels,
+    overlayChannels
+  });
+
+  const requiresConfirmation = raw && raw.requiresConfirmation === true
+    ? true
+    : codeDefault.requiresConfirmation;
+
   return {
-    riskLevel,
+    riskLevel: codeDefault.riskLevel,
     allowChannels,
-    requiresConfirmation:
-      typeof raw.requiresConfirmation === 'boolean' ? raw.requiresConfirmation : codeDefault.requiresConfirmation,
-    isAction: typeof raw.isAction === 'boolean' ? raw.isAction : codeDefault.isAction
+    requiresConfirmation,
+    isAction: codeDefault.isAction
   };
 }
 
 /**
  * Resolve a policy efetiva de um tool: default de código sobreposto pelo override do banco.
  * Síncrono (usa snapshot em cache). Usado pelo policy-service.
+ *
+ * Roda MESMO SEM override: `resolveEffectiveAllowChannels` também aplica `CHANNEL_HARD_DENY`, e a
+ * recusa permanente não pode depender de existir linha em `ai_tools`.
  */
 export function resolveEffectiveToolPolicy(toolName: string, codeDefault: ConversationToolPolicy): ConversationToolPolicy {
   ensureFreshness();
   const override = snapshot.overridesByName.get(toolName);
-  if (!override) {
-    return codeDefault;
-  }
-  return normalizePolicyOverride(override.defaultPolicyJson, codeDefault);
+  return applyRuntimePolicyOverlay(override?.defaultPolicyJson, codeDefault, toolName);
+}
+
+/**
+ * Overlay POR INTENT do orquestrador, lido de `ai_tools.default_policy_json.intents["<intent>"]`
+ * (jsonb — nenhuma DDL).
+ *
+ * Existe porque `evaluateConversationPolicy` DESCARTA a policy resolvida com override quando
+ * `toolName === 'orchestrate_manifest_operation'` (`effectivePolicy = intentPolicy`): sem isto, os 11
+ * intents de ação — incluindo TODOS os lotes que a fase 5 abre — não teriam alavanca de runtime
+ * nenhuma, e o operador ligaria um botão que não alcança o que promete.
+ *
+ * Devolve só o que o overlay pode dizer: canais e "exige confirmação". Nunca `riskLevel`/`isAction`.
+ */
+export function resolveRuntimeIntentPolicyOverride(
+  toolName: string,
+  intent: string
+): { allowChannels: ConversationChannel[] | null; requiresConfirmation: true | null } | null {
+  ensureFreshness();
+  if (!intent) return null;
+  const override = snapshot.overridesByName.get(toolName);
+  const raw = override?.defaultPolicyJson;
+  if (!raw || typeof raw !== 'object') return null;
+
+  const intents = (raw as Record<string, unknown>).intents;
+  if (!intents || typeof intents !== 'object' || Array.isArray(intents)) return null;
+  if (!Object.prototype.hasOwnProperty.call(intents, intent)) return null;
+
+  const entry = (intents as Record<string, unknown>)[intent];
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+
+  const record = entry as Record<string, unknown>;
+  return {
+    allowChannels: normalizeOverrideChannels(record.allowChannels),
+    requiresConfirmation: record.requiresConfirmation === true ? true : null
+  };
 }
 
 export type RuntimeToolDefinition = {
@@ -217,7 +307,7 @@ export async function getRuntimeToolDefinitions(): Promise<RuntimeToolDefinition
     const codePolicy: ConversationToolPolicy = item
       ? item.policy
       : { riskLevel: 'R1', allowChannels: ['inapp'], requiresConfirmation: false, isAction: false };
-    const effectivePolicy = override ? normalizePolicyOverride(override.defaultPolicyJson, codePolicy) : codePolicy;
+    const effectivePolicy = applyRuntimePolicyOverlay(override?.defaultPolicyJson, codePolicy, toolName);
 
     definitions.push({
       toolName,

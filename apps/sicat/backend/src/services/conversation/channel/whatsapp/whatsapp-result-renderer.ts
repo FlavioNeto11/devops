@@ -32,6 +32,7 @@
  * FORMA do payload, e um `default` honesto que emite ZERO blocos.
  */
 
+import { config } from '../../../../lib/config.js';
 import { resolveManifestSituationLabelPtBr } from '../../conversation-status-vocabulary.js';
 import {
   describeDmrOperationalStatus,
@@ -1460,7 +1461,7 @@ function buildArtifactFamily(context: BuildContext, includeDataItems = true): Fa
       // NUNCA `links.downloadUrl`/`statusUrl`. Nao eh so vazamento de superficie interna: o WhatsApp
       // AUTO-LINKA URL nua, e a rota viraria um link tocavel que devolve 401 - fazendo o operador
       // concluir que o SICAT esta quebrado.
-      buildBlock('note', 'Por aqui eu ainda não consigo enviar arquivos; o download fica no SICAT pelo navegador.'),
+      buildBlock('note', buildArtifactDeliveryNote()),
       // PROTOCOLO SO NA FAMILIA. No passe transversal a linha `Protocolo:` sairia DUAS vezes na mesma
       // mensagem, com a nota de artefato encaixada no meio - le como mensagem remontada errado. O
       // protocolo pertence ao fim da mensagem, uma vez so.
@@ -1468,6 +1469,32 @@ function buildArtifactFamily(context: BuildContext, includeDataItems = true): Fa
     ],
     omittedItems: rest
   };
+}
+
+/**
+ * A NOTA DE ENTREGA DE ARQUIVO — deixou de ser incondicional na fase 6.
+ *
+ * A frase de sempre ("por aqui eu ainda não consigo enviar arquivos") continua sendo a resposta certa
+ * quando o canal REALMENTE não entrega. Ela não some; ela deixa de ser mentira quando entrega.
+ *
+ * A capacidade é REAL, não uma flag de intenção: bytes só existem no adapter da Meta (o Twilio lança
+ * 501 `WHATSAPP_MEDIA_URL_REQUIRED` sem URL pública, e URL pública foi recusada nesta fase), e a
+ * política `WHATSAPP_MEDIA_DELIVERY_ENABLED` vem DESLIGADA por default — quem decide se o PDF de um
+ * cliente vai para um aparelho pessoal é a organização.
+ *
+ * ⚠️ O arquivo NÃO sai neste turno de consulta: ele sai no AVISO da ação confirmada. Por isso a
+ * variante ligada fala do que vai acontecer quando o documento ficar pronto, e nunca promete anexo
+ * para uma pergunta.
+ */
+function buildArtifactDeliveryNote(): string {
+  const provider = String(config.whatsappProvider || '').toLowerCase();
+  const canDeliverFiles = provider === 'meta'
+    && config.whatsappMediaDeliveryEnabled === true
+    && Number(config.whatsappNoticeMaxDocuments) > 0;
+
+  return canDeliverFiles
+    ? 'Quando o documento ficar pronto eu te mando o PDF por aqui; ele tambem fica no SICAT pelo navegador.'
+    : 'Por aqui eu ainda não consigo enviar arquivos; o download fica no SICAT pelo navegador.';
 }
 
 /** "a", "a e b", "a, b e c" - concordancia de operador, nao lista separada por virgula. */

@@ -19,9 +19,17 @@
  * `repository → worker` inverteria a fronteira de camadas declarada em `AGENTS.md`
  * (`route → service → repository → job → worker → gateway`). `lib/` é a camada compartilhada que os
  * dois lados já importam — é onde `retry.ts` vive pelo mesmo motivo.
+ *
+ * ⚠️ FASE 6: `whatsapp.outbound_notice` entra aqui, e a presença dele é ASSERIDA NO IMPORT por
+ * `whatsapp-outbound-notice-service.ts` (que é quem possui o nome da operação — `lib/` não pode
+ * importar `services/` sem inverter a fronteira de camadas). Esquecer a entrada produz exatamente o
+ * modo de falha descrito acima: numa instalação `WORKER_LANE=default` + `channel`, o job de aviso
+ * não é reivindicado por NENHUMA raia, para sempre, sem um erro de log — a pessoa confirma uma ação
+ * e nunca recebe o desfecho, em silêncio absoluto. É o defeito exato que a fase 6 existe para matar,
+ * então ele não pode nascer de um esquecimento de edição de constante.
  */
 
-export const CHANNEL_LANE_OPERATIONS = ['whatsapp.inbound_message'] as const;
+export const CHANNEL_LANE_OPERATIONS = ['whatsapp.inbound_message', 'whatsapp.outbound_notice'] as const;
 
 export type WorkerLane = 'all' | 'default' | 'channel';
 

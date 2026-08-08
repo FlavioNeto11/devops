@@ -51,6 +51,7 @@ import {
   findLiveWhatsAppActionTicket
 } from './whatsapp-action-ticket-service.js';
 import {
+  attachPendingNoticeBlock,
   buildWhatsAppExpiredNotice,
   buildWhatsAppTurnTimeoutNotice,
   composeStaticWhatsAppReply,
@@ -59,6 +60,8 @@ import {
   type ComposableTurnOutput,
   type WhatsAppDisposition
 } from './whatsapp-reply-composer.js';
+import { buildWhatsAppPendingNoticeBlock } from './whatsapp-notice-texts.js';
+import { clearPendingChannelNotices, readPendingNoticesFromMetadata } from './whatsapp-pending-notices.js';
 import { maskChannelUserKey, type WhatsAppProvider } from './types.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -84,6 +87,12 @@ type ChannelLinkLike = {
   userId: string | null;
   externalUserKey: string;
   verificationStatus: string;
+  /**
+   * `metadata` da linha, como o repositório devolve. Entrou na fase 6 para que a DÍVIDA DE AVISO
+   * seja lida do que C2 já trouxe, sem uma segunda consulta por turno. Opcional porque os doubles
+   * das fases anteriores não o fornecem — ausência significa "sem dívida", que é o caso comum.
+   */
+  metadata?: Record<string, unknown> | null;
 };
 
 type TurnDependencies = {
@@ -131,6 +140,11 @@ function toNonEmptyString(value: unknown): string | null {
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toStringListPayload(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => toNonEmptyString(entry)).filter((entry): entry is string => entry !== null);
 }
 
 /**
@@ -321,6 +335,10 @@ export async function runWhatsAppInboundTurn(input: {
 
   const disposition = (toNonEmptyString(payload.disposition) || 'process_turn') as WhatsAppDisposition;
   let segments = preparedSegments;
+  // Ids da dívida que viajou (ou já viajou, num retry) dentro desta resposta. Só são limpos DEPOIS
+  // da entrega — at-least-once por escolha: repetir um bloco informativo é muito menos grave que
+  // apagar um desfecho antes de ele chegar.
+  let drainedNoticeIds = toStringListPayload(payload.drainedNoticeIds);
   let conversationTurnId: string | null = null;
   let outcome = 'whatsapp_inbound_answered';
 
@@ -382,6 +400,26 @@ export async function runWhatsAppInboundTurn(input: {
       return { outcome: 'whatsapp_inbound_ignored', patch: { text: null, replyText: null } };
     }
 
+    // ── C5.5: DÍVIDA DE AVISO DE CARONA (fase 6) ────────────────────────────────────────────────
+    // O desfecho que a janela de 24 h impediu de empurrar viaja colado numa resposta que já ia sair:
+    // grátis, dentro da janela (a pergunta nova É um inbound) e sem bolha própria. Se não couber, a
+    // dívida FICA — nada é truncado e nada é enviado a mais.
+    //
+    // A leitura é do `metadata` que C2 JÁ TROUXE — nenhuma consulta nova. Uma segunda ida ao banco
+    // por turno para descobrir que quase sempre não há dívida seria custo permanente pago pelo caso
+    // raro; a escrita (`clearPendingChannelNotices`) só acontece quando houve carona de verdade.
+    const pending = readPendingNoticesFromMetadata(link.metadata ?? null, dependencies.now());
+    if (pending.length > 0) {
+      const withDebt = attachPendingNoticeBlock(
+        segments,
+        buildWhatsAppPendingNoticeBlock(pending.map((notice) => notice.text))
+      );
+      if (withDebt) {
+        segments = withDebt;
+        drainedNoticeIds = pending.map((notice) => notice.noticeId);
+      }
+    }
+
     // ── C6: PERSISTE A RESPOSTA ANTES DE ENVIAR ──────────────────────────────────────────────────
     // Os segmentos são PERSISTIDOS e nunca re-renderizados no retry: dado que mudou entregaria um
     // segmento 2 incoerente com o segmento 1 já entregue.
@@ -396,6 +434,9 @@ export async function runWhatsAppInboundTurn(input: {
       preparePatch.replySegments = segments;
       preparePatch.sentSegmentCount = 0;
     }
+    // Persistido junto com os segmentos: sem isto, um retry que retoma da resposta JÁ PREPARADA não
+    // saberia que a dívida viajou dentro dela e nunca a limparia.
+    if (drainedNoticeIds.length > 0) preparePatch.drainedNoticeIds = drainedNoticeIds;
     await patchJobPayload(job, preparePatch);
   }
 
@@ -482,6 +523,11 @@ export async function runWhatsAppInboundTurn(input: {
   // ── C9 (parte do patch): `text`/`replyText` zerados no caminho feliz. `finishJob` REESCREVE o
   // payload inteiro, então aqui o conteúdo deixa de existir em `jobs`. Só jobs que MORRERAM retêm o
   // texto — e neles ele é a evidência de diagnóstico.
+  // Dívida entregue: só agora ela sai da linha do vínculo.
+  if (drainedNoticeIds.length > 0) {
+    await clearPendingChannelNotices(link.id, drainedNoticeIds);
+  }
+
   const finalPatch: LooseRecord = {
     conversationTurnId,
     replyChars,
@@ -584,9 +630,12 @@ async function resolvePrincipalOrTerminal(link: ChannelLinkLike): Promise<Awaite
       // a conta ativa do usuário e a coluna ainda não tem dono definido — herdar amarraria o novo dono
       // do número à conta CETESB alheia.
       //
-      // `requestedBy` EXPLÍCITO e MASCARADO: o default é o E.164 CRU, que iria para
+      // `requestedBy` EXPLÍCITO e MASCARADO: sem ele o valor iria para
       // `conversation_action_logs.user_id`, para o `sanitizedBody` de `audit_logs` e para as tools.
-      requestedBy: `whatsapp:${maskChannelUserKey(link.externalUserKey)}`
+      requestedBy: `whatsapp:${maskChannelUserKey(link.externalUserKey)}`,
+      // Fase 6: id OPACO do vínculo. Só é usado se `requestedBy` acima sumir num refactor — é o
+      // cinto do suspensório, para que o fallback do principal nunca volte a ser o E.164 cru.
+      channelLinkId: link.id
     });
   } catch (error) {
     if (error instanceof AppError && error.code === 'CONVERSATION_PRINCIPAL_USER_INACTIVE') {
@@ -687,7 +736,7 @@ async function runProcessTurn(input: {
       const rescue = await runWhatsAppConfirmationRescue({
         utterance,
         principal: redeemPrincipal,
-        link: { userId: String(link.userId), externalUserKey: link.externalUserKey },
+        link: { userId: String(link.userId), externalUserKey: link.externalUserKey, channelLinkId: link.id },
         correlationId,
         dependencies: { processTurn: dependencies.processTurn }
       });
@@ -774,7 +823,7 @@ async function runProcessTurn(input: {
     const issued = await tryIssueWhatsAppActionTicket({
       output: output as never,
       principal,
-      link: { userId: String(link.userId), externalUserKey: link.externalUserKey },
+      link: { userId: String(link.userId), externalUserKey: link.externalUserKey, channelLinkId: link.id },
       correlationId
     });
     if (issued?.text) {

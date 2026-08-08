@@ -107,7 +107,14 @@ type ConfigKey =
   | 'whatsappActionWindowDefaultHours'
   | 'whatsappActionWindowMaxHours'
   | 'whatsappActionWindowDefaultBudget'
-  | 'whatsappActionWindowMaxBudget';
+  | 'whatsappActionWindowMaxBudget'
+  | 'whatsappNoticeDeadlineMs'
+  | 'whatsappNoticeWindowMs'
+  | 'whatsappNoticeMaxDocuments'
+  | 'whatsappMediaDeliveryEnabled'
+  | 'whatsappMediaMaxBytes'
+  | 'whatsappPendingNoticeMax'
+  | 'whatsappPendingNoticeTtlMs';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -343,5 +350,51 @@ export const config = {
   get whatsappActionWindowDefaultHours() { return getConfigValue('whatsappActionWindowDefaultHours', Number(process.env.WHATSAPP_ACTION_WINDOW_DEFAULT_HOURS || 4)); },
   get whatsappActionWindowMaxHours() { return getConfigValue('whatsappActionWindowMaxHours', Number(process.env.WHATSAPP_ACTION_WINDOW_MAX_HOURS || 8)); },
   get whatsappActionWindowDefaultBudget() { return getConfigValue('whatsappActionWindowDefaultBudget', Number(process.env.WHATSAPP_ACTION_WINDOW_DEFAULT_BUDGET || 10)); },
-  get whatsappActionWindowMaxBudget() { return getConfigValue('whatsappActionWindowMaxBudget', Number(process.env.WHATSAPP_ACTION_WINDOW_MAX_BUDGET || 20)); }
+  get whatsappActionWindowMaxBudget() { return getConfigValue('whatsappActionWindowMaxBudget', Number(process.env.WHATSAPP_ACTION_WINDOW_MAX_BUDGET || 20)); },
+
+  /* ── Aviso de conclusão no canal (fase 6) ─────────────────────────────────────────────────────
+   * PRAZO EM RELÓGIO DE PAREDE, não em tentativas. O job de aviso nasce na confirmação e acorda
+   * enquanto os jobs da ação não terminam; `deadlineAt = confirmedAt + este valor` é gravado no
+   * payload NA CRIAÇÃO. Contar por tentativas mentiria depois de uma parada da plataforma: as 8
+   * tentativas aconteceriam todas DEPOIS da recuperação, horas após a promessa.
+   *
+   * 10 min sai de `getRetryConfig` (esperas acumuladas de ~30 s em `manifest.submit` e ~15 s em
+   * `manifest.print`) MAIS o tempo de execução da chamada à CETESB, que o repo NÃO mede em lugar
+   * nenhum. É aritmética mais um desconhecido — calibrar com dado real é item de fase 7. */
+  get whatsappNoticeDeadlineMs() { return getConfigValue('whatsappNoticeDeadlineMs', Number(process.env.WHATSAPP_NOTICE_DEADLINE_MS || 600000)); },
+  /**
+   * JANELA DE SERVIÇO do WhatsApp, com MARGEM. O provedor só aceita texto livre dentro de 24 h do
+   * último inbound; 23 h é 24 h menos uma hora de folga que cobre três erros somados na mesma
+   * direção: relógio do provedor × relógio do pod, latência de fila entre o desfecho e o envio, e a
+   * âncora (`confirmedAt`) ser um LIMITE INFERIOR do último inbound.
+   *
+   * A direção da falha é escolhida: errar para "fechada" custa um aviso que ia de graça; errar para
+   * "aberta" custa recusa do provedor, retry inútil e SILÊNCIO.
+   */
+  get whatsappNoticeWindowMs() { return getConfigValue('whatsappNoticeWindowMs', Number(process.env.WHATSAPP_NOTICE_WINDOW_MS || 82800000)); },
+  /**
+   * Teto de PDFs anexados por aviso. `0` desliga a entrega de arquivo sem tocar em código. 5 é o
+   * mesmo teto de `manifest.batch_print_selected` — acima disso o aviso degrada para o texto que
+   * manda ao SICAT.
+   */
+  get whatsappNoticeMaxDocuments() { return getConfigValue('whatsappNoticeMaxDocuments', Number(process.env.WHATSAPP_NOTICE_MAX_DOCUMENTS || 5)); },
+  /**
+   * POLÍTICA, não capacidade. O mecanismo de entrega de arquivo existe inteiro e é testado; quem
+   * decide se o PDF de um cliente vai para um aparelho pessoal — onde fica no backup de nuvem para
+   * sempre e um encaminhamento é um toque — é a organização, não o código. Default DESLIGADO, e com
+   * ele desligado o canal diz a frase honesta de hoje e NUNCA promete anexo que não vai sair.
+   */
+  get whatsappMediaDeliveryEnabled() { return getConfigValue('whatsappMediaDeliveryEnabled', toBool(process.env.WHATSAPP_MEDIA_DELIVERY_ENABLED, false)); },
+  /**
+   * Teto POR DOCUMENTO, conferido com `fs.stat` ANTES de qualquer `readFile`. O gargalo não é o
+   * provedor: é o pod (limit 2Gi, `--max-old-space-size=1536`, mesmo processo do turno de LLM) com
+   * um `uploadMedia` que mantém DUAS cópias simultâneas (`Buffer` → `Uint8Array` → `Blob`). O PDF de
+   * produção vem do gateway sem `maxContentLength` — tamanho desconhecido e ilimitado. 8 MB está na
+   * ordem do precedente do repo (`conversation-ingest`, 10 MB por arquivo) e é o único número que o
+   * SICAT justifica com evidência própria.
+   */
+  get whatsappMediaMaxBytes() { return getConfigValue('whatsappMediaMaxBytes', Number(process.env.WHATSAPP_MEDIA_MAX_BYTES || 8388608)); },
+  /** Dívida de aviso PULADO por janela fechada: teto de itens e validade. Cortado ANTES de materializar. */
+  get whatsappPendingNoticeMax() { return getConfigValue('whatsappPendingNoticeMax', Number(process.env.WHATSAPP_PENDING_NOTICE_MAX || 3)); },
+  get whatsappPendingNoticeTtlMs() { return getConfigValue('whatsappPendingNoticeTtlMs', Number(process.env.WHATSAPP_PENDING_NOTICE_TTL_MS || 259200000)); }
 };

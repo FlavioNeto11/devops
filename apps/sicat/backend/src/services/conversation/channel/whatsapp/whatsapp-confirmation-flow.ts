@@ -54,6 +54,7 @@ import {
   extractConferibleItemLabels,
   WHATSAPP_N2_NOTICE_MISSING_TEXT
 } from './whatsapp-confirmation-texts.js';
+import { enqueueWhatsAppOutboundNotice } from './whatsapp-outbound-notice-service.js';
 import {
   closeWhatsAppActionTicket,
   debitWhatsAppActionTicketSend,
@@ -117,7 +118,14 @@ export type ConfirmationFlowResult = {
   conversationTurnId?: string | null;
 };
 
-export type ConfirmationLink = { userId: string; externalUserKey: string };
+/**
+ * O vínculo, como o fluxo de confirmação precisa dele.
+ *
+ * `channelLinkId` entrou na fase 6 e é o id OPACO da linha em `conversation_channel_links`. Ele é o
+ * que vai para o `payload` do job de aviso — TELEFONE NUNCA VAI: o destinatário é relido no envio, e é
+ * isso que faz a revogação do vínculo calar o canal na hora.
+ */
+export type ConfirmationLink = { userId: string; externalUserKey: string; channelLinkId: string };
 
 export type ConfirmationFlowDependencies = {
   processTurn: (input: LooseRecord) => Promise<ConfirmationTurnOutput & LooseRecord>;
@@ -148,20 +156,52 @@ const IRREVERSIBLE_WARNING =
   'Emitir cria o MTR de verdade. O unico jeito de desfazer e cancelar - e cancelar nao tem volta e nao da para fazer por aqui.';
 
 /**
- * ┌─ A FASE ENTREGA N1. N2 NÃO SAI DAQUI, E O PORTÃO É DE CÓDIGO ─────────────────────────────────┐
- * │ O desenho condicionou `submit` ao aviso de conclusão: "se o aviso não entrar, N2 não é liberado│
- * │ e a fase entrega só N1". O aviso NÃO ENTROU — `whatsapp.outbound_notice` não existe como job,  │
- * │ handler ou chamada de saída; costurá-lo exige atravessar o dispatcher, fora do alcance desta   │
- * │ fase.                                                                                          │
+ * ┌─ A FASE 6 ENTREGOU O AVISO. N2 CONTINUA FECHADO, E A RAZÃO MUDOU ─────────────────────────────┐
+ * │ ⚠️ ESTE COMENTÁRIO FOI REESCRITO NA FASE 6. A versão anterior afirmava que "o aviso NÃO ENTROU │
+ * │ — `whatsapp.outbound_notice` não existe como job, handler ou chamada de saída". Isso deixou de │
+ * │ ser verdade, e comentário obsoleto afirmando propriedade que o código não tem é exatamente     │
+ * │ como esta cadeia já errou quatro vezes.                                                        │
  * │                                                                                                │
- * │ Por que uma CONSTANTE e não só `config.whatsappActionNoticeEnabled`: o flag é entrada de       │
- * │ ambiente. Ligá-lo liberaria emissão IRREVERSÍVEL na CETESB num canal onde o desfecho é         │
- * │ invisível — um `WHATSAPP_ACTION_NOTICE_ENABLED=true` num values.yaml, sem nada mais mudar,     │
- * │ abriria N2 inteiro. A env não pode conceder uma capacidade que o código não tem. Enquanto o job│
- * │ de aviso não existir, este literal é `false` e nenhuma configuração o contradiz.               │
+ * │ O QUE EXISTE AGORA: `whatsapp.outbound_notice` é job, tem handler, tem raia, tem retry próprio,│
+ * │ tem textos e é exercitado por N1 em toda 2ª via confirmada. Sucesso, falha, DLQ e prazo vencido│
+ * │ chegam ao telefone.                                                                            │
  * │                                                                                                │
- * │ Quando o aviso entrar (fase 6): vire este literal, mantenha o flag como segundo portão e troque│
- * │ a promessa em `buildWhatsAppConfirmedText`. Os três andam JUNTOS.                              │
+ * │ POR QUE O PORTÃO CONTINUA FECHADO — e não é falta de tempo:                                    │
+ * │  1. O aviso NÃO CONSEGUE DISTINGUIR "o MTR não foi criado" de "o MTR foi criado e eu perdi a   │
+ * │     resposta". Um `manifest.submit` pode falhar DEPOIS de a CETESB ter criado o MTR (timeout na│
+ * │     resposta, erro de parse, o pod morrendo entre o POST e o commit) e `lastErrorCode` não     │
+ * │     distingue "não chegou lá" de "chegou e eu não soube". Para emissão irreversível essa é a   │
+ * │     ÚNICA informação que importa. O melhor aviso possível para o pior desfecho de uma emissão  │
+ * │     é "vá conferir no SICAT" — que é o que o canal já entrega hoje SEM aviso nenhum. Os textos │
+ * │     N2 existem, testados, em `whatsapp-notice-texts.ts`, e servem justamente para tornar isso  │
+ * │     legível. Fazer melhor exige RECONCILIAÇÃO com a CETESB (uma consulta pós-falha que responda│
+ * │     se o MTR nasceu), que não existe neste repo e é escopo próprio.                            │
+ * │  2. O ponto cego do aviso coincide com o pior desfecho: um `submit` que vai para a DLQ é o mais│
+ * │     provável de terminar FORA da janela de 24 h, onde este desenho não empurra nada (o caminho │
+ * │     de template foi recusado — ver `whatsapp-outbound-notice-service`) e a dívida só paga se a │
+ * │     pessoa voltar.                                                                             │
+ * │  3. Nada disto rodou contra provedor real: `WHATSAPP_PROVIDER=disabled` é o default, a migration│
+ * │     020 nunca foi aplicada e a prova disponível é teste com doubles.                            │
+ * │                                                                                                │
+ * │ O PORTÃO AGORA TEM TRÊS TRANCAS, e a terceira não pode ser mal configurada:                     │
+ * │  (i)   este literal, que nenhuma env contradiz;                                                 │
+ * │  (ii)  `config.whatsappActionNoticeEnabled`, que continua NÃO BASTANDO;                         │
+ * │  (iii) a INVARIANTE DE IMPORT de `whatsapp-outbound-notice-service.ts` — a operação tem de estar│
+ * │        em `CHANNEL_LANE_OPERATIONS`, sob pena de o processo não subir. Sem a raia, numa         │
+ * │        instalação `WORKER_LANE=default`+`channel` o aviso não seria reivindicado por ninguém, e │
+ * │        N2 estaria liberado num canal onde o desfecho é invisível. Um portão que não PODE ser mal│
+ * │        configurado vale mais que um que depende de alguém configurar certo.                     │
+ * │                                                                                                │
+ * │ LISTA FECHADA que abre o portão (fase 7 ou 6.1) — faltando QUALQUER item, fica fechado:         │
+ * │  E1 execução real ponta a ponta em sandbox, com transcrição, em sucesso E em falha;             │
+ * │  E2 `WORKER_LANE=channel` no ar, com a raia `default` separada;                                 │
+ * │  E3 `dispatchStatus` carimbado no desfecho, verificado numa linha real (já implementado aqui,   │
+ * │     falta a evidência);                                                                         │
+ * │  E4 decisão explícita sobre a cauda fora da janela (templates UTILITY APPROVED, ou a aceitação  │
+ * │     registrada de que emissão que termina fora da janela não é empurrada);                      │
+ * │  E5 um mecanismo que responda "o MTR nasceu na CETESB?" depois de uma falha de `manifest.submit`│
+ * │     — e a decisão de produto sobre o que dizer quando a resposta é "não sei". E1–E4 são trabalho│
+ * │     conhecido; E5 é escopo próprio, e não cabe na fase 6 nem na 7.                              │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;
@@ -783,16 +823,41 @@ async function dispatchConfirmedAction(
     };
   }
 
-  await recordDispatchOutcome(ticket, {
-    dispatchStatus: 'dispatched',
-    dispatchedJobs: extractDispatchedJobIds(output.result)
+  const dispatchedJobs = extractDispatchedJobIds(output.result);
+  await recordDispatchOutcome(ticket, { dispatchStatus: 'dispatched', dispatchedJobs });
+
+  // ── AVISO DE CONCLUSÃO (fase 6) ───────────────────────────────────────────────────────────────
+  // O aviso nasce AQUI, e não no desfecho: esta é a única linha do sistema que tem, ao mesmo tempo, o
+  // ticket, o vínculo e a lista de jobs recém-enfileirados. Enfileirar aqui dispensa o envelope
+  // atravessando `conversation-service` + dispatcher — e a corrida que esse caminho tem.
+  const noticeEnqueued = await enqueueWhatsAppOutboundNotice({
+    ticketId: ticket.id,
+    userId: ticket.userId,
+    channelLinkId: input.link.channelLinkId,
+    riskTier: ticket.riskTier,
+    actionKey: resolveWhatsAppActionKey(ticket.toolName, ticket.intent),
+    headline: ticket.humanSummary,
+    itemCount: Math.max(1, ticket.itemCount),
+    labels: ticket.itemLabels,
+    dispatchedJobIds: dispatchedJobs,
+    correlationId: ticket.previewCorrelationId || input.correlationId,
+    integrationAccountId: input.principal.integrationAccountId,
+    sessionContextId: input.principal.sessionContextId
   });
 
   return {
     text: buildWhatsAppConfirmedText({
       headline: ticket.humanSummary,
       itemCount: Math.max(1, ticket.itemCount),
-      ticketId: ticket.id
+      ticketId: ticket.id,
+      // ┌─ PROMESSA SOLDADA AO MECANISMO ────────────────────────────────────────────────────────┐
+      // │ O texto só promete aviso quando o JOB DE AVISO EXISTE. `false` (INSERT falhou, ou nada │
+      // │ foi despachado — `manifest.replicate_segmented` é síncrono e devolve `jobId: null`)    │
+      // │ devolve as duas linhas de hoje, palavra por palavra. Não existe caminho em que a       │
+      // │ mensagem diga "te aviso" sem mecanismo por trás — foi exatamente esse o defeito que a  │
+      // │ fase 5 teve de corrigir depois de já ter escrito o texto.                               │
+      // └────────────────────────────────────────────────────────────────────────────────────────┘
+      noticeEnqueued
     }),
     outcome: 'whatsapp_inbound_confirmation_executed',
     conversationTurnId: output.conversationTurnId ?? null

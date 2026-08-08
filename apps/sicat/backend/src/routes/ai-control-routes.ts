@@ -14,7 +14,8 @@ import {
   listRuntimeTools,
   getRuntimeTool,
   patchRuntimeTool,
-  listRuntimeToolVersions
+  listRuntimeToolVersions,
+  listAddedExternalChannels
 } from '../services/ai-control/ai-tool-admin-service.js';
 import { listRuntimeAgents, getRuntimeAgent, patchRuntimeAgent } from '../services/ai-control/ai-agent-admin-service.js';
 import {
@@ -159,6 +160,19 @@ export function createAiControlRouter(): express.Router {
     const current = await getRuntimeTool(String(req.params.toolName));
     if (current?.policy.isAction && bodyBool(body, 'enabled') !== undefined) {
       requireConfirmation(body.confirmed, `Alterar habilitação de uma ação (${req.params.toolName}) exige confirmação explícita (confirmed:true).`);
+    }
+    // ADICIONAR canal externo também exige confirmação — até a fase 5 só `enabled` exigia, e liberar
+    // ação por WhatsApp saía por um PATCH indistinguível de uma troca de rótulo. REVOGAR (remover
+    // canal) nunca exige nada: botão de pânico não pede senha.
+    const requestedChannels = bodyStringArray(body, 'allowChannels');
+    const addedExternal = requestedChannels
+      ? listAddedExternalChannels(current?.policy.allowChannels ?? [], requestedChannels)
+      : [];
+    if (addedExternal.length > 0) {
+      requireConfirmation(
+        body.confirmed,
+        `Liberar ${req.params.toolName} para canal externo (${addedExternal.join(', ')}) exige confirmação explícita (confirmed:true).`
+      );
     }
     const updated = await patchRuntimeTool(
       String(req.params.toolName),
