@@ -4,6 +4,7 @@ import {
   expireAdminAccessUserPassword,
   getAdminAccessUserById,
   grantAdminAccessRole,
+  grantAdminChannelShieldWaiver,
   listAdminAccessPermissions,
   listAdminAccessRoles,
   listAdminAccessSessions,
@@ -11,6 +12,13 @@ import {
   resetAdminAccessUserPassword,
   revokeAdminAccessRole
 } from '../services/api.js';
+import {
+  WAIVER_REASON_MAX_LENGTH,
+  buildShieldWaiverPayload,
+  buildWaiverConfirmMessage,
+  resolveShieldWaiverError,
+  validateShieldWaiverForm
+} from '../features/access-admin/shieldWaiverState.js';
 import { formatDateTimeBr } from '../utils/date-format.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -79,6 +87,21 @@ const resetRevokeSessions = ref(true);
 const resetShowPassword = ref(false);
 const resetSubmitting = ref(false);
 const resetError = ref('');
+
+// Diálogo do waiver do escudo anti-spam (vínculo WhatsApp). O número em claro
+// vive só no input e no corpo do POST; todo eco da tela usa a forma mascarada.
+const waiverDialog = ref(false);
+const waiverPhone = ref('');
+const waiverReason = ref('');
+const waiverSubmitting = ref(false);
+const waiverError = ref('');
+const waiverErrorDetail = ref('');
+
+// Fonte única da validação: eco mascarado, habilitação do botão e mensagens
+// derivam todos daqui (a regra mora em shieldWaiverState.js).
+const waiverForm = computed(() =>
+  validateShieldWaiverForm({ phone: waiverPhone.value, reason: waiverReason.value })
+);
 
 // Perfis ainda não atribuídos ao usuário selecionado (candidatos à concessão).
 const assignableRoles = computed(() => {
@@ -357,6 +380,55 @@ async function expirePassword() {
   }
 }
 
+function openWaiverDialog() {
+  if (!canAccessAdmin.value) return;
+  waiverPhone.value = '';
+  waiverReason.value = '';
+  waiverError.value = '';
+  waiverErrorDetail.value = '';
+  waiverDialog.value = true;
+}
+
+async function submitWaiver() {
+  if (waiverSubmitting.value) return;
+
+  // O botão já espelha `waiverForm.valid`; este guard cobre o Enter no campo.
+  const form = waiverForm.value;
+  if (!form.valid) {
+    waiverError.value = form.errors.phone || form.errors.reason;
+    waiverErrorDetail.value = '';
+    return;
+  }
+
+  waiverError.value = '';
+  waiverErrorDetail.value = '';
+  const confirmed = await confirm({
+    title: 'Liberar número do escudo',
+    // A confirmação ecoa só a forma MASCARADA — o E.164 em claro nunca sai do input.
+    message: buildWaiverConfirmMessage(form.phoneMasked),
+    confirmLabel: 'Liberar número',
+    danger: true
+  });
+  if (!confirmed) return;
+
+  waiverSubmitting.value = true;
+  try {
+    await grantAdminChannelShieldWaiver(buildShieldWaiverPayload(form));
+    notify.success(`Número ${form.phoneMasked} liberado do escudo anti-spam.`);
+    waiverDialog.value = false;
+    // Encurta a vida do telefone em claro na memória da view (higiene de PII);
+    // o open também zera, mas só na PRÓXIMA abertura.
+    waiverPhone.value = '';
+    waiverReason.value = '';
+  } catch (err) {
+    const resolved = resolveShieldWaiverError(err);
+    waiverError.value = resolved.message;
+    waiverErrorDetail.value = resolved.detail;
+  } finally {
+    waiverSubmitting.value = false;
+  }
+}
+
 onMounted(loadInitialData);
 </script>
 
@@ -368,6 +440,7 @@ onMounted(loadInitialData);
         description="Operação administrativa global para usuários, perfis, permissões e sessões."
       >
         <template #actions>
+          <v-btn v-if="canAccessAdmin" variant="outlined" color="primary" prepend-icon="mdi-shield-off-outline" :disabled="Boolean(actionKey)" @click="openWaiverDialog">Liberar número do escudo</v-btn>
           <v-btn variant="tonal" color="primary" :loading="loading" prepend-icon="mdi-refresh" @click="loadInitialData">Atualizar dados</v-btn>
         </template>
       </SicatPageHeader>
@@ -577,6 +650,60 @@ onMounted(loadInitialData);
           <v-btn variant="text" :disabled="resetSubmitting" @click="resetDialog = false">Cancelar</v-btn>
           <v-btn color="error" variant="flat" :loading="resetSubmitting" :disabled="resetPassword.length < 8" @click="submitReset">
             Resetar senha
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="waiverDialog" max-width="520" persistent role="dialog" aria-modal="true">
+      <v-card rounded="lg" title="Liberar número do escudo anti-spam">
+        <v-card-text>
+          <p class="text-body-2 mb-4">
+            O escudo anti-spam tranca um número de WhatsApp que recebeu pedidos de código de contas
+            distintas demais (proteção contra bombing). Se o titular comprovou a posse do número por
+            um canal fora do sistema, libere-o aqui. A liberação fica na trilha de auditoria.
+          </p>
+          <v-text-field
+            v-model="waiverPhone"
+            type="tel"
+            label="Número do WhatsApp"
+            placeholder="Ex.: (11) 91234-5678"
+            hint="DDD + número; o DDI 55 é aplicado automaticamente."
+            persistent-hint
+            density="comfortable"
+            variant="outlined"
+            autocomplete="off"
+            class="mb-3"
+            @keydown.enter.prevent="submitWaiver"
+          />
+          <p v-if="waiverForm.phoneMasked" class="text-caption text-medium-emphasis mb-3" aria-live="polite">
+            Número a liberar: <strong>{{ waiverForm.phoneMasked }}</strong>
+          </p>
+          <v-textarea
+            v-model="waiverReason"
+            label="Motivo da liberação"
+            placeholder="Ex.: posse confirmada por ligação com o titular."
+            rows="2"
+            auto-grow
+            :counter="WAIVER_REASON_MAX_LENGTH"
+            density="comfortable"
+            variant="outlined"
+          />
+          <v-alert v-if="waiverError" type="error" variant="tonal" density="compact" class="mt-3" aria-live="polite">
+            {{ waiverError }}
+            <div v-if="waiverErrorDetail" class="text-caption mt-1">{{ waiverErrorDetail }}</div>
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" :disabled="waiverSubmitting" @click="waiverDialog = false">Cancelar</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="waiverSubmitting"
+            :disabled="!waiverForm.valid"
+            @click="submitWaiver"
+          >
+            Liberar número
           </v-btn>
         </v-card-actions>
       </v-card>
