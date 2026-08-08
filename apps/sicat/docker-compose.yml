@@ -1,6 +1,10 @@
 services:
   postgres:
-    image: postgres:16
+    # pgvector/pgvector:pg16 = postgres:16 + extensão `vector`, drop-in sobre o mesmo volume — a
+    # MESMA imagem que o cluster usa (`k8s/postgres.yaml:44`). Com `postgres:16` puro a migration
+    # `018_knowledge_pgvector.sql` morre no `create extension if not exists vector`, e a suíte de
+    # integração nunca chega ao schema completo localmente.
+    image: pgvector/pgvector:pg16
     container_name: mtr_postgres
     environment:
       POSTGRES_DB: mtr_automation
