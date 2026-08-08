@@ -10,6 +10,13 @@ import { createConversationService, listConversationTools } from '../services/co
 import { recordConversationFeedback } from '../services/conversation/conversation-feedback-service.js';
 import { conversationIngestMiddleware, buildIngestedTurn } from '../services/conversation/conversation-ingest.js';
 import { aiMetrics } from '../lib/ai-metrics.js';
+// Hotfix de exposição: as cinco rotas abaixo estavam SEM autenticação na imagem publicada, e o host
+// `dev.nvit.com.br` é público. Provado em 2026-08-08: `POST /v1/conversations/turns` sem token
+// executava um turno completo de LLM, e `/artifacts/:id/content` faz stream de arquivo.
+// Isto fecha o acesso ANÔNIMO. O escopo por conta continua vindo de query param (ver
+// `toOptionalQueryString` abaixo) — a correção completa disso está na cadeia `whatsapp-channel-sicat`,
+// que troca o query param pelo principal resolvido no servidor.
+import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 
 type RequestWithContext = express.Request & {
   correlationId?: string | null;
@@ -53,14 +60,14 @@ const conversationService = createConversationService();
 export function createConversationRouter() {
   const router = express.Router();
 
-  router.get('/v1/conversations/tools', asyncHandler(async (_req, res) => {
+  router.get('/v1/conversations/tools', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
     res.json({
       items: listConversationTools(),
       count: listConversationTools().length
     });
   }));
 
-  router.get('/v1/conversations/artifacts/:artifactId', asyncHandler(async (req, res) => {
+  router.get('/v1/conversations/artifacts/:artifactId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getConversationArtifactStatus({
       artifactId: String(req.params.artifactId),
       integrationAccountId: toOptionalQueryString(req.query?.integrationAccountId),
@@ -70,7 +77,7 @@ export function createConversationRouter() {
     res.json(response);
   }));
 
-  router.get('/v1/conversations/artifacts/:artifactId/content', asyncHandler(async (req, res) => {
+  router.get('/v1/conversations/artifacts/:artifactId/content', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const artifact = await getConversationArtifactContent({
       artifactId: String(req.params.artifactId),
       integrationAccountId: toOptionalQueryString(req.query?.integrationAccountId),
@@ -83,7 +90,7 @@ export function createConversationRouter() {
   }));
 
   // F5: feedback explícito 👍/👎 por resposta da IA (alimenta csat + loop contínuo).
-  router.post('/v1/conversations/feedback', asyncHandler(async (req, res) => {
+  router.post('/v1/conversations/feedback', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const body = (req.body || {}) as Record<string, unknown>;
     const feedbackType = body.feedbackType === 'negative' ? 'negative' : body.feedbackType === 'positive' ? 'positive' : null;
     const correlationId = typeof body.correlationId === 'string' ? body.correlationId.trim() : '';
@@ -105,7 +112,7 @@ export function createConversationRouter() {
 
   // Multimodal: attachIngest é NO-OP em application/json (contrato textual intacto). Em multipart,
   // o multer popula req.body com os campos de TEXTO e req.ingested com o resultado da ingestão (fail-soft).
-  router.post('/v1/conversations/turns', conversationIngestMiddleware(), asyncHandler(async (req, res) => {
+  router.post('/v1/conversations/turns', sicatAuthMiddleware, conversationIngestMiddleware(), asyncHandler(async (req, res) => {
     // Instrumentação F0 (latência/outcome do turno) — só telemetria.
     const startedAt = Date.now();
 
