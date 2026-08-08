@@ -31,6 +31,8 @@ import { AppError } from '../lib/problem.js';
 import { createRateLimiter } from '../lib/rate-limit.js';
 import { hashPassword, verifyPassword } from '../lib/sicat-security.js';
 import { insertAccessAdminAudit } from '../repositories/access-admin-repo.js';
+import { ensureAdminAuthorization, requireActorUserId } from './access-admin-service.js';
+import type { SicatUser } from './access-admin-service.js';
 import {
   claimConversationChannelLink,
   countConversationChannelLinksByUser,
@@ -52,7 +54,8 @@ import {
   insertChannelVerification,
   markChannelVerificationDelivery,
   rotateChannelVerificationCode,
-  sweepExpiredChannelVerifications
+  sweepExpiredChannelVerifications,
+  waiveVictimShieldChallengesForPhone
 } from '../repositories/conversation-channel-verification-repo.js';
 import type { ChannelVerificationRecord } from '../repositories/conversation-channel-verification-repo.js';
 import { requireWhatsAppProvider } from './conversation/channel/whatsapp/index.js';
@@ -127,6 +130,7 @@ type ChannelLinkRepositories = {
   countDistinctChallengersForPhone: typeof countDistinctChallengersForPhone;
   markChannelVerificationDelivery: typeof markChannelVerificationDelivery;
   sweepExpiredChannelVerifications: typeof sweepExpiredChannelVerifications;
+  waiveVictimShieldChallengesForPhone: typeof waiveVictimShieldChallengesForPhone;
 };
 
 const DEFAULT_REPOSITORIES: ChannelLinkRepositories = {
@@ -150,7 +154,8 @@ const DEFAULT_REPOSITORIES: ChannelLinkRepositories = {
   findLiveChannelVerificationByUser,
   countDistinctChallengersForPhone,
   markChannelVerificationDelivery,
-  sweepExpiredChannelVerifications
+  sweepExpiredChannelVerifications,
+  waiveVictimShieldChallengesForPhone
 };
 
 let repositories: ChannelLinkRepositories = DEFAULT_REPOSITORIES;
@@ -611,15 +616,12 @@ export async function startChannelLinkService(
   //
   // O dono já verificado do número PULA o escudo pelo mesmo motivo do balde de telefone.
   //
-  // ⚠️ TRADE-OFF CONHECIDO E ACEITO NESTA FASE (não é descuido): o escudo só tem saída para quem JÁ
-  // tem vínculo verificado. Uma vítima de PRIMEIRA viagem — que nunca vinculou o número — pode ser
-  // trancada por N+1 contas descartáveis e não tem caminho de escape dentro deste fluxo. É a forma
-  // genérica do problema: TODO escudo do tipo "proteja a vítima" pode ser virado em DoS contra ela,
-  // e nenhuma heurística de tráfego resolve isso — só uma prova de posse fora de banda. O caminho de
-  // escape (step-up de identidade ou ação de suporte que libera o número) é ESCOPO DE FASE FUTURA e
-  // está registrado no handoff como decisão pendente. Não invente aqui um bypass baseado em sinal
-  // fraco (IP, user-agent, idade da conta): qualquer um deles reabre o bombing multi-conta, que é
-  // exatamente o abuso que este escudo existe para conter.
+  // ⚠️ Para a vítima de PRIMEIRA viagem — que nunca vinculou o número e portanto não tem o bypass de
+  // `verified` — o caminho de escape é o WAIVER administrativo (D-A2):
+  // `waiveChannelLinkVictimShieldService`, exposto sob o gate de admin, marca as linhas do número e
+  // a contagem abaixo passa a ignorá-las. É deliberadamente uma AÇÃO DE SUPORTE, não uma heurística:
+  // não invente aqui um bypass baseado em sinal fraco (IP, user-agent, idade da conta) — qualquer um
+  // deles reabre o bombing multi-conta, que é exatamente o abuso que este escudo existe para conter.
   if (!isOwnVerifiedNumber) {
     const distinctChallengers = await repositories.countDistinctChallengersForPhone(null, {
       channelType,
@@ -825,14 +827,27 @@ export async function resendChannelLinkChallengeService(
     );
   }
 
-  const phoneDecision = DISPATCH_PHONE_RATE_LIMIT.check(
-    buildDispatchPhoneRateKey(challenge.channelType, challenge.externalUserKey)
+  // O mesmo bypass de titularidade do `start`, que faltava aqui (alinhamento D-A2): o dono JÁ
+  // VERIFICADO do número não paga o balde de TELEFONE — sem isto ele passava no `start` e levava 429
+  // no reenvio do PRÓPRIO número quando um atacante envenenava o balde. Resolvida só agora (e não no
+  // topo) porque os ramos de recusa acima não tocam o balde — não há motivo para pagar a consulta
+  // neles. O custo do dono continua contido pelo teto por USUÁRIO da rota, que `start` e `resend`
+  // compartilham; cooldown e teto de envios do DESAFIO (conferidos acima) valem para ele também.
+  const ownLink = await findChannelLinkOfUserByPhone(
+    userId,
+    challenge.channelType,
+    challenge.externalUserKey
   );
-  if (!phoneDecision.allowed) {
-    throw rateLimited(
-      `Limite de envios para este número atingido. Tente novamente em ${phoneDecision.retryAfterSeconds}s.`,
-      phoneDecision.retryAfterSeconds
+  if (ownLink?.verificationStatus !== 'verified') {
+    const phoneDecision = DISPATCH_PHONE_RATE_LIMIT.check(
+      buildDispatchPhoneRateKey(challenge.channelType, challenge.externalUserKey)
     );
+    if (!phoneDecision.allowed) {
+      throw rateLimited(
+        `Limite de envios para este número atingido. Tente novamente em ${phoneDecision.retryAfterSeconds}s.`,
+        phoneDecision.retryAfterSeconds
+      );
+    }
   }
 
   const code = generateOtpCode();
@@ -1254,6 +1269,85 @@ export async function removeChannelLinkService(
   });
 
   return { removed: true };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Waiver administrativo do escudo da vítima (D-A2)
+// ---------------------------------------------------------------------------------------------
+
+/** Máximo do texto livre de justificativa que vai para a coluna `reason` da auditoria. */
+const SHIELD_WAIVER_REASON_MAX_LENGTH = 200;
+
+/**
+ * Libera um telefone do escudo anti-bombing. É a saída para o dono de PRIMEIRA viagem: o único
+ * bypass do escudo é `verificationStatus === 'verified'`, que ele por definição não tem — N+1 contas
+ * descartáveis o trancavam indefinidamente (janela deslizante de 24 h, sem TTL de trava).
+ *
+ * Desenho:
+ *  - o gate é `ensureAdminAuthorization`, o MESMO das rotas `/v1/admin/access/*`, importado DIRETO
+ *    (como `ai-control-auth` faz) e não pelo seam de persistência — um seam que carregue o gate
+ *    deixa de trocar banco por double e passa a poder DESLIGAR a autorização. Ele roda ANTES de
+ *    qualquer validação de entrada, para que um não-admin não receba nem o oráculo barato de "esse
+ *    telefone é válido?";
+ *  - a liberação é uma marca de `metadata` nas linhas existentes do par (canal, telefone) — nenhum
+ *    `outcome` é tocado, porque reaproveitar `verified`/`send_failed` para escapar da contagem
+ *    registraria na trilha operacional um desfecho que não aconteceu;
+ *  - é PONTUAL: desafios abertos depois do waiver contam de novo. A liberação existe para o dono
+ *    conseguir UM ciclo start→confirm; verificado, ele ganha o bypass durável de `verified`;
+ *  - o telefone é dado pessoal — resposta, auditoria e logs só carregam `maskChannelUserKey`. O
+ *    admin já conhece o número (ele o digitou); ecoá-lo de volta só criaria mais um lugar de vazar.
+ *
+ * O balde de TELEFONE em memória NÃO é zerado aqui de propósito: a janela dele é de 1 h e se esvazia
+ * sozinha, enquanto o escudo era uma trava sem fim — e um `reset` geral (a única API do limitador)
+ * derrubaria a proteção de TODOS os números por causa de um.
+ */
+export async function waiveChannelLinkVictimShieldService(
+  sicatUser: SicatUser | null | undefined,
+  body: LooseRecord,
+  correlationId: string | null = null
+) {
+  await ensureAdminAuthorization(sicatUser);
+  // Mesma regra das outras 17 superfícies administrativas — o gate acima já recusou sessão sem
+  // `userId` com 401, e esta chamada é o que garante que a trilha nunca grave ator vazio.
+  const actorUserId = requireActorUserId(sicatUser || {});
+
+  const channelType = requireSupportedChannel(body.channelType);
+  const externalUserKey = requireChannelUserKey(body.phone);
+  const reason = toTrimmedString(body.reason)?.slice(0, SHIELD_WAIVER_REASON_MAX_LENGTH) || null;
+
+  const waivedChallenges = await repositories.waiveVictimShieldChallengesForPhone(null, {
+    channelType,
+    externalUserKey,
+    waivedBy: actorUserId,
+    correlationId
+  });
+
+  await recordChannelLinkAudit({
+    actionType: 'channel_link.shield_waived',
+    actionStatus: 'succeeded',
+    actorUserId,
+    reason,
+    correlationId,
+    metadata: {
+      channelType,
+      phoneMasked: maskChannelUserKey(externalUserKey),
+      waivedChallenges
+    }
+  });
+
+  return {
+    action: 'shield_waive',
+    // DERIVADO, como nos irmãos administrativos (`removed ? 'applied' : 'noop'`): `noop` é o waiver
+    // que não encontrou linha nova — já estava em vigor, ou não havia nada a liberar. Nos dois casos
+    // o número está livre do escudo neste instante, mas dizer sempre `applied` tornaria o campo uma
+    // constante que nenhuma asserção consegue reprovar.
+    status: waivedChallenges > 0 ? 'applied' : 'noop',
+    channelType,
+    phoneMasked: maskChannelUserKey(externalUserKey),
+    waivedChallenges,
+    correlationId,
+    performedAt: new Date().toISOString()
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

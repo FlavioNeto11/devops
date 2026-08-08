@@ -29,11 +29,44 @@ import { updatePassword, updatePasswordExpiration } from '../repositories/sicat-
 import { revokeActiveByUserId } from '../repositories/sicat-session-repo.js';
 
 type LooseRecord = Record<string, unknown>;
-type SicatUser = {
+
+/**
+ * Identidade SICAT como o middleware a entrega. Exportada para que outras superfícies
+ * administrativas (ex.: o waiver do escudo anti-bombing) tipem o ator com ESTE contrato em vez de
+ * copiá-lo — uma cópia local fatalmente diverge do que o gate realmente lê.
+ */
+export type SicatUser = {
   userId?: string;
   id?: string;
   roles?: unknown[];
 };
+
+/**
+ * A ÚNICA dependência de banco do gate administrativo, isolada num seam próprio.
+ *
+ * Fica aqui, e NÃO no seam de persistência de quem chama o gate: um seam de repositórios que
+ * carregue a função de AUTORIZAÇÃO deixa de ser "troque o banco por um double" e passa a ser
+ * "desligue o gate" — e o setter é exportado de módulo de produção, no mesmo processo dos testes.
+ * Com o gate importado direto e só esta consulta injetável, o teste do 403 roda sem Postgres e
+ * nenhum override consegue conceder acesso administrativo.
+ */
+type AccessAdminGateDependencies = {
+  hasAdminGlobalAccessByUserId: typeof hasAdminGlobalAccessByUserId;
+};
+
+const DEFAULT_GATE_DEPENDENCIES: AccessAdminGateDependencies = { hasAdminGlobalAccessByUserId };
+
+let gateDependencies: AccessAdminGateDependencies = DEFAULT_GATE_DEPENDENCIES;
+
+/**
+ * Substitui a consulta de acesso global por um double. **SÓ para testes** — nenhum caminho de
+ * produção chama isto. `null` restaura o real; o teste DEVE restaurar no `afterEach`.
+ */
+export function setAccessAdminGateDependenciesForTests(
+  overrides: Partial<AccessAdminGateDependencies> | null
+): void {
+  gateDependencies = overrides ? { ...DEFAULT_GATE_DEPENDENCIES, ...overrides } : DEFAULT_GATE_DEPENDENCIES;
+}
 
 type AuditActionInput = {
   correlationId?: string | null;
@@ -73,14 +106,20 @@ export async function resolveAdminAccessSummary(sicatUser: SicatUser | null | un
     };
   }
 
-  const hasDbAdminAccess = await hasAdminGlobalAccessByUserId(userId);
+  const hasDbAdminAccess = await gateDependencies.hasAdminGlobalAccessByUserId(userId);
   return {
     allowed: hasDbAdminAccess,
     source: hasDbAdminAccess ? 'database' : 'none'
   };
 }
 
-async function ensureAdminAuthorization(sicatUser: SicatUser | null | undefined) {
+/**
+ * Gate único de autorização administrativa: papel de admin no token OU `admin.global` efetivo no
+ * banco. Exportado para que superfícies administrativas de OUTROS domínios (ex.: o waiver do escudo
+ * anti-bombing em `conversation-channel-link-service`) usem exatamente esta decisão em vez de
+ * reimplementá-la — duas cópias da regra é como o RBAC diverge.
+ */
+export async function ensureAdminAuthorization(sicatUser: SicatUser | null | undefined) {
   if (!sicatUser?.userId) {
     throw new AppError(401, 'Unauthorized', 'Sessão SICAT inválida.');
   }
@@ -177,7 +216,12 @@ function ensureFieldNotEmpty(value: string | null | undefined, fieldName: string
   throw new AppError(400, 'Bad Request', `Campo ${fieldName} não pode ser vazio.`);
 }
 
-function requireActorUserId(sicatUser: SicatUser): string {
+/**
+ * Id do ator para a trilha. Exportada porque toda superfície administrativa precisa exatamente
+ * desta regra depois do gate — copiar `String(user?.userId || '').trim()` é como as 17 chamadas
+ * daqui começariam a divergir.
+ */
+export function requireActorUserId(sicatUser: SicatUser): string {
   const actorUserId = String(sicatUser.userId || '').trim();
   if (!actorUserId) {
     throw new AppError(401, 'Unauthorized', 'Sessão SICAT inválida.');
