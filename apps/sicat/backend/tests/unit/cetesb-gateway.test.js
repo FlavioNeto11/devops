@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import https from 'node:https';
 import { createCetesbGateway } from '../../src/gateways/cetesb-gateway.js';
 import { setConfigOverride } from '../../src/lib/config.js';
+import { extractManifestIdFromObservation } from '../../src/lib/manifest-correlation.js';
 import { AppError } from '../../src/lib/problem.js';
 
 function configureGatewayForTests() {
@@ -688,6 +689,129 @@ test('searchManifests agrega range dia a dia e preserva dias válidos quando CET
   assert.equal(Array.isArray(result), true);
   assert.equal(result.length, 1);
   assert.equal(result[0].manNumero, '260010000007');
+});
+
+// C1 — marcador de correlação pré-submit no manObservacao.
+// Double do gateway: stubamos sessão, enriquecimentos e requestJson (que
+// captura o corpo do PUT). Nenhuma chamada atinge a CETESB real.
+function stubSubmitManifestPipeline(gateway, capture) {
+  gateway.resolveSession = async () => ({
+    sessionContext: {
+      id: 'scx_test_submit_corr',
+      jwtToken: 'token-valido',
+      userAccessCode: '10',
+      userName: 'Operador Teste',
+      metadata: {}
+    }
+  });
+  gateway.enrichPartnerData = async (payload) => payload;
+  gateway.enrichResidueData = async (payload) => payload;
+  gateway.resolveManifestPartnerAccess = async () => ({ paaCodigo: 10, paaNome: 'Operador Teste' });
+  gateway.lookupManifestByHash = async () => ({ exchange: null, item: null });
+  gateway.requestJson = async ({ method, path, body }) => {
+    capture.push({ method, path, body });
+    return {
+      request: {
+        endpoint: `https://example.test${path}`,
+        httpMethod: method,
+        sanitizedHeaders: {},
+        sanitizedBody: {}
+      },
+      response: {
+        endpoint: `https://example.test${path}`,
+        httpMethod: method,
+        httpStatus: 200,
+        sanitizedHeaders: {},
+        sanitizedBody: {},
+        data: { erro: false, mensagem: 'HASH-SUBMIT-CORR', objetoResposta: null }
+      }
+    };
+  };
+}
+
+function buildSubmittableManifest(id, notes) {
+  return {
+    id,
+    integrationAccountId: 'acc_test_submit_corr',
+    sessionContextId: 'scx_test_submit_corr',
+    externalReference: null,
+    externalHashCode: null,
+    payload: {
+      responsibleName: 'Operador Teste',
+      manifestType: 'E',
+      expeditionDate: '2026-08-08',
+      notes,
+      state: { code: 26, abbreviation: 'SP' },
+      generator: { partnerCode: 176163 },
+      carrier: { partnerCode: 176163 },
+      receiver: { partnerCode: 176163 },
+      residues: [
+        {
+          residue: { code: 517 },
+          unit: { code: 1 },
+          treatment: { code: 2 },
+          class: { code: 11 },
+          quantity: 10
+        }
+      ]
+    }
+  };
+}
+
+test('submitManifest grava marcador de correlação em manObservacao preservando a observação do usuário', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  const capture = [];
+  stubSubmitManifestPipeline(gateway, capture);
+
+  await gateway.submitManifest(
+    buildSubmittableManifest('man_corr_test_001', 'Entrega pela portaria 2'),
+    { sessionContextId: 'scx_test_submit_corr' }
+  );
+
+  assert.equal(capture.length, 1);
+  assert.equal(capture[0].method, 'PUT');
+  assert.equal(capture[0].path, '/api/mtr/manifesto');
+  // Observação do usuário preservada + marcador determinístico concatenado.
+  assert.equal(capture[0].body.manObservacao, 'Entrega pela portaria 2 [sicat:man_corr_test_001]');
+  // O id local não viaja em nenhum outro campo do contrato CETESB.
+  assert.equal(capture[0].body.correlationManifestId, undefined);
+});
+
+test('submitManifest sem observação do usuário envia só o marcador em manObservacao', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  const capture = [];
+  stubSubmitManifestPipeline(gateway, capture);
+
+  await gateway.submitManifest(
+    buildSubmittableManifest('man_corr_test_002', ''),
+    { sessionContextId: 'scx_test_submit_corr' }
+  );
+
+  assert.equal(capture[0].body.manObservacao, '[sicat:man_corr_test_002]');
+});
+
+test('marcador do submit é determinístico e recuperável do manObservacao (round-trip)', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  const capture = [];
+  stubSubmitManifestPipeline(gateway, capture);
+
+  // Mesmo manifesto submetido duas vezes → mesmo manObservacao (determinismo).
+  await gateway.submitManifest(buildSubmittableManifest('man_corr_test_003', 'Obs fixa'), {});
+  await gateway.submitManifest(buildSubmittableManifest('man_corr_test_003', 'Obs fixa'), {});
+  assert.equal(capture[0].body.manObservacao, capture[1].body.manObservacao);
+
+  // Manifestos diferentes → marcadores diferentes (desambigua o lote que
+  // repete data/gerador/transportador/destinador/resíduo de propósito).
+  await gateway.submitManifest(buildSubmittableManifest('man_corr_test_004', 'Obs fixa'), {});
+  assert.notEqual(capture[2].body.manObservacao, capture[0].body.manObservacao);
+
+  // Round-trip: o id volta do manObservacao — é o que torna o envio
+  // reencontrável no resultado de searchManifests quando a resposta se perde.
+  assert.equal(extractManifestIdFromObservation(capture[0].body.manObservacao), 'man_corr_test_003');
+  assert.equal(extractManifestIdFromObservation(capture[2].body.manObservacao), 'man_corr_test_004');
 });
 
 function stubCdfOperationContext(gateway) {
