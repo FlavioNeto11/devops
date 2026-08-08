@@ -1501,6 +1501,34 @@ export function deleteChannelLink(linkId) {
   return request(`/v1/sicat/channel-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
 }
 
+// --- Janela de ação do WhatsApp (step-up do N2, fase 05) ---------------------
+//
+// A janela é aberta na SESSÃO WEB autenticada — nunca pelo canal. O corpo leva
+// só duração e orçamento: telefone e conta CETESB são resolvidos no servidor a
+// partir do vínculo `verified` e da conta ativa (nenhum identificador de conta
+// sai do cliente). O DTO devolve o telefone MASCARADO; o E.164 cru nunca chega
+// aqui. Sem `Idempotency-Key` pelo mesmo motivo das rotas acima: o servidor já
+// deduplica (uma janela viva por usuário+telefone) e `request()` não repete
+// POST/DELETE.
+
+export function openWhatsAppActionWindow(payload) {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function getWhatsAppActionWindow() {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', { retry: 1, timeoutMs: 15000 });
+}
+
+export function revokeWhatsAppActionWindow(windowId) {
+  return request(`/v1/sicat/channel-links/whatsapp/action-window/${encodeURIComponent(windowId)}`, {
+    method: 'DELETE'
+  });
+}
+
 // =============================================================================
 // AI Control Center — governança, observabilidade e runtime da IA SICAT.
 // Todos os endpoints exigem Bearer admin (o client já injeta o token).

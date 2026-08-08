@@ -20,6 +20,9 @@
  *  - POST   /v1/sicat/channel-links/challenges/{id}/confirm
  *  - DELETE /v1/sicat/channel-links/challenges/{id}
  *  - DELETE /v1/sicat/channel-links/{linkId}
+ *  - POST   /v1/sicat/channel-links/whatsapp/action-window   (fase 05 — janela de ação N2)
+ *  - GET    /v1/sicat/channel-links/whatsapp/action-window
+ *  - DELETE /v1/sicat/channel-links/whatsapp/action-window/{id}
  */
 
 import { computed, ref } from 'vue';
@@ -27,8 +30,11 @@ import {
   cancelChannelLinkChallenge,
   confirmChannelLinkChallenge,
   deleteChannelLink,
+  getWhatsAppActionWindow,
   listChannelLinks,
+  openWhatsAppActionWindow,
   resendChannelLinkChallenge,
+  revokeWhatsAppActionWindow,
   startChannelLink
 } from '../services/channelLinkService.js';
 import {
@@ -38,6 +44,12 @@ import {
   normalizeLimits,
   resolveChannelLinkError
 } from '../features/channel-link/channelLinkState.js';
+import {
+  isWindowMissingError,
+  isWindowNoVerifiedLinkError,
+  normalizeActionWindow,
+  resolveActionWindowError
+} from '../features/channel-link/actionWindowState.js';
 
 const CHANNEL_TYPE = 'whatsapp';
 
@@ -53,6 +65,12 @@ const listError = ref('');
 const commandLoading = ref(false);
 const commandError = ref('');
 const commandErrorCode = ref('');
+
+// Janela de ação (fase 05). O DTO normalizado — nunca o telefone cru — e o
+// erro de CONSULTA; erros de comando (abrir/revogar) passam por executeCommand.
+const actionWindow = ref(null);
+const actionWindowLoading = ref(false);
+const actionWindowError = ref('');
 
 function extractErrorMessage(error, fallback) {
   if (!error) return fallback;
@@ -196,7 +214,75 @@ export function useChannelLinkStore() {
     return executeCommand('Falha ao desvincular o número.', async () => {
       const response = await deleteChannelLink(linkId);
       await fetchList();
+      // Sem o (último) número verificado a janela deixa de valer — reconsultar
+      // mantém o painel honesto (o 409 "sem vínculo" vira `window: null` ali).
+      if (actionWindow.value) await fetchActionWindow();
       return response;
+    });
+  }
+
+  // ── Janela de ação (fase 05) ──────────────────────────────────────────────
+
+  /**
+   * Consulta a janela viva. O 409 CHANNEL_ACTION_WINDOW_NO_VERIFIED_LINK não é
+   * falha: significa "recurso indisponível até vincular um número" e vira
+   * `window: null` sem mensagem de erro.
+   */
+  async function fetchActionWindow() {
+    actionWindowError.value = '';
+    actionWindowLoading.value = true;
+    try {
+      const response = await getWhatsAppActionWindow();
+      actionWindow.value = normalizeActionWindow(response?.window);
+      return response;
+    } catch (error) {
+      actionWindow.value = null;
+      if (!isWindowNoVerifiedLinkError(error)) {
+        actionWindowError.value = resolveActionWindowError(
+          error,
+          'Falha ao consultar a liberação de ações.'
+        ).message;
+      }
+      return null;
+    } finally {
+      actionWindowLoading.value = false;
+    }
+  }
+
+  /**
+   * Abre a janela. Só duração e orçamento saem do cliente — telefone e conta
+   * CETESB são resolvidos no servidor. O DTO devolvido (já clampado) é a
+   * verdade da tela, não o que o formulário pediu.
+   */
+  async function openActionWindow({ hours, actionsBudget } = {}) {
+    return executeCommand('Falha ao liberar ações pelo WhatsApp.', async () => {
+      const response = await openWhatsAppActionWindow({ hours, actionsBudget });
+      actionWindow.value = normalizeActionWindow(response);
+      return response;
+    });
+  }
+
+  /**
+   * Revoga com efeito imediato (botão de pânico do runbook). Janela já
+   * encerrada devolve 404 — o objetivo foi atingido, então é sucesso
+   * silencioso, como no cancelamento de desafio.
+   */
+  async function revokeActionWindow() {
+    const windowId = actionWindow.value?.id;
+    if (!windowId) return null;
+
+    return executeCommand('Falha ao revogar a liberação.', async () => {
+      try {
+        const response = await revokeWhatsAppActionWindow(windowId);
+        actionWindow.value = null;
+        return response;
+      } catch (error) {
+        if (isWindowMissingError(error)) {
+          actionWindow.value = null;
+          return null;
+        }
+        throw error;
+      }
     });
   }
 
@@ -216,12 +302,18 @@ export function useChannelLinkStore() {
     commandErrorCode,
     hasPendingChallenge,
     totalLinks,
+    actionWindow,
+    actionWindowLoading,
+    actionWindowError,
     fetchList,
     startLink,
     resendCode,
     confirmCode,
     cancelChallenge,
     removeLink,
+    fetchActionWindow,
+    openActionWindow,
+    revokeActionWindow,
     clearCommandState
   };
 }
