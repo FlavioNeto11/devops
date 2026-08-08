@@ -37,11 +37,19 @@
  */
 
 import { config } from '../../../../lib/config.js';
+import { AppError } from '../../../../lib/problem.js';
 import { insertAuditEntry } from '../../../../repositories/audit-repo.js';
 import { findConversationChannelLinkForChannel } from '../../../../repositories/conversation-channel-link-repo.js';
 import { resolveChannelPrincipal } from '../../conversation-principal.js';
 import { createConversationService } from '../../conversation-service.js';
 import { resolveWhatsAppProvider } from './index.js';
+import { resolveWhatsAppActionsEnabled } from './whatsapp-action-eligibility.js';
+import { parseWhatsAppConfirmationUtterance } from './whatsapp-confirmation-grammar.js';
+import { runWhatsAppConfirmationRescue, tryIssueWhatsAppActionTicket } from './whatsapp-confirmation-flow.js';
+import {
+  closeWhatsAppActionTicket,
+  findLiveWhatsAppActionTicket
+} from './whatsapp-action-ticket-service.js';
 import {
   buildWhatsAppExpiredNotice,
   buildWhatsAppTurnTimeoutNotice,
@@ -311,21 +319,6 @@ export async function runWhatsAppInboundTurn(input: {
     return { outcome: 'whatsapp_inbound_link_revoked', patch: { text: null, replyText: null } };
   }
 
-  // ── DÍVIDA NOMEADA: usuário DESATIVADO ainda é exceção técnica, não desfecho de canal ─────────
-  // `resolveChannelPrincipal` lança 401 para usuário inativo (`CONVERSATION_PRINCIPAL_USER_INACTIVE`),
-  // e 401 está em `NON_RETRYABLE_HTTP_STATUSES` (`lib/retry.ts`) — logo `resolveFailureTransition`
-  // marca o job como `failed` na PRIMEIRA tentativa: sem retry, sem DLQ e sem resposta. Funcionário
-  // desligado com número vinculado fica MUDO indefinidamente (o vínculo continua `verified`) e a fila
-  // acumula jobs `failed` com cara de incidente de infra.
-  //
-  // A forma certa é tratá-lo AQUI, ao lado do vínculo revogado — mesma classe de condição permanente,
-  // mesmo desfecho terminal (`whatsapp_inbound_user_inactive`). NÃO foi feito nesta rodada porque
-  // exige uma dependência nova (`findSicatUserById`) no seam de teste deste módulo, e os doubles das
-  // suítes de canal não a injetam: a mudança sozinha derruba 33 testes que nada têm a ver com RBAC, e
-  // consertá-los é do agente de teste. Fica como item da fase 5, quando este arquivo for reaberto.
-  //
-  // O comportamento HOJE é FAIL-CLOSED (o turno não roda), só é ilegível na fila e mudo para a pessoa.
-
   const disposition = (toNonEmptyString(payload.disposition) || 'process_turn') as WhatsAppDisposition;
   let segments = preparedSegments;
   let conversationTurnId: string | null = null;
@@ -376,6 +369,13 @@ export async function runWhatsAppInboundTurn(input: {
       segments = turn.segments;
       conversationTurnId = turn.conversationTurnId;
       outcome = turn.outcome;
+
+      // Desfecho TERMINAL de canal sem nada a enviar (usuário inativo já avisado na janela). O
+      // `outcome` precisa sobreviver — cair no `whatsapp_inbound_ignored` abaixo apagaria justamente
+      // a informação que torna a fila legível.
+      if (turn.terminal && segments.length === 0) {
+        return { outcome, patch: { text: null, replyText: null, userNotified: false } };
+      }
     }
 
     if (segments.length === 0) {
@@ -499,30 +499,209 @@ export async function runWhatsAppInboundTurn(input: {
   return { outcome, patch: finalPatch };
 }
 
+/**
+ * UMA mensagem por vínculo por 24 h, depois silêncio com métrica.
+ *
+ * O mudo indefinido é o defeito que este bloco existe para eliminar; avisar SEM limite é o defeito
+ * oposto. E a mensagem não revela nada que o atacante já não soubesse: o número estava vinculado e já
+ * recebia respostas. Mesmo molde in-process do aviso de expiração — reinício perde a memória e, no
+ * pior caso, sai um aviso a mais.
+ */
+const inactiveNoticeSentAtByLink = new Map<string, number>();
+const INACTIVE_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function resetWhatsAppInactiveNoticeThrottleForTests(): void {
+  inactiveNoticeSentAtByLink.clear();
+}
+
+function claimInactiveNoticeSlot(channelLinkId: string, nowMs: number): boolean {
+  const lastAt = inactiveNoticeSentAtByLink.get(channelLinkId);
+  if (lastAt != null && nowMs - lastAt < INACTIVE_NOTICE_WINDOW_MS) return false;
+  if (inactiveNoticeSentAtByLink.size >= EXPIRED_NOTICE_MAX_TRACKED_LINKS) {
+    for (const [key, at] of inactiveNoticeSentAtByLink) {
+      if (nowMs - at >= INACTIVE_NOTICE_WINDOW_MS) inactiveNoticeSentAtByLink.delete(key);
+    }
+  }
+  inactiveNoticeSentAtByLink.set(channelLinkId, nowMs);
+  return true;
+}
+
+const USER_INACTIVE_NOTICE = [
+  'Seu acesso ao SICAT esta inativo, entao nao consigo atender por aqui.',
+  '',
+  'Fale com o administrador da sua conta para reativar. Nada do que voce mandar vai ser executado enquanto isso.'
+].join('\n');
+
+/**
+ * Ticket vivo de um usuário que acabou de ser desativado. Só toca o banco com o disjuntor LIGADO —
+ * com ele desligado não existe ticket para fechar, e uma consulta a mais por turno em toda suíte de
+ * canal seria custo puro.
+ */
+async function cancelLiveTicketOnInactive(link: ChannelLinkLike): Promise<void> {
+  if (!resolveWhatsAppActionsEnabled()) return;
+  const live = await findLiveWhatsAppActionTicket({
+    userId: String(link.userId),
+    externalUserKey: link.externalUserKey
+  });
+  if (!live) return;
+  await closeWhatsAppActionTicket({ id: live.id, userId: live.userId, outcome: 'cancelled' });
+}
+
+/** Marcador interno: condição PERMANENTE de canal, não falha técnica. */
+class WhatsAppUserInactiveError extends Error {
+  constructor() {
+    super('WHATSAPP_USER_INACTIVE');
+    this.name = 'WhatsAppUserInactiveError';
+  }
+}
+
+/**
+ * USUÁRIO DESATIVADO É DESFECHO DE CANAL, NÃO EXCEÇÃO TÉCNICA (fase 5).
+ *
+ * `resolveChannelPrincipal` lança 401 `CONVERSATION_PRINCIPAL_USER_INACTIVE`, e 401 está em
+ * `NON_RETRYABLE_HTTP_STATUSES` (`lib/retry.ts`): `resolveFailureTransition` marcava o job como
+ * `failed` na PRIMEIRA tentativa — sem retry, sem DLQ e sem resposta. Funcionário desligado com
+ * número vinculado ficava MUDO indefinidamente (o vínculo continua `verified`) e a fila acumulava
+ * jobs `failed` com cara de incidente de infra.
+ *
+ * O tratamento envolve a chamada JÁ EXISTENTE a `dependencies.resolveChannelPrincipal` — que já está
+ * no seam e já é dobrada por todas as suítes. NENHUMA dependência nova entra em `TurnDependencies`:
+ * `{ ...defaultDependencies, ...overrides }` faria a dependência nova cair no default REAL e ir ao
+ * Postgres em toda suíte que não a injeta — foi exatamente isso que derrubou 33 testes na tentativa
+ * anterior.
+ *
+ * O catch é DELIBERADAMENTE ESTREITO: qualquer outro `AppError` (e qualquer outro erro) continua
+ * PROPAGANDO para o `job-runner`, que decide retry × DLQ. Um catch-all aqui transformaria
+ * indisponibilidade de banco em "usuário inativo" e sumiria com o incidente.
+ */
+async function resolvePrincipalOrTerminal(link: ChannelLinkLike): Promise<Awaited<ReturnType<typeof resolveChannelPrincipal>>> {
+  try {
+    return await dependencies.resolveChannelPrincipal({
+      channel: 'whatsapp',
+      userId: String(link.userId),
+      externalUserKey: link.externalUserKey,
+      // `integrationAccountId` DELIBERADAMENTE AUSENTE (pendência 2 da fase 2): o valor recebido vence
+      // a conta ativa do usuário e a coluna ainda não tem dono definido — herdar amarraria o novo dono
+      // do número à conta CETESB alheia.
+      //
+      // `requestedBy` EXPLÍCITO e MASCARADO: o default é o E.164 CRU, que iria para
+      // `conversation_action_logs.user_id`, para o `sanitizedBody` de `audit_logs` e para as tools.
+      requestedBy: `whatsapp:${maskChannelUserKey(link.externalUserKey)}`
+    });
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'CONVERSATION_PRINCIPAL_USER_INACTIVE') {
+      throw new WhatsAppUserInactiveError();
+    }
+    throw error;
+  }
+}
+
+type ProcessTurnRun = {
+  segments: string[];
+  conversationTurnId: string | null;
+  outcome: string;
+  terminal?: boolean;
+};
+
+/**
+ * Desfecho de usuário inativo. Extraído porque agora tem DOIS pontos de origem: a resolução que abre
+ * o turno e a RE-resolução da queima (ver `runProcessTurn`). Duplicar o corpo faria a desativação
+ * valer num caminho e não no outro — e o caminho que ficaria de fora é justamente o que despacha.
+ */
+async function buildUserInactiveTurn(input: {
+  link: ChannelLinkLike;
+  payload: LooseRecord;
+  correlationId: string | null;
+}): Promise<ProcessTurnRun> {
+  // Ticket vivo desse usuário é fechado como `cancelled`. O VÍNCULO **não** é revogado: reativar
+  // devolve o canal sem refazer o OTP.
+  await cancelLiveTicketOnInactive(input.link);
+
+  const channelLinkId = toNonEmptyString(input.payload.channelLinkId) || input.link.id;
+  if (!claimInactiveNoticeSlot(channelLinkId, dependencies.now())) {
+    return { segments: [], conversationTurnId: null, outcome: 'whatsapp_inbound_user_inactive', terminal: true };
+  }
+  return {
+    segments: composeWhatsAppNotice(USER_INACTIVE_NOTICE, { correlationId: input.correlationId }),
+    conversationTurnId: null,
+    outcome: 'whatsapp_inbound_user_inactive',
+    terminal: true
+  };
+}
+
 async function runProcessTurn(input: {
   job: WhatsAppInboundJob;
   link: ChannelLinkLike;
   payload: LooseRecord;
   correlationId: string | null;
-}): Promise<{ segments: string[]; conversationTurnId: string | null; outcome: string }> {
+}): Promise<ProcessTurnRun> {
   const { job, link, payload, correlationId } = input;
 
   // ── C5.1: PRINCIPAL montado AQUI, com contexto fresco ─────────────────────────────────────────
   // NUNCA serializado em `jobs.payload`: `permissionKeys`/`integrationAccountId`/`sessionContextId`
   // numa fila durável congelariam uma decisão de autorização (permissão revogada ou conta CETESB
   // trocada continuariam valendo na execução).
-  const principal = await dependencies.resolveChannelPrincipal({
-    channel: 'whatsapp',
-    userId: String(link.userId),
-    externalUserKey: link.externalUserKey,
-    // `integrationAccountId` DELIBERADAMENTE AUSENTE (pendência 2 da fase 2): o valor recebido vence
-    // a conta ativa do usuário e a coluna ainda não tem dono definido — herdar amarraria o novo dono
-    // do número à conta CETESB alheia.
-    //
-    // `requestedBy` EXPLÍCITO e MASCARADO: o default é o E.164 CRU, que iria para
-    // `conversation_action_logs.user_id`, para o `sanitizedBody` de `audit_logs` e para as tools.
-    requestedBy: `whatsapp:${maskChannelUserKey(link.externalUserKey)}`
-  });
+  let principal: Awaited<ReturnType<typeof resolveChannelPrincipal>>;
+  try {
+    principal = await resolvePrincipalOrTerminal(link);
+  } catch (error) {
+    if (!(error instanceof WhatsAppUserInactiveError)) throw error;
+    return buildUserInactiveTurn({ link, payload, correlationId });
+  }
+
+  // ── FASE 5: RESGATE DE CONFIRMAÇÃO — determinístico, ANTES do planner, ZERO LLM ────────────────
+  // Gated pelo disjuntor de ambiente: desligado (default), NADA aqui roda e o canal é o de hoje.
+  if (resolveWhatsAppActionsEnabled()) {
+    const utterance = parseWhatsAppConfirmationUtterance(payload.text);
+    if (utterance.kind !== 'none') {
+      // ── AUTORIZAÇÃO REAVALIADA NA QUEIMA, NÃO CONGELADA NA EMISSÃO ──────────────────────────────
+      //
+      // É a terceira decisão do desenho, e ela precisa de um SUJEITO: a revalidação corre sobre
+      // `principal.permissionKeys`, então "reavaliar" só quer dizer alguma coisa se o principal for
+      // LIDO DE NOVO, do banco, no turno que QUEIMA. Uma permissão revogada (ou uma conta CETESB
+      // trocada) depois da emissão alcança este ticket porque este segundo `resolveChannelPrincipal`
+      // vai ao banco: a policy devolve `policy_denied`, o ticket é fechado como `conflict` e NADA é
+      // despachado. Reusar o principal que abriu o turno faria a mesma decisão sair de uma leitura
+      // que já é de outro momento — e nenhuma mutação nesta linha seria observável.
+      //
+      // ⚠️ SEM MAQUIAGEM sobre o que esta linha NÃO faz: é a leitura mais próxima da queima que ESTE
+      // arquivo alcança, não uma leitura DENTRO dela. O `redeem` ainda roda `verifyPassword` (scrypt,
+      // síncrono, dezenas de ms POR DESENHO) entre este ponto e o `close(verified)`, e uma revogação
+      // nessa fresta continua chegando tarde. Fechá-la exigiria recarregar o principal dentro do
+      // callback de revalidação, em `whatsapp-confirmation-flow`.
+      //
+      // Só para `code`: é a única fala que autoriza efeito irreversível. `decline` fecha o ticket e
+      // `vague_yes` só produz texto — pagar consultas por "sim" seria custo puro, no exato cenário de
+      // amplificação que o orçamento de saídas existe para conter.
+      let redeemPrincipal = principal;
+      if (utterance.kind === 'code') {
+        try {
+          redeemPrincipal = await resolvePrincipalOrTerminal(link);
+        } catch (error) {
+          if (!(error instanceof WhatsAppUserInactiveError)) throw error;
+          // Desativado ENTRE a abertura do turno e a queima: o ticket vivo é cancelado e nada executa.
+          return buildUserInactiveTurn({ link, payload, correlationId });
+        }
+      }
+
+      const rescue = await runWhatsAppConfirmationRescue({
+        utterance,
+        principal: redeemPrincipal,
+        link: { userId: String(link.userId), externalUserKey: link.externalUserKey },
+        correlationId,
+        dependencies: { processTurn: dependencies.processTurn }
+      });
+      if (rescue) {
+        // Texto vazio = orçamento de saídas do ticket esgotado: silêncio com métrica.
+        return {
+          segments: rescue.text ? composeWhatsAppNotice(rescue.text, { correlationId }) : [],
+          conversationTurnId: rescue.conversationTurnId ?? null,
+          outcome: rescue.outcome,
+          terminal: !rescue.text
+        };
+      }
+    }
+  }
 
   let output: ComposableTurnOutput & LooseRecord;
   try {
@@ -539,9 +718,17 @@ async function runProcessTurn(input: {
             mediaIgnored: payload.mediaIgnored,
             textTruncated: payload.textTruncated
           },
-          // EXPLÍCITO: `toBoolean(options.allowActions, true)` — a omissão NÃO é neutra. Cinto e
-          // suspensório sobre a policy, que já exclui `whatsapp` das 5 tools de ação.
-          options: { allowActions: false }
+          // DISJUNTOR DE AMBIENTE (fase 5), não mais o literal `false`.
+          //
+          // Enquanto `WHATSAPP_ACTIONS_ENABLED=false` (default) o valor é `false` e o comportamento é
+          // byte-a-byte o de hoje: toda ação para em `ACTIONS_DISABLED`, ANTES de
+          // `CONFIRMATION_REQUIRED`. Era o literal `false` que fazia o toggle do AI Control Center
+          // MENTIR — o operador ligava `whatsapp` em `ai_tools`, o reasonCode trocava de
+          // `CHANNEL_BLOCKED` para `ACTIONS_DISABLED`, e o composer mapeia os dois para o MESMO texto.
+          //
+          // A garantia de que o modelo não executa nada NÃO vem daqui: vem de o `toolRequest` só ser
+          // montado no caminho de RESGATE, a partir da linha do ticket (`whatsapp-confirmation-flow`).
+          options: { allowActions: resolveWhatsAppActionsEnabled() }
         },
         principal,
         correlationId,
@@ -572,13 +759,31 @@ async function runProcessTurn(input: {
     // Falha técnica legítima (`loadConversationPlanningState`, indisponibilidade de banco/LLM): sobe
     // para o `job-runner`, que decide retry × DLQ por `resolveFailureTransition`.
     //
-    // ⚠️ CORRIGIDO nesta rodada: a versão anterior deste comentário citava o 401 de
-    // `resolveChannelPrincipal` como exemplo de "sobe para retry". Era falso em dois níveis — a
-    // chamada está FORA deste try (linha ~499), e 401 está em `NON_RETRYABLE_HTTP_STATUSES`
-    // (`lib/retry.ts`), logo viraria `failed` na primeira tentativa, sem retry e sem resposta. O
-    // caso que o comentário descrevia (usuário inativo) passou a ser tratado em C2b, como desfecho
-    // terminal de canal.
+    // O 401 de usuário inativo NÃO passa por aqui: as duas chamadas a `resolveChannelPrincipal`
+    // (abertura do turno e queima) rodam ANTES deste `try`, e as duas viram desfecho terminal em
+    // `resolvePrincipalOrTerminal` → `buildUserInactiveTurn`.
     throw error;
+  }
+
+  // ── FASE 5: CONFIRMAÇÃO EXIGIDA → EMITE O TICKET ──────────────────────────────────────────────
+  // RAMO CONDICIONAL, de propósito: só é alcançado com o disjuntor ligado E com a policy tendo
+  // chegado até `CONFIRMATION_REQUIRED` (ou seja, canal habilitado em runtime para uma ação
+  // ELEGÍVEL). Em qualquer outra combinação o fluxo cai no composer e a recusa de hoje fica intacta —
+  // é o que impede esta fase de mexer no comportamento dos testes-âncora da fase 4.
+  if (resolveWhatsAppActionsEnabled() && output.status === 'blocked' && output.policy?.reasonCode === 'CONFIRMATION_REQUIRED') {
+    const issued = await tryIssueWhatsAppActionTicket({
+      output: output as never,
+      principal,
+      link: { userId: String(link.userId), externalUserKey: link.externalUserKey },
+      correlationId
+    });
+    if (issued?.text) {
+      return {
+        segments: composeWhatsAppNotice(issued.text, { correlationId }),
+        conversationTurnId: issued.conversationTurnId ?? null,
+        outcome: issued.outcome
+      };
+    }
   }
 
   // ── C5.4: ALLOWLIST de saída + FICHA (fase 4) ────────────────────────────────────────────────

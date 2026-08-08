@@ -38,6 +38,7 @@
 import { config } from '../../../../lib/config.js';
 import { buildBlock, cutAtGrapheme, type RenderBlock } from './whatsapp-render-blocks.js';
 import { renderStructuredResultForWhatsApp } from './whatsapp-result-renderer.js';
+import { WHATSAPP_CHANNEL_NOT_ENABLED_TEXT } from './whatsapp-confirmation-texts.js';
 import { splitIntoSegments } from './whatsapp-segmenter.js';
 
 /** Subconjunto de `ProcessTurnOutput` que o compositor precisa — evita acoplar ao tipo inteiro. */
@@ -102,6 +103,10 @@ const DONT_UNDERSTAND_TEXT = ['Não entendi o que você precisa. Tente assim:', 
 const BLOCKED_TEXTS: Record<string, string> = {
   INTEGRATION_ACCOUNT_REQUIRED: ACCOUNT_REQUIRED_TEXT,
   CHANNEL_BLOCKED: READ_ONLY_TEXT,
+  // Fase 5: DISTINTO de `CHANNEL_BLOCKED`. A ação é elegível no canal e o disjuntor de ambiente está
+  // ligado — falta só o operador virar a chave no AI Control Center. Sem este ramo, ele liga o botão,
+  // a pessoa recebe `READ_ONLY_TEXT` e ninguém percebe que o toggle não pegou.
+  CHANNEL_NOT_ENABLED: WHATSAPP_CHANNEL_NOT_ENABLED_TEXT,
   // Não deveriam ocorrer com `allowActions:false` + policy read-only; mapeados defensivamente porque
   // para quem está no WhatsApp os três significam exatamente a mesma coisa.
   ACTIONS_DISABLED: READ_ONLY_TEXT,

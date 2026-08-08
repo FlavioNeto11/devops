@@ -318,6 +318,66 @@ export async function findLiveChannelVerificationByUser(
 }
 
 /**
+ * A ÚLTIMA linha do par (usuário, tipo de canal), VIVA OU MORTA.
+ *
+ * Existe para desfechos que `findLiveChannelVerificationByUser` torna estruturalmente inalcançáveis:
+ * o `where` dele filtra `consumed_at is null and expires_at > now()`, então um código digitado depois
+ * da queima ou do TTL não encontra linha nenhuma — e "não há ticket" é indistinguível de "esse número
+ * é texto comum", o que manda os 6 dígitos para o LLM. Para responder "essa confirmação já foi usada
+ * às 14:32" é preciso ler a linha MORTA.
+ *
+ * ⚠️ `external_user_key` NÃO entra no `where`, de propósito. Quem compara telefone é o service. Um
+ * `where` que já filtrasse o telefone tornaria a guarda de telefone do service INVISÍVEL — o double
+ * de banco a satisfaria sozinho e a mutação "apague a comparação de telefone" sobreviveria. É a
+ * lição que esta cadeia já pagou duas vezes.
+ *
+ * A janela (`maxAgeSeconds`) impede que um ticket antigo sequestre para sempre qualquer mensagem de
+ * 6 dígitos deste usuário.
+ */
+export async function findRecentChannelVerificationByUser(
+  client: PoolClient | null,
+  input: { userId: string; channelType: string; maxAgeSeconds: number }
+): Promise<ChannelVerificationRecord | null> {
+  const result = await run<ChannelVerificationRow>(
+    client,
+    `select *
+       from conversation_channel_verifications
+      where user_id = $1
+        and channel_type = $2
+        and created_at > now() - make_interval(secs => $3::double precision)
+      order by created_at desc
+      limit 1`,
+    [input.userId, input.channelType, input.maxAgeSeconds]
+  );
+  return mapChannelVerification(result.rows[0]);
+}
+
+/**
+ * Acrescenta fatos ao `metadata` de uma linha JÁ FECHADA. Não toca `outcome` nem `consumed_at`.
+ *
+ * `closeChannelVerification` carrega `consumed_at is null` no `where` — é o portão de corrida da
+ * queima — e por isso é incapaz de registrar o que aconteceu DEPOIS dela. Sem este statement, o
+ * desfecho do despacho (o fato que diz se a ação saiu ou não) não teria onde ser gravado, e a linha
+ * `verified` continuaria sendo lida como "executado".
+ */
+export async function patchChannelVerificationMetadata(
+  client: PoolClient | null,
+  input: { id: string; userId: string; metadataPatch: JsonObject }
+): Promise<ChannelVerificationRecord | null> {
+  const result = await run<ChannelVerificationRow>(
+    client,
+    `update conversation_channel_verifications
+        set metadata = metadata || $3::jsonb,
+            updated_at = now()
+      where id = $1
+        and user_id = $2
+      returning *`,
+    [input.id, input.userId, JSON.stringify(input.metadataPatch || {})]
+  );
+  return mapChannelVerification(result.rows[0]);
+}
+
+/**
  * Reenvio: ROTACIONA o código e renova o TTL num único statement, preservando `attempt_count`.
  * Rotacionar invalida no ato a mensagem que pode ter ido para um número digitado errado; preservar
  * as tentativas impede que o reenvio vire o bypass do limite de palpites.
@@ -368,6 +428,36 @@ export async function consumeChannelVerificationAttempt(
         and consumed_at is null
         and expires_at > now()
         and attempt_count < max_attempts
+      returning *`,
+    [input.id, input.userId]
+  );
+  return mapChannelVerification(result.rows[0]);
+}
+
+/**
+ * DÉBITO ATÔMICO de uma SAÍDA PAGA do desafio — o irmão do statement acima, para o outro contador.
+ *
+ * `send_count < max_sends` mora no `where`, junto com o incremento: orçamento estourado devolve ZERO
+ * linhas. Um `if` em JS sobre uma linha lida antes deixaria duas mensagens concorrentes passarem
+ * juntas, do mesmo jeito que deixava no contador de tentativas.
+ *
+ * Separado de `rotateChannelVerificationCode` porque aquele ROTACIONA o código e RENOVA o TTL — usá-lo
+ * para cobrar um lembrete de "sim" invalidaria, no ato, o código que a pessoa tem na mão.
+ */
+export async function consumeChannelVerificationSend(
+  client: PoolClient | null,
+  input: { id: string; userId: string }
+): Promise<ChannelVerificationRecord | null> {
+  const result = await run<ChannelVerificationRow>(
+    client,
+    `update conversation_channel_verifications
+        set send_count = send_count + 1,
+            last_sent_at = now(),
+            updated_at = now()
+      where id = $1
+        and user_id = $2
+        and consumed_at is null
+        and send_count < max_sends
       returning *`,
     [input.id, input.userId]
   );

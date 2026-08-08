@@ -5,7 +5,19 @@ import {
   isRegisteredConversationTool
 } from './tools/tool-registry.js';
 import type { ConversationToolName, ConversationToolPolicy, ConversationToolRiskLevel } from './tools/tool-types.js';
-import { resolveEffectiveToolPolicy, isRuntimeToolEnabled } from '../ai-control/ai-runtime-registry-service.js';
+import {
+  resolveEffectiveToolPolicy,
+  isRuntimeToolEnabled,
+  resolveRuntimeIntentPolicyOverride
+} from '../ai-control/ai-runtime-registry-service.js';
+import {
+  getWhatsAppEligibleAction,
+  isExternalConversationChannel,
+  resolveEffectiveAllowChannels,
+  resolveWhatsAppActionKey,
+  resolveWhatsAppActionsEnabled,
+  WHATSAPP_DIRECT_TOOL_MAX_ITEMS
+} from './channel/whatsapp/whatsapp-action-eligibility.js';
 import { isAiControlReadOnly } from '../ai-control/ai-control-config.js';
 import { config } from '../../lib/config.js';
 import { DENY_WHEN_CATALOG_DEGRADED } from '../../lib/conversation-permission-catalog.js';
@@ -103,7 +115,12 @@ function readOnlyIntentPolicy(riskLevel: ConversationRiskLevel): ToolPolicy {
   return { riskLevel, allowChannels: ALL_CHANNELS, requiresConfirmation: false, isAction: false };
 }
 
-/** Ação operacional: confirmação obrigatória, nunca por WhatsApp (até a fase 5). */
+/**
+ * Ação operacional: confirmação obrigatória e, no DEFAULT DE CÓDIGO, nunca por WhatsApp — nem depois
+ * da fase 5. O canal externo só entra pela habilitação em runtime (`ai_tools`), e apenas onde
+ * `WHATSAPP_ELIGIBLE_ACTIONS` permite. É o que faz "o canal só age onde o operador ligou
+ * conscientemente" ser propriedade do código, e não da configuração.
+ */
 function confirmedActionIntentPolicy(riskLevel: ConversationRiskLevel): ToolPolicy {
   return { riskLevel, allowChannels: IN_APP_CHANNELS, requiresConfirmation: true, isAction: true };
 }
@@ -153,6 +170,49 @@ const ORCHESTRATED_INTENT_POLICY: Record<string, ToolPolicy> = {
 };
 
 /**
+ * INVARIANTE ESTRUTURAL, VERIFICADA NO IMPORT: nenhum DEFAULT DE CÓDIGO de AÇÃO lista `whatsapp`.
+ *
+ * É a trava de que a elegibilidade é de CÓDIGO e a habilitação é de RUNTIME. Ela cobre as duas
+ * tabelas de default que existem — tools diretas (`tool-registry`) e intents orquestrados (a tabela
+ * acima) — porque `resolveEffectiveAllowChannels` só consegue APLICAR o teto de
+ * `WHATSAPP_ELIGIBLE_ACTIONS` sobre o que o overlay ADICIONA:
+ *
+ *     base    = overlay ? (código ∩ overlay) : código
+ *     somados = overlay ∩ {whatsapp se elegível}
+ *
+ * Um default de código que JÁ trouxesse `whatsapp` entraria por `base` sem passar pela elegibilidade
+ * — e, no caso de uma chave de `CHANNEL_HARD_DENY`, só a recusa por último o pegaria. Ou seja: a
+ * segunda porta que aquele módulo nomeia e que nada até aqui fechava. Uma linha de `allowChannels`
+ * editada por engano numa das duas tabelas é elevação de privilégio silenciosa em canal externo;
+ * falhar no import é o desfecho certo, e é o mesmo tratamento que a invariante de disjunção das duas
+ * listas já recebe em `whatsapp-action-eligibility.ts`.
+ */
+function assertNoActionDefaultAllowsExternalChannel(): void {
+  const offenders: string[] = [];
+
+  for (const item of getConversationToolInventory()) {
+    if (item.policy.isAction && item.policy.allowChannels.includes('whatsapp')) {
+      offenders.push(`tool ${item.toolName}`);
+    }
+  }
+  for (const [intent, policy] of Object.entries(ORCHESTRATED_INTENT_POLICY)) {
+    if (policy.isAction && policy.allowChannels.includes('whatsapp')) {
+      offenders.push(`intent ${intent}`);
+    }
+  }
+
+  if (offenders.length > 0) {
+    throw new Error(
+      `[conversation-policy] default de CÓDIGO de ação com canal externo: ${offenders.join(', ')}. `
+      + 'Ação só alcança o WhatsApp por habilitação de runtime (AI Control Center) e dentro de '
+      + 'WHATSAPP_ELIGIBLE_ACTIONS — nunca pelo default de código.'
+    );
+  }
+}
+
+assertNoActionDefaultAllowsExternalChannel();
+
+/**
  * Consulta em tabela SEM cair no protótipo.
  *
  * `map['constructor']` devolve uma função herdada de `Object.prototype` — verdadeira o bastante para
@@ -168,6 +228,40 @@ function lookupOwn<T>(map: Record<string, T>, key: string): T | null {
 
 function resolveOrchestratedIntentPolicy(intent: string): ToolPolicy | null {
   return lookupOwn(ORCHESTRATED_INTENT_POLICY, intent);
+}
+
+/**
+ * Policy do intent + overlay de runtime, com a MESMA disciplina do overlay de tool: canais resolvidos
+ * por `resolveEffectiveAllowChannels` (elegibilidade de código, recusa permanente por último) e
+ * `requiresConfirmation` que só endurece. `riskLevel` e `isAction` NUNCA vêm do overlay.
+ *
+ * Roda mesmo sem override — é ela que aplica `CHANNEL_HARD_DENY` aos intents.
+ */
+function mergeIntentPolicy(intentPolicy: ToolPolicy, intent: string): ToolPolicy {
+  const overlay = resolveRuntimeIntentPolicyOverride('orchestrate_manifest_operation', intent);
+  return {
+    riskLevel: intentPolicy.riskLevel,
+    isAction: intentPolicy.isAction,
+    requiresConfirmation: overlay?.requiresConfirmation === true ? true : intentPolicy.requiresConfirmation,
+    allowChannels: resolveEffectiveAllowChannels({
+      key: intent,
+      codeChannels: intentPolicy.allowChannels,
+      overlayChannels: overlay?.allowChannels ?? null
+    })
+  };
+}
+
+/**
+ * Itens de uma tool DIRETA. Separada de `extractBatchItemCount` porque só ela lê `count`:
+ * `replicate_manifest` aceita até 100 réplicas num único argumento escalar
+ * (`normalizeBatchCount`, `manifest-service.ts`), e nenhum teto de lote alcança tool sem intent.
+ */
+function extractDirectToolItemCount(toolArgs: Record<string, unknown>): number {
+  const arrayCounts = [toolArgs.manifestIds, toolArgs.documentIds, toolArgs.segments, toolArgs.certificateIds]
+    .map((value) => (Array.isArray(value) ? value.length : 0));
+  const scalarCount = Number(toolArgs.count);
+  const declared = Number.isFinite(scalarCount) && scalarCount > 0 ? Math.floor(scalarCount) : 0;
+  return Math.max(0, ...arrayCounts, declared);
 }
 
 /** Intents que a policy reconhece. Fonte do teste de cobertura 1:1 com o catálogo. */
@@ -696,8 +790,15 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
       return buildUnsupportedIntentDecision();
     }
 
-    effectivePolicy = intentPolicy;
+    // ── O OVERLAY DEIXA DE SER DESCARTADO ──────────────────────────────────────────────────────
+    // Antes era `effectivePolicy = intentPolicy`, e a policy resolvida com override ia para o lixo:
+    // os 11 intents de ação — inclusive TODOS os lotes, que são o caminho natural do LLM — não
+    // tinham alavanca de runtime nenhuma. Ligar `whatsapp` na tabela para `orchestrate_manifest_operation`
+    // não alcançava intent algum. Toggle que não alcança o que promete é pior que toggle nenhum.
+    effectivePolicy = mergeIntentPolicy(intentPolicy, intent);
   }
+
+  const eligibilityKey = resolveWhatsAppActionKey(input.toolName, intent);
 
   // ── AVALIAR CEDO, APLICAR TARDE ───────────────────────────────────────────────────────────────
   // A permissão é avaliada AQUI, antes de `CHANNEL_BLOCKED` e `INTEGRATION_ACCOUNT_REQUIRED`, mas o
@@ -720,9 +821,19 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
   });
 
   if (!effectivePolicy.allowChannels.includes(input.channel)) {
+    // `CHANNEL_NOT_ENABLED` × `CHANNEL_BLOCKED`: dois estados que HOJE colapsam no mesmo
+    // `READ_ONLY_TEXT` do composer — o operador liga o botão, a pessoa recebe a frase de sempre e
+    // ninguém percebe que não pegou. O código novo só aparece quando a ação É elegível no canal E o
+    // disjuntor de ambiente está ligado; nas demais combinações o desfecho é byte-a-byte o de hoje.
+    const eligibleButNotEnabled = isExternalConversationChannel(input.channel)
+      && Boolean(getWhatsAppEligibleAction(eligibilityKey))
+      && resolveWhatsAppActionsEnabled();
+
     return buildPolicyBlockedDecision({
-      reasonCode: 'CHANNEL_BLOCKED',
-      reason: `A ferramenta ${input.toolName} nao e permitida para o canal ${input.channel}.`,
+      reasonCode: eligibleButNotEnabled ? 'CHANNEL_NOT_ENABLED' : 'CHANNEL_BLOCKED',
+      reason: eligibleButNotEnabled
+        ? `A ferramenta ${input.toolName} ainda nao foi habilitada para o canal ${input.channel} no AI Control Center.`
+        : `A ferramenta ${input.toolName} nao e permitida para o canal ${input.channel}.`,
       policy: effectivePolicy,
       permissionShortfall: permissionVerdict.shortfall
     });
@@ -795,6 +906,23 @@ export function evaluateConversationPolicy(input: ConversationPolicyInput): Conv
         effectivePolicy,
         batchValidation.maxSize || 10,
         batchItemCount
+      ));
+    }
+  }
+
+  // TOOL DIRETA EM CANAL EXTERNO AGE SOBRE EXATAMENTE 1 ITEM.
+  //
+  // O bloco acima é `isAction && intent`, e `intent` é '' fora do orquestrador: as 5 tools diretas
+  // NUNCA tiveram teto de lote. Sem esta regra, `replicate_manifest` com `count: 100` seriam 100
+  // rascunhos por mensagem de WhatsApp. Lote passa obrigatoriamente pelos intents, que têm limite por
+  // canal — e a regra é geral, não um caso especial de `count`.
+  if (effectivePolicy.isAction && !intent && isExternalConversationChannel(input.channel)) {
+    const directItemCount = extractDirectToolItemCount(toRecord(input.toolArgs));
+    if (directItemCount > WHATSAPP_DIRECT_TOOL_MAX_ITEMS) {
+      return finalize(buildBatchLimitExceededDecision(
+        effectivePolicy,
+        WHATSAPP_DIRECT_TOOL_MAX_ITEMS,
+        directItemCount
       ));
     }
   }

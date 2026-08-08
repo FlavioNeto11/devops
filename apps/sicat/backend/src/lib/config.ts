@@ -98,7 +98,16 @@ type ConfigKey =
   | 'whatsappRenderMaxItems'
   | 'whatsappRenderMaxCards'
   | 'whatsappSegmentSoftChars'
-  | 'whatsappReplyMaxSegments';
+  | 'whatsappReplyMaxSegments'
+  | 'whatsappActionsEnabled'
+  | 'whatsappActionNoticeEnabled'
+  | 'whatsappActionTicketTtlSeconds'
+  | 'whatsappActionTicketMaxAttempts'
+  | 'whatsappActionTicketMaxSends'
+  | 'whatsappActionWindowDefaultHours'
+  | 'whatsappActionWindowMaxHours'
+  | 'whatsappActionWindowDefaultBudget'
+  | 'whatsappActionWindowMaxBudget';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -304,5 +313,35 @@ export const config = {
    * mensagem é paga e uma rajada lê como spam (bloqueio do número é dano permanente de canal). Se 2
    * não bastam, o problema é o escopo da pergunta, não a formatação.
    */
-  get whatsappReplyMaxSegments() { return getConfigValue('whatsappReplyMaxSegments', Number(process.env.WHATSAPP_REPLY_MAX_SEGMENTS || 2)); }
+  get whatsappReplyMaxSegments() { return getConfigValue('whatsappReplyMaxSegments', Number(process.env.WHATSAPP_REPLY_MAX_SEGMENTS || 2)); },
+
+  /* ── Ações pelo WhatsApp (fase 5) ──────────────────────────────────────────────────────────────
+   * DISJUNTOR DE AMBIENTE, deliberadamente FORA do banco: o botão de emergência não pode depender de
+   * um cache alimentado pelo Postgres (`ai_runtime_registry-service` é stale-while-revalidate, com
+   * até 30 s de atraso e retenção do último snapshot bom durante incidente de banco). Enquanto
+   * `false`, `whatsapp-turn-service` continua mandando `allowActions: false` para `processTurn` e o
+   * canal é byte-a-byte o de hoje — nenhuma linha de `ai_tools` muda isso. */
+  get whatsappActionsEnabled() { return getConfigValue('whatsappActionsEnabled', toBool(process.env.WHATSAPP_ACTIONS_ENABLED, false)); },
+  /**
+   * PORTÃO DO NÍVEL N2 (emitir MTR). O desenho da fase 5 condiciona `submit` ao aviso de conclusão
+   * (`whatsapp.outbound_notice`): confirmar uma emissão irreversível num canal onde o desfecho é
+   * invisível é defeito, não detalhe. O aviso NÃO foi implementado nesta fase — ver o comentário de
+   * `whatsapp-action-eligibility.ts`. Enquanto isso, N2 recusa com texto próprio e a fase entrega N1.
+   */
+  get whatsappActionNoticeEnabled() { return getConfigValue('whatsappActionNoticeEnabled', toBool(process.env.WHATSAPP_ACTION_NOTICE_ENABLED, false)); },
+  /**
+   * TTL do ticket de confirmação. 300 s: folga para ler 5 linhas e digitar 6 dígitos com luva de EPI,
+   * e curto o bastante para o mundo não ter se mexido. O TTL NÃO é a defesa principal — ela é (i) uso
+   * único atômico, (ii) revalidação completa na queima e (iii) um só ticket vivo por telefone.
+   */
+  get whatsappActionTicketTtlSeconds() { return getConfigValue('whatsappActionTicketTtlSeconds', Number(process.env.WHATSAPP_ACTION_TICKET_TTL_SECONDS || 300)); },
+  /** 3 palpites contra 10^6 em 300 s. O default da COLUNA é 5 — aqui é mais apertado de propósito. */
+  get whatsappActionTicketMaxAttempts() { return getConfigValue('whatsappActionTicketMaxAttempts', Number(process.env.WHATSAPP_ACTION_TICKET_MAX_ATTEMPTS || 3)); },
+  /** Orçamento de mensagens PAGAS do ticket: 1 prévia + até 3 respostas (lembrete de "sim", código errado). */
+  get whatsappActionTicketMaxSends() { return getConfigValue('whatsappActionTicketMaxSends', Number(process.env.WHATSAPP_ACTION_TICKET_MAX_SENDS || 4)); },
+  /** Janela de ação (N2) aberta no navegador: duração padrão/teto e orçamento padrão/teto de ações. */
+  get whatsappActionWindowDefaultHours() { return getConfigValue('whatsappActionWindowDefaultHours', Number(process.env.WHATSAPP_ACTION_WINDOW_DEFAULT_HOURS || 4)); },
+  get whatsappActionWindowMaxHours() { return getConfigValue('whatsappActionWindowMaxHours', Number(process.env.WHATSAPP_ACTION_WINDOW_MAX_HOURS || 8)); },
+  get whatsappActionWindowDefaultBudget() { return getConfigValue('whatsappActionWindowDefaultBudget', Number(process.env.WHATSAPP_ACTION_WINDOW_DEFAULT_BUDGET || 10)); },
+  get whatsappActionWindowMaxBudget() { return getConfigValue('whatsappActionWindowMaxBudget', Number(process.env.WHATSAPP_ACTION_WINDOW_MAX_BUDGET || 20)); }
 };
