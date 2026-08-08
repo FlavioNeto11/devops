@@ -25,6 +25,14 @@ x-cetesb-source-of-truth:
   # Nota: Health endpoints (/v1/ping, /v1/health/*, /v1/maintenance/cleanup) são INTERNOS
   # e têm fonte de verdade em banco de dados local (worker_health, jobs, performance_snapshots),
   # não em HARs CETESB. Não obrigam validação de HAR.
+x-internal-conversational-channel:
+  description: 'As famílias Conversations, SICAT Channel Links e WhatsApp Channel NÃO têm fonte de
+    verdade em HAR da CETESB e não obrigam validação de HAR. Elas são superfície interna do SICAT.'
+  dataSource: 'Banco de dados local (tabelas: conversation_sessions, conversation_messages,
+    conversation_artifacts, conversation_channel_links, conversation_channel_verifications, jobs) +
+    API do provedor WhatsApp configurado em WHATSAPP_PROVIDER (twilio|meta).'
+  hasDependency: 'O webhook e o despacho de OTP dependem do provedor WhatsApp; com
+    WHATSAPP_PROVIDER=disabled (default) o webhook responde 404 e o despacho responde 503.'
 x-internal-observability:
   description: 'Health endpoints são observabilidade interna do sistema.'
   dataSource: 'Banco de dados local (tabelas: worker_health, jobs, performance_snapshots, system_events)'
@@ -66,6 +74,18 @@ tags:
   description: Saúde derivada de contas e sessões CETESB (fonte local).
 - name: Reports
   description: Relatórios operacionais (consulta paginada e exportação CSV).
+- name: DMR
+  description: Declaração de Movimentação de Resíduos (rascunho, consolidação, submissão e itens).
+- name: MTR Provisorio
+  description: MTR provisório emitido localmente (criação, consulta, impressão e cancelamento).
+- name: Conversations
+  description: Superfície conversacional do copiloto SICAT (turnos, tools, feedback e artefatos).
+- name: SICAT Channel Links
+  description: Vinculação de telefone ao usuário SICAT por OTP e janela de liberação de ações pelo
+    WhatsApp.
+- name: WhatsApp Channel
+  description: Webhook público do canal WhatsApp (verificação e recepção). Autenticidade por
+    assinatura HMAC do provedor, não por Bearer.
 security:
 - bearerAuth: []
 paths:
@@ -4575,6 +4595,1101 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/conversations/tools:
+    get:
+      operationId: conversationListTools
+      summary: Listar tools conversacionais e a política efetiva de cada uma
+      description: |-
+        Catálogo das tools que o motor conversacional pode acionar, já com a política EFETIVA de
+        cada uma (default de código sobreposto pelos overrides do AI Control Center).
+
+        `allowChannels` é o campo que decide se a tool é alcançável a partir de um canal externo:
+        `whatsapp` só aparece nas tools habilitadas para o canal.
+      tags:
+      - Conversations
+      responses:
+        '200':
+          description: Catálogo de tools com política efetiva
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationToolsListResponse'
+              example:
+                items:
+                - toolName: list_manifests
+                  riskLevel: R1
+                  allowChannels:
+                  - whatsapp
+                  - native_chat
+                  - inapp
+                  requiresConfirmation: false
+                  isAction: false
+                  objective: Listar manifestos por contexto operacional.
+                  dependencies:
+                  - manifest-service
+                  category: manifest
+                - toolName: submit_manifest
+                  riskLevel: R3
+                  allowChannels:
+                  - native_chat
+                  - inapp
+                  requiresConfirmation: true
+                  isAction: true
+                  objective: Submeter manifesto para CETESB.
+                  dependencies:
+                  - manifest-service
+                  - job-service
+                  category: manifest
+                count: 2
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+  /v1/conversations/artifacts/{artifactId}:
+    get:
+      operationId: conversationGetArtifact
+      summary: Consultar o status de um artefato conversacional
+      description: |-
+        Status e progresso de um artefato gerado por um turno (PDF de manifesto ou ZIP de lote).
+
+        O ESCOPO vem do principal — conta CETESB ativa e sessão do usuário autenticado. Não existem
+        os query params `integrationAccountId`/`sessionContextId` que a versão anterior aceitava:
+        omiti-los pulava a checagem inteira, e qualquer um que conhecesse o `artifactId` baixava o
+        arquivo.
+      tags:
+      - Conversations
+      responses:
+        '200':
+          description: Status do artefato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationArtifactStatus'
+              example:
+                artifactId: cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                title: MTR 12345678 - impressão
+                artifactType: document
+                sourceKind: manifest_print
+                status: available
+                fileName: mtr-12345678.pdf
+                mimeType: application/pdf
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                integrationAccountId: acc_01JQWACCOUNT0001
+                sessionContextId: sctx_01JQW5M6YY9M7K7B5N63GQ6E9S
+                conversationSessionId: csess_01JQW5M6YY9M7K7B5N63GQ6E9S
+                conversationTurnId: ctrn_01JQW5M6YY9M7K7B5N63GQ6E9S
+                progress:
+                  total: 1
+                  completed: 1
+                  failed: 0
+                  pending: 0
+                availableAt: '2026-03-13T14:52:11Z'
+                expiresAt: '2026-03-16T14:52:11Z'
+                createdAt: '2026-03-13T14:50:02Z'
+                updatedAt: '2026-03-13T14:52:11Z'
+                sourceRefs:
+                - man_01JQW5M6YY9M7K7B5N63GQ6E9S
+                metadata: {}
+                links:
+                  statusUrl: /v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                  downloadUrl: /v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/content
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '403':
+          description: Artefato fora do escopo (conta/sessão) do usuário autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Forbidden
+                status: 403
+                code: CONVERSATION_ARTIFACT_SCOPE_FORBIDDEN
+                detail: Artifact nao pertence a integrationAccountId informada.
+                instance: /v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+        '404':
+          description: Artefato inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: artifactId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/conversations/artifacts/{artifactId}/content:
+    get:
+      operationId: conversationDownloadArtifact
+      summary: Baixar o conteúdo binário de um artefato conversacional
+      description: |-
+        Devolve o arquivo em si, com `Content-Disposition: attachment`. Mesmo escopo do endpoint de
+        status: conta e sessão saem do principal, nunca da query.
+
+        O download só é servido com o artefato em `available` ou `partial`; qualquer outro estado é
+        `409`, e artefato vencido (TTL de 72 h) é `410`.
+      tags:
+      - Conversations
+      responses:
+        '200':
+          description: Conteúdo do artefato
+          headers:
+            Content-Disposition:
+              description: 'Sempre `attachment; filename="<fileName>"`.'
+              schema: { type: string }
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '403':
+          description: Artefato fora do escopo (conta/sessão) do usuário autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '404':
+          description: Artefato inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '409':
+          description: Artefato ainda não disponível para download
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                code: CONVERSATION_ARTIFACT_NOT_READY
+                detail: Artifact ainda nao esta disponivel para download.
+                instance: /v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/content
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+        '410':
+          description: Artefato expirado (TTL de 72 h a partir da disponibilização)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Gone
+                status: 410
+                code: CONVERSATION_ARTIFACT_EXPIRED
+                detail: Artifact expirou e nao esta mais disponivel para download.
+                instance: /v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/content
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: artifactId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/conversations/feedback:
+    post:
+      operationId: conversationSubmitFeedback
+      summary: Registrar feedback 👍/👎 de uma resposta da IA
+      description: |-
+        `channel` e `userId` do registro saem do PRINCIPAL, não do corpo — aceitá-los do cliente
+        permitia envenenar a série de qualidade por canal (ex.: atribuir 👎 ao WhatsApp a partir do
+        navegador). O campo `channel` do corpo só é lido para VALIDAÇÃO do canal declarado, e
+        declarar `whatsapp` aqui é `403`.
+
+        ⚠️ Esta operação tem DOIS envelopes de erro 400 distintos, e isso é comportamento real, não
+        descuido de documentação: a validação de `feedbackType`/`correlationId` responde à mão um
+        `application/json` `{ "error": { "code", "message" } }`, enquanto a validação de canal (logo
+        abaixo, em `resolveHttpPrincipal`) responde `application/problem+json`. Homogeneizar é
+        mudança de comportamento e está registrada como dívida do checkpoint 09.
+      tags:
+      - Conversations
+      responses:
+        '201':
+          description: Feedback registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationFeedbackResponse'
+              example:
+                data:
+                  id: cfbk_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                  correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                  feedbackType: positive
+        '400':
+          description: |-
+            Corpo inválido. `FEEDBACK_INVALID` usa o envelope `application/json`
+            `{error:{code,message}}`; `CONVERSATION_CHANNEL_INVALID` usa `application/problem+json`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationFeedbackInvalidError'
+              example:
+                error:
+                  code: FEEDBACK_INVALID
+                  message: feedbackType (positive|negative) e correlationId sao obrigatorios
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                code: CONVERSATION_CHANNEL_INVALID
+                detail: 'Canal conversacional inválido: `sms`. Valores aceitos: native_chat, inapp.'
+                instance: /v1/conversations/feedback
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '403':
+          description: Canal `whatsapp` declarado por cliente HTTP (`CONVERSATION_CHANNEL_NOT_CLIENT_DECLARABLE`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationFeedbackRequest'
+            example:
+              feedbackType: negative
+              correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+              conversationSessionId: csess_01JQW5M6YY9M7K7B5N63GQ6E9S
+              toolName: list_manifests
+              userComment: A lista veio de outra conta.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+  /v1/conversations/turns:
+    post:
+      operationId: conversationCreateTurn
+      summary: Executar um turno conversacional
+      description: |-
+        Superfície principal do copiloto. Aceita `application/json` (turno textual) e
+        `multipart/form-data` (turno com anexos: campo `files`, no máximo 20 arquivos de 10 MiB cada;
+        os demais campos vão como campos de texto do formulário).
+
+        A IDENTIDADE do turno é resolvida no servidor: canal, usuário, conta CETESB, sessão e
+        permissões saem do token SICAT verificado e VENCEM o corpo. `channel` no corpo só distingue
+        `native_chat` de `inapp`; declarar `whatsapp` é `403`, porque esse canal é produzido apenas
+        pelo adaptador de canal do servidor.
+
+        Teto de 40 turnos por 5 min por USUÁRIO, cobrado antes do upload/ingestão. O `429` carrega o
+        header `Retry-After`.
+      tags:
+      - Conversations
+      responses:
+        '200':
+          description: Turno processado (inclusive quando a policy bloqueou a tool — ver `status` e `policy`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationTurnResponse'
+              example:
+                conversationSessionId: csess_01JQW5M6YY9M7K7B5N63GQ6E9S
+                conversationTurnId: ctrn_01JQW5M6YY9M7K7B5N63GQ6E9S
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                channel: inapp
+                status: responded
+                responseText: Você tem 3 manifestos em rascunho nesta conta.
+                llm:
+                  provider: openai
+                  confidence: 0.92
+                  agentModelUsed: gpt-5
+                  synthesisModelUsed: gpt-5
+                toolCall:
+                  name: list_manifests
+                  arguments:
+                    status: draft
+                policy:
+                  allowed: true
+                  reasonCode: null
+                  reason: null
+                  requiresConfirmation: false
+                  riskLevel: R1
+                  permissionShortfall: null
+                context:
+                  integrationAccountId: acc_01JQWACCOUNT0001
+                  sessionContextId: sctx_01JQW5M6YY9M7K7B5N63GQ6E9S
+                  manifestId: null
+                  jobId: null
+                jobId: null
+        '400':
+          description: |-
+            Canal declarado inválido (`CONVERSATION_CHANNEL_INVALID`) ou corpo JSON malformado
+            (erro do body-parser, sem `code`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '403':
+          description: Canal `whatsapp` declarado por cliente HTTP (`CONVERSATION_CHANNEL_NOT_CLIENT_DECLARABLE`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '413':
+          description: Corpo acima do limite de 2 MiB do body-parser (sem `code`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '429':
+          description: Teto de turnos por usuário atingido (`CONVERSATION_RATE_LIMITED`)
+          headers:
+            Retry-After:
+              description: Segundos até a próxima janela.
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                code: CONVERSATION_RATE_LIMITED
+                detail: Limite de turnos atingido. Tente novamente em 42s.
+                instance: /v1/conversations/turns
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationTurnRequest'
+            example:
+              channel: inapp
+              conversationSessionId: csess_01JQW5M6YY9M7K7B5N63GQ6E9S
+              message: quais manifestos estão em rascunho?
+              context:
+                route: /manifestos
+              options:
+                allowActions: true
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConversationTurnMultipartRequest'
+            encoding:
+              files:
+                contentType: application/pdf, image/png, image/jpeg
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/sicat/channel-links:
+    get:
+      operationId: channelLinkList
+      summary: Listar vínculos de canal do usuário autenticado
+      description: |-
+        Devolve os vínculos do PRÓPRIO usuário, o desafio de OTP vivo (se houver) e os limites
+        configurados. O telefone sai em claro no campo `phone` do vínculo já verificado (é o número
+        do próprio autenticado) e MASCARADO em `phoneMasked`; o desafio pendente traz somente a
+        forma mascarada.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '200':
+          description: Vínculos, desafio pendente e limites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelLinksListResponse'
+              example:
+                links:
+                - id: cclk_01JQW5M6YY9M7K7B5N63GQ6E9S
+                  channelType: whatsapp
+                  phone: '5511999990032'
+                  phoneMasked: +55 11 ****-0032
+                  verificationStatus: verified
+                  verifiedAt: '2026-03-13T14:52:11Z'
+                  createdAt: '2026-03-13T14:50:02Z'
+                pendingChallenge: null
+                limits:
+                  maxLinksPerUser: 2
+                  otpTtlSeconds: 600
+                  maxAttempts: 5
+                  maxSends: 3
+                  resendCooldownSeconds: 60
+        '400':
+          description: Canal não suportado (`CHANNEL_LINK_CHANNEL_UNSUPPORTED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: channelType
+        in: query
+        required: false
+        description: Canal a consultar. Ausente equivale a `whatsapp`.
+        schema:
+          type: string
+          enum:
+          - whatsapp
+    post:
+      operationId: channelLinkStart
+      summary: Iniciar a vinculação de um telefone por OTP
+      description: |-
+        Gera um código de 6 dígitos, guarda apenas o hash scrypt e despacha a mensagem pelo canal.
+
+        O `202` significa que o ENVIO foi aceito pelo provedor — NÃO que a mensagem chegou ao
+        aparelho. `deliveryStatus: sent` é "o provedor aceitou". A UI nunca pode afirmar entrega.
+
+        Este `202` **não** é o padrão assíncrono de comando da plataforma: não existe job, não existe
+        `CommandAccepted` e não há `/v1/jobs/{jobId}` para acompanhar.
+
+        Requer `WHATSAPP_PROVIDER=twilio|meta`; com o canal desligado (default) a resposta é `503`
+        `WHATSAPP_CHANNEL_DISABLED`, verificado ANTES de consumir a cota do usuário.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '202':
+          description: Envio do código aceito pelo provedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelLinkChallenge'
+              example:
+                challengeId: cver_01JQW5M6YY9M7K7B5N63GQ6E9S
+                channelType: whatsapp
+                phoneMasked: +55 11 ****-0032
+                expiresAt: '2026-03-13T15:00:02Z'
+                attemptsRemaining: 5
+                sendsRemaining: 2
+                canResendAt: '2026-03-13T14:51:02Z'
+                deliveryStatus: sent
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+        '400':
+          description: Canal não suportado ou telefone inválido (`CHANNEL_LINK_CHANNEL_UNSUPPORTED`, `CHANNEL_LINK_PHONE_INVALID`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: |-
+            Teto de vínculos atingido (`CHANNEL_LINK_MAX_LINKS_REACHED`) ou desafio concorrente para
+            o mesmo número (`CHANNEL_LINK_CHALLENGE_IN_FLIGHT`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '429':
+          description: |-
+            Teto de despachos atingido (`CHANNEL_LINK_RATE_LIMITED`) — por usuário, global ou pelo
+            escudo do telefone da vítima.
+          headers:
+            Retry-After:
+              description: Segundos até a próxima janela. Presente quando o teto é o da própria rota.
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                code: CHANNEL_LINK_RATE_LIMITED
+                detail: Limite de solicitações atingido. Tente novamente em 900s.
+                instance: /v1/sicat/channel-links
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                errors:
+                  retryAfterSeconds: 900
+        '500':
+          description: Falha ao criar o desafio (`CHANNEL_LINK_CHALLENGE_FAILED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '502':
+          description: O provedor recusou o envio (`CHANNEL_LINK_DELIVERY_FAILED`); o desafio é fechado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '503':
+          description: Canal WhatsApp desabilitado (`WHATSAPP_CHANNEL_DISABLED`) — default da plataforma
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelLinkStartRequest'
+            example:
+              channelType: whatsapp
+              phone: '5511999990032'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+  /v1/sicat/channel-links/whatsapp/action-window:
+    post:
+      operationId: whatsappActionWindowOpen
+      summary: Abrir a janela de liberação de ações pelo WhatsApp
+      description: |-
+        Step-up temporal: o usuário paga o atrito UMA VEZ por turno de trabalho, na sessão web
+        autenticada, e a janela fixa a conta CETESB, a duração e o orçamento de ações.
+
+        O telefone NÃO é informado pelo cliente — sai do vínculo `verified` do próprio usuário.
+
+        `hours` e `actionsBudget` são valores PEDIDOS: o servidor aplica piso e teto de configuração,
+        então a resposta pode trazer números diferentes dos enviados.
+
+        ⚠️ Abrir a janela não libera, por si, ações de nível N2 (submissão de MTR à CETESB): o N2
+        segue FECHADO em código, e as tools de submissão não são elegíveis ao canal. A janela governa
+        o que já é elegível — ver `WHATSAPP_ACTIONS_ENABLED` (default `false`).
+      tags:
+      - SICAT Channel Links
+      responses:
+        '201':
+          description: Janela aberta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppActionWindow'
+              example:
+                id: cwin_01JQW5M6YY9M7K7B5N63GQ6E9S
+                maskedUserKey: +55 11 ****-0032
+                integrationAccountId: acc_01JQWACCOUNT0001
+                expiresAt: '2026-03-13T18:52:11Z'
+                actionsUsed: 0
+                actionsBudget: 10
+                openedAt: '2026-03-13T14:52:11Z'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: |-
+            Sem número verificado (`CHANNEL_ACTION_WINDOW_NO_VERIFIED_LINK`) ou sem conta CETESB
+            ativa (`CHANNEL_ACTION_WINDOW_ACCOUNT_REQUIRED`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '503':
+          description: Não foi possível abrir a liberação agora (`CHANNEL_ACTION_WINDOW_UNAVAILABLE`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppActionWindowOpenRequest'
+            example:
+              hours: 4
+              actionsBudget: 10
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      operationId: whatsappActionWindowGet
+      summary: Consultar a janela de liberação viva
+      description: |-
+        ⚠️ Este GET pode responder `409`. O telefone é resolvido antes da leitura, então um usuário
+        SEM vínculo `verified` recebe `CHANNEL_ACTION_WINDOW_NO_VERIFIED_LINK` — e não
+        `{ "window": null }`. Contraintuitivo para um GET, mas é o comportamento real: a UI precisa
+        tratar os dois casos.
+
+        `{ "window": null }` significa "tem número verificado e nenhuma janela viva".
+      tags:
+      - SICAT Channel Links
+      responses:
+        '200':
+          description: Janela viva, ou `null` quando não há nenhuma
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppActionWindowResponse'
+              example:
+                window:
+                  id: cwin_01JQW5M6YY9M7K7B5N63GQ6E9S
+                  maskedUserKey: +55 11 ****-0032
+                  integrationAccountId: acc_01JQWACCOUNT0001
+                  expiresAt: '2026-03-13T18:52:11Z'
+                  actionsUsed: 2
+                  actionsBudget: 10
+                  openedAt: '2026-03-13T14:52:11Z'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: Usuário sem número de WhatsApp verificado (`CHANNEL_ACTION_WINDOW_NO_VERIFIED_LINK`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+  /v1/sicat/channel-links/whatsapp/action-window/{windowId}:
+    delete:
+      operationId: whatsappActionWindowRevoke
+      summary: Revogar a janela de liberação agora
+      description: |-
+        Botão de pânico do runbook, com efeito instantâneo: a janela é lida do banco na queima do
+        ticket, sem passar por cache. `windowId` é escopado pelo usuário no próprio `where` — ninguém
+        revoga a janela de outra conta.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '204':
+          description: Janela revogada (sem corpo)
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: Janela inexistente ou já encerrada (`CHANNEL_ACTION_WINDOW_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: windowId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/sicat/channel-links/challenges/{challengeId}/resend:
+    post:
+      operationId: channelLinkResendChallenge
+      summary: Reenviar o código do desafio
+      description: |-
+        ROTACIONA o código e renova o TTL, mas NÃO zera as tentativas — zerar transformaria o
+        reenvio no bypass do limite de palpites.
+
+        Mesmo `202` do `start`: envio aceito pelo provedor, entrega não confirmada, sem job
+        associado.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '202':
+          description: Reenvio aceito pelo provedor (código rotacionado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelLinkChallenge'
+        '400':
+          description: Desafio expirado (`CHANNEL_LINK_CODE_EXPIRED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: Nenhum desafio vivo para este identificador (`CHANNEL_LINK_CHALLENGE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '429':
+          description: |-
+            `CHANNEL_LINK_ATTEMPTS_EXCEEDED` (palpites esgotados; o desafio é fechado),
+            `CHANNEL_LINK_RESEND_TOO_SOON` (cooldown de banco), `CHANNEL_LINK_RESEND_EXHAUSTED`
+            (reenvios do desafio esgotados) ou `CHANNEL_LINK_RATE_LIMITED` (teto de despachos).
+          headers:
+            Retry-After:
+              description: Segundos até a próxima janela. Presente quando o teto é o da própria rota.
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                code: CHANNEL_LINK_RESEND_TOO_SOON
+                detail: Aguarde 43s para reenviar o código.
+                instance: /v1/sicat/channel-links/challenges/cver_01JQW5M6YY9M7K7B5N63GQ6E9S/resend
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                errors:
+                  retryAfterSeconds: 43
+        '502':
+          description: O provedor recusou o reenvio (`CHANNEL_LINK_DELIVERY_FAILED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '503':
+          description: Canal WhatsApp desabilitado (`WHATSAPP_CHANNEL_DISABLED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: challengeId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/sicat/channel-links/challenges/{challengeId}/confirm:
+    post:
+      operationId: channelLinkConfirmChallenge
+      summary: Confirmar o código e gravar o vínculo
+      description: |-
+        `200` e não `201`: a operação é IDEMPOTENTE — duas confirmações simultâneas com o código
+        certo devolvem o mesmo vínculo.
+
+        `transferred: true` diz que o número estava em OUTRA conta e mudou de dono agora. Posse
+        comprovada TRANSFERE o vínculo (operadoras reciclam números); o dono anterior nunca é
+        identificado na resposta.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '200':
+          description: Vínculo gravado (ou reafirmado, no caminho idempotente)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelLinkConfirmResponse'
+              example:
+                link:
+                  id: cclk_01JQW5M6YY9M7K7B5N63GQ6E9S
+                  channelType: whatsapp
+                  phone: '5511999990032'
+                  phoneMasked: +55 11 ****-0032
+                  verificationStatus: verified
+                  verifiedAt: '2026-03-13T14:52:11Z'
+                  createdAt: '2026-03-13T14:50:02Z'
+                transferred: false
+        '400':
+          description: |-
+            `CHANNEL_LINK_CODE_MALFORMED` (não são 6 dígitos), `CHANNEL_LINK_CODE_INVALID`
+            (com `errors.attemptsRemaining`) ou `CHANNEL_LINK_CODE_EXPIRED`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                code: CHANNEL_LINK_CODE_INVALID
+                detail: Código inválido.
+                instance: /v1/sicat/channel-links/challenges/cver_01JQW5M6YY9M7K7B5N63GQ6E9S/confirm
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                errors:
+                  attemptsRemaining: 3
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: Nenhum desafio vivo para este identificador (`CHANNEL_LINK_CHALLENGE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '409':
+          description: |-
+            Transferência bloqueada por configuração (`CHANNEL_LINK_TRANSFER_BLOCKED`) ou teto de
+            vínculos reconferido sob lock (`CHANNEL_LINK_MAX_LINKS_REACHED`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '429':
+          description: |-
+            Tentativas do desafio esgotadas (`CHANNEL_LINK_ATTEMPTS_EXCEEDED`) ou teto de
+            confirmações da rota (`CHANNEL_LINK_RATE_LIMITED`).
+          headers:
+            Retry-After:
+              description: Segundos até a próxima janela. Presente quando o teto é o da própria rota.
+              schema: { type: integer }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelLinkConfirmRequest'
+            example:
+              code: '123456'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: challengeId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/sicat/channel-links/challenges/{challengeId}:
+    delete:
+      operationId: channelLinkCancelChallenge
+      summary: Cancelar o desafio vivo
+      description: |-
+        Existe para o caso mais comum do dia a dia — digitou o número errado e quer voltar ao campo
+        do telefone — sem gastar um `start` novo (que custa outra mensagem paga).
+
+        `reason` é truncado em 40 caracteres antes de ir para a auditoria.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '204':
+          description: Desafio cancelado (sem corpo)
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: Nenhum desafio vivo para este identificador (`CHANNEL_LINK_CHALLENGE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: challengeId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: reason
+        in: query
+        required: false
+        description: Motivo do cancelamento; truncado em 40 caracteres na auditoria.
+        schema:
+          type: string
+          maxLength: 200
+  /v1/sicat/channel-links/{linkId}:
+    delete:
+      operationId: channelLinkRemove
+      summary: Desvincular um número
+      description: |-
+        Requisito de SEGURANÇA, não conveniência: um `from` verificado é identidade no canal, então o
+        usuário precisa de revogação imediata (aparelho roubado, chip devolvido, saída da empresa).
+
+        Deliberadamente NÃO exige OTP nem step-up — quem trocou de número não recebe mais código no
+        antigo, e exigir prova de posse para REMOVER acesso deixaria vínculos zumbis vivos para
+        sempre. Conceder exige a credencial forte; retirar pode usar a fraca.
+      tags:
+      - SICAT Channel Links
+      responses:
+        '204':
+          description: Vínculo removido (sem corpo)
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: Vínculo não encontrado (`CHANNEL_LINK_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: linkId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/channels/whatsapp/webhook:
+    get:
+      operationId: whatsappWebhookVerify
+      summary: Desafio de verificação do webhook (Meta)
+      description: |-
+        Rota PÚBLICA: `security: []` não é descuido. Não há Bearer aqui — o `authMiddleware` global
+        isenta todo o prefixo `/v1/channels/` por contrato, e a autenticidade desta operação é o
+        `hub.verify_token` comparado em tempo constante contra `WHATSAPP_META_VERIFY_TOKEN`.
+
+        A resposta é `text/plain` com o desafio CRU. `application/json` REPROVA a verificação do
+        Meta, que compara byte a byte e quebra com as aspas do JSON.
+
+        Só o provedor `meta` implementa desafio. Com `WHATSAPP_PROVIDER=twilio` a operação responde
+        sempre `403` (a URL do webhook é configurada no console do Twilio); com o canal desligado —
+        o default da plataforma — responde `404`, porque para um anônimo a rota simplesmente não
+        existe.
+
+        Corpo VAZIO em `403` e `404`, de propósito: nada de `problem+json`, que entregaria
+        `instance` e `correlationId` de graça a quem não se autenticou.
+      tags:
+      - WhatsApp Channel
+      security: []
+      responses:
+        '200':
+          description: Desafio ecoado cru
+          content:
+            text/plain:
+              schema:
+                type: string
+                pattern: ^[A-Za-z0-9_-]{1,256}$
+              example: '1158201444'
+        '403':
+          description: Token de verificação inválido, parâmetros ausentes ou desafio fora do padrão. Corpo vazio.
+        '404':
+          description: Canal WhatsApp desabilitado (`WHATSAPP_PROVIDER=disabled`, default). Corpo vazio.
+      parameters:
+      - name: hub.mode
+        in: query
+        required: true
+        description: A Meta envia sempre `subscribe`; qualquer outro valor é `403`.
+        schema:
+          type: string
+          enum:
+          - subscribe
+      - name: hub.verify_token
+        in: query
+        required: true
+        description: Comparado em tempo constante com `WHATSAPP_META_VERIFY_TOKEN`.
+        schema: { type: string }
+      - name: hub.challenge
+        in: query
+        required: true
+        description: Valor a ecoar cru. Fora de `^[A-Za-z0-9_-]{1,256}$`, a resposta é `403`.
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,256}$
+    post:
+      operationId: whatsappWebhookReceive
+      summary: Receber mensagens de entrada do WhatsApp
+      description: |-
+        Rota PÚBLICA (`security: []`). A identidade do CHAMADOR não vem de token: vem da ASSINATURA
+        HMAC do provedor, verificada sobre o corpo CRU antes de qualquer leitura de banco. A
+        identidade do USUÁRIO vem de um vínculo `verified` em `conversation_channel_links` — nada
+        aqui aceita `userId`, `channel` ou `integrationAccountId` do corpo.
+
+        O header de assinatura depende de `WHATSAPP_PROVIDER`: `X-Twilio-Signature` (twilio) ou
+        `X-Hub-Signature-256` (meta). Exatamente um deles é obrigatório, e por isso os dois estão
+        declarados como opcionais — não existe um `securityScheme` do tipo `apiKey` que descreva
+        isto, porque o gate não é a presença do header e sim o HMAC sobre `rawBody` + a URL de
+        configuração.
+
+        `200` com corpo VAZIO. Nada de JSON: JSON aqui rende o erro 12300 "Invalid Content-Type" no
+        console do Twilio.
+
+        **Não existe 429 nesta operação, e isso é deliberado.** O teto global da rota responde `200`
+        e descarta o lote: não-2xx sustentado faz o Meta DESATIVAR o webhook. Pela mesma razão,
+        exceções não tratadas e corpos que não parseiam também respondem `200`.
+
+        Não-2xx é reservado a exatamente três casos, todos com corpo vazio: `403` (assinatura),
+        `404` (canal desligado) e `500` (falha de INFRAESTRUTURA na gravação — o único caso em que a
+        reentrega do provedor é uma feature, tornada segura pelo `unique` de `jobs.command_id`).
+      tags:
+      - WhatsApp Channel
+      security: []
+      responses:
+        '200':
+          description: Lote absorvido (sem corpo). Também é a resposta de teto global, corpo ilegível e exceção não tratada.
+        '403':
+          description: Assinatura HMAC inválida ou ausente. Corpo vazio.
+        '404':
+          description: Canal WhatsApp desabilitado (`WHATSAPP_PROVIDER=disabled`, default). Corpo vazio.
+        '500':
+          description: Falha de infraestrutura na gravação; o provedor deve reentregar. Corpo vazio.
+      requestBody:
+        required: true
+        description: |-
+          `application/x-www-form-urlencoded` no Twilio e `application/json` no Meta. Limite de
+          1 MiB. O corpo é dado de TERCEIRO, não instrução — o schema fica deliberadamente aberto,
+          porque quem define a forma é o provedor.
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: true
+            example:
+              MessageSid: SM00000000000000000000000000000000
+              From: whatsapp:+5511999990032
+              To: whatsapp:+5511988880011
+              Body: quais manifestos estão em rascunho?
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example:
+              object: whatsapp_business_account
+              entry:
+              - id: '000000000000000'
+                changes:
+                - field: messages
+                  value:
+                    messaging_product: whatsapp
+                    messages:
+                    - from: '5511999990032'
+                      id: wamid.PLACEHOLDER
+                      timestamp: '1773412331'
+                      type: text
+                      text:
+                        body: quais manifestos estão em rascunho?
+      parameters:
+      - name: X-Twilio-Signature
+        in: header
+        required: false
+        description: Assinatura HMAC-SHA1 do Twilio. Obrigatória quando `WHATSAPP_PROVIDER=twilio`.
+        schema: { type: string }
+      - name: X-Hub-Signature-256
+        in: header
+        required: false
+        description: Assinatura HMAC-SHA256 do Meta (`sha256=<hex>`). Obrigatória quando `WHATSAPP_PROVIDER=meta`.
+        schema: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -8517,3 +9632,759 @@ components:
         cancelledAt:
           type: string
           format: date-time
+    UnauthorizedProblem:
+      description: |-
+        Problem+JSON do 401 do `sicatAuthMiddleware`. Difere do schema `Problem` de propósito: o
+        middleware chama `createProblem` SEM `code`, e `createProblem` só inclui o campo quando ele é
+        truthy — declarar `code` como obrigatório aqui documentaria um campo que não vem. Vale para
+        os 401 de TODAS as operações desta família.
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        correlationId:
+          type: string
+    CodedProblem:
+      description: |-
+        Problem+JSON com `code` estável, emitido por `errorHandlerMiddleware` a partir de um
+        `AppError`. Difere do schema `Problem` em dois pontos REAIS: `errors` aqui é um OBJETO
+        (`Problem.errors` é um array de `{field,message}`), e `correlationId`/`instance` só aparecem
+        quando resolvidos.
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      - code
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+        correlationId:
+          type: string
+        errors:
+          type: object
+          description: Detalhes estruturados do erro. Objeto, não array.
+          properties:
+            retryAfterSeconds:
+              type: integer
+              minimum: 0
+            attemptsRemaining:
+              type: integer
+              minimum: 0
+            correlationId:
+              type:
+              - string
+              - 'null'
+          additionalProperties: true
+    ConversationToolPolicy:
+      type: object
+      required:
+      - toolName
+      - riskLevel
+      - allowChannels
+      - requiresConfirmation
+      - isAction
+      - objective
+      - dependencies
+      - category
+      properties:
+        toolName:
+          type: string
+        riskLevel:
+          type: string
+          enum:
+          - R1
+          - R2
+          - R3
+          - R4
+        allowChannels:
+          type: array
+          description: Canais em que a tool é alcançável. `whatsapp` só aparece nas tools habilitadas
+            para o canal externo.
+          items:
+            type: string
+            enum:
+            - whatsapp
+            - native_chat
+            - inapp
+        requiresConfirmation:
+          type: boolean
+        isAction:
+          type: boolean
+        objective:
+          type:
+          - string
+          - 'null'
+        dependencies:
+          type: array
+          items:
+            type: string
+        category:
+          type:
+          - string
+          - 'null'
+    ConversationToolsListResponse:
+      type: object
+      required:
+      - items
+      - count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationToolPolicy'
+        count:
+          type: integer
+          minimum: 0
+    ConversationArtifactStatus:
+      type: object
+      required:
+      - artifactId
+      - title
+      - artifactType
+      - status
+      - progress
+      - links
+      properties:
+        artifactId:
+          type: string
+        title:
+          type: string
+        artifactType:
+          type: string
+          enum:
+          - document
+          - zip
+        sourceKind:
+          type:
+          - string
+          - 'null'
+        status:
+          description: |-
+            Estados que o código realmente grava. `processing` é o inicial; `partial` só existe em
+            artefato de lote (ZIP) com itens que falharam; `expired` é carimbado na leitura, quando o
+            TTL de 72 h já passou. `available` e `partial` são os únicos que servem download.
+          type: string
+          enum:
+          - processing
+          - available
+          - partial
+          - failed
+          - expired
+        fileName:
+          type:
+          - string
+          - 'null'
+        mimeType:
+          type:
+          - string
+          - 'null'
+        correlationId:
+          type:
+          - string
+          - 'null'
+        jobId:
+          type:
+          - string
+          - 'null'
+        integrationAccountId:
+          type:
+          - string
+          - 'null'
+        sessionContextId:
+          type:
+          - string
+          - 'null'
+        conversationSessionId:
+          type:
+          - string
+          - 'null'
+        conversationTurnId:
+          type:
+          - string
+          - 'null'
+        progress:
+          type: object
+          required:
+          - total
+          - completed
+          - failed
+          - pending
+          properties:
+            total:
+              type: integer
+              minimum: 0
+            completed:
+              type: integer
+              minimum: 0
+            failed:
+              type: integer
+              minimum: 0
+            pending:
+              type: integer
+              minimum: 0
+        availableAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceRefs:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        links:
+          type: object
+          required:
+          - statusUrl
+          - downloadUrl
+          properties:
+            statusUrl:
+              type: string
+            downloadUrl:
+              type: string
+    ConversationFeedbackRequest:
+      type: object
+      required:
+      - feedbackType
+      - correlationId
+      properties:
+        feedbackType:
+          type: string
+          enum:
+          - positive
+          - negative
+        correlationId:
+          type: string
+          description: Correlação do turno avaliado. Obrigatório e não pode ser string vazia.
+        conversationSessionId:
+          type:
+          - string
+          - 'null'
+        channel:
+          type: string
+          description: Canal declarado. Só para validação; o canal gravado sai do principal.
+          enum:
+          - native_chat
+          - inapp
+        toolName:
+          type:
+          - string
+          - 'null'
+        userComment:
+          type: string
+          description: Truncado em 500 caracteres pelo servidor.
+    ConversationFeedbackResponse:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - id
+          - correlationId
+          - feedbackType
+          properties:
+            id:
+              type: string
+            correlationId:
+              type: string
+            feedbackType:
+              type: string
+              enum:
+              - positive
+              - negative
+    ConversationFeedbackInvalidError:
+      description: |-
+        Envelope de erro ESCRITO À MÃO no handler de feedback (`conversation-routes.ts`). Não é
+        problem+json: não tem `type`, `status`, `instance` nem `correlationId`, e o Content-Type é
+        `application/json`. Documentado como é, não como deveria ser.
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+              enum:
+              - FEEDBACK_INVALID
+            message:
+              type: string
+    ConversationTurnRequest:
+      type: object
+      required:
+      - message
+      properties:
+        channel:
+          type: string
+          description: |-
+            Ausente equivale a `inapp`. `whatsapp` é recusado com 403 — só o adaptador de canal do
+            servidor produz esse valor.
+          enum:
+          - native_chat
+          - inapp
+        conversationSessionId:
+          type: string
+          description: Retoma uma sessão existente. A chave de sessão em si é derivada do principal.
+        message:
+          type: string
+        context:
+          type: object
+          description: Contexto de tela (rota, manifesto em foco, dicas de campo). Não decide identidade.
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        options:
+          type: object
+          properties:
+            allowActions:
+              type: boolean
+              default: true
+          additionalProperties: true
+        toolRequest:
+          type: object
+          description: Acionamento explícito de tool pelo cliente (quick-actions do copiloto).
+          required:
+          - name
+          properties:
+            name:
+              type: string
+            arguments:
+              type: object
+              additionalProperties: true
+            confirmed:
+              type: boolean
+              default: false
+    ConversationTurnMultipartRequest:
+      description: |-
+        Mesma superfície do turno textual, com anexos. `files` aceita no máximo 20 arquivos de
+        10 MiB cada; os demais campos chegam como campos de TEXTO do formulário (objetos vão
+        serializados em JSON).
+      type: object
+      required:
+      - message
+      properties:
+        files:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: binary
+        channel:
+          type: string
+          enum:
+          - native_chat
+          - inapp
+        conversationSessionId:
+          type: string
+        message:
+          type: string
+        context:
+          type: string
+        metadata:
+          type: string
+        options:
+          type: string
+        toolRequest:
+          type: string
+    ConversationTurnResponse:
+      type: object
+      required:
+      - conversationSessionId
+      - conversationTurnId
+      - correlationId
+      - channel
+      - status
+      - responseText
+      - llm
+      - toolCall
+      - policy
+      - context
+      properties:
+        conversationSessionId:
+          type: string
+        conversationTurnId:
+          type: string
+        correlationId:
+          type: string
+        channel:
+          type: string
+          enum:
+          - whatsapp
+          - native_chat
+          - inapp
+        status:
+          type: string
+          enum:
+          - responded
+          - blocked
+          - executed
+          - failed
+        responseText:
+          type: string
+        llm:
+          type: object
+          required:
+          - provider
+          - confidence
+          - agentModelUsed
+          - synthesisModelUsed
+          properties:
+            provider:
+              type: string
+            confidence:
+              type: number
+            agentModelUsed:
+              type: string
+            synthesisModelUsed:
+              type: string
+            escalationModelUsed:
+              type: string
+            escalationReason:
+              type: string
+        toolCall:
+          type:
+          - object
+          - 'null'
+          required:
+          - name
+          - arguments
+          properties:
+            name:
+              type: string
+            arguments:
+              type: object
+              additionalProperties: true
+        policy:
+          type: object
+          required:
+          - allowed
+          - reasonCode
+          - reason
+          - requiresConfirmation
+          - riskLevel
+          properties:
+            allowed:
+              type: boolean
+            reasonCode:
+              type:
+              - string
+              - 'null'
+            reason:
+              type:
+              - string
+              - 'null'
+            requiresConfirmation:
+              type: boolean
+            riskLevel:
+              type:
+              - string
+              - 'null'
+            permissionShortfall:
+              type:
+              - object
+              - 'null'
+              required:
+              - required
+              - catalogSatisfiable
+              properties:
+                required:
+                  type: string
+                catalogSatisfiable:
+                  type: boolean
+        context:
+          type: object
+          required:
+          - integrationAccountId
+          - sessionContextId
+          - manifestId
+          - jobId
+          properties:
+            integrationAccountId:
+              type:
+              - string
+              - 'null'
+            sessionContextId:
+              type:
+              - string
+              - 'null'
+            manifestId:
+              type:
+              - string
+              - 'null'
+            jobId:
+              type:
+              - string
+              - 'null'
+        result: {}
+        jobId:
+          type:
+          - string
+          - 'null'
+    ChannelLink:
+      type: object
+      required:
+      - id
+      - channelType
+      - phone
+      - phoneMasked
+      - verificationStatus
+      - verifiedAt
+      - createdAt
+      properties:
+        id:
+          type: string
+        channelType:
+          type: string
+          enum:
+          - whatsapp
+        phone:
+          type: string
+          description: Telefone canônico (só dígitos, com DDI). É o número do próprio autenticado.
+        phoneMasked:
+          type: string
+        verificationStatus:
+          type: string
+          enum:
+          - pending
+          - verified
+        verifiedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    ChannelLinkChallenge:
+      description: |-
+        Desafio de OTP. NUNCA carrega o código, o hash, o nome do provedor, o id da mensagem nem o
+        erro de entrega — e o telefone sai apenas mascarado.
+      type: object
+      required:
+      - challengeId
+      - channelType
+      - phoneMasked
+      - expiresAt
+      - attemptsRemaining
+      - sendsRemaining
+      - canResendAt
+      - deliveryStatus
+      properties:
+        challengeId:
+          type: string
+        channelType:
+          type: string
+          enum:
+          - whatsapp
+        phoneMasked:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        attemptsRemaining:
+          type: integer
+          minimum: 0
+        sendsRemaining:
+          type: integer
+          minimum: 0
+        canResendAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        deliveryStatus:
+          type: string
+          description: '`sent` significa "o provedor ACEITOU", nunca "chegou no aparelho".'
+          enum:
+          - pending
+          - sent
+          - failed
+        correlationId:
+          type:
+          - string
+          - 'null'
+    ChannelLinkLimits:
+      type: object
+      required:
+      - maxLinksPerUser
+      - otpTtlSeconds
+      - maxAttempts
+      - maxSends
+      - resendCooldownSeconds
+      properties:
+        maxLinksPerUser:
+          type: integer
+        otpTtlSeconds:
+          type: integer
+        maxAttempts:
+          type: integer
+        maxSends:
+          type: integer
+        resendCooldownSeconds:
+          type: integer
+    ChannelLinksListResponse:
+      type: object
+      required:
+      - links
+      - pendingChallenge
+      - limits
+      properties:
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelLink'
+        pendingChallenge:
+          oneOf:
+          - $ref: '#/components/schemas/ChannelLinkChallenge'
+          - type: 'null'
+        limits:
+          $ref: '#/components/schemas/ChannelLinkLimits'
+    ChannelLinkStartRequest:
+      type: object
+      required:
+      - phone
+      properties:
+        channelType:
+          type: string
+          description: Ausente equivale a `whatsapp`.
+          enum:
+          - whatsapp
+        phone:
+          type: string
+          description: |-
+            DDI+DDD+número. É canonicalizado no servidor (o DDI default vem de
+            `CHANNEL_LINK_DEFAULT_COUNTRY_CODE`) e precisa ficar entre 12 e 15 dígitos depois disso.
+          example: '5511999990032'
+    ChannelLinkConfirmRequest:
+      type: object
+      required:
+      - code
+      properties:
+        code:
+          type: string
+          description: Exatamente 6 dígitos. Fora desse formato, `CHANNEL_LINK_CODE_MALFORMED`.
+          pattern: ^[0-9]{6}$
+    ChannelLinkConfirmResponse:
+      type: object
+      required:
+      - link
+      - transferred
+      properties:
+        link:
+          $ref: '#/components/schemas/ChannelLink'
+        transferred:
+          type: boolean
+          description: |-
+            `true` quando o número estava vinculado a OUTRA conta e a posse comprovada o transferiu.
+            O dono anterior nunca é identificado.
+    WhatsAppActionWindow:
+      type: object
+      required:
+      - id
+      - maskedUserKey
+      - integrationAccountId
+      - expiresAt
+      - actionsUsed
+      - actionsBudget
+      - openedAt
+      properties:
+        id:
+          type: string
+        maskedUserKey:
+          type: string
+          description: Telefone mascarado. O E.164 cru nunca sai neste DTO.
+        integrationAccountId:
+          type:
+          - string
+          - 'null'
+        expiresAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        actionsUsed:
+          type: integer
+          minimum: 0
+        actionsBudget:
+          type: integer
+          minimum: 0
+        openedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    WhatsAppActionWindowOpenRequest:
+      type: object
+      properties:
+        hours:
+          type: integer
+          minimum: 1
+          description: |-
+            Duração PEDIDA. O servidor aplica default e teto de configuração
+            (`WHATSAPP_ACTION_WINDOW_DEFAULT_HOURS` / `_MAX_HOURS`), então a resposta pode divergir.
+        actionsBudget:
+          type: integer
+          minimum: 1
+          description: |-
+            Orçamento de ações PEDIDO, sujeito a default e teto
+            (`WHATSAPP_ACTION_WINDOW_DEFAULT_BUDGET` / `_MAX_BUDGET`).
+        budget:
+          type: integer
+          minimum: 1
+          description: Alias legado de `actionsBudget`; usado apenas quando `actionsBudget` está ausente.
+    WhatsAppActionWindowResponse:
+      type: object
+      required:
+      - window
+      properties:
+        window:
+          oneOf:
+          - $ref: '#/components/schemas/WhatsAppActionWindow'
+          - type: 'null'

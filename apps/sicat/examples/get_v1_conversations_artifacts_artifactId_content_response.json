@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": "attachment; filename=\"mtr-12345678.pdf\""
+  },
+  "body": "<binary pdf stream>"
+}

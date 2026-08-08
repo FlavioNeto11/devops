@@ -1,420 +1,405 @@
 # Estado atual do SICAT
 
-> Snapshot honesto baseado em código, OpenAPI publicado e checkpoints
-> recentes. Nada aqui é marcado como IMPLEMENTADO sem evidência verificável.
-> Última revisão: fase `09-docs-final` do work `mtr-provisorio-wizard-frontend`
-> (2026-04-25).
+> Snapshot honesto baseado em código, OpenAPI publicado e checkpoints recentes.
+> **Nada aqui é marcado como IMPLEMENTADO sem evidência verificável** — e omitir também é mentir, por
+> isso o que não foi entregue está escrito com o mesmo destaque do que foi.
+> Última revisão: fase 7 (`09-contrato-qa-final`) da cadeia `whatsapp-channel-sicat` — 2026-08-08.
+> A revisão anterior era de 2026-04-25 e ignorava ~3,5 meses de entregas (AI Control Center,
+> DL-094 a DL-100, camada conversacional); as seções abaixo foram regeneradas contra o código.
+
+## 0. Legenda
+
+| Ícone | Significado |
+|---|---|
+| ✅ | **IMPLEMENTADO** — existe em código, com evidência citada |
+| ⚠️ | **PARCIAL** — parte existe, parte não; o que falta está nomeado |
+| ⛔ | **RECUSADO / FECHADO POR DESENHO** — não é backlog, é decisão registrada |
+| 🕓 | **INERTE** — o código existe mas está desligado por default ou não aplicado no ambiente |
+| 📋 | **PLANEJADO** — não começou |
 
 ## 1. Leitura executiva
 
-O SICAT já consolidou um núcleo operacional estável de:
+O SICAT consolidou um núcleo operacional estável de:
 
-- autenticação SICAT própria + seleção de conta CETESB ativa;
-- criação, listagem, replicação e operação assíncrona de manifestos
-  (submit, print, cancel, receive);
-- emissão e download de CDF padrão (por manifesto recebido);
+- autenticação SICAT própria (+ SSO Keycloak) e seleção de conta CETESB ativa;
+- criação, listagem, replicação e operação assíncrona de manifestos (submit, print, cancel, receive);
+- emissão e download de CDF padrão; MTR provisório; fluxo declaratório DMR (gateway ainda stub);
 - catálogos CETESB sincronizados localmente;
-- fila transacional Postgres com locking otimista, retry, DLQ e
-  observabilidade (DL-022);
-- frontend Vue 3 cobrindo dashboard, manifestos, jobs, contas CETESB,
-  administração de acessos e relatório operacional de MTRs.
-
-A próxima evolução estratégica — definida pelo work
-`centro-operacional-sicat` — é amadurecer o produto para postura de
-**Centro Operacional SICAT**: consolidar operação, observabilidade,
-governança, diagnóstico e relatórios em módulos dedicados, preparando a
-base estrutural para um futuro chat orquestrador (Command Center).
+- fila transacional Postgres com locking otimista, retry, DLQ e observabilidade (DL-022);
+- frontend Vue 3 com design system `Sicat*` e navegação por audiência (DL-100);
+- **camada de IA real** — chat conversacional, copiloto in-app, orquestração LangChain/LangGraph
+  (DL-096) e um **AI Control Center** com runtime dinâmico de tools;
+- **canal conversacional externo (WhatsApp)** — endurecido, testado e **desligado por default**
+  (§2.7 e §3.1: a manchete do canal, emitir MTR, **não** está entregue).
 
 ## 2. IMPLEMENTADO (com evidência)
 
 ### 2.1 Backend (TypeScript, Express, Postgres)
 
-Rotas publicadas em `src/routes/api-routes.ts`, conferidas contra o código:
+Rotas publicadas em `src/routes/*.ts`, conferidas contra o código:
 
-- saúde e fila: `GET /v1/ping`, `GET /v1/health/system`,
-  `GET /v1/health/workers`, `GET /v1/health/jobs/active`,
-  `POST /v1/health/jobs/active/:jobId/cancel`,
-  `DELETE /v1/health/jobs/active/:jobId`,
-  `GET /v1/health/jobs/dlq`, `POST /v1/health/jobs/dlq/:jobId/requeue`,
-  `DELETE /v1/health/jobs/dlq/:jobId`;
-- métricas: `GET /v1/health/metrics/performance`,
-  `GET /v1/health/metrics/timeline`,
-  `GET /v1/health/metrics/endpoints`;
+- saúde e fila: `GET /v1/ping`, `GET /v1/health/system`, `GET /v1/health/workers`,
+  `GET /v1/health/jobs/active`, `POST /v1/health/jobs/active/:jobId/cancel`,
+  `DELETE /v1/health/jobs/active/:jobId`, `GET /v1/health/jobs/dlq`,
+  `POST /v1/health/jobs/dlq/:jobId/requeue`, `DELETE /v1/health/jobs/dlq/:jobId`;
+- métricas: `GET /v1/health/metrics/{performance,timeline,endpoints}`;
 - dashboard: `GET /v1/dashboard/overview`;
 - manutenção: `POST /v1/maintenance/cleanup`;
 - auth CETESB: `POST /v1/auth/login`, `GET /v1/auth/partner-info`;
-- auth SICAT: `POST /v1/sicat/auth/login`,
-  `POST /v1/sicat/auth/register`, `POST /v1/sicat/auth/refresh`;
-- contas CETESB: `GET /v1/sicat/cetesb-accounts`,
-  `POST /v1/sicat/cetesb-accounts`,
+- auth SICAT: `POST /v1/sicat/auth/login`, `POST /v1/sicat/auth/register`,
+  `POST /v1/sicat/auth/refresh`, **`POST /v1/sicat/auth/keycloak`** (SSO OIDC);
+- contas CETESB: `GET|POST /v1/sicat/cetesb-accounts`,
   `POST /v1/sicat/cetesb-accounts/:accountId/activate`,
-  `DELETE /v1/sicat/cetesb-accounts/:accountId`,
-  `GET /v1/sicat/session`;
-- administração de acessos (RBAC interno): users, roles, permissions,
-  sessions, grant/revoke, password reset/expire em
-  `/v1/admin/access/...`;
-- session contexts: `POST /v1/session-contexts`,
-  `GET /v1/session-contexts/:id`;
-- catálogos: `POST /v1/catalog-sync`, `GET /v1/catalogs/:catalogName`;
-- parceiros: `GET /v1/partners/search`;
-- cadastros: `POST /v1/cadastros`, `GET /v1/cadastros/:id`;
-- manifestos: criação singular e batch, listagem, detalhe, replicate,
-  delete, submit, print, cancel, batch-submit, batch-cancel,
-  `POST /v1/manifestos/receive`;
-- CDF: `POST /v1/cdf/generate`, `POST /v1/cdf/download`,
-  `GET /v1/cdf/certificates`, `GET /v1/cdf/documents/:documentId`;
-- jobs e auditoria: `GET /v1/jobs/:jobId`,
-  `GET /v1/jobs/:jobId/events`, `GET /v1/audit/:correlationId`;
-- documentos de manifesto:
-  `GET /v1/manifestos/:id/documents/:documentId`;
-- **DMR — fluxo declaratório base (cadeia `dmr-fluxo-base`, 2026-04-25)**:
-  `GET /v1/dmr`, `POST /v1/dmr`, `GET /v1/dmr/pendentes`,
-  `GET /v1/dmr/:dmrId`, `DELETE /v1/dmr/:dmrId`,
-  `POST /v1/dmr/:dmrId/consolidate`, `POST /v1/dmr/:dmrId/submit`
-  (assíncrono 202 + `Idempotency-Key`),
-  `GET /v1/dmr/:dmrId/status`, `GET /v1/dmr/:dmrId/items`,
-  `POST /v1/dmr/:dmrId/items`, `DELETE /v1/dmr/:dmrId/items/:itemId`.
-  Persistência via migration
-  [src/sql/013_dmr_declarations.sql](../../src/sql/013_dmr_declarations.sql)
-  (DL-022: locking otimista, trigger `increment_version`, 5 constraints
-  de consistência). Validador declaratório em
-  [src/lib/validators/dmr-validator.ts](../../src/lib/validators/dmr-validator.ts)
-  (códigos `DMR_*` estáveis). Worker handler `dmr.submit` em
-  [src/workers/operation-handlers.ts](../../src/workers/operation-handlers.ts).
-  Gateway DMR isolado em
-  [src/gateways/cetesb-gateway.js](../../src/gateways/cetesb-gateway.js)
-  como **stub contratual** (Caminho B —
-  [02-source-validation.md §8](../handoffs/dmr-fluxo-base/02-source-validation.md#8-decis%C3%A3o-de-roteamento-%E2%80%94-recomenda%C3%A7%C3%A3o-caminho-b))
-  retornando `application/problem+json` 503 com
-  `code: DMR_GATEWAY_PENDING_HAR` até captura humana de HAR.
-  Checkpoints:
-  [04-backend-contracts.md](../handoffs/dmr-fluxo-base/04-backend-contracts.md),
-  [05-persistence-queue.md](../handoffs/dmr-fluxo-base/05-persistence-queue.md),
-  [06-domain-rules.md](../handoffs/dmr-fluxo-base/06-domain-rules.md),
-  [07-frontend-ux.md](../handoffs/dmr-fluxo-base/07-frontend-ux.md),
-  [08-qa-validation.md](../handoffs/dmr-fluxo-base/08-qa-validation.md).
-  CHANGELOG: [docs/CHANGELOG-DMR-FLUXO-BASE.md](../CHANGELOG-DMR-FLUXO-BASE.md).
-- **MTR provisório — fluxo base (cadeia `mtr-provisorio-fluxo-base`,
-  2026-04-25)**: Frente 3 do backlog CTO
-  ([§4.4 e §5](../_inputs/fonte-de-verdade-backlog-cto.md)). Família HTTP
-  `/v1/mtr-provisorio/*` (5 operações: `mtrProvisorioList`,
-  `mtrProvisorioCreate`, `mtrProvisorioGet`, `mtrProvisorioCancel`,
-  `mtrProvisorioPrint`) publicada em lockstep
-  OpenAPI ↔ examples ↔ [src/generated/operations.ts](../../src/generated/operations.ts)
-  (88 operações totais). Persistência reaproveita `manifests` com
-  discriminador SICAT `kind` via migration aditiva idempotente
-  [src/sql/014_mtr_provisorio_kind.sql](../../src/sql/014_mtr_provisorio_kind.sql)
-  (colunas `kind`, `provisional_number`, `definitive_manifest_id`;
-  índices `ix_manifests_kind` e parcial `ix_manifests_kind_provisorio`;
-  preserva DL-022 — sem alterar constraints, locking otimista mantido).
-  Validador canônico
-  [src/lib/validators/mtr-provisorio-validator.ts](../../src/lib/validators/mtr-provisorio-validator.ts)
-  (códigos `MTR_PROVISORIO_PAYLOAD_INVALID`,
-  `MTR_PROVISORIO_STATUS_TRANSITION_INVALID`,
-  `MTR_PROVISORIO_NOT_CANCELLABLE`, `MTR_PROVISORIO_NOT_PRINTABLE`).
-  Bloco `MTR_PROVISORIO_*` em
-  [src/lib/operational-status.ts](../../src/lib/operational-status.ts)
-  espelhado no frontend
-  [frontend/src/modules/command-center/operationalStatus.js](../../frontend/src/modules/command-center/operationalStatus.js).
-  Gateway isolado em
-  [src/gateways/cetesb-gateway.js](../../src/gateways/cetesb-gateway.js)
-  (`submitMtrProvisorio`, `listMtrProvisorio`, `printMtrProvisorio`).
-  Worker handler ramifica `manifest.submit` e `manifest.print` por
-  `payload.kind` em
-  [src/workers/operation-handlers.ts](../../src/workers/operation-handlers.ts).
-  Decisão **R3-C** formalizada: `kind` discriminador SICAT é convertido
-  para `tipoManifestoOverride` na borda do service (constante
-  `PROVISORIO_TIPO_MANIFESTO_OVERRIDE`, default `2`, sobrescrevível por
-  env). Decisão **R5** formalizada: `submitted` permanece como status
-  físico pós-impressão; a presença do PDF é sinalizada via
-  `payload.jobResults['manifest.print']` (chip "Documento disponível"
-  no detalhe). Frontend Vue 3: rotas `/mtr-provisorio`,
-  `/mtr-provisorio/novo`, `/mtr-provisorio/:id` em
-  [frontend/src/router.js](../../frontend/src/router.js) com
-  `requiresSicatAuth + requiresActiveCetesbAccount`; service em
-  [frontend/src/services/mtrProvisorioService.js](../../frontend/src/services/mtrProvisorioService.js);
-  store em
-  [frontend/src/stores/mtrProvisorioStore.js](../../frontend/src/stores/mtrProvisorioStore.js);
-  helpers em
-  [frontend/src/views/mtr-provisorio/mtrProvisorioUiHelpers.js](../../frontend/src/views/mtr-provisorio/mtrProvisorioUiHelpers.js).
-  Spec smoke Playwright
-  [frontend/tests/ui/mtr-provisorio-smoke.spec.ts](../../frontend/tests/ui/mtr-provisorio-smoke.spec.ts)
-  10/10 (5 baseline + 5 cenários expandidos: filtro `failed_submit`
-  + badge `failed_remote_auth`, cancelar `draft`, imprimir após
-  `submitted` com `commandId`/`jobId`, chip "Documento disponível",
-  400 `MTR_PROVISORIO_PAYLOAD_INVALID`). Checkpoints:
-  [00-orchestration.md](../handoffs/mtr-provisorio-fluxo-base/00-orchestration.md),
-  [01-baseline-docs.md](../handoffs/mtr-provisorio-fluxo-base/01-baseline-docs.md),
-  [02-source-validation.md](../handoffs/mtr-provisorio-fluxo-base/02-source-validation.md),
-  [03-external-integration.md](../handoffs/mtr-provisorio-fluxo-base/03-external-integration.md),
-  [04-backend-contracts.md](../handoffs/mtr-provisorio-fluxo-base/04-backend-contracts.md),
-  [05-persistence-queue.md](../handoffs/mtr-provisorio-fluxo-base/05-persistence-queue.md),
-  [06-domain-rules.md](../handoffs/mtr-provisorio-fluxo-base/06-domain-rules.md),
-  [07-frontend-ux.md](../handoffs/mtr-provisorio-fluxo-base/07-frontend-ux.md),
-  [08-qa-validation.md](../handoffs/mtr-provisorio-fluxo-base/08-qa-validation.md).
-  CHANGELOG: [docs/CHANGELOG-MTR-PROVISORIO-FLUXO-BASE.md](../CHANGELOG-MTR-PROVISORIO-FLUXO-BASE.md).
-- **Centro Operacional (cadeia `centro-operacional-sicat`, 2026-04-25)**:
-  `GET /v1/operations/overview`, `GET /v1/jobs/search`,
-  `POST /v1/jobs/:jobId/retry` (idempotente),
-  `GET /v1/audit/search`, `GET /v1/cetesb/accounts/health`,
-  `GET /v1/cetesb/sessions/health`, `GET /v1/reports/mtrs`,
-  `GET /v1/reports/mtrs/export` (CSV síncrono com cap de 5000 linhas
-  e HTTP 413 `REPORT_EXPORT_LIMIT_EXCEEDED`).
+  `DELETE /v1/sicat/cetesb-accounts/:accountId`, `GET /v1/sicat/session`;
+- administração de acessos (RBAC interno): users, roles, permissions, sessions, grant/revoke,
+  password reset/expire em `/v1/admin/access/...`;
+- session contexts, catálogos, parceiros, cadastros (inalterados);
+- manifestos: criação singular e batch, listagem, detalhe, replicate, delete, submit, print, cancel,
+  batch-submit, batch-cancel, `POST /v1/manifestos/receive`, **`POST /v1/manifestos/:id/replicate`**,
+  **`POST /v1/manifestos/batch-create`**, **`GET /v1/manifestos/receipt-responsibles`**;
+- CDF: `POST /v1/cdf/generate`, `POST /v1/cdf/download`, `GET /v1/cdf/certificates`,
+  `GET /v1/cdf/documents/:documentId`, **`GET /v1/cdf/responsibles`**;
+- jobs e auditoria: `GET /v1/jobs/:jobId`, `GET /v1/jobs/:jobId/events`,
+  `GET /v1/audit/:correlationId`;
+- **DMR** (cadeia `dmr-fluxo-base`, 2026-04-25): 11 operações `/v1/dmr/*`. Persistência via
+  [013_dmr_declarations.sql](../../backend/src/sql/013_dmr_declarations.sql) (DL-022: locking
+  otimista, trigger `increment_version`, 5 constraints). Validador em
+  [dmr-validator.ts](../../backend/src/lib/validators/dmr-validator.ts) (códigos `DMR_*` estáveis).
+  Handler `dmr.submit` em
+  [operation-handlers.ts](../../backend/src/workers/operation-handlers.ts). Gateway DMR é **stub
+  contratual** (Caminho B) devolvendo `problem+json` 503 `DMR_GATEWAY_PENDING_HAR` até captura humana
+  de HAR. CHANGELOG: [CHANGELOG-DMR-FLUXO-BASE.md](../CHANGELOG-DMR-FLUXO-BASE.md);
+- **MTR provisório** (cadeia `mtr-provisorio-fluxo-base`, 2026-04-25): 5 operações
+  `/v1/mtr-provisorio/*`. Persistência reaproveita `manifests` com discriminador `kind` via
+  [014_mtr_provisorio_kind.sql](../../backend/src/sql/014_mtr_provisorio_kind.sql). Validador em
+  [mtr-provisorio-validator.ts](../../backend/src/lib/validators/mtr-provisorio-validator.ts).
+  Decisões R3-C e R5 registradas. CHANGELOG:
+  [CHANGELOG-MTR-PROVISORIO-FLUXO-BASE.md](../CHANGELOG-MTR-PROVISORIO-FLUXO-BASE.md);
+- **Centro Operacional** (cadeia `centro-operacional-sicat`, 2026-04-25):
+  `GET /v1/operations/overview`, `GET /v1/jobs/search`, `POST /v1/jobs/:jobId/retry` (idempotente),
+  `GET /v1/audit/search`, `GET /v1/cetesb/accounts/health`, `GET /v1/cetesb/sessions/health`,
+  `GET /v1/reports/mtrs`, `GET /v1/reports/mtrs/export`;
+- **Camada conversacional**: `GET /v1/conversations/tools`,
+  `GET /v1/conversations/artifacts/:artifactId`,
+  `GET /v1/conversations/artifacts/:artifactId/content`, `POST /v1/conversations/feedback`,
+  `POST /v1/conversations/turns` (§2.7);
+- **AI Control Center**: **40 registros de rota** em
+  [ai-control-routes.ts](../../backend/src/routes/ai-control-routes.ts) sob `/v1/ai-control/*` (§2.6);
+- **Canal WhatsApp**: `GET|POST /v1/channels/whatsapp/webhook` (rota **pública**) e 9 rotas
+  `/v1/sicat/channel-links/*` (§2.7).
 
-### 2.2 Worker e fila (DL-022)
+### 2.2 Contrato OpenAPI — 104 operações
 
-Comprovado em `src/sql/004_advanced_locking_consistency.sql` e
-`docs/DL-022-EVOLUCAO-PERSISTENCIA-FILA.md`:
+[openapi/mtr_automacao_openapi_interna.yaml](../../backend/openapi/mtr_automacao_openapi_interna.yaml)
+→ [examples/](../../examples/) → [src/generated/operations.ts](../../backend/src/generated/operations.ts).
 
-- locking otimista (`version`) em `jobs`, `manifests` e
-  `session_contexts`;
-- 5 constraints de consistência (submitted, finished, running,
-  retry_wait, attempts);
-- tabelas `worker_health`, `system_events`, `performance_snapshots`;
-- worker heartbeat com auto-registro e shutdown gracioso;
-- retry exponencial e DLQ persistido.
+A fase 7 desta cadeia levou o documento de 88 para **104 operações** (87 paths, 154 schemas),
+publicando as 16 operações da cadeia (conversations, channel-links, webhook) que estavam fora do
+contrato — dívida registrada desde a fase 0. Verificado: `grep -c '"key":' operations.ts` = **104**.
 
-### 2.3 Gateway CETESB (real-mode)
+⚠️ **Ainda fora do contrato:** as ~40 rotas `/v1/ai-control/*` e 4 rotas
+`/v1/health/jobs/{active,dlq}/...`. Registrado em §3.6.
 
-Em `src/gateways/cetesb-gateway.js` (única exceção JS — DL-093):
+### 2.3 Worker e fila (DL-022)
 
-- bootstrap de sessão e reuso/renovação de JWT via
-  `src/services/session-context-service.ts`;
-- submit, print, cancel, receive, geração e download de CDF, listagem de
-  certificados, busca de manifesto, busca de parceiro, catálogos;
-- `recaptchaToken` é opcional (aceito vazio).
+Comprovado em `backend/src/sql/004_advanced_locking_consistency.sql` e
+[DL-022](../DL-022-EVOLUCAO-PERSISTENCIA-FILA.md):
 
-### 2.4 Validação de payloads
+- locking otimista (`version`) em `jobs`, `manifests` e `session_contexts`;
+- 5 constraints de consistência; tabelas `worker_health`, `system_events`, `performance_snapshots`;
+- worker heartbeat com auto-registro e shutdown gracioso; retry exponencial e DLQ persistido;
+- **novo (fase 3 desta cadeia):** raias de fila em
+  [lib/job-lanes.ts](../../backend/src/lib/job-lanes.ts) — `WORKER_LANE` ausente ⇒ `all`
+  (comportamento antigo byte a byte). A raia **nasce inerte**; subir o `sicat-worker-channel` é
+  pré-requisito **operacional** de ligar o canal, não de mergear o código.
 
-`src/lib/validators/manifest-validator.ts`:
+⚠️ **`runMigrations` NÃO tem advisory lock** (`backend/src/db/migrate.ts`). Com `AUTO_MIGRATE=true`
+na api **e** no worker, dois bootstraps simultâneos colidem em `23505` e derrubam os dois em
+CrashLoop. Migration inédita exige **rollout escalonado**. (`AGENTS.md` §5 e `ONBOARDING-DEVOPS.md`
+§4 ainda afirmavam o contrário; `CLAUDE.md` e `k8s/backend.yaml` foram corrigidos na fase 4.5.)
 
-- valida campos obrigatórios e parceiros antes de chamar a CETESB;
-- normaliza data de expedição (evita duplicação de timestamp);
-- 26 testes unitários (referenciados no README e no DL-020).
+**21 migrations** em `backend/src/sql/` (até a `020`). O snapshot anterior citava até a `014`.
+
+### 2.4 Gateway CETESB (real-mode)
+
+Em [cetesb-gateway.js](../../backend/src/gateways/cetesb-gateway.js) (única exceção JS — DL-093):
+bootstrap de sessão e reuso/renovação de JWT, submit, print, cancel, receive, geração e download de
+CDF, listagem de certificados, busca de manifesto, busca de parceiro, catálogos. `recaptchaToken` é
+opcional (aceito vazio).
 
 ### 2.5 Frontend Vue 3
 
-Confirmado em `frontend/src/router.js` e `frontend/src/views/`:
+Confirmado em [frontend/src/router.js](../../frontend/src/router.js) — 33 rotas declaradas:
 
-- `Home`, `Login`, `LoginCetesb` (seleção de conta CETESB);
-- `Dashboard` operacional;
-- `Manifestos`, `ManifestoNovo`, `ManifestoDetalhe`;
-- `RelatorioMtrs` (`/relatorios/mtrs`);
-- `Jobs` (monitor da fila);
-- `SessaoConta`;
-- `AdminAcessos` (RBAC interno);
-- `ChatOperacional` (`/conversacional/chat`);
-- **Centro Operacional** (cadeia `centro-operacional-sicat`,
-  `frontend/src/modules/`):
-  - `/operacao/dashboard` — `OperationsDashboardView.vue`;
-  - `/operacao/jobs` — `JobsConsoleView.vue` (busca + retry);
-  - `/operacao/auditoria` e `/operacao/auditoria/:correlationId` —
-    `AuditExplorerView.vue`;
-  - `/operacao/cetesb-health` — `CetesbAccountsHealthView.vue`;
-  - `/operacao/relatorios/mtr` — `MtrReportsView.vue` (export CSV);
-  - `/operacao/command-center` — `CommandCenterView.vue` (registry
-    declarativo, sem IA acoplada);
-  - badge compartilhado `OperationalStatusBadge.vue` consumindo o
-    espelho `frontend/src/modules/command-center/operationalStatus.js`.
-- **DMR (cadeia `dmr-fluxo-base`, 2026-04-25)**:
-  - `/dmr` — `DmrListView`;
-  - `/dmr/pendentes` — `DmrPendentesView`;
-  - `/dmr/novo` — `DmrCreateView`;
-  - `/dmr/:dmrId` — `DmrDetailView` (banner explícito para
-    `DMR_GATEWAY_PENDING_HAR`);
-  - store Pinia factory `useDmrStore()`, service HTTP
-    `frontend/src/services/dmrService.js`, espelho
-    `mapDmrStatusToOperational` em
-    `frontend/src/modules/command-center/operationalStatus.js`.
+- públicas/auth: `/`, `/login`, **`/login/keycloak/callback`**, `/login/cetesb`;
+- operação: `/dashboard`, `/manifestos`, `/manifestos/novo`, `/manifestos/:id`, `/relatorios/mtrs`,
+  `/dmr` (+ `/pendentes`, `/novo`, `/:dmrId`), `/mtr-provisorio` (+ `/novo`, `/:id`),
+  **`/cdf`**, **`/cdf/novo`**;
+- centro operacional: `/operacao/{dashboard,auditoria,auditoria/:correlationId,cetesb-health,relatorios/mtr,command-center}`;
+- sistema: **`/sistema/jobs`**, **`/sistema/ai-control`** (`/jobs` e `/operacao/jobs` redirecionam);
+- conta: `/sessao`, **`/perfil/canais`** (vínculo do WhatsApp), `/conversacional/chat`;
+- administração: `/admin/acessos`; playground: **`/dev/components`**.
 
-### 2.6 Documentação canônica
+Design system `Sicat*` (21 componentes — 17 da DL-100 mais `SicatActionCard`, `SicatAuthSteps`,
+`SicatHelpHint` e `SicatNextStep`, vindos da cadeia de UX didática), navegação **por audiência**,
+`status-map.js` como fonte
+única de status, composables `useNotification`/`useJobAwait`/`useJobStream` — tudo DL-100
+([CHANGELOG](../CHANGELOG-DL-100-REFATORACAO-UX-DESIGN-SYSTEM.md)). `CdfView.vue`,
+`JobsConsoleView.vue` e `UiState.vue` foram **removidos** — o snapshot anterior ainda os citava.
 
-- `README.md`, `docs/README.md`, `docs/copilot/README.md`;
-- decision logs DL-020, DL-021, DL-022, DL-023, DL-093;
-- release notes consolidadas em
-  `docs/CHANGELOG-CENTRO-OPERACIONAL.md` e
-  `docs/CHANGELOG-DMR-FLUXO-BASE.md`;
-- handoffs recentes consolidados:
-  - `docs/handoffs/frontend-cetesb-flows-hardening/10-documentation-final.md`
-    — fluxo autenticado de certificados CDF provado em runtime, com
-    audit trail recuperável por `correlationId`;
-  - `docs/handoffs/sigor-sicat-gap-map/10-documentation-final.md` — mapa
-    de paridade SIGOR x SICAT, fontes para o backlog estratégico.
+### 2.6 AI Control Center (2026-05-30) — ausente por completo do snapshot anterior
 
-## 3. EM PROGRESSO / PARCIAL
+- migration [017_ai_control_center.sql](../../backend/src/sql/017_ai_control_center.sql) —
+  **11 tabelas** + views;
+- 6 repositórios + `src/services/ai-control/*`; **40 registros de rota** em
+  `/v1/ai-control/*`; view `/sistema/ai-control` com painéis;
+- **runtime dinâmico**: a tabela `ai_tools` **sobrepõe** o `tool-registry.ts` — é por aí que se
+  libera (ou revoga) um canal para uma tool, sem deploy;
+- Langfuse como provider opcional; gates `AI_CONTROL_ENABLED` / `AI_CONTROL_READONLY`; confirmação
+  por HTTP 428.
 
-- **MTR provisório — captura HAR dedicada (recomendada, não
-  bloqueante)**: a cadeia `mtr-provisorio-fluxo-base` foi entregue com
-  base nos HARs existentes (`gerar_mtr`, `imprimir_mtr`,
-  `cancelar_mtr`) — decisão Caminho A+ documentada em
-  [02-source-validation.md](../handoffs/mtr-provisorio-fluxo-base/02-source-validation.md#32-lista-m%C3%ADnima-de-capturas-recomendadas-para-mitigar-r1-e-r3).
-  HARs específicos `gerar_mtr_provisorio.har`,
-  `imprimir_mtr_provisorio.har`, `listar_mtr_provisorio.har` são
-  recomendados para reforçar evidência mas **não bloqueiam** o uso da
-  base. **Wizard guiado de criação RESOLVIDO** pela cadeia
-  `mtr-provisorio-wizard-frontend` (2026-04-25): textarea JSON em
-  `/mtr-provisorio/novo` substituído por wizard equivalente ao
-  `ManifestCreateForm` via reuso paramétrico (props `submitHandler`,
-  `singleOnly`, `primaryActionLabel`, `pageKicker`, `pageTitle`,
-  `pageDescription`); wrapper `MtrProvisorioCreateView.vue` injeta
-  submit no `useMtrProvisorioStore().createDraft(payload)`; cenário
-  smoke wizard end-to-end PAYLOAD_INVALID verde. Sem mudança de
-  contrato HTTP, persistência ou gateway. CHANGELOG:
-  [docs/CHANGELOG-MTR-PROVISORIO-WIZARD-FRONTEND.md](../CHANGELOG-MTR-PROVISORIO-WIZARD-FRONTEND.md);
-  checkpoints:
-  [docs/handoffs/mtr-provisorio-wizard-frontend/](../handoffs/mtr-provisorio-wizard-frontend/).
-  Pendências residuais (não-bloqueantes): INC-WIZARD-01 e
-  INC-WIZARD-02 (cleanup de cenários legados do smoke; ver §3.1).
-- **DMR — gateway real (envio remoto à CETESB)**: o fluxo declaratório
-  base do SICAT está IMPLEMENTADO (cadeia `dmr-fluxo-base`,
-  ver §2.1, §2.5 e
-  [CHANGELOG-DMR-FLUXO-BASE.md](../CHANGELOG-DMR-FLUXO-BASE.md));
-  o envio remoto (HTTP real à CETESB) permanece **pendente de captura
-  HAR DMR** — ação humana descrita em
-  [02-source-validation.md §6](../handoffs/dmr-fluxo-base/02-source-validation.md#6-plano-de-captura-har-dmr-n%C3%A3o-executado-nesta-fase).
-  Quando o HAR for capturado, a futura cadeia `dmr-gateway-real`
-  reabre a fase 03 para substituir o stub
-  `DMR_GATEWAY_PENDING_HAR` no
-  [src/gateways/cetesb-gateway.js](../../src/gateways/cetesb-gateway.js).
-- **Relatório dedicado de MTRs**: rota `/relatorios/mtrs` existe no
-  frontend (`ManifestReportView.vue`), mas a UX equivalente ao portal
-  SIGOR ainda é parcial. Backend já permite consulta filtrada via
-  `GET /v1/manifestos`, sem endpoint dedicado de relatório/exportação.
-- **Camada conversacional**: rota `/conversacional/chat` e view
-  `ConversationalChatAppView.vue` existem como base; nenhum backend de
-  IA generativa está acoplado nesta fase. Tratada como base estrutural
-  para o futuro Command Center.
-- **Recebimento e CDF reais E2E**: caminho autenticado provado para
-  `GET /v1/cdf/certificates`; `manifest.receive` e `cdf.generate` reais
-  permanecem sem prova E2E recente por serem operações mutáveis na
-  CETESB (ver `frontend-cetesb-flows-hardening/10-documentation-final.md`).
-- **Streaming NDJSON ao vivo de jobs novos**: endpoint
-  `GET /v1/jobs/:jobId/events` provado com job terminal; falta
-  evidência ao vivo de job novo sem disparar operação remota mutável.
+Checkpoints: [docs/handoffs/ai-control-center/](../handoffs/ai-control-center/).
 
-## 3.1 Follow-ups de estabilidade
+### 2.7 ✅ Canal conversacional externo — WhatsApp
 
-Follow-ups não-bloqueantes que devem ser endereçados em cadeias
-futuras (ou em janela de hardening dedicada). Não abrem cadeia por
-si só.
+Cadeia `whatsapp-channel-sicat` (8 commits, fases 0–7), branch `sicat/whatsapp-channel`, 2026-08-06/08.
+**Leia esta seção junto com a §3.1** — o que NÃO foi entregue é tão importante quanto o que foi.
 
-- **F4 — flake única em `npm run test:integration`** (cadeia
-  `dmr-fluxo-base`, fase 08, 2026-04-25; reproduzida 1/124 também na
-  cadeia `mtr-provisorio-fluxo-base`, fase 08): falha não reproduzível
-  em reexecução imediata, sem alteração de código entre execuções.
-  Não-bloqueante. Owner sugerido: `postgres-queue-mtr` se reaparecer
-  com sinal estável (job ownership reconciliation). Ver
-  [dmr-fluxo-base/08-qa-validation.md §5](../handoffs/dmr-fluxo-base/08-qa-validation.md#5-matriz-de-valida%C3%A7%C3%B5es)
-  e
-  [mtr-provisorio-fluxo-base/08-qa-validation.md §4](../handoffs/mtr-provisorio-fluxo-base/08-qa-validation.md#4-status-baseline-f2--f3--f4).
-- **AUD-09 — flake `audit.spec.ts:267` sob full-suite paralela**
-  (cadeia `mtr-provisorio-fluxo-base`, fase 08, 2026-04-25): cenário
-  `09-Vuetify Components Render` falha intermitentemente sob contenção
-  de 6 workers paralelos no Playwright; passa **10/10** em isolado
-  (`npx playwright test tests/ui/audit.spec.ts`). Não atribuível à
-  cadeia MTR provisório (a spec inspeciona `/dashboard`, rota não
-  modificada). Owner sugerido: `frontend-vue-ux-mtr` se reaparecer em
-  CI consecutivo. Ver
-  [mtr-provisorio-fluxo-base/08-qa-validation.md §6](../handoffs/mtr-provisorio-fluxo-base/08-qa-validation.md#6-incidentes-abertos-sem-corre%C3%A7%C3%A3o-nesta-fase).
-- **HAR DMR ausente** (herdado de `dmr-fluxo-base/02`): captura
-  humana descrita em
-  [02-source-validation.md §6](../handoffs/dmr-fluxo-base/02-source-validation.md#6-plano-de-captura-har-dmr-n%C3%A3o-executado-nesta-fase).
-  Destrava a futura cadeia `dmr-gateway-real`.
-- **INC-WIZARD-01 — selector regression em smoke wizard MTR
-  provisório** (cadeia `mtr-provisorio-wizard-frontend`, fase 08,
-  2026-04-25): cenário "criação via /mtr-provisorio/novo redireciona
-  para /mtr-provisorio/:id" usa `getByRole('option')` mas o
-  `FilterableDropdown.vue` reusado pelo wizard renderiza opções como
-  `<button class="filterable-dropdown-option">` sem `role="option"`.
-  Cobertura funcional equivalente garantida pelo cenário novo wizard
-  end-to-end PAYLOAD_INVALID (verde). Fix sugerido: trocar por
-  `.filterable-dropdown-option`. Owner sugerido: `tester-qa-mtr`.
-  Ver
-  [mtr-provisorio-wizard-frontend/08-qa-validation.md §6.1](../handoffs/mtr-provisorio-wizard-frontend/08-qa-validation.md#61-inc-wizard-01-%E2%80%94-selector-regression-em-smoke-wizard).
-- **INC-WIZARD-02 — cenário PAYLOAD_INVALID legado não migrado para
-  o wizard** (cadeia `mtr-provisorio-wizard-frontend`, fase 08,
-  2026-04-25): cenário legado tenta preencher `Responsável *` direto
-  e clicar `Criar MTR provisório`, mas no wizard novo o campo está
-  na etapa 1 e o botão na etapa 4. Redundante após o cenário novo
-  wizard end-to-end. Fix sugerido: substituir cenário legado pelo
-  cenário wizard novo. Owner sugerido: `tester-qa-mtr`. Ver
-  [mtr-provisorio-wizard-frontend/08-qa-validation.md §6.2](../handoffs/mtr-provisorio-wizard-frontend/08-qa-validation.md#62-inc-wizard-02-%E2%80%94-cen%C3%A1rio-payload_invalid-legado-n%C3%A3o-migrado).
-- **F2/F3 — Playwright + chunks Vite** (herdados das cadeias
-  `homepage-canvas-continuous-storytelling` e camada conversacional):
-  ver §`Pendências conhecidas (QA fase 07 — centro-operacional-sicat
-  — 2026-04-25)` ao final deste documento; permanecem sob ownership
-  das cadeias originais.
+**Superfície conversacional endurecida (fase 0).** As 5 rotas `/v1/conversations/*` passam a exigir
+`sicatAuthMiddleware` (verificado em
+[conversation-routes.ts](../../backend/src/routes/conversation-routes.ts)). A identidade do turno
+(`channel`, `userId`, `integrationAccountId`, `sessionContextId`, `permissionKeys`) é **resolvida no
+servidor** e vence o corpo da requisição. `whatsapp` **não é canal declarável por cliente HTTP** →
+403 `CONVERSATION_CHANNEL_NOT_CLIENT_DECLARABLE`; canal desconhecido → 400
+`CONVERSATION_CHANNEL_INVALID` (antes caía silenciosamente em `inapp`). Rate limit de **40 turnos /
+5 min por usuário** → 429 `CONVERSATION_RATE_LIMITED` + `Retry-After`.
 
-## 4. PLANEJADO
+**Abstração de provedor (fase 1).** `WhatsAppProvider` com adapters **Twilio** e **Meta Cloud API**
+(`backend/src/services/conversation/channel/whatsapp/`), selecionados por `WHATSAPP_PROVIDER`
+(**default `disabled`**). Verificação de assinatura **fail-closed** e `AbortSignal.timeout` em todo
+`fetch`.
 
-Pilares do Centro Operacional SICAT — todos **IMPLEMENTADOS** na
-cadeia `centro-operacional-sicat` (concluída 2026-04-25):
+**Vinculação telefone ↔ usuário por OTP (fase 2).** OTP **sempre iniciado no app**: 6 rotas de
+vínculo + 3 de janela de ação em `/v1/sicat/channel-links/*`, tela `/perfil/canais`. Migration
+[020_channel_link_verifications.sql](../../backend/src/sql/020_channel_link_verifications.sql) —
+`code_hash` é `scrypt` **com salt por linha**, nunca o código nem um sha256 dele (6 dígitos = 10⁶
+imagens pré-computáveis em menos de um segundo a partir de um dump).
 
-1. ✅ Operations Dashboard (`GET /v1/operations/overview`,
-   `OperationsDashboardView.vue`).
-2. ✅ Jobs Console (`GET /v1/jobs/search`,
-   `POST /v1/jobs/:id/retry`, `JobsConsoleView.vue`).
-3. ✅ Audit Explorer (`GET /v1/audit/search`,
-   `GET /v1/audit/:correlationId`, `AuditExplorerView.vue`).
-4. ✅ CETESB Accounts & Sessions Health
-   (`GET /v1/cetesb/accounts/health`,
-   `GET /v1/cetesb/sessions/health`,
-   `CetesbAccountsHealthView.vue`).
-5. ✅ MTR Reports dedicados (`GET /v1/reports/mtrs`,
-   `GET /v1/reports/mtrs/export`, `MtrReportsView.vue`).
-6. ✅ Taxonomia de status/erros operacionais
-   (`docs/05-operacao/taxonomia-status-erros-operacionais.md` +
-   `src/lib/operational-status.ts`, 13 estados).
-7. ✅ Command Center base (registry + palette,
-   `CommandCenterView.vue`, sem backend de IA acoplado).
+**Webhook público (fase 3).** `GET|POST /v1/channels/whatsapp/webhook` — **primeira rota pública do
+SICAT**, isenta do `authMiddleware` global por `PUBLIC_PATH_PREFIXES` em
+[middlewares/auth.ts](../../backend/src/middlewares/auth.ts), autenticada **pela assinatura HMAC**.
+A isenção é estreita: `/v1/sicat/channel-links` **não** entra nela. A recepção enfileira
+`whatsapp.inbound_message` e responde 200 em milissegundos; idempotência pelo `unique` de
+`jobs.command_id`, sem migration nova.
 
-Backlog estratégico maior (DMR, MTR provisório, manifesto complementar
-de armazenamento temporário, variantes especiais de CDF, configurações
-CETESB do empreendimento e autoatendimento, chat generativo no Command
-Center) está consolidado em
-`docs/_inputs/fonte-de-verdade-backlog-cto.md`. A próxima frente
-recomendada está em `docs/10-estado-atual/PROXIMO_PROMPT.md`.
+**Renderer de saída textual (fase 4).** Renderizador determinístico do `ConversationStructuredResult`
+para texto de WhatsApp, por **famílias** (mapa `TYPE_TO_FAMILY` + `INTENT_TO_FAMILY`, não um `switch`
+de 21 braços — a razão está escrita no cabeçalho de
+[whatsapp-result-renderer.ts](../../backend/src/services/conversation/channel/whatsapp/whatsapp-result-renderer.ts)),
+mais segmentador de mensagem.
 
-## 5. Riscos e limites conhecidos
+**RBAC conversacional fail-closed (fase 4.5).** Catálogo de **8 chaves** e gate de **3 estados**
+avaliado **por chave**. Antes, quem não tinha papel nenhum passava por TODAS as tools — e
+`access_permissions` tinha 0 linhas. Runbook:
+[runbook-rbac-conversacional.md](../05-operacao/runbook-rbac-conversacional.md).
 
-- operações CETESB mutáveis (`manifest.receive`, `cdf.generate`,
-  cancelamentos) não devem ser disparadas para gerar evidência cega;
-- ausência de certificados reais na conta consultada limita prova E2E
-  de download remoto de CDF;
-- nenhum backend de IA está implementado: o Command Center é base
-  estrutural até segunda ordem;
-- toda mudança de superfície HTTP exige atualização lockstep de
-  OpenAPI, exemplos, `operations.ts`, rotas e testes de contrato.
+**Confirmação de ação server-side (fase 5).** Ticket **one-time**, persistido como **linha** (não
+token autocontido) em `conversation_channel_verifications`, discriminado por `channel_type`
+(`whatsapp_action`, `whatsapp_stepup`) — zero DDL novo. Argumentos remontados **no servidor** a
+partir da linha; autorização reavaliada na queima. Elegibilidade por **efeito irreversível**, não por
+`riskLevel`.
+
+**Aviso de conclusão e entrega de arquivo (fase 6).** Job `whatsapp.outbound_notice` **por ticket**,
+criado na **confirmação** (não no desfecho) — assim o estado "terminou e não avisou" não existe.
+Nunca vai para DLQ. Entrega de mídia implementada e **desligada por default**.
+
+**Contrato (fase 7).** As 16 operações da cadeia publicadas no OpenAPI em lockstep (§2.2).
+
+**Métricas:** `sicat_channel_inbound_{received,enqueued,dropped}_total`,
+`sicat_channel_outbound_notice_total` ([channel-metrics.ts](../../backend/src/lib/channel-metrics.ts)),
+`sicat_conversation_permission_decision_total`.
+
+**Suíte do backend:** 946 testes · **911 pass · 35 fail** — a baseline de falhas é **pré-existente**
+(11 nomes top-level) e não foi alterada pela cadeia.
+
+## 3. PARCIAL, INERTE e RECUSADO
+
+### 3.1 ⛔🕓 Canal WhatsApp — o que ele NÃO faz
+
+Esta subseção é a razão de o snapshot existir. Nada aqui é "falta de tempo": são decisões escritas.
+
+- **⛔ O canal NÃO emite MTR.** As ações de nível **N2** (`submit_manifest`,
+  `manifest.batch_submit_selected`) estão fechadas por **constante de código** —
+  `const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;`
+  (`whatsapp-confirmation-flow.ts:207`), com gate
+  `if (!WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED || !resolveWhatsAppOutboundNoticeEnabled())` na linha
+  293. **Nenhum `=true` de ambiente as abre.** A razão: o aviso de conclusão **não distingue "o MTR
+  não foi criado" de "o MTR foi criado e eu perdi a resposta"**, e para emissão irreversível essa é a
+  única informação que importa. **Emitir MTR pelo WhatsApp — a manchete do canal — não está
+  entregue.** O que o canal faz é **N1**: consulta, 2ª via de documento existente e réplica local.
+- **⛔ O nível N3 é recusado em lista de código** (`CHANNEL_HARD_DENY`, 10 chaves): todos os
+  cancelamentos, os três CDF, `manifest.receive_with_receipt`, `manifest.create_from_payload`,
+  `manifest.create_draft` (`requiresConfirmation: false` + `isAction: true` — a armadilha silenciosa)
+  e `replicate_manifest` direto. Nenhum `PATCH` do AI Control Center fura: as duas listas são
+  disjuntas e a invariante **falha no import** se alguém relaxar.
+- **⛔ Recusas registradas:** URL assinada / rota pública de download de documento; caminho de
+  `sendTemplate` fora da janela de 24 h; download de mídia recebida (o `mediaId` da Meta é
+  preservado, resolver a URL ficou para quando houver consumidor).
+- **🕓 Entrega de arquivo DESLIGADA por default** (`WHATSAPP_MEDIA_DELIVERY_ENABLED=false`). Código
+  completo e testado. Com a chave desligada, o texto do canal diz a verdade ("o download fica no
+  SICAT"). Ligar é decisão da organização — o PDF do MTR carrega CNPJ, endereço, resíduo e
+  responsável.
+- **🕓 O canal está INERTE no cluster.** `WHATSAPP_PROVIDER` tem default `disabled` (nenhum job de
+  canal é criado; o webhook responde 404) e `WORKER_LANE` ausente resolve para `all`. O manifesto
+  `k8s/backend.yaml` que cria a raia dedicada `sicat-worker-channel` **está retido, não commitado**
+  (+208 linhas) — sob Argo com `selfHeal: true`, commitá-lo **é** aplicá-lo. **Não ligar
+  `WHATSAPP_PROVIDER` sem esse Deployment no ar.**
+- **🕓 A migration `020` nunca foi aplicada** em banco nenhum; o DDL não foi exercitado. Aplicá-la
+  exige rollout escalonado (api Ready → depois worker), porque `runMigrations` não tem advisory lock.
+- **🕓 O seed do catálogo RBAC nunca rodou** contra este Postgres, e o gate está previsto para subir
+  em `CONVERSATION_PERMISSION_ENFORCEMENT=observe` — decide igual e **permite mesmo assim**,
+  registrando `would_deny`. O regime só fecha com o flip, e o flip tem passo 0 bloqueante e manual.
+  ⚠️ A linha `observe` está **no diff retido, não no git**: commitar só a raia sobe os três pods em
+  `enforce`.
+- **🕓 O fluxo ponta a ponta nunca foi executado** — enviar OTP de verdade e confirmar depende de
+  credenciais de provedor, que não existem no ambiente.
+- **⚠️ Sem coalescing**: 3 mensagens seguidas = 3 turnos = 3 chamadas de LLM (contido pelo teto por
+  vínculo).
+- **⚠️ Rate limit em memória** — correto para 1 réplica com `Recreate`; vira contagem por réplica se
+  escalar.
+- **⚠️ Cartão e lista de job não identificam a entidade** — o renderer é declaradamente puro, sem
+  acesso a repositório.
+- **⚠️ Usuário inativo no canal** cai como exceção técnica; a correção foi implementada e
+  **revertida** (exigia `findSicatUserById` no seam e derrubava 33 testes de canal sem relação com
+  RBAC).
+- **⚠️ `cdf.download` não virou chave própria** (fase 4.6) — risco nomeado e aceito para não fazer
+  dois estreitamentos sobre gente real no mesmo flip.
+
+**Ativação:** [runbook-canal-whatsapp.md](../05-operacao/runbook-canal-whatsapp.md) — sequência
+numerada, pontos de não-retorno, como desligar e a lista **canônica** de decisões pendentes do
+operador.
+
+### 3.2 ⚠️ DMR — gateway real (envio remoto à CETESB)
+
+O fluxo declaratório base está IMPLEMENTADO (§2.1); o envio remoto permanece **pendente de captura
+HAR DMR** — ação humana. O bloco DMR do gateway segue como stub `DMR_GATEWAY_PENDING_HAR`.
+
+### 3.3 ⚠️ MTR provisório — captura HAR dedicada
+
+Entregue com base nos HARs existentes (`gerar_mtr`, `imprimir_mtr`, `cancelar_mtr`) — decisão Caminho
+A+. HARs específicos reforçariam a evidência de `tipoManifesto = 2` (R3-C), mas **não bloqueiam**.
+O wizard guiado de criação foi resolvido pela cadeia `mtr-provisorio-wizard-frontend`.
+
+### 3.4 ⚠️ Recebimento e CDF reais E2E
+
+Caminho autenticado provado para `GET /v1/cdf/certificates`; `manifest.receive` e `cdf.generate`
+reais permanecem sem prova E2E recente **por serem operações mutáveis na CETESB** — não se dispara
+operação irreversível para gerar evidência cega.
+
+### 3.5 ⚠️ Streaming NDJSON ao vivo de jobs novos
+
+`GET /v1/jobs/:jobId/events` provado com job terminal; falta evidência ao vivo de job novo sem
+disparar operação remota mutável.
+
+### 3.6 ⚠️ Dívida de contrato e de ferramental (achados da fase 7)
+
+- **~44 operações ainda fora do OpenAPI**: as ~40 de `/v1/ai-control/*` e 4 de
+  `/v1/health/jobs/{active,dlq}/...`.
+- **`npm run gen:operations` não fecha o lockstep sozinho.** Ele escreve
+  `src/generated/operations.js`; o arquivo que o TypeScript consome é `operations.ts`, produzido por
+  `scripts/sync-operations-ts.mjs`, que **não está em nenhum script do `package.json`**. Rodar só o
+  `gen:operations` deixa o `.ts` **stale em silêncio**. Hoje os dois estão sincronizados (104 = 104)
+  porque a fase 7 rodou o segundo explicitamente — nada garante isso.
+- **`npm run test:contract` estava VERMELHO** antes desta fase, por caminho que ficou para trás no
+  refactor de monorepo (`266849cd`): `examplesDir` resolvia `backend/examples`, pasta inexistente
+  desde que `examples/` foi para a raiz do workspace. Corrigido na fase 7 (ancorado em
+  `import.meta.url`): era 4 testes / 2 pass / 2 fail, ficou **13 pass / 0 fail**.
+- **`npm run validate:md-links` cobre 8 arquivos, não 817.** Mesma classe de quebra: o script usa
+  `process.cwd()` e o `package.json` que o expõe é o do `backend/`, então ele varre
+  `backend/docs/` e **não enxerga `apps/sicat/docs/`**. Rodando com `cwd = apps/sicat`, o resultado
+  hoje é **410 links quebrados** (excluindo `node_modules`), quase todos `../../src/...` — o mesmo
+  refactor de monorepo. **Pré-existente**; os 11 deste arquivo e o 1 do `PROXIMO_PROMPT.md` foram
+  corrigidos nesta fase, o resto está aberto.
+- **Nenhum gate de CI cobre nada disso.** `.github/workflows/ci-apps.yml` roda para sicat apenas
+  `lint test:unit:frontend build:frontend` — sem `typecheck`, sem `npm test` do backend, sem
+  `validate:openapi`, sem `test:contract`. **A regra contract-first não tem barreira automatizada.**
+- **`createGeneratedRouter`** (`src/routes/generated-routes.ts`) é **código morto** — não é montado
+  em `app.ts`.
+- **`$ref: '#/components/responses/Problem'` declara `application/json`** enquanto o
+  `errorHandlerMiddleware` manda `application/problem+json` — dívida herdada em operações antigas.
+- **`POST /v1/conversations/feedback` tem dois envelopes de erro 400** (um `{error:{code,message}}`
+  à mão, um `problem+json`). Ambos documentados; homogeneizar é mudança de comportamento.
+
+### 3.7 Follow-ups de estabilidade (herdados)
+
+> ⚠️ Esta seção era a **§3.1** até 2026-08-08; docs antigos que apontavam para
+> `#31-follow-ups-de-estabilidade` foram reapontados para `#37-follow-ups-de-estabilidade-herdados`.
+
+A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smoke-cleanup`)
+**nunca rodou**. Seguem abertos:
+
+- **INC-WIZARD-01** — `getByRole('option')` no smoke do wizard MTR provisório, mas o
+  `FilterableDropdown.vue` renderiza `<button class="filterable-dropdown-option">` sem `role`.
+- **INC-WIZARD-02** — cenário `PAYLOAD_INVALID` legado não migrado para o fluxo wizard.
+- **F4** — flake `test:integration` 1/124, não reproduzível.
+- **AUD-09** — flake `audit.spec.ts:267` sob full-suite paralela (10/10 em isolado).
+- **F2/F3** — Playwright e chunks Vite, pré-existentes.
+- **HAR DMR** — destrava `dmr-gateway-real`; ação humana.
+
+### 3.8 ⚠️ Cobertura de teste declarada inexistente (escrita, não fingida)
+
+- **`unmetered` no débito de saída** — o ramo autoriza (é teto de custo, não de autorização) e segue
+  sem cobertura; precisa de double que implemente `consumeChannelVerificationSend`.
+- **F9** (regeneração do id de sessão) e **F12** (chave do rate limit) — confirmadas por mutação
+  sobrevivente; ambas exigem harness que não existe.
+- **5 testes pendentes da remediação da 4.5** (código corrigido, evidência devida): grant de piso
+  expirado; papel próprio vazio → `{manifest.read}`; `resolveChannelPrincipal` chamando
+  `listPermissionKeysByUserId` com o `userId` do vínculo; `issueTokenPair` concedendo o piso;
+  `permissionShortfall` no `resultPayload`.
+- **Nenhum teste executa o SQL do seed** contra um Postgres — os testes afirmam sobre *strings*.
+- **Sem teste de integração contra Postgres** para as guardas SQL da fase 2 — são protegidas por
+  testes de nível de fonte (comparação do `where` normalizado + alinhamento placeholder↔array). Mata
+  as mutações conhecidas, mas é proxy.
+- **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
+  executada.
+
+## 4. Riscos e limites conhecidos
+
+- **P0 — autorização das rotas REST.** `middlewares/auth.ts` só verifica a **presença** de um header
+  `Bearer`. `GET /v1/jobs/search`, `GET /v1/jobs/:jobId`, a DLQ (incluindo `requeue`/`delete`, que
+  **mutam**) e as rotas de ação de manifesto **não têm** `sicatAuthMiddleware`. Depois da fase 4.5,
+  **o chat é a superfície mais restrita do SICAT** — a propriedade "a IA não eleva permissão" é
+  verdadeira; "o usuário não conseguiria pela tela" continua **falsa**, por outro motivo.
+- **Heartbeat de claim por lote** — `claimJobs(10)` reivindica 10 jobs, o laço processa em série e
+  `startClaimHeartbeat` só começa na vez de cada job: os jobs 2..N ficam `running` com heartbeat
+  congelado e viram candidatos de `requeueStaleRunningJobs` em 5 min → **risco de execução dupla de
+  operações CETESB não idempotentes**. O manifesto retido mitiga **só na raia de canal**
+  (`WORKER_BATCH_SIZE=1`); a raia `default` segue exposta.
+- **`WHATSAPP_META_VERIFY_TOKEN` vaza pelo access log do Traefik** (que registra a URI antes do app,
+  fora do alcance do skip do `morgan`). Tratar como segredo de uso único e rotacionar após a
+  verificação.
+- Operações CETESB mutáveis (`manifest.receive`, `cdf.generate`, cancelamentos) não devem ser
+  disparadas para gerar evidência cega.
+- Ausência de certificados reais na conta consultada limita a prova E2E de download remoto de CDF.
+- **Segredo real no histórico legado** (GCP API Key) — pendência de rotação, ver
+  `ONBOARDING-DEVOPS.md` §7.
+- Toda mudança de superfície HTTP exige atualização lockstep de OpenAPI, exemplos, `operations.ts`,
+  rotas e testes de contrato — **sem gate automatizado hoje** (§3.6).
+
+> A afirmação anterior desta seção — *"nenhum backend de IA está implementado: o Command Center é
+> base estrutural até segunda ordem"* — era **falsa** e foi removida. Ver §2.6 e §2.7.
+
+## 5. Decisões pendentes do operador
+
+Consolidadas em **[runbook-canal-whatsapp.md §2](../05-operacao/runbook-canal-whatsapp.md)** — 12
+itens (O1 a O12), do manifesto retido ao flip do RBAC, passando pelo escudo anti-bombing, pelas
+credenciais do provedor e pelo P0 de autorização REST. **Nenhum deles é implementável por agente.**
 
 ## 6. Como evoluir este documento
 
-Atualizar este snapshot ao final de cada work_id com mudança de
-escopo. Não marcar nada como IMPLEMENTADO sem evidência em código,
-testes ou docs verificáveis. Cada nova cadeia deve regenerar este
-arquivo após a entrega validada pelo QA.
+Atualizar este snapshot ao final de cada work_id com mudança de escopo. Não marcar nada como
+IMPLEMENTADO sem evidência em código, testes ou docs verificáveis — **e não omitir o que não foi
+entregue**, que é a forma de mentir que este arquivo já cometeu uma vez. Cada nova cadeia deve
+regenerar este arquivo após a entrega validada pelo QA.
 
-----
-## Pendências conhecidas (QA fase 07 — centro-operacional-sicat — 2026-04-25)
-
-- **F1 — Link quebrado em checkpoint** (resolvido na fase 08-docs-final):
-  `docs/handoffs/centro-operacional-sicat/06-frontend-ux.md` apontava
-  para `frontend/tests/ui/login.spec.ts` (arquivo inexistente).
-  Reapontado para `frontend/tests/ui/audit.spec.ts` na fase
-  `08-docs-final` (doc-only, sem mudança de produto).
-- **F2 — Suíte Playwright (`cd frontend && npx playwright test`)**:
-  49 passed, 15 failed, 11 did not run. A nova spec
-  `tests/ui/centro-operacional.spec.ts` (6 testes) passou 100%.
-  Falhas remanescentes são pré-existentes ao work centro-operacional,
-  herdadas das cadeias `homepage-canvas-continuous-storytelling`
-  (`responsive-smoke`, `qa-global-home-back-button`,
-  `full-navigation-e2e`) e da camada conversacional recém-introduzida
-  (`conversational-chat-app.spec.js`, `manifests-resync.spec.js`,
-  `cetesb-operational-flows.spec.js`). Já documentadas em
-  `docs/handoffs/homepage-canvas-continuous-storytelling/09-qa-validation.md`.
-  Não bloqueiam o Centro Operacional; tratamento ficará a cargo das
-  frentes correspondentes.
-- **F3 — Bundle Vite com chunks > 500 kB**: aviso pré-existente
-  reportado pelo build (`index-*.js` ~1.27 MB / gzip ~389 kB,
-  `index-*.css` ~1015 kB / gzip ~161 kB). Não bloqueia entrega.
-  Otimização de code-splitting fica como melhoria técnica fora do
-  escopo desta cadeia.
+A próxima frente recomendada está em [PROXIMO_PROMPT.md](PROXIMO_PROMPT.md).

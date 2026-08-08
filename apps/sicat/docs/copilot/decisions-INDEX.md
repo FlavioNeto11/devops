@@ -2,7 +2,7 @@
 title: "Índice de Decisões Arquiteturais"
 status: reference
 applies_to: [sicat]
-updated: 2026-06-09
+updated: 2026-08-08
 language: pt-BR
 ---
 
@@ -17,10 +17,11 @@ language: pt-BR
 3. **Leia Planejamento, Decisões e Validação** para entender o raciocínio e estado atual.
 4. **Consulte Handoff** para checkpoints de implementação (se houver).
 
-## Decisões Arquiteturais (DL-100 a DL-001)
+## Decisões Arquiteturais (DL-101 a DL-001)
 
 | DL | Título | Status | Handoff/Referência |
 |---|---|---|---|
+| [DL-101](13-decision-log.md#dl-101) | Canal conversacional externo (WhatsApp) — identidade no servidor, 2 provedores, ticket como linha, níveis por efeito irreversível e as recusas (N2/N3) | ✅ COMPLETADO (**N2 fechado por desenho**) | [docs/handoffs/whatsapp-channel-sicat/](../handoffs/whatsapp-channel-sicat/) |
 | [DL-100](#dl-100) | Refatoração UX/UI corporativa — design system `Sicat*`, navegação por audiência e decomposição de telas-monstro | ✅ COMPLETADO | [docs/copilot/handoffs/DL-100/](handoffs/DL-100/) |
 | [DL-099](#dl-099) | Tema autenticado alinhado à home + navegação modular por domínio + módulo CDF | ✅ COMPLETADO | [docs/copilot/handoffs/DL-099/](handoffs/DL-099/) |
 | [DL-098](#dl-098) | App Shell decomposto em `Sicat*` + fonte declarativa única de navegação | ✅ COMPLETADO | [docs/copilot/handoffs/DL-098/](handoffs/DL-098/) |
@@ -61,8 +62,9 @@ Para decisões anteriores e histórico completo, consulte [docs/copilot/13-decis
 - **DL-022**: Persistência, fila e observabilidade
 - **DL-021**: Reorganização estrutural
 
-### IA e Conversação (DL-096, DL-095)
+### IA e Conversação (DL-101, DL-096, DL-095)
 
+- **DL-101**: Canal conversacional externo (WhatsApp) — identidade no servidor, ticket como linha, N2/N3 recusados
 - **DL-096**: LangChain + LangGraph
 - **DL-095**: Memória orquestrada
 

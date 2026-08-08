@@ -800,6 +800,150 @@ const operationsData = [
     "summary": "Imprimir manifesto provisório (assíncrono)",
     "tag": "MTR Provisorio",
     "successStatus": 202
+  },
+  {
+    "key": "get_v1_conversations_tools",
+    "method": "get",
+    "specPath": "/v1/conversations/tools",
+    "expressPath": "/v1/conversations/tools",
+    "summary": "Listar tools conversacionais e a política efetiva de cada uma",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_conversations_artifacts_artifactId",
+    "method": "get",
+    "specPath": "/v1/conversations/artifacts/{artifactId}",
+    "expressPath": "/v1/conversations/artifacts/:artifactId",
+    "summary": "Consultar o status de um artefato conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_conversations_artifacts_artifactId_content",
+    "method": "get",
+    "specPath": "/v1/conversations/artifacts/{artifactId}/content",
+    "expressPath": "/v1/conversations/artifacts/:artifactId/content",
+    "summary": "Baixar o conteúdo binário de um artefato conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_conversations_feedback",
+    "method": "post",
+    "specPath": "/v1/conversations/feedback",
+    "expressPath": "/v1/conversations/feedback",
+    "summary": "Registrar feedback 👍/👎 de uma resposta da IA",
+    "tag": "Conversations",
+    "successStatus": 201
+  },
+  {
+    "key": "post_v1_conversations_turns",
+    "method": "post",
+    "specPath": "/v1/conversations/turns",
+    "expressPath": "/v1/conversations/turns",
+    "summary": "Executar um turno conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_sicat_channel_links",
+    "method": "get",
+    "specPath": "/v1/sicat/channel-links",
+    "expressPath": "/v1/sicat/channel-links",
+    "summary": "Listar vínculos de canal do usuário autenticado",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_sicat_channel_links",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links",
+    "expressPath": "/v1/sicat/channel-links",
+    "summary": "Iniciar a vinculação de um telefone por OTP",
+    "tag": "SICAT Channel Links",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_sicat_channel_links_whatsapp_action_window",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "summary": "Abrir a janela de liberação de ações pelo WhatsApp",
+    "tag": "SICAT Channel Links",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_sicat_channel_links_whatsapp_action_window",
+    "method": "get",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "summary": "Consultar a janela de liberação viva",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_whatsapp_action_window_windowId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window/{windowId}",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window/:windowId",
+    "summary": "Revogar a janela de liberação agora",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "post_v1_sicat_channel_links_challenges_challengeId_resend",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}/resend",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId/resend",
+    "summary": "Reenviar o código do desafio",
+    "tag": "SICAT Channel Links",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_sicat_channel_links_challenges_challengeId_confirm",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}/confirm",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId/confirm",
+    "summary": "Confirmar o código e gravar o vínculo",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_challenges_challengeId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId",
+    "summary": "Cancelar o desafio vivo",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_linkId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/{linkId}",
+    "expressPath": "/v1/sicat/channel-links/:linkId",
+    "summary": "Desvincular um número",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "get_v1_channels_whatsapp_webhook",
+    "method": "get",
+    "specPath": "/v1/channels/whatsapp/webhook",
+    "expressPath": "/v1/channels/whatsapp/webhook",
+    "summary": "Desafio de verificação do webhook (Meta)",
+    "tag": "WhatsApp Channel",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_channels_whatsapp_webhook",
+    "method": "post",
+    "specPath": "/v1/channels/whatsapp/webhook",
+    "expressPath": "/v1/channels/whatsapp/webhook",
+    "summary": "Receber mensagens de entrada do WhatsApp",
+    "tag": "WhatsApp Channel",
+    "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
 

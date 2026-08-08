@@ -1,0 +1,11 @@
+{
+  "challengeId": "cver_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "channelType": "whatsapp",
+  "phoneMasked": "+55 11 ****-0032",
+  "expiresAt": "2026-03-13T15:00:02Z",
+  "attemptsRemaining": 5,
+  "sendsRemaining": 2,
+  "canResendAt": "2026-03-13T14:51:02Z",
+  "deliveryStatus": "sent",
+  "correlationId": "corr_channel_link_start_2026_03_13"
+}

@@ -1,0 +1,33 @@
+{
+  "artifactId": "cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+  "title": "MTR 12345678 - impressão",
+  "artifactType": "document",
+  "sourceKind": "manifest_print",
+  "status": "available",
+  "fileName": "mtr-12345678.pdf",
+  "mimeType": "application/pdf",
+  "correlationId": "corr_conversation_artifact_status_2026_03_13",
+  "jobId": "job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+  "integrationAccountId": "acc_01JQWACCOUNT0001",
+  "sessionContextId": "sctx_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "conversationSessionId": "csess_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "conversationTurnId": "ctrn_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "progress": {
+    "total": 1,
+    "completed": 1,
+    "failed": 0,
+    "pending": 0
+  },
+  "availableAt": "2026-03-13T14:52:11Z",
+  "expiresAt": "2026-03-16T14:52:11Z",
+  "createdAt": "2026-03-13T14:50:02Z",
+  "updatedAt": "2026-03-13T14:52:11Z",
+  "sourceRefs": [
+    "man_01JQW5M6YY9M7K7B5N63GQ6E9S"
+  ],
+  "metadata": {},
+  "links": {
+    "statusUrl": "/v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+    "downloadUrl": "/v1/conversations/artifacts/cart_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/content"
+  }
+}
