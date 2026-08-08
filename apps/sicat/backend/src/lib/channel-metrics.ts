@@ -60,6 +60,15 @@ const droppedCounter = ensureCounter<DropLabel>(
  *
  * `skipped_media_oversize` é OBRIGATÓRIA: sem ela a degradação de anexo para texto fica invisível e
  * o teto de `whatsappMediaMaxBytes` nunca é calibrado com dado real.
+ *
+ * As QUATRO degradações de mídia têm rótulo PRÓPRIO, e isso é contrato — não estética:
+ *   · `skipped_media_disabled` ............... POLÍTICA desligada (flag `false` ou teto de docs 0);
+ *   · `skipped_media_provider_unsupported` ... CAPACIDADE — o provedor não aceita bytes (Twilio);
+ *   · `skipped_media_over_cap` ............... nº de documentos acima de `whatsappNoticeMaxDocuments`;
+ *   · `skipped_media_oversize` ............... um arquivo acima de `whatsappMediaMaxBytes`.
+ * Colapsar os dois primeiros no mesmo rótulo já aconteceu e é a pior variante: o operador liga a
+ * flag numa instalação Twilio, o comportamento não muda, e a única série que explicaria o porquê
+ * diz "disabled" — indistinguível de a flag não ter sido lida.
  */
 type NoticeLabel = 'outcome' | 'path';
 
@@ -77,6 +86,8 @@ export type ChannelNoticePath =
   | 'skipped_link_transferred'
   | 'skipped_media_oversize'
   | 'skipped_media_disabled'
+  | 'skipped_media_provider_unsupported'
+  | 'skipped_media_over_cap'
   | 'skipped_undeliverable';
 
 export function recordChannelOutboundNotice(outcome: string, path: ChannelNoticePath, count = 1): void {

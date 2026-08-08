@@ -18,7 +18,7 @@ nunca aplicada em banco nenhum, seed do catálogo RBAC nunca executado contra es
 | `WHATSAPP_PROVIDER` | `disabled` | `resolveWhatsAppProvider()` devolve `null`; o webhook responde **404** no GET e no POST (`routes/channel-webhook-routes.ts:78,110`) — indistinguível de rota inexistente |
 | `WHATSAPP_ACTIONS_ENABLED` | `false` | `processTurn` recebe `allowActions: false`. Nenhuma linha de `ai_tools` contorna |
 | `WHATSAPP_ACTION_NOTICE_ENABLED` | `false` | portão do N2 — **e não basta**, ver §7 |
-| `WHATSAPP_MEDIA_DELIVERY_ENABLED` | `false` | canal nunca promete anexo; o texto diz "o download fica no SICAT" |
+| `WHATSAPP_MEDIA_DELIVERY_ENABLED` | `true` (O8 decidida: ligada) | com política ligada, a entrega ainda depende de capacidade — só o provedor Meta aceita bytes. Twilio degrada para texto com rótulo `skipped_media_provider_unsupported` na métrica; `false` desliga por política (`skipped_media_disabled`) |
 | `WHATSAPP_UNLINKED_NOTICE_ENABLED` | `false` | número não vinculado não recebe cortesia (custo por mensagem contra tráfego arbitrário) |
 | `CONVERSATION_PERMISSION_ENFORCEMENT` | **`enforce`** (`lib/config.ts`) | valor desconhecido **lança no boot**. A linha `observe` está no manifesto **retido**, não no git — ver ponto de não-retorno nº 2 |
 | `WORKER_LANE` | ausente ⇒ `all` | comportamento antigo byte a byte; a raia nasce inerte (`lib/job-lanes.ts`) |
@@ -44,7 +44,7 @@ efeito no cluster / na CETESB / no provedor. Os demais documentos da cadeia apon
 | **O5** | **D-A2 — o escudo anti-bombing tranca o dono de primeira viagem.** Quem nunca vinculou um número pode ser trancado por N+1 contas descartáveis, em janela renovável (`CHANNEL_LINK_VICTIM_SHIELD_DISTINCT_USERS=3` / `_WINDOW_HOURS=24`), **sem escape no produto**. Escolher: step-up de identidade fora de banda **ou** ação de suporte que libera o número. Explicitamente **não** resolver por sinal fraco (IP, idade da conta) — reabriria o bombing multi-conta | Vítima sem caminho de recuperação |
 | **O6** | **D-A5 — auditar (ou não) o `MAX_LINKS_REACHED` no `start`.** O `confirm` já audita; a pré-checagem é anterior a qualquer prova de posse e hoje não deixa rastro | Buraco de trilha, risco baixo |
 | **O7** | **Credenciais do provedor** — `WHATSAPP_PROVIDER` + as chaves Twilio ou Meta. `kubeseal` **não existe nesta máquina** (verificado no PATH de Machine+User), e `sicat-config` é um SealedSecret sob Argo: ou se instala o `kubeseal` e re-sela, ou se usa o precedente do próprio repo (Secret plain fora do git + `secretKeyRef` explícito, que vence o `envFrom` — é o que `reqhub-api-config` já faz em `k8s/backend.yaml`) | O canal não existe |
-| **O8** | **`WHATSAPP_MEDIA_DELIVERY_ENABLED`** — a entrega de arquivo está completa e testada, e **desligada por default**. O PDF do MTR carrega CNPJ, endereço, resíduo e responsável; no aparelho vai para o backup de nuvem para sempre e encaminhar é um toque. É decisão da organização, não do código | Nenhum — com a chave desligada o texto do canal diz a verdade |
+| **O8** | **DECIDIDA — `WHATSAPP_MEDIA_DELIVERY_ENABLED` ligada por default** (decisão do operador). O PDF do MTR carrega CNPJ, endereço, resíduo e responsável; a organização assumiu o custo. `false` reverte por env, sem código. A entrega continua condicionada à capacidade: só o provedor Meta aceita bytes (Twilio degrada para texto, com `skipped_media_provider_unsupported` na métrica e warn mascarado no log) | Nenhum — cada degradação tem rótulo próprio na métrica |
 | **O9** | **Liberar `allowChannels` das tools de ação para `whatsapp`** — pelo AI Control Center, **em runtime**, chave por chave, nunca hardcoded no `tool-registry.ts` (§8) | O canal segue somente-leitura |
 | **O10** | **P0 fora da cadeia — autorização das rotas REST.** `GET /v1/jobs/search`, `GET /v1/jobs/:jobId`, a DLQ (incluindo `requeue`/`delete`, que **mutam**) e as rotas de ação de manifesto não têm `sicatAuthMiddleware`; o `authMiddleware` global só confere o prefixo `Bearer `. Depois da fase 4.5, o **chat é a superfície mais restrita do SICAT** | Issue P0 própria — decidir prioridade. Ver [runbook-rbac-conversacional.md](runbook-rbac-conversacional.md) |
 | **O11** | **Ambiente novo nasce sem administrador** — o statement `admin-grant-bootstrap` exige um usuário pré-existente, criado só no primeiro login; só funciona no segundo boot | Bootstrap de ambiente limpo |
@@ -406,7 +406,9 @@ AI Control Center **não fura** essa lista — as duas listas são disjuntas e a
 ## 8. O que NÃO fazer
 
 - **Não** setar `WHATSAPP_ACTION_NOTICE_ENABLED=true` esperando destravar emissão (§7).
-- **Não** ligar `WHATSAPP_MEDIA_DELIVERY_ENABLED` sem decisão organizacional escrita (O8).
+- **Não** esperar anexo em instalação Twilio: com a política ligada (O8, default atual) o provedor
+  sem suporte a bytes degrada para texto — o sinal é `skipped_media_provider_unsupported` na métrica
+  e o warn mascarado no log, não uma falha do aviso.
 - **Não** hardcodar `whatsapp` em `allowChannels` no `tool-registry.ts` — a alavanca é o runtime do
   AI Control Center, que é auditável e revogável em segundos.
 - **Não** desativar uma permissão para "destravar alguém" — faz o oposto do que parece; ver

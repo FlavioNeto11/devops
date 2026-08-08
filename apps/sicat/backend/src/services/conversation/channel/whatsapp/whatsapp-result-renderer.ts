@@ -1479,8 +1479,8 @@ function buildArtifactFamily(context: BuildContext, includeDataItems = true): Fa
  *
  * A capacidade é REAL, não uma flag de intenção: bytes só existem no adapter da Meta (o Twilio lança
  * 501 `WHATSAPP_MEDIA_URL_REQUIRED` sem URL pública, e URL pública foi recusada nesta fase), e a
- * política `WHATSAPP_MEDIA_DELIVERY_ENABLED` vem DESLIGADA por default — quem decide se o PDF de um
- * cliente vai para um aparelho pessoal é a organização.
+ * política `WHATSAPP_MEDIA_DELIVERY_ENABLED` — hoje LIGADA por default, desligável por env — segue
+ * sendo da organização: quem decide se o PDF de um cliente vai para um aparelho pessoal é ela.
  *
  * ⚠️ O arquivo NÃO sai neste turno de consulta: ele sai no AVISO da ação confirmada. Por isso a
  * variante ligada fala do que vai acontecer quando o documento ficar pronto, e nunca promete anexo

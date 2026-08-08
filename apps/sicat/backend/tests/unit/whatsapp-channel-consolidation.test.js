@@ -279,7 +279,7 @@ describe('consolidação/fase6 — CRÍTICO: applyWhatsAppInboundTerminalFailure
 
 describe('consolidação/fase6 — ALTO: teto de tentativas de envio impede mídia/texto PAGO duplicado', () => {
   it('sendAttempts NO TETO (2) sem noticeSentAt: conclui undeliverable e NÃO chama o provedor', async () => {
-    // Default: mídia desligada ⇒ 0 documentos ⇒ teto = whatsappMaxSendAttempts(2) + 0 = 2.
+    // Sem artefato de documento nos jobs ⇒ 0 documentos ⇒ teto = whatsappMaxSendAttempts(2) + 0 = 2.
     const job = noticeJob({ payload: { sendAttempts: 2 } });
     const harness = createHarness();
 

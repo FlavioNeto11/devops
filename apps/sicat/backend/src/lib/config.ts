@@ -381,10 +381,13 @@ export const config = {
   /**
    * POLÍTICA, não capacidade. O mecanismo de entrega de arquivo existe inteiro e é testado; quem
    * decide se o PDF de um cliente vai para um aparelho pessoal — onde fica no backup de nuvem para
-   * sempre e um encaminhamento é um toque — é a organização, não o código. Default DESLIGADO, e com
-   * ele desligado o canal diz a frase honesta de hoje e NUNCA promete anexo que não vai sair.
+   * sempre e um encaminhamento é um toque — é a organização, não o código. Por decisão do operador
+   * o default passou a LIGADO; `WHATSAPP_MEDIA_DELIVERY_ENABLED=false` continua sendo o desligamento
+   * por política, sem tocar em código. Política ligada NÃO é promessa: a entrega ainda depende de
+   * CAPACIDADE (só o provedor Meta aceita bytes) e dos tetos abaixo — e cada recusa tem rótulo
+   * próprio na métrica `sicat_channel_outbound_notice_total` para a degradação nunca ser invisível.
    */
-  get whatsappMediaDeliveryEnabled() { return getConfigValue('whatsappMediaDeliveryEnabled', toBool(process.env.WHATSAPP_MEDIA_DELIVERY_ENABLED, false)); },
+  get whatsappMediaDeliveryEnabled() { return getConfigValue('whatsappMediaDeliveryEnabled', toBool(process.env.WHATSAPP_MEDIA_DELIVERY_ENABLED, true)); },
   /**
    * Teto POR DOCUMENTO, conferido com `fs.stat` ANTES de qualquer `readFile`. O gargalo não é o
    * provedor: é o pod (limit 2Gi, `--max-old-space-size=1536`, mesmo processo do turno de LLM) com

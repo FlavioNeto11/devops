@@ -498,7 +498,15 @@ export async function runWhatsAppOutboundNotice(input: {
   // Também no retry: `documentsSentAt` filtra o que já saiu, então um crash depois do 2º de 3 PDFs
   // retoma no 3º sem reenviar os dois primeiros.
   const documentsSentAt = readDocumentsSentAt(payload);
-  const documents = await collectDocuments({ aggregate, payload, provider, sentAt: documentsSentAt });
+  const documents = await collectDocuments({
+    aggregate,
+    payload,
+    provider,
+    sentAt: documentsSentAt,
+    // Só para o LOG do ramo de provedor incapaz — e sempre mascarado lá dentro. O payload continua
+    // sem telefone.
+    externalUserKey: link.externalUserKey
+  });
 
   const resolvedOutcome = toNonEmptyString(payload.noticeOutcome) || aggregate.outcome;
 
@@ -682,6 +690,7 @@ async function collectDocuments(input: {
   payload: LooseRecord;
   provider: WhatsAppProvider;
   sentAt: Record<string, string>;
+  externalUserKey: string;
 }): Promise<PreparedDocument[]> {
   const artifactIds = input.aggregate.documentArtifactIds;
   if (artifactIds.length === 0) return [];
@@ -689,19 +698,33 @@ async function collectDocuments(input: {
   const maxDocuments = Number(config.whatsappNoticeMaxDocuments);
   const cap = Number.isFinite(maxDocuments) && maxDocuments > 0 ? Math.floor(maxDocuments) : 0;
 
+  // POLÍTICA desligada (flag `false` ou teto de docs 0). Rótulo PRÓPRIO, distinto do de capacidade
+  // logo abaixo: os dois ramos já dividiram `skipped_media_disabled` e o resultado era um operador
+  // ligando a flag numa instalação Twilio, vendo o comportamento não mudar e a métrica insistir que
+  // a política estava desligada.
   if (config.whatsappMediaDeliveryEnabled !== true || cap === 0) {
     recordChannelOutboundNotice(input.aggregate.outcome, 'skipped_media_disabled');
     return [];
   }
 
-  // Só a Meta aceita bytes. Sem isto, `sendMedia` do Twilio lançaria 501 e derrubaria o aviso INTEIRO.
+  // CAPACIDADE: só a Meta aceita bytes. Sem isto, `sendMedia` do Twilio lançaria 501 e derrubaria o
+  // aviso INTEIRO. O warn existe porque este é o único ramo em que a política diz "sim" e o canal
+  // diz "não" — sem ele, a instalação Twilio com a flag ligada não tem sinal nenhum do porquê.
   if (input.provider.name !== 'meta') {
-    recordChannelOutboundNotice(input.aggregate.outcome, 'skipped_media_disabled');
+    recordChannelOutboundNotice(input.aggregate.outcome, 'skipped_media_provider_unsupported');
+    console.warn(
+      `[whatsapp-notice] politica de midia LIGADA, mas o provedor "${input.provider.name}" nao aceita bytes — `
+      + `anexo degradado para texto para ${maskChannelUserKey(input.externalUserKey)}`
+    );
     return [];
   }
 
-  // Acima do teto de itens, texto — não meia entrega.
-  if (artifactIds.length > cap) return [];
+  // Acima do teto de itens, texto — não meia entrega. CONTADO: este ramo já retornou `[]` sem
+  // métrica nenhuma, e degradação invisível é exatamente o que esta série existe para impedir.
+  if (artifactIds.length > cap) {
+    recordChannelOutboundNotice(input.aggregate.outcome, 'skipped_media_over_cap');
+    return [];
+  }
 
   const maxBytesRaw = Number(config.whatsappMediaMaxBytes);
   const maxBytes = Number.isFinite(maxBytesRaw) && maxBytesRaw > 0 ? Math.floor(maxBytesRaw) : 8388608;

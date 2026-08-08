@@ -245,10 +245,12 @@ Esta subseção é a razão de o snapshot existir. Nada aqui é "falta de tempo"
 - **⛔ Recusas registradas:** URL assinada / rota pública de download de documento; caminho de
   `sendTemplate` fora da janela de 24 h; download de mídia recebida (o `mediaId` da Meta é
   preservado, resolver a URL ficou para quando houver consumidor).
-- **🕓 Entrega de arquivo DESLIGADA por default** (`WHATSAPP_MEDIA_DELIVERY_ENABLED=false`). Código
-  completo e testado. Com a chave desligada, o texto do canal diz a verdade ("o download fica no
-  SICAT"). Ligar é decisão da organização — o PDF do MTR carrega CNPJ, endereço, resíduo e
-  responsável.
+- **✅ Entrega de arquivo LIGADA por default** (`WHATSAPP_MEDIA_DELIVERY_ENABLED=true` — decisão do
+  operador, O8). `false` reverte por env, sem código. Política ligada não é promessa: só o provedor
+  Meta aceita bytes, e cada degradação tem rótulo próprio na métrica
+  `sicat_channel_outbound_notice_total` (`skipped_media_disabled` = política,
+  `skipped_media_provider_unsupported` = provedor sem bytes com warn mascarado,
+  `skipped_media_over_cap` = acima do teto de itens, `skipped_media_oversize` = arquivo grande).
 - **🕓 O canal está INERTE no cluster.** `WHATSAPP_PROVIDER` tem default `disabled` (nenhum job de
   canal é criado; o webhook responde 404) e `WORKER_LANE` ausente resolve para `all`. O manifesto
   `k8s/backend.yaml` que cria a raia dedicada `sicat-worker-channel` **está retido, não commitado**
