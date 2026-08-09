@@ -2,6 +2,7 @@ import { before, beforeEach, after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query } from '../../src/db/pool.js';
 import { createConversationService } from '../../src/services/conversation/conversation-service.js';
+import { buildTestPrincipalFromBody } from '../helpers/conversation-principal.js';
 
 // Cenario reportado (MARDAN): na grid aparecem 3 manifestos de 29/05 (status "salvo"),
 // porem o chat respondia o manifesto 260012058818 (28/05). Causa raiz: a janela de
@@ -43,14 +44,18 @@ async function insertManifest({ id, number, expeditionDate, createdAt, externalS
 }
 
 function buildTurn(messageText, overrides = {}) {
+  const body = {
+    channel: 'inapp',
+    message: { text: messageText },
+    context: { integrationAccountId: ACCOUNT_ID, requestedBy: 'qa_recency' },
+    options: { allowActions: true },
+    conversationSessionId: overrides.conversationSessionId || 'csn_test_recency_scn_001'
+  };
+
   return {
-    body: {
-      channel: 'inapp',
-      message: { text: messageText },
-      context: { integrationAccountId: ACCOUNT_ID, requestedBy: 'qa_recency' },
-      options: { allowActions: true },
-      conversationSessionId: overrides.conversationSessionId || 'csn_test_recency_scn_001'
-    },
+    body,
+    // A identidade do turno vem do PRINCIPAL — o serviço não lê mais conta/usuário do `body`.
+    principal: buildTestPrincipalFromBody(body),
     correlationId: overrides.correlationId || 'corr_test_recency_scn_t1',
     headers: {},
     idempotencyKey: overrides.idempotencyKey || 'idem_test_recency_scn_t1'

@@ -6,7 +6,7 @@ import { insertConversationMessage, listConversationMessages } from '../../repos
 import { upsertConversationSession } from '../../repositories/conversation-session-repo.js';
 import { buildConversationContext } from './conversation-context-service.js';
 import type { ConversationPrincipal } from './conversation-principal.js';
-import { getAiConfig } from './ai-config.js';
+import { getAiConfig, hasOpenAiApiKey, type AiConfig } from './ai-config.js';
 import {
   evaluateConversationPolicy,
   getConversationToolPolicies,
@@ -2107,7 +2107,47 @@ async function persistAuditEntry(input: Parameters<typeof insertAuditEntry>[0]) 
   });
 }
 
-async function buildProviderUnavailableResponse(context: ReturnType<typeof buildConversationContext>, providerError: string): Promise<ProcessTurnOutput> {
+/**
+ * Nome dos modelos que vão para a TRILHA do turno (`llm.agentModelUsed`/`llm.synthesisModelUsed`).
+ *
+ * POR QUE ISTO NÃO É `getAiConfig()` DIRETO
+ * -----------------------------------------
+ * `getAiConfig()` LANÇA `AppError(503, PROVIDER_UNAVAILABLE)` quando falta `OPENAI_API_KEY`. Este
+ * serviço, porém, não fala com a OpenAI: quem planeja é o `llmProvider` INJETADO em
+ * `createConversationService`, e quem redige é o `synthesizer` — os dois substituíveis. Ler a config
+ * real aqui transformava uma dependência INJETÁVEL numa dependência OCULTA e não-injetável: todo
+ * chamador que trouxesse o próprio provider (canal, ai-core, teste) morria em 503 antes mesmo de o
+ * provider ser chamado, e o caminho de fallback — que existe justamente para quando a IA está fora —
+ * era o que mais dependia da IA estar configurada.
+ *
+ * Aqui só precisamos dos NOMES dos modelos, que são rótulo de observabilidade e não credencial.
+ * A leitura é LAZY (só quando o nome é de fato necessário) e guardada por `hasOpenAiApiKey()` — o
+ * mesmo idioma já usado por `conversation-evidence-verifier`, `conversation-knowledge-service`,
+ * `knowledge-ingestion`, `conversation-vector-memory-service` e `conversation-working-memory-service`.
+ *
+ * Sem credencial não há modelo escolhido, e o rótulo diz isso — em vez de mentir um nome plausível.
+ */
+const UNKNOWN_AI_MODEL = 'unknown';
+
+function resolveAiModelTrace(aiConfig?: AiConfig | null): {
+  agentModelUsed: string;
+  synthesisModelUsed: string;
+} {
+  const config = aiConfig ?? (hasOpenAiApiKey() ? getAiConfig() : null);
+  if (!config) {
+    return { agentModelUsed: UNKNOWN_AI_MODEL, synthesisModelUsed: UNKNOWN_AI_MODEL };
+  }
+  return {
+    agentModelUsed: config.openAiAgentModel,
+    synthesisModelUsed: config.openAiSynthesisModel
+  };
+}
+
+async function buildProviderUnavailableResponse(
+  context: ReturnType<typeof buildConversationContext>,
+  providerError: string,
+  aiConfig?: AiConfig | null
+): Promise<ProcessTurnOutput> {
   const fallbackReasonCode = 'PROVIDER_UNAVAILABLE';
   const fallbackResponseText = buildProviderUnavailableResponseText(context.correlationId);
 
@@ -2195,7 +2235,7 @@ async function buildProviderUnavailableResponse(context: ReturnType<typeof build
     })
   });
 
-  const config = getAiConfig();
+  const modelTrace = resolveAiModelTrace(aiConfig);
 
   return {
     conversationSessionId: context.conversationSessionId,
@@ -2207,8 +2247,8 @@ async function buildProviderUnavailableResponse(context: ReturnType<typeof build
     llm: {
       provider: 'provider-unavailable',
       confidence: 0,
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     },
     toolCall: null,
     policy: {
@@ -2234,6 +2274,7 @@ async function buildInvalidLlmProviderResponse(input: {
   context: ReturnType<typeof buildConversationContext>;
   provider: string;
   reason: string;
+  aiConfig?: AiConfig | null;
 }): Promise<ProcessTurnOutput> {
   const reasonCode = 'INVALID_LLM_PROVIDER';
   const responseText = buildInvalidLlmProviderResponseText(input.context.correlationId, input.provider);
@@ -2324,7 +2365,7 @@ async function buildInvalidLlmProviderResponse(input: {
     })
   });
 
-  const config = getAiConfig();
+  const modelTrace = resolveAiModelTrace(input.aiConfig);
   return {
     conversationSessionId: input.context.conversationSessionId,
     conversationTurnId: input.context.conversationTurnId,
@@ -2335,8 +2376,8 @@ async function buildInvalidLlmProviderResponse(input: {
     llm: {
       provider: input.provider,
       confidence: 0,
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     },
     toolCall: null,
     policy: {
@@ -2427,10 +2468,13 @@ async function resolveLlmPlanForTurn(input: {
   context: ReturnType<typeof buildConversationContext>;
   planningState: ConversationPlanningState;
   userContent?: Array<Record<string, unknown>> | null;
+  aiConfig?: AiConfig | null;
 }): Promise<LlmPlan | ProcessTurnOutput> {
-  const config = getAiConfig();
-
+  // A config de IA é lida SÓ nos ramos que precisam do nome do modelo — nunca no topo. Ler aqui
+  // em cima derrubava o turno inteiro (503) antes de `input.llmProvider.plan` ser chamado, mesmo
+  // com um provider injetado que não usa OpenAI nenhuma. Ver `resolveAiModelTrace`.
   if (input.explicitTool) {
+    const modelTrace = resolveAiModelTrace(input.aiConfig);
     return {
       provider: 'explicit-tool-request' as const,
       confidence: 1,
@@ -2440,8 +2484,8 @@ async function resolveLlmPlanForTurn(input: {
         arguments: input.explicitTool.arguments,
         confirmed: input.explicitTool.confirmed
       },
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     };
   }
 
@@ -2463,7 +2507,8 @@ async function resolveLlmPlanForTurn(input: {
       return buildInvalidLlmProviderResponse({
         context: input.context,
         provider: normalizedProvider,
-        reason: `Provider ${normalizedProvider} nao e permitido para respostas conversacionais reais.`
+        reason: `Provider ${normalizedProvider} nao e permitido para respostas conversacionais reais.`,
+        aiConfig: input.aiConfig
       });
     }
 
@@ -2473,7 +2518,7 @@ async function resolveLlmPlanForTurn(input: {
     };
   } catch (error: unknown) {
     const providerError = error instanceof Error ? error.message : 'provider unavailable';
-    return buildProviderUnavailableResponse(input.context, providerError);
+    return buildProviderUnavailableResponse(input.context, providerError, input.aiConfig);
   }
 }
 
@@ -2492,11 +2537,19 @@ export function listConversationTools() {
 export function createConversationService(dependencies?: {
   llmProvider?: LlmProvider;
   synthesizer?: ConversationSynthesizer;
+  /**
+   * Config de IA usada APENAS para rotular a trilha do turno com o modelo em uso. Opcional pelo
+   * mesmo motivo que `llmProvider` e `synthesizer` são: quem injeta o próprio provider não deve ser
+   * obrigado a ter `OPENAI_API_KEY` no ambiente. Ausente → leitura lazy e guardada
+   * (ver `resolveAiModelTrace`), nunca um 503 no meio do turno.
+   */
+  aiConfig?: AiConfig;
 }) {
   // F4: CONVERSATION_ENGINE=ai-core roteia o planejamento pelo grafo da plataforma
   // (fallback gracioso ao planner legado); default permanece o provider legado.
   const llmProvider = dependencies?.llmProvider || resolveLlmProvider();
   const synthesizer = dependencies?.synthesizer || defaultConversationSynthesizer;
+  const aiConfig = dependencies?.aiConfig ?? null;
 
   return {
     async processTurn(input: ProcessTurnInput): Promise<ProcessTurnOutput> {
@@ -2590,7 +2643,8 @@ export function createConversationService(dependencies?: {
         messageText,
         context,
         planningState,
-        userContent: input.userContent ?? null
+        userContent: input.userContent ?? null,
+        aiConfig
       });
 
       if ('status' in planningResult) {

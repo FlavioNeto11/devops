@@ -4,6 +4,7 @@ import { createConversationService } from '../../src/services/conversation/conve
 import {
   resetConversationObservabilityForTests
 } from '../../src/services/conversation/conversation-observability.js';
+import { buildTestPrincipal } from '../helpers/conversation-principal.js';
 
 describe('LLM model routing in ProcessTurnOutput', () => {
   beforeEach(() => {
@@ -40,6 +41,7 @@ describe('LLM model routing in ProcessTurnOutput', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_models',
       headers: {},
       idempotencyKey: undefined
@@ -81,6 +83,7 @@ describe('LLM model routing in ProcessTurnOutput', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_escalation',
       headers: {},
       idempotencyKey: undefined
@@ -125,6 +128,7 @@ describe('LLM model routing in ProcessTurnOutput', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_escalation_toolcall',
       headers: {},
       idempotencyKey: undefined
@@ -167,6 +171,7 @@ describe('LLM model routing in ProcessTurnOutput', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_no_escalation',
       headers: {},
       idempotencyKey: undefined
@@ -262,6 +267,7 @@ describe('LLM model routing in ProcessTurnOutput', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_unavailable',
       headers: {},
       idempotencyKey: undefined
