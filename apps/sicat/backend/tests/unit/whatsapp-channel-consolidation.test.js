@@ -8,7 +8,8 @@ import {
 } from '../../src/lib/channel-metrics.js';
 import {
   processJob,
-  applyWhatsAppInboundTerminalFailureSideEffect
+  applyWhatsAppInboundTerminalFailureSideEffect,
+  setWhatsAppTerminalNoticeDependenciesForTests
 } from '../../src/workers/operation-handlers.js';
 import {
   runWhatsAppOutboundNotice,
@@ -164,6 +165,7 @@ afterEach(() => {
   if (originalWarn) console.warn = originalWarn;
   originalWarn = null;
   setWhatsAppNoticeDependenciesForTests(null);
+  setWhatsAppTerminalNoticeDependenciesForTests(null);
   setWhatsAppProviderOverrideForTests(null);
   resetChannelOutboundNoticeMetricsForTests();
   for (const key of PHASE_6_CONFIG_KEYS) setConfigOverride(key, undefined);
@@ -222,13 +224,16 @@ describe('consolidação/fase6 — M06: o case do aviso no processJob', () => {
 // =================================================================================================
 
 describe('consolidação/fase6 — CRÍTICO: applyWhatsAppInboundTerminalFailureSideEffect só age no inbound', () => {
-  // O par positivo × negativo é o que torna o filtro por operação o ÚNICO discriminador. Em ambiente
-  // unitário `findConversationChannelLinkForChannel` REJEITA (Postgres fora → ECONNREFUSED), e o corpo
-  // é try/catch que loga "aviso de falha terminal ... não pôde ser enviado". Logo:
-  //   · inbound_message: passa o filtro → resolve provider → TENTA findLink → rejeita → LOGA o warn.
-  //   · outbound_notice: o filtro por operação retorna ANTES de tocar o provider/DB → SEM warn.
-  // Remover o filtro faz o outbound_notice também alcançar o findLink e LOGAR — o que quebra o caso
-  // positivo. (Nada é enviado em nenhum dos dois: o DB rejeita antes de `sendText`.)
+  // ┌─ POR QUE ESTE BLOCO FOI REESCRITO ────────────────────────────────────────────────────────────┐
+  // │ A versão anterior tomava a causa EMPRESTADA DO AMBIENTE: `findConversationChannelLinkForChannel`│
+  // │ ia direto no pool do Postgres e o teste contava com a rejeição da conexão para produzir o warn  │
+  // │ que media. Com o banco no ar (que é o que a receita de verificação manda) a query resolvia      │
+  // │ `null` em silêncio e o CONTROLE NEGATIVO falhava — a suíte "passava" só com o banco FORA. Pior  │
+  // │ que ambiental: a prova positiva inteira se apoiava num erro de conexão, e o caminho com um      │
+  // │ vínculo VÁLIDO — o único em que uma mensagem PAGA sairia de verdade — nunca era exercitado.     │
+  // │ Agora a dependência entra por `setWhatsAppTerminalNoticeDependenciesForTests` e o double é      │
+  // │ fonte de DADO CRU: devolve a linha do vínculo, ou rejeita quando o TESTE quer que rejeite.      │
+  // └───────────────────────────────────────────────────────────────────────────────────────────────┘
   const TERMINAL = { action: 'dlq' };
 
   function terminalJob(operation) {
@@ -240,35 +245,76 @@ describe('consolidação/fase6 — CRÍTICO: applyWhatsAppInboundTerminalFailure
     };
   }
 
-  it('job whatsapp.outbound_notice em transição terminal NÃO dispara o aviso de "última mensagem"', async () => {
+  // Vínculo VERIFICADO e do dono — nada aqui decide se o aviso sai; quem decide é o código sob teste.
+  function createLinkHarness(options = {}) {
     const fake = createFakeProvider('meta');
-    setWhatsAppProviderOverrideForTests(fake.provider);
+    const findLinkCalls = [];
+    setWhatsAppTerminalNoticeDependenciesForTests({
+      resolveProvider: () => fake.provider,
+      findLink: async (id) => {
+        findLinkCalls.push(id);
+        if (options.failWith) throw options.failWith;
+        return { id: LINK_ID, userId: USER_ID, externalUserKey: PHONE, verificationStatus: 'verified' };
+      }
+    });
+    return { fake, findLinkCalls };
+  }
+
+  it('job whatsapp.outbound_notice em transição terminal NÃO dispara o aviso de "última mensagem"', async () => {
+    // Vínculo PERFEITAMENTE entregável disponível: se algo sair, foi o filtro por operação que caiu.
+    const { fake, findLinkCalls } = createLinkHarness();
 
     const result = await applyWhatsAppInboundTerminalFailureSideEffect(terminalJob('whatsapp.outbound_notice'), TERMINAL, new Error('db hiccup'));
 
     assert.equal(result, null, 'o aviso de conclusão morrendo na DLQ é silêncio por desenho');
     assert.equal(fake.calls.sendText.length, 0, 'nunca envia "Não consegui processar sua última mensagem" para um AVISO');
-    // O filtro retornou ANTES de tocar o provider/DB: nenhum warn de tentativa de envio.
-    assert.equal(
-      capturedWarns.some((line) => line.includes('aviso de falha terminal do canal WhatsApp')),
-      false,
-      'o outbound_notice alcançou o caminho de envio — o filtro por operação foi removido'
-    );
+    // Mais forte que "não enviou": o filtro retorna ANTES de sequer reler o vínculo.
+    assert.deepEqual(findLinkCalls, [], 'o outbound_notice chegou a reler o vínculo — o filtro por operação foi removido');
   });
 
-  it('CONTROLE NEGATIVO: um whatsapp.inbound_message terminal ALCANÇA o caminho de envio (prova que a raia flui)', async () => {
-    const fake = createFakeProvider('meta');
-    setWhatsAppProviderOverrideForTests(fake.provider);
+  it('CONTROLE NEGATIVO: um whatsapp.inbound_message terminal ENVIA de fato o aviso (prova que a raia flui)', async () => {
+    // Mesmo cenário, MESMO vínculo, só a operação muda — o que torna o filtro o ÚNICO discriminador.
+    const { fake, findLinkCalls } = createLinkHarness();
 
     const result = await applyWhatsAppInboundTerminalFailureSideEffect(terminalJob('whatsapp.inbound_message'), TERMINAL, new Error('db hiccup'));
 
-    // O envio não completa (o DB rejeita a releitura do vínculo), mas a EXECUÇÃO chegou lá — provado
-    // pelo warn do catch. Sem este controle, o caso positivo não provaria que o filtro é o que segura.
+    assert.deepEqual(result, { notified: true });
+    assert.deepEqual(findLinkCalls, [LINK_ID], 'o inbound_message tem de reler o vínculo pelo id do payload');
+    assert.equal(fake.calls.sendText.length, 1, 'sem envio aqui, o caso positivo passaria por construção');
+    assert.equal(fake.calls.sendText[0].to, PHONE, 'o destino sai do vínculo relido, não do payload do job');
+    assert.ok(fake.calls.sendText[0].text.length > 0);
+  });
+
+  it('vínculo NÃO verificado não recebe aviso, mesmo sendo inbound (o filtro não é o único portão)', async () => {
+    const fake = createFakeProvider('meta');
+    setWhatsAppTerminalNoticeDependenciesForTests({
+      resolveProvider: () => fake.provider,
+      findLink: async () => ({ id: LINK_ID, userId: USER_ID, externalUserKey: PHONE, verificationStatus: 'pending' })
+    });
+
+    const result = await applyWhatsAppInboundTerminalFailureSideEffect(terminalJob('whatsapp.inbound_message'), TERMINAL, null);
+
     assert.equal(result, null);
-    assert.equal(
-      capturedWarns.some((line) => line.includes('aviso de falha terminal do canal WhatsApp') && line.includes('job_whatsapp.inbound_message')),
-      true,
-      'o inbound_message deveria ter tentado reler o vínculo e caído no catch'
+    assert.equal(fake.calls.sendText.length, 0, 'aviso para vínculo não verificado é mensagem PAGA para destino não provado');
+  });
+
+  it('releitura do vínculo que EXPLODE não mata o worker: vira warn e null (causa injetada, não ambiental)', async () => {
+    // A causa é do TESTE — não do Postgres estar fora. É esta a diferença entre medir a guarda e
+    // medir a rede: `handleDlqTransition` é awaited dentro de um catch sem catch externo, então um
+    // throw daqui subiria até o `while` de `runWorkerLoop` e derrubaria o worker.
+    const falha = Object.assign(new Error('FALHA_INJETADA_NA_RELEITURA_DO_VINCULO'), { code: 'SENTINELA_DB' });
+    const { fake, findLinkCalls } = createLinkHarness({ failWith: falha });
+
+    const result = await applyWhatsAppInboundTerminalFailureSideEffect(terminalJob('whatsapp.inbound_message'), TERMINAL, null);
+
+    assert.equal(result, null, 'falha na releitura tem de virar silêncio, nunca throw');
+    assert.deepEqual(findLinkCalls, [LINK_ID]);
+    assert.equal(fake.calls.sendText.length, 0);
+    assert.ok(
+      capturedWarns.some((line) => line.includes('aviso de falha terminal do canal WhatsApp')
+        && line.includes('job_whatsapp.inbound_message')
+        && line.includes('FALHA_INJETADA_NA_RELEITURA_DO_VINCULO')),
+      `o catch não registrou a causa injetada: ${JSON.stringify(capturedWarns)}`
     );
   });
 });
