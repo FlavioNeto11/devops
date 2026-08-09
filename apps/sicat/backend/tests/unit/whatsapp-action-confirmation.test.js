@@ -1436,6 +1436,51 @@ describe('fase 5 — emissão: identidade conferível resolvida dos ids REAIS (`
     assert.ok(dentro.text.includes('Replicar em 2 rascunhos'));
   });
 
+  it('`replicate_segmented`: o `itemCount` GRAVADO conta réplicas — 2 réplicas da MESMA origem não viram 1', async () => {
+    // ┌─ O DEFEITO QUE ESTE CASO PRENDE ───────────────────────────────────────────────────────────┐
+    // │ `labels` é a lista de ORIGENS distintas: `collectActionManifestIds` junta os                │
+    // │ `segments[].sourceManifestId` num `Set`, e N réplicas de um mesmo MTR colapsam para UM      │
+    // │ rótulo. Com `itemCount: labels.length` o ticket gravava 1, e depois de o servidor criar DOIS │
+    // │ rascunhos a pessoa lia "Confirmado. Coloquei a operação na fila." O mesmo 1 viajava para o   │
+    // │ job de aviso de conclusão. A manchete e o teto de lote já usavam `effectCount` — só o ticket │
+    // │ contradizia a prévia que a pessoa acabou de conferir.                                       │
+    // └────────────────────────────────────────────────────────────────────────────────────────────┘
+    const resultado = await issueFrom({
+      intent: 'manifest.replicate_segmented',
+      segments: [
+        { sourceManifestId: MANIFEST_A, quantity: 1 },
+        { sourceManifestId: MANIFEST_A, quantity: 2 }
+      ]
+    });
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending', resultado.text);
+    assert.equal(store.inserts.length, 1);
+
+    const metadata = store.inserts[0].metadata;
+    // A FIXTURE DISCRIMINA: rótulo há UM (uma origem), efeito há DOIS. Se os dois números fossem
+    // iguais nesta fixture, o caso continuaria verde com `labels.length` de volta e não provaria nada.
+    assert.deepEqual(metadata.itemLabels, [LABEL_A], 'uma origem única deveria render exatamente um rótulo');
+    assert.equal(metadata.itemCount, 2, 'o ticket gravou ORIGENS no lugar de RÉPLICAS');
+    assert.notEqual(metadata.itemCount, metadata.itemLabels.length, 'a fixture parou de discriminar');
+
+    // E o ticket não contradiz a manchete que a pessoa conferiu.
+    assert.ok(resultado.text.includes('Replicar em 2 rascunhos'), resultado.text);
+  });
+
+  it('CONTROLE NEGATIVO do `itemCount`: 1 item grava 1, e lote genuíno de 2 continua gravando 2', async () => {
+    // Sem este par, "itemCount = effectCount" poderia ser um `+1` fixo, ou a contagem de segmentos
+    // vazando para chaves que não têm segmento nenhum, e o caso acima continuaria verde.
+    const um = await issueFrom({ intent: 'manifest.batch_print_selected', manifestIds: [MANIFEST_A] });
+    assert.equal(um.outcome, 'whatsapp_inbound_confirmation_pending', um.text);
+    assert.equal(store.inserts[0].metadata.itemCount, 1);
+
+    // Lote de verdade: aqui rótulos e efeitos coincidem, e é exatamente isso que a correção preserva.
+    const dois = await issueFrom({ intent: 'manifest.batch_print_selected', manifestIds: [MANIFEST_A, MANIFEST_B] });
+    assert.equal(dois.outcome, 'whatsapp_inbound_confirmation_pending', dois.text);
+    assert.equal(store.inserts[1].metadata.itemCount, 2);
+    assert.equal(store.inserts[1].metadata.itemLabels.length, 2);
+  });
+
   it('ação NÃO elegível nem chega à emissão — devolve `null` e o composer responde como hoje', async () => {
     const resultado = await issueFrom({ intent: 'manifest.batch_cancel_selected', manifestIds: [MANIFEST_A] });
     assert.equal(resultado, null);
@@ -1592,6 +1637,110 @@ describe('fase 5 — emissão: identidade conferível resolvida dos ids REAIS (`
         overlayChannels: ['whatsapp', 'native_chat', 'inapp']
       }).includes('whatsapp')
     );
+  });
+});
+
+/* ============================================================================================== */
+/* "a operação" × "as N operações" — a mensagem final conta o EFEITO, ponta a ponta                */
+/* ============================================================================================== */
+
+describe('fase 5 — o texto do confirmado conta EFEITOS, não origens', () => {
+  let store;
+  let manifests;
+
+  beforeEach(() => {
+    store = makeVerificationStore();
+    manifests = makeManifestStore();
+    setWhatsAppActionTicketRepositoriesForTests(store.repositories);
+    setWhatsAppConfirmationRepositoriesForTests(manifests.repositories);
+    setConfigOverride('whatsappActionTicketTtlSeconds', 300);
+  });
+
+  afterEach(() => {
+    setWhatsAppActionTicketRepositoriesForTests(null);
+    setWhatsAppConfirmationRepositoriesForTests(null);
+    setRuntimeRegistryOverridesForTests(null);
+    setConfigOverride('whatsappActionTicketTtlSeconds', undefined);
+  });
+
+  const PERMISSOES = ['manifest.read', 'manifest.print', 'manifest.replicate'];
+
+  /**
+   * Emite DE VERDADE e devolve o código que a PESSOA leria na prévia. Nada é fabricado: o número que
+   * a confirmação usa sai do texto da prévia, então a cadeia emissão → ticket → queima → texto é a
+   * mesma que roda em produção. Fabricar o `itemCount` no `seed` provaria só o formatador.
+   */
+  async function emitir(args) {
+    const previa = await tryIssueWhatsAppActionTicket({
+      output: {
+        status: 'blocked',
+        policy: { reasonCode: 'CONFIRMATION_REQUIRED' },
+        toolCall: { name: 'orchestrate_manifest_operation', arguments: args },
+        conversationSessionId: 'csess_1',
+        conversationTurnId: 'cturn_1'
+      },
+      principal: buildPrincipal({ permissionKeys: PERMISSOES }),
+      link: LINK,
+      correlationId: 'corr_preview'
+    });
+    const codigo = /responda so com o codigo \*(\d{6})\*/.exec(previa?.text || '')?.[1] || null;
+    return { previa, codigo };
+  }
+
+  function confirmar(codigo) {
+    return runWhatsAppConfirmationRescue({
+      utterance: { kind: 'code', code: codigo },
+      principal: buildPrincipal({ permissionKeys: PERMISSOES }),
+      link: LINK,
+      correlationId: 'corr_confirm',
+      dependencies: {
+        processTurn: async () => ({ status: 'executed', responseText: '', conversationTurnId: 'cturn_9' })
+      }
+    });
+  }
+
+  it('DUAS réplicas da MESMA origem ⇒ "as 2 operações" — dizer "a operação" subestima o que foi feito', async () => {
+    // A prova ponta a ponta do defeito: a pessoa confirma, DOIS rascunhos nascem, e a mensagem final
+    // dizia "Coloquei a operação na fila" porque o `Set` de origens tinha um elemento só.
+    enableIntentOnWhatsApp('manifest.replicate_segmented');
+    const { previa, codigo } = await emitir({
+      intent: 'manifest.replicate_segmented',
+      segments: [
+        { sourceManifestId: MANIFEST_A, quantity: 1 },
+        { sourceManifestId: MANIFEST_A, quantity: 2 }
+      ]
+    });
+
+    assert.equal(previa.outcome, 'whatsapp_inbound_confirmation_pending', previa.text);
+    assert.ok(codigo, 'a prévia saiu sem o bloco do código');
+    assert.ok(previa.text.includes('Replicar em 2 rascunhos'), previa.text);
+
+    const confirmado = await confirmar(codigo);
+
+    assert.equal(confirmado.outcome, 'whatsapp_inbound_confirmation_executed', confirmado.text);
+    assert.ok(confirmado.text.includes('Coloquei as 2 operações na fila.'), confirmado.text);
+    assert.equal(
+      confirmado.text.includes('Coloquei a operação na fila.'),
+      false,
+      'a mensagem final subestimou o efeito: 2 rascunhos criados, "a operação" no texto'
+    );
+  });
+
+  it('CONTROLE NEGATIVO: uma ação de UM item continua dizendo "a operação"', async () => {
+    // Um teste que só sabe dizer "plural" passaria com `itemCount` sempre > 1. Este par prova que o
+    // medidor enxerga a diferença — e que a correção não trocou um erro por outro.
+    enableIntentOnWhatsApp('manifest.batch_print_selected');
+    const { previa, codigo } = await emitir({
+      intent: 'manifest.batch_print_selected',
+      manifestIds: [MANIFEST_A]
+    });
+
+    assert.equal(previa.outcome, 'whatsapp_inbound_confirmation_pending', previa.text);
+    const confirmado = await confirmar(codigo);
+
+    assert.equal(confirmado.outcome, 'whatsapp_inbound_confirmation_executed', confirmado.text);
+    assert.ok(confirmado.text.includes('Coloquei a operação na fila.'), confirmado.text);
+    assert.equal(confirmado.text.includes('operações'), false, confirmado.text);
   });
 });
 
