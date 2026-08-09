@@ -173,7 +173,7 @@ const IRREVERSIBLE_WARNING =
   'Emitir cria o MTR de verdade. O unico jeito de desfazer e cancelar - e cancelar nao tem volta e nao da para fazer por aqui.';
 
 /**
- * O PARÁGRAFO QUE DIZ O QUE A CONFIRMAÇÃO PROVOCA — um por ação, porque as três N2 provocam coisas
+ * O PARÁGRAFO QUE DIZ O QUE A CONFIRMAÇÃO PROVOCA — um por ação, porque as ações provocam coisas
  * DIFERENTES e o texto de `submit` mente sobre as outras duas:
  *
  *  · `submit_*` — nasce MTR na CETESB; desfazer só cancelando, e cancelar não tem volta.
@@ -183,14 +183,21 @@ const IRREVERSIBLE_WARNING =
  *  · `manifest.create_from_payload` — o efeito REAL é rascunho LOCAL (`createManifestDraftRecord`:
  *    `status:'draft'`, `externalStatus:'pending_submission'`, `externalReference: null`). Dizer aqui
  *    "cria o MTR de verdade" seria falso, e falso para MAIS grave — a pessoa acharia que já emitiu.
+ *
+ * ⚠️ A RESOLUÇÃO É POR CHAVE, E SÓ DEPOIS POR TIER — a ordem inversa custou o aviso da criação. Esta
+ * função peneirava `tier !== 'N2'` na primeira linha, de modo que a reclassificação da criação para
+ * N1 apagaria `CREATE_EFFECT_NOTE` da prévia SEM nenhum teste vermelho: a pessoa passaria a confirmar
+ * a criação sem ler onde o MTR nasce. A nota da criação não é consequência do tier, é consequência do
+ * que a ação FAZ — e o que ela faz não mudou. `IRREVERSIBLE_WARNING`, esse sim, é do tier: ele fala de
+ * efeito na CETESB e só vale para quem tem um.
  */
 const CREATE_EFFECT_NOTE =
   'Isso cria o MTR como rascunho no SICAT, com estes dados. Ele so vira MTR de verdade na CETESB quando voce mandar emitir.';
 
 function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): string | null {
-  if (tier !== 'N2') return null;
-  if (key === WHATSAPP_RECEIVE_ACTION_KEY) return null;
   if (key === WHATSAPP_CREATE_ACTION_KEY) return CREATE_EFFECT_NOTE;
+  if (key === WHATSAPP_RECEIVE_ACTION_KEY) return null;
+  if (tier !== 'N2') return null;
   return IRREVERSIBLE_WARNING;
 }
 
@@ -242,12 +249,18 @@ function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): s
  * │     — e a decisão de produto sobre o que dizer quando a resposta é "não sei". E1–E4 são trabalho│
  * │     conhecido; E5 é escopo próprio, e não cabe na fase 6 nem na 7.                              │
  * │                                                                                                │
- * │ UNIDADE D4 — O PORTÃO PASSOU A TRANCAR TRÊS AÇÕES, E ISSO FOI DELIBERADO. `receive_with_receipt`│
- * │ e `create_from_payload` foram promovidas a `WHATSAPP_ELIGIBLE_ACTIONS` em N2 e ganharam         │
- * │ conferência dedicada; o portão continua `false` e as duas respondem "aviso indisponível" em vez │
- * │ de emitir ticket. O operador decidiu construir tudo e deixar travado: a E1 (execução real ponta │
- * │ a ponta contra provedor WhatsApp) não tem como ser produzida — não existem credenciais          │
+ * │ O PORTÃO TRANCA TRÊS AÇÕES — `submit_manifest`, `manifest.batch_submit_selected` e              │
+ * │ `manifest.receive_with_receipt`. As três criam registro na CETESB sem inverso, que é o critério │
+ * │ inteiro de N2. O operador decidiu construir tudo e deixar travado: a E1 (execução real ponta a  │
+ * │ ponta contra provedor WhatsApp) não tem como ser produzida — não existem credenciais            │
  * │ Twilio/Meta. Mudar este literal SEM as cinco evidências é a regressão que a suíte tem de matar. │
+ * │                                                                                                 │
+ * │ ⚠️ ERAM QUATRO. `manifest.create_from_payload` foi trancada aqui por engano: a unidade que a     │
+ * │ promoveu afirmou que ela "cria registro real na CETESB sem inverso", e não cria — é `insert`    │
+ * │ local de rascunho, `jobId: null`, gateway nenhum (a cadeia está por extenso em                  │
+ * │ `whatsapp-action-eligibility.ts`). Reclassificada para N1, ela não passa mais por este portão e │
+ * │ PASSA A FUNCIONAR de fato quando um admin ligar a chave no AI Control Center. O passo           │
+ * │ irreversível continua sendo o `submit`, que é N2 e segue aqui.                                  │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;
@@ -352,10 +365,13 @@ export async function tryIssueWhatsAppActionTicket(input: {
   let windowLine: string | null = null;
   if (eligible.tier === 'N2') {
     // PORTÃO DO N2, DE CÓDIGO: sem o aviso de conclusão, nenhuma ação N2 sai — e nenhuma env o abre.
-    // Ver `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` acima. Desde a unidade D4 isto também tranca
-    // recebimento e criação, que entraram em N2: a conferência delas está construída e testada, e o
-    // que falta é a MESMA lista E1–E5. O texto varia por ação — o verbo de `submit` mentiria nas
-    // outras duas.
+    // Ver `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` acima. Isto tranca os dois `submit` e o
+    // recebimento: a conferência dos três está construída e testada, e o que falta é a MESMA lista
+    // E1–E5. O texto varia por ação — o verbo de `submit` mentiria no recebimento.
+    //
+    // A CRIAÇÃO NÃO CHEGA MAIS AQUI: ela é N1 (rascunho local, gateway nenhum) e segue pelo caminho
+    // de baixo, emitindo ticket. A conferência FAIL-CLOSED dela continua valendo — é a guarda de
+    // `resolveActionConference` acima, não este portão, que a sustenta.
     if (!WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED || !resolveWhatsAppOutboundNoticeEnabled()) {
       return {
         text: buildWhatsAppN2NoticeMissingText(key),
@@ -1079,7 +1095,14 @@ async function reissueAfterFailedDispatch(
     windowLine: null,
     // Sem `conferenceBlock`: o bloco não é congelado no ticket, e remontá-lo aqui resolveria o banco
     // de novo — a reemissão existe justamente para NÃO reconferir nada. Só N1 chega aqui (guarda
-    // acima) e nenhuma chave N1 tem conferência dedicada, então a lista genérica é a mesma de sempre.
+    // acima), e desde a reclassificação da criação uma chave N1 TEM conferência dedicada: o que ela
+    // recebe na reemissão é a lista genérica montada sobre os MESMOS `itemLabels` que a prévia
+    // dedicada congelou ("Gerador: …", "Residuo: …"), truncada em 3 + "e mais N". Continua sendo
+    // conferível e continua sendo o que a pessoa já conferiu; o que não se faz é ler o banco de novo.
+    //
+    // `tier: 'N1'` aqui é o tier REAL de quem chega — e não apaga o aviso de efeito da criação:
+    // `resolveEffectNote` resolve por CHAVE antes de olhar o tier, justamente para que a reemissão
+    // não entregue um "confirme" sem dizer que o MTR nasce como rascunho.
     tier: 'N1'
   });
   if (!preview) {

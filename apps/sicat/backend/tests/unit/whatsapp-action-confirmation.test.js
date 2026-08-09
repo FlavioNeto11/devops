@@ -16,7 +16,8 @@ import {
   CHANNEL_HARD_DENY,
   getWhatsAppEligibleAction,
   WHATSAPP_ELIGIBLE_ACTIONS,
-  resolveEffectiveAllowChannels
+  resolveEffectiveAllowChannels,
+  resolveWhatsAppActionTier
 } from '../../src/services/conversation/channel/whatsapp/whatsapp-action-eligibility.js';
 import { parseWhatsAppConfirmationUtterance } from '../../src/services/conversation/channel/whatsapp/whatsapp-confirmation-grammar.js';
 import {
@@ -2982,17 +2983,45 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     setWhatsAppConfirmationRepositoriesForTests(null);
     setWhatsAppReceivePreviewRepositoriesForTests(null);
     setWhatsAppCreatePreviewResolversForTests(null);
+    // O overlay de runtime é GLOBAL — deixá-lo ligado vazaria a habilitação da criação para as suítes
+    // seguintes, que testam justamente o canal DESLIGADO.
+    setRuntimeRegistryOverridesForTests(null);
     setConfigOverride('whatsappActionTicketTtlSeconds', undefined);
     setConfigOverride('whatsappActionNoticeEnabled', undefined);
   });
 
   /* ---- a promoção, na tabela --------------------------------------------------------------- */
 
-  it('as duas chaves saíram da recusa e entraram como N2 com `maxItems: 1`', () => {
+  it('as duas chaves saíram da recusa com `maxItems: 1` — e os TIERS DIVERGEM, porque os efeitos divergem', () => {
     for (const key of [WHATSAPP_RECEIVE_ACTION_KEY, WHATSAPP_CREATE_ACTION_KEY]) {
       assert.equal(CHANNEL_HARD_DENY.has(key), false, `${key} continua na recusa permanente`);
-      assert.deepEqual(getWhatsAppEligibleAction(key), { tier: 'N2', maxItems: 1 }, key);
     }
+
+    // ┌─ A CLASSIFICAÇÃO, PRESA CHAVE A CHAVE ────────────────────────────────────────────────────┐
+    // │ Elas foram promovidas juntas e por um tempo carregaram o MESMO tier, sob a afirmação de que│
+    // │ a criação "cria registro real na CETESB". Não cria: `handleManifestCreateFromPayload` →    │
+    // │ `createManifest` → `createManifestDraftRecord` → `insertManifest`, um `insert` local com   │
+    // │ `status:'draft'` e `jobId: null`, sem gateway. O recebimento cria: `enqueueManifestReceive` │
+    // │ → job `manifest.receive` → `gateway.receiveManifest`.                                      │
+    // │                                                                                            │
+    // │ `deepEqual` no OBJETO INTEIRO, não `.tier`: prende o tier E o `maxItems: 1` de cada uma, e │
+    // │ a troca de tier entre as duas não passa (elas não são mais intercambiáveis).               │
+    // └────────────────────────────────────────────────────────────────────────────────────────────┘
+    assert.deepEqual(
+      getWhatsAppEligibleAction(WHATSAPP_RECEIVE_ACTION_KEY),
+      { tier: 'N2', maxItems: 1 },
+      'recebimento chama `gateway.receiveManifest` — sair de N2 é liberar recibo irreversível pelo canal'
+    );
+    assert.deepEqual(
+      getWhatsAppEligibleAction(WHATSAPP_CREATE_ACTION_KEY),
+      { tier: 'N1', maxItems: 1 },
+      'criação grava rascunho LOCAL — pôr em N2 a prende ao portão do aviso por um efeito que ela não tem'
+    );
+    assert.notEqual(
+      getWhatsAppEligibleAction(WHATSAPP_CREATE_ACTION_KEY).tier,
+      getWhatsAppEligibleAction(WHATSAPP_RECEIVE_ACTION_KEY).tier,
+      'os dois tiers voltaram a ser iguais — o critério do cabeçalho separa por EFEITO na CETESB'
+    );
 
     // O overlay do AI Control Center agora CONSEGUE ligá-las — é o que "promover" significa.
     assert.ok(
@@ -3056,18 +3085,64 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     assert.equal(resultado.text.includes('Emitir MTR por aqui'), false);
   });
 
-  it('criação CONFERÍVEL não emite ticket, e o texto NÃO inventa resposta da CETESB', async () => {
+  it('criação CONFERÍVEL EMITE ticket SEM janela nenhuma — N1 não passa pelo portão do N2', async () => {
+    // ┌─ O CASO QUE PRENDE A RECLASSIFICAÇÃO ─────────────────────────────────────────────────────┐
+    // │ NENHUMA janela é semeada de propósito (`seedWindow` NÃO é chamado). Em N2 este pedido       │
+    // │ morreria duas vezes antes de existir ticket: no portão do aviso                            │
+    // │ (`whatsapp_inbound_action_notice_missing`) e, se ele abrisse, na ausência de janela         │
+    // │ (`whatsapp_inbound_stepup_required`). O ticket existir é a prova de que nenhum dos dois foi │
+    // │ atravessado — ou seja, de que a criação é N1 de verdade, não só na tabela.                  │
+    // │                                                                                            │
+    // │ MUTAÇÃO: devolver `tier: 'N2'` para esta chave em `WHATSAPP_ELIGIBLE_ACTIONS` faz o         │
+    // │ `outcome` virar `whatsapp_inbound_action_notice_missing` e `store.inserts` ficar vazio.     │
+    // └────────────────────────────────────────────────────────────────────────────────────────────┘
+    const resultado = await issueFrom(argsCriacao());
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending', resultado.text);
+    assert.equal(store.inserts.length, 1, 'nenhum ticket foi criado — a criação continua trancada em algum portão');
+    assert.equal(store.inserts[0].metadata.riskTier, 'N1', 'o ticket foi congelado com o tier errado');
+    // Sem janela: a linha de liberação do N2 não pode aparecer numa ação que não a exige.
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, null);
+    assert.equal(resultado.text.includes('Liberacao ativa'), false, resultado.text);
+
+    // A CONFERÊNCIA DEDICADA continua mandando — é ela, e não o tier, que sustenta a criação. As 6
+    // entidades resolvidas contra os doubles aparecem com NOME, nunca com o código cru.
+    assert.ok(resultado.text.includes('Confere antes de eu criar o MTR:'), resultado.text);
+    assert.ok(resultado.text.includes('GERADORA CENTRAL LTDA'), resultado.text);
+    assert.ok(resultado.text.includes('ATERRO GAMA S/A'), resultado.text);
+    assert.ok(resultado.text.includes('Residuo solido industrial'), resultado.text);
+    assert.equal(resultado.text.includes('70001'), false, 'codigo cru de parceiro vazou para a previa');
+
+    // O CÓDIGO DE 6 DÍGITOS, que é o que fecha o caminho até a execução.
+    assert.match(resultado.text, /responda so com o codigo \*\d{6}\*/);
+
+    // ── O TEXTO NÃO PODE AFIRMAR EFEITO NA CETESB ──────────────────────────────────────────────
+    // Rascunho criado é rascunho criado. O aviso de efeito diz onde o MTR nasce e o que ainda falta.
+    assert.ok(
+      resultado.text.includes('Isso cria o MTR como rascunho no SICAT'),
+      `o aviso de efeito da criação sumiu da prévia:\n${resultado.text}`
+    );
+    assert.ok(resultado.text.includes('so vira MTR de verdade na CETESB quando voce mandar emitir'), resultado.text);
+    // O verbo de `submit` mentiria aqui — nada foi enviado nem registrado na CETESB.
+    assert.equal(resultado.text.includes('Emitir cria o MTR de verdade'), false, resultado.text);
+    for (const mentira of ['enviado para a CETESB', 'registrado na CETESB', 'CETESB responde']) {
+      assert.equal(resultado.text.includes(mentira), false, `"${mentira}" na prévia de criação:\n${resultado.text}`);
+    }
+  });
+
+  it('CONTROLE NEGATIVO da janela: o recebimento, N2, NÃO emite nem com janela viva e env ligada', async () => {
+    // O par do caso acima. Mesma suíte, mesmos doubles, mesma forma de chamada — e MAIS permissivo
+    // que ele (aqui há janela e a env está `true`; lá não havia nem uma nem outra). Ainda assim
+    // nenhum ticket nasce, porque `receive_with_receipt` é N2 e o portão do aviso está fechado.
+    // Sem este caso, "a criação emitiu" poderia ser apenas "o harness emite para tudo".
     setConfigOverride('whatsappActionNoticeEnabled', true);
     seedWindow(store);
 
-    const resultado = await issueFrom(argsCriacao());
+    const resultado = await issueFrom(argsRecebimento());
 
     assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
-    assert.equal(store.inserts.length, 0);
-    assert.ok(resultado.text.startsWith('Criar MTR por aqui ainda nao esta liberado'), resultado.text);
-    // `manifest.create_from_payload` grava rascunho LOCAL (`createManifestDraftRecord`): não há
-    // resposta da CETESB para esperar, e afirmar que há seria mais uma afirmação falsa desta cadeia.
-    assert.equal(resultado.text.includes('CETESB responde'), false);
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido — nada pendente pode existir para ser confirmado');
+    assert.equal(resultado.text.includes('responda so com o codigo'), false, resultado.text);
   });
 
   it('CONTROLE NEGATIVO do portão: a MESMA emissão em N1 passa e emite ticket', async () => {
@@ -3155,7 +3230,11 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
   it('MUTAÇÃO (snapshot de criação): `creationSnapshot` codificado recusa — a execução veria MAIS', async () => {
     // `handleManifestCreateFromPayload` executa `{...snapshotPayload, ...args.payload}` e só ELE
     // decodifica o blob. Com snapshot, a prévia mostraria menos do que seria criado. Apagar
-    // `hasEncodedCreationSnapshot` faz este caso virar `notice_missing` e quebrar.
+    // `hasEncodedCreationSnapshot` faz este caso emitir ticket e quebrar.
+    //
+    // ⚠️ Esta guarda ficou MAIS importante com a criação em N1: antes o portão do N2 recusava tudo
+    // logo adiante, então deixá-la passar terminava em "não" de qualquer jeito. Agora o que está
+    // depois dela é a emissão de verdade.
     const { value: resultado, text: log } = await captureConsole(() =>
       issueFrom(argsCriacao({ creationSnapshot: 'eyJzbmFwc2hvdFZlcnNpb24iOiJ2MSJ9' }))
     );
@@ -3163,14 +3242,14 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     assert.equal(store.inserts.length, 0);
     assert.ok(log.includes('creation_snapshot_not_conferible'), log);
 
-    // CONTROLE NEGATIVO 1: os MESMOS argumentos sem o snapshot chegam ao portão.
+    // CONTROLE NEGATIVO 1: os MESMOS argumentos sem o snapshot atravessam e EMITEM.
     const semSnapshot = await issueFrom(argsCriacao());
-    assert.equal(semSnapshot.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(semSnapshot.outcome, 'whatsapp_inbound_confirmation_pending', semSnapshot.text);
 
     // CONTROLE NEGATIVO 2: `selectionSnapshot` como OBJETO não decodifica no dispatcher (o parser usa
     // `toNullableString`), logo não muda o payload executado — e também não recusa aqui.
     const objeto = await issueFrom(argsCriacao({ selectionSnapshot: { selectedManifestIds: [] } }));
-    assert.equal(objeto.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(objeto.outcome, 'whatsapp_inbound_confirmation_pending', objeto.text);
   });
 
   /* ---- o bloco de conferência na prévia do ticket (camada de texto) -------------------------- */
@@ -3240,8 +3319,96 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     assert.equal(buildWhatsAppN2NoticeMissingText('chave.desconhecida'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
     assert.equal(buildWhatsAppN2NoticeMissingText('constructor'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
 
-    // E que as duas promovidas têm texto PRÓPRIO — não o de emissão.
+    // E que o recebimento — a única promovida que continua em N2 — tem texto PRÓPRIO, com o verbo
+    // dele, não o de emissão.
     assert.notEqual(buildWhatsAppN2NoticeMissingText(WHATSAPP_RECEIVE_ACTION_KEY), WHATSAPP_N2_NOTICE_MISSING_TEXT);
-    assert.notEqual(buildWhatsAppN2NoticeMissingText(WHATSAPP_CREATE_ACTION_KEY), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+
+    // ┌─ A CRIAÇÃO NÃO TEM (E NÃO PODE TER) TEXTO DE RECUSA DO N2 ────────────────────────────────┐
+    // │ Ela é N1: `tryIssueWhatsAppActionTicket` só chama esta função no ramo `tier === 'N2'`, que  │
+    // │ a criação não alcança mais. O texto que existia aqui ("Criar MTR por aqui ainda nao esta    │
+    // │ liberado") ficou inalcançável E falso no mesmo commit — a criação PASSOU a funcionar. Uma   │
+    // │ recusa que o código nunca emite, afirmando bloqueio que o código não tem, é o defeito que   │
+    // │ esta cadeia já cometeu cinco vezes.                                                          │
+    // │                                                                                              │
+    // │ O fallback para o texto de `submit` é o desfecho SEGURO caso ela um dia volte a N2: recusar  │
+    // │ com o verbo errado é ruim; prometer bloqueio inexistente é pior.                             │
+    // └──────────────────────────────────────────────────────────────────────────────────────────────┘
+    assert.equal(buildWhatsAppN2NoticeMissingText(WHATSAPP_CREATE_ACTION_KEY), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+    assert.equal(resolveWhatsAppActionTier(WHATSAPP_CREATE_ACTION_KEY), 'N1');
+  });
+
+  it('a criação atravessa a cadeia INTEIRA: prévia → ticket → código de 6 dígitos → execução', async () => {
+    // ┌─ A CONSEQUÊNCIA DA RECLASSIFICAÇÃO, PONTA A PONTA ────────────────────────────────────────┐
+    // │ Emitir o ticket não basta: o que interessa é que criar rascunho pelo WhatsApp FUNCIONE     │
+    // │ quando um admin ligar a chave. Este caso percorre o caminho todo com o código real extraído │
+    // │ da prévia — e prende que o despacho recebe a ferramenta do TICKET, com `confirmed: true`,   │
+    // │ nunca nada derivado do texto da pessoa (a invariante central do módulo).                    │
+    // └────────────────────────────────────────────────────────────────────────────────────────────┘
+    // O que um admin liga no AI Control Center (overlay) + a permissão RBAC da criação. Sem os dois,
+    // a revalidação na queima recusa — e é assim que tem de ser.
+    enableIntentOnWhatsApp(WHATSAPP_CREATE_ACTION_KEY);
+    const principal = buildPrincipal({ permissionKeys: ['manifest.read', 'manifest.create'] });
+
+    const previa = await issueFrom(argsCriacao());
+    assert.equal(previa.outcome, 'whatsapp_inbound_confirmation_pending', previa.text);
+
+    const codigo = /responda so com o codigo \*(\d{6})\*/.exec(previa.text)?.[1];
+    assert.equal(typeof codigo, 'string', `o codigo nao saiu na previa:\n${previa.text}`);
+
+    const despachos = [];
+    const executado = await runWhatsAppConfirmationRescue({
+      utterance: { kind: 'code', code: codigo },
+      principal,
+      link: { ...LINK, channelLinkId: 'ccl_d4' },
+      correlationId: 'corr_d4_exec',
+      dependencies: {
+        // Double do TURNO (não da decisão sob teste): devolve dado cru e registra o que recebeu.
+        processTurn: async (entrada) => {
+          despachos.push(entrada.body.toolRequest);
+          return { status: 'completed', conversationTurnId: 'cturn_exec', result: { data: { jobId: null } } };
+        }
+      }
+    });
+
+    assert.equal(executado.outcome, 'whatsapp_inbound_confirmation_executed', executado.text);
+    assert.equal(despachos.length, 1, 'o codigo correto nao chegou a despachar a criacao');
+    assert.equal(despachos[0].name, 'orchestrate_manifest_operation');
+    assert.equal(despachos[0].arguments.intent, WHATSAPP_CREATE_ACTION_KEY);
+    assert.equal(despachos[0].confirmed, true);
+    // Os argumentos despachados são os CONGELADOS na emissão, com o payload que a pessoa conferiu.
+    assert.equal(despachos[0].arguments.payload.generator.partnerCode, '70001');
+
+    // CONTROLE NEGATIVO: um código ERRADO, num ticket novo, não despacha nada.
+    const outra = await issueFrom(argsCriacao());
+    const codigoNovo = /responda so com o codigo \*(\d{6})\*/.exec(outra.text)?.[1];
+    const errado = await runWhatsAppConfirmationRescue({
+      utterance: { kind: 'code', code: codigoNovo === '000000' ? '111111' : '000000' },
+      principal,
+      link: { ...LINK, channelLinkId: 'ccl_d4' },
+      correlationId: 'corr_d4_errado',
+      dependencies: { processTurn: async () => { throw new Error('despachou com codigo errado'); } }
+    });
+    assert.notEqual(errado.outcome, 'whatsapp_inbound_confirmation_executed');
+    assert.equal(despachos.length, 1, 'o codigo errado despachou');
+  });
+
+  it('a prévia RECUSA quando não consegue montar a conferência — e aí não há ticket nenhum', async () => {
+    // O outro lado da liberação: N1 não afrouxou o FAIL-CLOSED. Parceiro que não resolve para NOME
+    // (o double devolve `null` para código desconhecido) derruba a prévia inteira, e sem prévia não
+    // existe ticket para confirmar. É a guarda que substituiu a janela como sustentação da criação.
+    const anterior = seedLiveTicket(store);
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsCriacao({ payload: payloadDeCriacaoCompleto({ receiver: { partnerCode: '79999' } }) }))
+    );
+
+    assert.equal(resultado, null, 'a recusa da prévia dedicada não foi honrada');
+    assert.equal(store.inserts.length, 0, 'ticket emitido sobre uma conferência que não fecha');
+    assert.equal(anterior.consumed_at, null, 'o ticket pendente legítimo foi destruído por uma tentativa recusada');
+    assert.ok(log.includes('unresolved_entities'), log);
+
+    // CONTROLE NEGATIVO: com o parceiro RESOLVÍVEL, a mesma chamada emite. Prova que a recusa veio da
+    // entidade não resolvida, e não de o harness recusar toda criação.
+    const ok = await issueFrom(argsCriacao());
+    assert.equal(ok.outcome, 'whatsapp_inbound_confirmation_pending', ok.text);
   });
 });
