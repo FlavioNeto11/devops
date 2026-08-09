@@ -34,6 +34,8 @@ import {
   describeCdfManifestRestriction,
   describePrintManifestRestriction,
   describeReceiveManifestRestriction,
+  describeReplicateManifestRestriction,
+  describeSubmitManifestRestriction,
   formatDate,
   formatDateTime,
   formatManifestBatchLabel,
@@ -41,6 +43,7 @@ import {
   formatPartnerLabel,
   isCancelledStatus,
   isErrorManifest,
+  isSubmitUnconfirmedManifest,
   normalizedStatusValue,
   parsePrintUrl,
   resolveManifestIdentifier,
@@ -2481,18 +2484,23 @@ onUnmounted(() => {
                         :subtitle="!canUseManifestForCdf(manifest) ? describeCdfManifestRestriction(manifest) : undefined"
                         @click="goToCdfFlowForManifest(manifest)"
                       />
+                      <!-- Envio SEM CONFIRMAÇÃO: os dois itens que duplicariam o MTR
+                           continuam na lista, porém DESABILITADOS e com o motivo — some
+                           da tela o operador não aprende nada e tenta de novo por fora. -->
                       <v-list-item
-                        v-if="!isReceiverOperationalMode && canReplicateManifest(manifest)"
-                        :disabled="replicateLoading"
+                        v-if="!isReceiverOperationalMode && (canReplicateManifest(manifest) || isSubmitUnconfirmedManifest(manifest))"
+                        :disabled="replicateLoading || !canReplicateManifest(manifest)"
                         prepend-icon="mdi-content-copy"
                         title="Replicar"
+                        :subtitle="!canReplicateManifest(manifest) ? describeReplicateManifestRestriction(manifest) : undefined"
                         @click="openReplicateModal(manifest)"
                       />
                       <v-list-item
-                        v-if="!isReceiverOperationalMode && canSubmitManifest(manifest)"
-                        :disabled="submitLoadingManifestId === resolveManifestIdentifier(manifest)"
+                        v-if="!isReceiverOperationalMode && (canSubmitManifest(manifest) || isSubmitUnconfirmedManifest(manifest))"
+                        :disabled="submitLoadingManifestId === resolveManifestIdentifier(manifest) || !canSubmitManifest(manifest)"
                         prepend-icon="mdi-send"
                         :title="submitLoadingManifestId === resolveManifestIdentifier(manifest) ? 'Enviando…' : 'Submeter'"
+                        :subtitle="!canSubmitManifest(manifest) ? describeSubmitManifestRestriction(manifest) : undefined"
                         @click="requestSubmitManifest(manifest)"
                       />
                       <v-list-item
