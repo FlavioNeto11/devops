@@ -249,10 +249,12 @@ function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): s
  * │     ❌ NÃO provado: o caminho de AÇÃO (só o de consulta rodou) nem o caminho de FALHA.          │
  * │                                                                                                │
  * │  E2 `WORKER_LANE=channel` no ar, com a raia `default` separada                                  │
- * │     ❌ NÃO SATISFEITA — a raia não existe em manifesto nenhum (item O1b do runbook).            │
- * │        Consequência que o operador assume: `WORKER_LANE` ausente ⇒ o worker reivindica TODAS as │
- * │        raias, então o aviso É consumido (não há silêncio); o risco é de CONTENÇÃO — o worker é  │
- * │        consumidor serial único, e um turno de LLM de ~25 s atrasa um `manifest.submit` na fila. │
+ * │     ✅ SATISFEITA em 2026-08-09. Deployment `sicat-worker-channel` (`WORKER_LANE=channel`) no   │
+ * │        ar, e `sicat-worker` restrito a `default` — subidos em DOIS commits, a raia nova primeiro│
+ * │        e o corte do antigo só depois dela Ready, para não haver janela sem consumidor.          │
+ * │        PROVADO em produção: uma mensagem injetada com assinatura legítima foi processada pela   │
+ * │        raia do canal (23,0 s) e a raia `default` NÃO processou nada — separação real, não       │
+ * │        presumida. Um turno de LLM deixou de ficar na frente de `manifest.submit` na fila.       │
  * │                                                                                                │
  * │  E3 `dispatchStatus` carimbado, verificado numa linha real                                      │
  * │     ❌ pendente — o mecanismo existe (`recordDispatchOutcome`), falta a evidência numa linha.   │
