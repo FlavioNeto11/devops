@@ -3,9 +3,14 @@
 > Snapshot honesto baseado em código, OpenAPI publicado e checkpoints recentes.
 > **Nada aqui é marcado como IMPLEMENTADO sem evidência verificável** — e omitir também é mentir, por
 > isso o que não foi entregue está escrito com o mesmo destaque do que foi.
-> Última revisão: fase 7 (`09-contrato-qa-final`) da cadeia `whatsapp-channel-sicat` — 2026-08-08.
-> A revisão anterior era de 2026-04-25 e ignorava ~3,5 meses de entregas (AI Control Center,
-> DL-094 a DL-100, camada conversacional); as seções abaixo foram regeneradas contra o código.
+> Última revisão: **leva de consolidação da cadeia `whatsapp-channel-sicat` — 2026-08-08**, sobre a
+> branch `sicat/whatsapp-channel` já com os 9 PRs da leva anterior mesclados. A revisão imediatamente
+> anterior era da fase 7 (`09-contrato-qa-final`), do mesmo dia; antes dela, 2026-04-25 (que ignorava
+> ~3,5 meses de entregas — AI Control Center, DL-094 a DL-100, camada conversacional).
+>
+> **A manchete continua a mesma e continua negativa: emitir MTR pelo WhatsApp NÃO está entregue ao
+> usuário final.** §3.1 explica por quê e o [runbook](../05-operacao/runbook-canal-whatsapp.md) §7
+> dá o checklist fechado do que destrava.
 
 ## 0. Legenda
 
@@ -219,8 +224,46 @@ Nunca vai para DLQ. Entrega de mídia implementada e **desligada por default**.
 `sicat_channel_outbound_notice_total` ([channel-metrics.ts](../../backend/src/lib/channel-metrics.ts)),
 `sicat_conversation_permission_decision_total`.
 
-**Suíte do backend:** 946 testes · **911 pass · 35 fail** — a baseline de falhas é **pré-existente**
-(11 nomes top-level) e não foi alterada pela cadeia.
+**Suíte, medida na árvore consolidada em 2026-08-08:**
+
+| Suíte | Total | Pass | Fail |
+|---|---|---|---|
+| backend unit | 1037 | 1002 | **35** |
+| backend integração | 149 | 128 | **21** |
+| frontend | 245 | **245** | 0 |
+
+`typecheck` e `lint` limpos; build de frontend limpo; os 9 PRs da leva consolidaram sem conflito. As
+falhas são **pré-existentes**: 11 nomes top-level no unit (HARs não versionados, validadores
+estruturais, escalação de LLM) e 5 nomes na integração. Não foram introduzidas pela cadeia — e
+**também não foram consertadas por ela**.
+
+### 2.8 ⚠️ Correlação pré-submit de manifesto (Track C) — 1 de 3 partes ligada
+
+Fecha (parcialmente) o risco de **MTR duplicado** descrito em §4. Decisão registrada em
+**[DL-102](../copilot/13-decision-log.md)**.
+
+- **✅ C1 — o marcador está costurado ponta a ponta.** `[sicat:<manifestId>]`, determinístico, gerado
+  por [lib/manifest-correlation.ts](../../backend/src/lib/manifest-correlation.ts). O worker persiste
+  a intenção (`submitCorrelation` = marcador + `jobId` + `dispatchedAt`) no `payload` jsonb **antes**
+  de chamar o gateway ([operation-handlers.ts:1069–1072](../../backend/src/workers/operation-handlers.ts);
+  1260–1265 para o MTR provisório) e o gateway concatena o mesmo marcador ao `manObservacao` enviado
+  ([cetesb-gateway.js:1322](../../backend/src/gateways/cetesb-gateway.js), via `correlationManifestId`
+  na linha 2283). Preserva a observação do usuário e é idempotente. **Sem migration.**
+- **🕓 C2 — o reconciliador existe e está INERTE.**
+  [services/manifest-submit-reconciler.ts](../../backend/src/services/manifest-submit-reconciler.ts)
+  pergunta à CETESB via `searchManifests` injetado e casa o remoto pelo marcador; resultado tipado
+  `found` | `not-found-after-polling` | `error`, com `SUBMIT_RECONCILE_AMBIGUOUS_MARKER_MATCH` para
+  ambiguidade de lote. **Nenhum consumidor em `src/`** — só o teste unitário importa o módulo.
+- **🕓 C3 — a varredura existe e está INERTE.**
+  `listUnconfirmedSubmitManifestsForReconciliation`
+  ([manifest-repo.ts:457](../../backend/src/repositories/manifest-repo.ts)) lista manifestos presos em
+  `queued_submit`/`submitting`/`processing` com `external_hash_code` **NULO**, com janela de tempo
+  obrigatória. **Nenhum consumidor em `src/`** — só os testes chamam.
+- **⛔ O estado `submit_unconfirmed` NÃO EXISTE.** Verificado por busca em `backend/src` e
+  `frontend/src`: nenhuma ocorrência. Falha terminal de `manifest.submit` continua gravando `failed`
+  sem consultar a CETESB ([operation-handlers.ts:754–759](../../backend/src/workers/operation-handlers.ts)).
+
+**Consequência para o canal:** a evidência **E5** do portão do N2 continua **não satisfeita**.
 
 ## 3. PARCIAL, INERTE e RECUSADO
 
@@ -233,15 +276,38 @@ Esta subseção é a razão de o snapshot existir. Nada aqui é "falta de tempo"
   `const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;`
   (`whatsapp-confirmation-flow.ts:207`), com gate
   `if (!WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED || !resolveWhatsAppOutboundNoticeEnabled())` na linha
-  293. **Nenhum `=true` de ambiente as abre.** A razão: o aviso de conclusão **não distingue "o MTR
-  não foi criado" de "o MTR foi criado e eu perdi a resposta"**, e para emissão irreversível essa é a
-  única informação que importa. **Emitir MTR pelo WhatsApp — a manchete do canal — não está
-  entregue.** O que o canal faz é **N1**: consulta, 2ª via de documento existente e réplica local.
+  293. **Nenhum `=true` de ambiente as abre**: `WHATSAPP_ACTION_NOTICE_ENABLED` (default `false`,
+  [config.ts:338](../../backend/src/lib/config.ts)) abre **uma** das duas condições do `||`.
+  A razão: o aviso de conclusão **não distingue "o MTR não foi criado" de "o MTR foi criado e eu
+  perdi a resposta"**, e para emissão irreversível essa é a única informação que importa.
+  **Emitir MTR pelo WhatsApp — a manchete do canal — não está entregue ao usuário final.** O que o
+  canal faz é **N1**: consulta, 2ª via de documento existente e réplica local.
+  → Checklist fechado do que destrava (E1–E5, transcritas do código):
+  [runbook-canal-whatsapp.md §7](../05-operacao/runbook-canal-whatsapp.md). **E1 é execução real
+  contra provedor e as credenciais Twilio/Meta não existem neste ambiente; E5 depende do Track C
+  (§2.8), que está 1/3 ligado.** A decisão foi consciente: construir tudo e deixar travado.
 - **⛔ O nível N3 é recusado em lista de código** (`CHANNEL_HARD_DENY`, 10 chaves): todos os
   cancelamentos, os três CDF, `manifest.receive_with_receipt`, `manifest.create_from_payload`,
-  `manifest.create_draft` (`requiresConfirmation: false` + `isAction: true` — a armadilha silenciosa)
-  e `replicate_manifest` direto. Nenhum `PATCH` do AI Control Center fura: as duas listas são
-  disjuntas e a invariante **falha no import** se alguém relaxar.
+  `manifest.create_draft` e `replicate_manifest` direto. Nenhum `PATCH` do AI Control Center fura: as
+  duas listas são disjuntas e a invariante **falha no import** se alguém relaxar.
+- **✅ A armadilha silenciosa do `manifest.create_draft` foi FECHADA.** Ela era a única chave das duas
+  tabelas de default de código com `requiresConfirmation: false` + `isAction: true`: sem confirmação
+  ela nunca produz um turno `blocked / CONFIRMATION_REQUIRED`, que é de onde sai o ticket do canal —
+  então, no dia em que saísse de `CHANNEL_HARD_DENY`, seria a única ação a executar na **primeira
+  mensagem, sem código nenhum**. Estava contida apenas pela recusa de canal: segunda tranca numa
+  porta cuja fechadura estava errada. Agora é `confirmedActionIntentPolicy('R2')` (o `R1` caiu junto
+  — `handleManifestCreateDraft` chama o mesmo `createManifest` que grava linha, e R1 é "lê sem
+  alterar estado"), e a invariante ficou presa por
+  `assertEveryActionRequiresConfirmation()`, executada **no import** sobre as **duas** tabelas.
+  > ⚠️ **Procedência:** verificado na branch `sicat/wa-u3-policy-confirm` (commit `ba404b9d`,
+  > **PR #296**), que **ainda não estava mesclada em `sicat/whatsapp-channel`** quando este parágrafo
+  > foi escrito. Na cadeia consolidada, `assertEveryActionRequiresConfirmation` ainda não existe.
+  > Confira antes de citar como entregue.
+  > ℹ️ **Reconferido em 2026-08-08 na árvore consolidada:** `manifest.receive_with_receipt` e
+  > `manifest.create_from_payload` **continuam em `CHANNEL_HARD_DENY`** e **não** estão em
+  > `WHATSAPP_ELIGIBLE_ACTIONS` (`whatsapp-action-eligibility.ts:54–94`). Recebimento e criação por
+  > WhatsApp **não** são elegíveis, nem como N2. Documento que disser o contrário está adiantado em
+  > relação ao código.
 - **⛔ Recusas registradas:** URL assinada / rota pública de download de documento; caminho de
   `sendTemplate` fora da janela de 24 h; download de mídia recebida (o `mediaId` da Meta é
   preservado, resolver a URL ficou para quando houver consumidor).
@@ -372,6 +438,19 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
   **mutam**) e as rotas de ação de manifesto **não têm** `sicatAuthMiddleware`. Depois da fase 4.5,
   **o chat é a superfície mais restrita do SICAT** — a propriedade "a IA não eleva permissão" é
   verdadeira; "o usuário não conseguiria pela tela" continua **falsa**, por outro motivo.
+- **⛔ MTR DUPLICADO — a janela cega do `manifest.submit`.** Vale para **todo** envio, pela tela
+  inclusive, não só pelo canal. O `manHashCode` só nasce na **resposta** do PUT da CETESB; se ela se
+  perde (timeout, erro de parse, pod morrendo entre o PUT e o commit), o SICAT resolve a dúvida para
+  o lado errado: `applyManifestSubmitTerminalFailureSideEffect`
+  ([operation-handlers.ts:754–759](../../backend/src/workers/operation-handlers.ts)) grava
+  `status: 'failed'` **sem consultar a CETESB**, `reconcileManifestSubmitState`
+  ([manifest-service.ts:1127](../../backend/src/services/manifest-service.ts)) decide o mesmo olhando
+  só o job local, e a mensagem entregue é *"Falha definitiva no envio para CETESB. Revise os dados e
+  realize novo envio."* ([operation-handlers.ts:162–172](../../backend/src/workers/operation-handlers.ts)).
+  Quando o MTR **nasceu**, esse reenvio cria um **segundo MTR real**, e cancelar não desfaz.
+  **Mitigação parcial já no ar:** o marcador de correlação C1 (§2.8) torna o envio reencontrável no
+  `manObservacao`; o reconciliador que o consome ainda **não está ligado**. Enquanto isso, o
+  procedimento manual está em [runbook-canal-whatsapp.md §8](../05-operacao/runbook-canal-whatsapp.md).
 - **Heartbeat de claim por lote** — `claimJobs(10)` reivindica 10 jobs, o laço processa em série e
   `startClaimHeartbeat` só começa na vez de cada job: os jobs 2..N ficam `running` com heartbeat
   congelado e viram candidatos de `requeueStaleRunningJobs` em 5 min → **risco de execução dupla de
