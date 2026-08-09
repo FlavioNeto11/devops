@@ -75,6 +75,40 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # Gate RBAC conversacional. O default de CÓDIGO é `enforce`; com o catálogo ainda
+            # VAZIO (o seed da fase 4.5 nunca rodou nesta base), `enforce` negaria criar/enviar/
+            # receber/cancelar no chat para TODO MUNDO, inclusive administradores. `observe`
+            # permite e REGISTRA o que negaria — é o modo de entrada. O flip para `enforce` é um
+            # commit próprio, e é o ponto de rollback.
+            - name: CONVERSATION_PERMISSION_ENFORCEMENT
+              value: "observe"
+            # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
+            # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
+            # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
+            # Secret o provedor não resolve e o webhook responde 404, sem
+            # derrubar o pod.
+            # ⚠️ O portão do N2 continua fechado por LITERAL DE CÓDIGO
+            # (WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED=false): emitir e dar baixa
+            # NÃO saem por aqui, por mais env que se ligue.
+            - name: WHATSAPP_PROVIDER
+              value: "twilio"
+            - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            - name: WHATSAPP_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
+            - name: WHATSAPP_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_AUTH_TOKEN, optional: true }
+            - name: WHATSAPP_TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_FROM, optional: true }
+            - name: WHATSAPP_META_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_ACCESS_TOKEN, optional: true }
+            - name: WHATSAPP_META_VERIFY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_VERIFY_TOKEN, optional: true }
             # ── Observabilidade de IA (F0): Langfuse da plataforma, default ON ──
             # Chaves vêm do Secret sicat-langfuse (criado fora do git; optional:
             # sem ele o provider degrada para desligado, sem quebrar o pod).
@@ -224,6 +258,38 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # Paridade OBRIGATÓRIA com a api: api e worker são a mesma imagem e leem a mesma env.
+            # Divergir aqui faz o chat permitir e o job negar (ou o contrário), com o motivo
+            # aparecendo só na trilha.
+            - name: CONVERSATION_PERMISSION_ENFORCEMENT
+              value: "observe"
+            # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
+            # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
+            # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
+            # Secret o provedor não resolve e o webhook responde 404, sem
+            # derrubar o pod.
+            # ⚠️ O portão do N2 continua fechado por LITERAL DE CÓDIGO
+            # (WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED=false): emitir e dar baixa
+            # NÃO saem por aqui, por mais env que se ligue.
+            - name: WHATSAPP_PROVIDER
+              value: "twilio"
+            - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            - name: WHATSAPP_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
+            - name: WHATSAPP_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_AUTH_TOKEN, optional: true }
+            - name: WHATSAPP_TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_FROM, optional: true }
+            - name: WHATSAPP_META_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_ACCESS_TOKEN, optional: true }
+            - name: WHATSAPP_META_VERIFY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_VERIFY_TOKEN, optional: true }
             # ── Observabilidade de IA (paridade com a api) ──
             - name: LANGFUSE_ENABLED
               value: "true"
