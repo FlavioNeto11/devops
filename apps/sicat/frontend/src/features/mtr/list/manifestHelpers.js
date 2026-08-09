@@ -78,17 +78,28 @@ export function resolveSituationFilterLabel(status, externalStatus) {
   return [...new Set(labels.filter((label) => label && label !== '-'))].join(' / ');
 }
 
-export function normalizedStatusClass(status) {
-  const value = String(status || '').toLowerCase();
-  if (value.includes('queue') || value.includes('pend')) return 'queued';
-  if (value.includes('run') || value.includes('process')) return 'running';
-  if (value.includes('cancel')) return 'failed';
-  if (value.includes('falh') || value.includes('erro') || value.includes('error') || value.includes('dlq')) return 'failed';
-  if (value.includes('salvo') || value.includes('receb') || value.includes('trâns') || value.includes('transit')) return 'succeeded';
-  if (value.includes('print')) return 'succeeded';
-  if (value.includes('succ') || value.includes('submit')) return 'succeeded';
-  return 'failed';
-}
+/*
+ * NÃO existe helper local de COR/CLASSE de status neste módulo, e isso é uma
+ * decisão (DL-100): quem pinta status é `SicatStatusBadge` a partir do mapa
+ * canônico `lib/status-map.js`. Aqui só se decide AÇÃO (o que o operador pode
+ * fazer), nunca cor.
+ *
+ * Existia aqui um `normalizedStatusClass(status)` classificando por substring,
+ * sem nenhum chamador em todo o repositório — armadilha armada, não bug vivo.
+ * Ele divergia do mapa canônico em pelo menos quatro pontos, e o pior era
+ * `'submit_unconfirmed'.includes('submit')` → `'succeeded'`: pintaria de VERDE
+ * justamente o estado que existe para o operador NÃO achar que deu certo
+ * ("despachei para a CETESB e não sei se o MTR nasceu"). No mapa canônico ele é
+ * `warning`. Divergia também em `cancelled` (→ vermelho, canônico é `neutral`),
+ * `received` (→ vermelho: 'receb' não é substring de 'received') e em qualquer
+ * status desconhecido, inclusive `draft` (→ vermelho, pelo `return` final).
+ *
+ * O vocabulário que ele devolvia ('queued'/'running'/'succeeded'/'failed') nem
+ * era o das tonalidades (`STATUS_TONES`: neutral/running/warning/success/error),
+ * então não havia consumidor plausível: consertá-lo seria reescrever o
+ * `status-map.js` num segundo lugar — a duplicação que o DL-100 eliminou.
+ * O guard vive em `tests/unit/manifest-status-class-helper.test.js`.
+ */
 
 export function isSingleDayDateWindow(dateFrom, dateTo) {
   const fromIso = brDateToIsoDate(dateFrom);
