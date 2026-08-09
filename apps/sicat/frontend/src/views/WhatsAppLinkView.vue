@@ -7,16 +7,19 @@
  *   1. o operador informa o número  → o backend manda um código de 6 dígitos pelo WhatsApp;
  *   2. o operador digita o código   → o backend confirma a posse e grava o vínculo.
  *
- * Toda decisão (validação, contagem regressiva, rótulos, tradução de erro) vem do
- * módulo puro `features/channel-link/channelLinkState.js`, que é o que os testes
- * cobrem — `.vue` não é importável em node:test.
+ * Toda decisão (validação, contagem regressiva, rótulos, tradução de erro) vem
+ * dos módulos puros `features/channel-link/channelLinkState.js` (fase 02) e
+ * `features/channel-link/actionWindowState.js` (fase 05 — janela de ação N2),
+ * que é o que os testes cobrem — `.vue` não é importável em node:test.
  *
  * Feedback de ação SÓ por `useNotification`; o `SicatInlineAlert` daqui é estado
- * da tela (desafio pendente), não toast. Remoção passa por `useConfirmDialog`.
+ * da tela (desafio pendente), não toast. Remoção e revogação passam por
+ * `useConfirmDialog`.
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useChannelLinkStore } from '../stores/channelLinkStore.js';
+import { useAuthStore } from '../stores/auth.js';
 import {
   CHANNEL_LINK_STAGE,
   OTP_CODE_LENGTH,
@@ -35,6 +38,20 @@ import {
   validateOtpInput,
   validatePhoneInput
 } from '../features/channel-link/channelLinkState.js';
+import {
+  ACTION_WINDOW_LIMITS,
+  buildBudgetOptions,
+  buildHoursOptions,
+  buildWindowOpenedMessage,
+  clampWindowBudgetInput,
+  clampWindowHoursInput,
+  describeWindowAccount,
+  describeWindowBudget,
+  hasVerifiedChannelLink,
+  resolveActionWindowError,
+  resolveWindowExpiry
+} from '../features/channel-link/actionWindowState.js';
+import { formatDateTimeBr } from '../utils/date-format.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
@@ -70,13 +87,21 @@ const {
   loadingList,
   listError,
   hasPendingChallenge,
+  actionWindow,
+  actionWindowLoading,
+  actionWindowError,
   fetchList,
   startLink,
   resendCode,
   confirmCode,
   cancelChallenge,
-  removeLink
+  removeLink,
+  fetchActionWindow,
+  openActionWindow,
+  revokeActionWindow
 } = store;
+
+const authStore = useAuthStore();
 
 // Estado LOCAL do formulário (a regra pura vive no módulo de estado).
 const phoneInput = ref('');
@@ -84,14 +109,21 @@ const phoneError = ref('');
 const codeInput = ref('');
 const codeError = ref('');
 
-// Trava anti-duplo-clique: 'start' | 'resend' | 'confirm' | 'cancel' | `remove:<id>`.
+// Formulário da janela de ação. Os tetos reais são do servidor (clamp); estes
+// valores só desenham os seletores.
+const windowHours = ref(ACTION_WINDOW_LIMITS.defaultHours);
+const windowBudget = ref(ACTION_WINDOW_LIMITS.defaultBudget);
+
+// Trava anti-duplo-clique: 'start' | 'resend' | 'confirm' | 'cancel' |
+// `remove:<id>` | 'window:open' | 'window:revoke'.
 const actionKey = ref('');
 const busy = computed(() => Boolean(actionKey.value));
 
 const phoneFieldRef = ref(null);
 const codeFieldRef = ref(null);
 
-// Relógio da tela: alimenta "expira em" e "reenviar em". Só corre com desafio vivo.
+// Relógio da tela: alimenta "expira em", "reenviar em" e o contador da janela
+// de ação. Só corre com desafio OU janela vivos.
 const now = ref(Date.now());
 let tickerId = null;
 
@@ -138,6 +170,30 @@ const rows = computed(() => (links.value || []).map((link) => describeLinkRow(li
 const showEmptyState = computed(
   () => !loadingList.value && !listError.value && rows.value.length === 0
 );
+
+// ── Janela de ação (fase 05) ─────────────────────────────────────────────────
+
+const hasVerifiedNumber = computed(() => hasVerifiedChannelLink(links.value));
+const hasLiveWindow = computed(() => Boolean(actionWindow.value?.id));
+
+const windowHoursOptions = buildHoursOptions();
+const windowBudgetOptions = buildBudgetOptions();
+
+const windowExpiry = computed(() => resolveWindowExpiry(actionWindow.value?.expiresAt, now.value));
+const windowBudgetInfo = computed(() => describeWindowBudget(actionWindow.value));
+const windowOpenedAtLabel = computed(
+  () => (actionWindow.value?.openedAt ? formatDateTimeBr(actionWindow.value.openedAt) : '—')
+);
+const windowAccountLabel = computed(() =>
+  describeWindowAccount(actionWindow.value, {
+    integrationAccountId: authStore.integrationAccountId.value,
+    accountName: authStore.activeAccount.value?.partnerName || ''
+  })
+);
+const activeAccountName = computed(
+  () => authStore.activeAccount.value?.partnerName || 'a conta CETESB ativa'
+);
+const canOpenWindow = computed(() => authStore.hasActiveCetesbAccount.value);
 
 function reportError(error, fallback) {
   const resolved = resolveChannelLinkError(error, fallback);
@@ -216,6 +272,9 @@ async function submitCode() {
         ? `Número ${masked} vinculado à sua conta. Ele estava em outra conta e foi transferido para você.`
         : `Número ${masked} vinculado. Agora dá para falar com o assistente pelo WhatsApp.`
     );
+    // O número acabou de virar `verified`: a janela de ação passa a existir
+    // como recurso — consultar já mostra o card certo sem exigir F5.
+    if (hasVerifiedNumber.value) await fetchActionWindow();
   } catch (error) {
     const resolved = reportError(error, 'Falha ao confirmar o código.');
     codeError.value = resolved.message;
@@ -291,8 +350,73 @@ async function remove(row) {
   }
 }
 
+// ── Janela de ação (fase 05) ─────────────────────────────────────────────────
+
+function reportWindowError(error, fallback) {
+  const resolved = resolveActionWindowError(error, fallback);
+  notify.error(resolved.message, { detail: resolved.detail, code: resolved.code });
+  return resolved;
+}
+
+async function openWindow() {
+  if (busy.value) return;
+
+  actionKey.value = 'window:open';
+  try {
+    // Clamp ESPELHADO do backend antes do POST — os seletores já restringem,
+    // mas o payload nunca sai da faixa nem se o estado local for corrompido.
+    const response = await openActionWindow({
+      hours: clampWindowHoursInput(windowHours.value),
+      actionsBudget: clampWindowBudgetInput(windowBudget.value)
+    });
+    // A mensagem sai do DTO devolvido (validade e orçamento já CLAMPADOS pelo
+    // servidor), não do que o formulário pediu.
+    notify.success(buildWindowOpenedMessage(response), {
+      detail: 'Para encerrar antes da hora, use "Revogar agora" — o corte é imediato.'
+    });
+  } catch (error) {
+    reportWindowError(error, 'Falha ao liberar ações pelo WhatsApp.');
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+async function revokeWindow() {
+  if (busy.value || !hasLiveWindow.value) return;
+
+  const confirmed = await confirm({
+    title: 'Revogar a liberação',
+    message: 'Revogar agora? O WhatsApp deixa de executar ações na hora — inclusive as que já receberam código. Consultas continuam funcionando; para liberar de novo, abra outra liberação aqui.',
+    confirmLabel: 'Revogar agora',
+    danger: true
+  });
+  if (!confirmed) return;
+
+  actionKey.value = 'window:revoke';
+  try {
+    await revokeActionWindow();
+    notify.success('Liberação revogada. O WhatsApp voltou a só consultar.');
+  } catch (error) {
+    reportWindowError(error, 'Falha ao revogar a liberação.');
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+async function refreshWindow() {
+  if (actionWindowLoading.value) return;
+  await fetchActionWindow();
+}
+
+/** Atualiza lista e, havendo número verificado, a janela — o botão do header usa este. */
+async function refreshAll() {
+  await fetchList();
+  if (hasVerifiedNumber.value) await fetchActionWindow();
+}
+
 watch(
-  hasPendingChallenge,
+  // O relógio serve ao desafio E à janela viva.
+  () => hasPendingChallenge.value || hasLiveWindow.value,
   (active) => {
     if (active) {
       startTicker();
@@ -303,8 +427,21 @@ watch(
   { immediate: true }
 );
 
+// Quando o contador zera, a janela morreu no servidor (o GET só devolve janela
+// viva): reconsultar troca o painel pelo formulário sem exigir F5. O guard por
+// id impede loop caso o relógio local esteja adiantado em relação ao do banco.
+let expiredRefetchedForId = '';
+watch(
+  () => (hasLiveWindow.value && windowExpiry.value.expired ? actionWindow.value.id : ''),
+  async (expiredId) => {
+    if (!expiredId || expiredId === expiredRefetchedForId) return;
+    expiredRefetchedForId = expiredId;
+    await fetchActionWindow();
+  }
+);
+
 onMounted(async () => {
-  await fetchList();
+  await refreshAll();
 });
 
 onBeforeUnmount(stopTicker);
@@ -324,10 +461,10 @@ onBeforeUnmount(stopTicker);
             variant="tonal"
             color="primary"
             prepend-icon="mdi-refresh"
-            :loading="loadingList"
+            :loading="loadingList || actionWindowLoading"
             :disabled="busy"
             data-testid="wa-link-refresh"
-            @click="fetchList"
+            @click="refreshAll"
           >
             Atualizar
           </v-btn>
@@ -529,6 +666,197 @@ onBeforeUnmount(stopTicker);
       </SicatDataTable>
     </SicatCard>
 
+    <!-- Janela de ação (fase 05) — liberar emissões/baixas pelo WhatsApp. -->
+    <SicatCard
+      title="Liberar ações pelo WhatsApp"
+      subtitle="Consultar é sempre permitido. Executar — emitir MTR, dar baixa — exige uma liberação aberta aqui, na sessão autenticada."
+      icon="mdi-lock-open-variant-outline"
+    >
+      <!-- Pré-requisito: um número verificado. -->
+      <SicatEmptyState
+        v-if="!hasVerifiedNumber"
+        title="Disponível após vincular um número"
+        description="Vincule e confirme um número de WhatsApp acima. Depois, libere por tempo limitado a execução de ações pelo canal — no pátio, cada ação pedirá só um código de 6 dígitos."
+        icon="mdi-lock-outline"
+        data-testid="wa-window-locked"
+      />
+
+      <!-- Painel da janela VIVA: contadores de tempo e orçamento + revogação. -->
+      <template v-else-if="hasLiveWindow">
+        <div class="wa-window__status" data-testid="wa-window-live">
+          <div class="wa-window__status-head">
+            <SicatStatusBadge
+              :label="windowBudgetInfo.exhausted ? 'Orçamento esgotado' : 'Liberação ativa'"
+              :tone="windowBudgetInfo.exhausted ? 'warning' : 'success'"
+              with-dot
+            />
+            <p
+              v-if="windowExpiry.known"
+              class="wa-window__timer"
+              aria-live="polite"
+              data-testid="wa-window-expiry"
+            >
+              {{ windowExpiry.label }}
+            </p>
+          </div>
+
+          <dl class="wa-window__facts">
+            <div class="wa-window__fact">
+              <dt>Número</dt>
+              <dd>{{ actionWindow.maskedUserKey || '—' }}</dd>
+            </div>
+            <div class="wa-window__fact">
+              <dt>Conta CETESB</dt>
+              <dd>{{ windowAccountLabel }}</dd>
+            </div>
+            <div class="wa-window__fact">
+              <dt>Aberta em</dt>
+              <dd>{{ windowOpenedAtLabel }}</dd>
+            </div>
+          </dl>
+
+          <div class="wa-window__budget">
+            <p class="wa-window__budget-label" data-testid="wa-window-budget">
+              {{ windowBudgetInfo.label }}
+            </p>
+            <v-progress-linear
+              :model-value="windowBudgetInfo.percentUsed"
+              :color="windowBudgetInfo.exhausted ? 'warning' : 'primary'"
+              height="8"
+              rounded
+              :aria-label="`Orçamento de ações: ${windowBudgetInfo.used} de ${windowBudgetInfo.budget} usadas`"
+            />
+            <p v-if="windowBudgetInfo.exhausted" class="wa-window__hint">
+              As ações desta liberação acabaram. Revogue e abra outra se ainda precisar executar pelo WhatsApp.
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <!-- Sem janela viva: formulário de abertura. -->
+      <template v-else>
+        <SicatInlineAlert
+          v-if="actionWindowError"
+          tone="error"
+          title="Não foi possível consultar a liberação"
+          :message="actionWindowError"
+          data-testid="wa-window-error"
+        >
+          <template #actions>
+            <v-btn
+              class="wa-link__action"
+              variant="text"
+              :loading="actionWindowLoading"
+              @click="refreshWindow"
+            >
+              Tentar de novo
+            </v-btn>
+          </template>
+        </SicatInlineAlert>
+
+        <SicatFormSection
+          title="Abra uma liberação antes de sair do escritório"
+          description="Escolha por quanto tempo e quantas ações o WhatsApp pode executar. Ao expirar — ou ao revogar — o canal volta a só consultar."
+        >
+          <SicatFormField
+            label="Duração"
+            :hint="`Máximo de ${ACTION_WINDOW_LIMITS.maxHours} horas.`"
+          >
+            <template #default="{ id, describedBy }">
+              <v-select
+                :id="id"
+                v-model="windowHours"
+                :items="windowHoursOptions"
+                item-title="label"
+                item-value="value"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                :aria-describedby="describedBy"
+                :disabled="actionKey === 'window:open'"
+                data-testid="wa-window-hours"
+              />
+            </template>
+          </SicatFormField>
+
+          <SicatFormField
+            label="Orçamento de ações"
+            :hint="`Cada emissão ou baixa consome 1 ação. Máximo de ${ACTION_WINDOW_LIMITS.maxBudget}.`"
+          >
+            <template #default="{ id, describedBy }">
+              <v-select
+                :id="id"
+                v-model="windowBudget"
+                :items="windowBudgetOptions"
+                item-title="label"
+                item-value="value"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                :aria-describedby="describedBy"
+                :disabled="actionKey === 'window:open'"
+                data-testid="wa-window-budget-select"
+              />
+            </template>
+          </SicatFormField>
+        </SicatFormSection>
+
+        <SicatInlineAlert
+          v-if="!canOpenWindow"
+          tone="warning"
+          title="Selecione uma conta CETESB"
+          message="A liberação fica presa a uma conta CETESB, escolhida agora. Ative uma conta em Minha sessão → Conta CETESB e volte aqui."
+          data-testid="wa-window-account-required"
+        />
+        <p v-else class="wa-window__hint">
+          A liberação vale somente para <strong>{{ activeAccountName }}</strong> — a conta é fixada agora e não muda durante a janela.
+        </p>
+      </template>
+
+      <template v-if="hasVerifiedNumber" #actions>
+        <template v-if="hasLiveWindow">
+          <v-btn
+            class="wa-link__action"
+            color="error"
+            variant="flat"
+            size="large"
+            prepend-icon="mdi-cancel"
+            :loading="actionKey === 'window:revoke'"
+            :disabled="busy && actionKey !== 'window:revoke'"
+            data-testid="wa-window-revoke"
+            @click="revokeWindow"
+          >
+            Revogar agora
+          </v-btn>
+          <v-btn
+            class="wa-link__action"
+            variant="tonal"
+            prepend-icon="mdi-refresh"
+            :loading="actionWindowLoading"
+            :disabled="busy"
+            data-testid="wa-window-refresh"
+            @click="refreshWindow"
+          >
+            Atualizar contadores
+          </v-btn>
+        </template>
+        <v-btn
+          v-else
+          class="wa-link__action"
+          color="primary"
+          variant="flat"
+          size="large"
+          prepend-icon="mdi-lock-open-outline"
+          :loading="actionKey === 'window:open'"
+          :disabled="busy || !canOpenWindow || actionWindowLoading"
+          data-testid="wa-window-open"
+          @click="openWindow"
+        >
+          Liberar ações
+        </v-btn>
+      </template>
+    </SicatCard>
+
     <template #footer>
       <p class="wa-link__help">
         Trocou de aparelho? O vínculo é do <strong>número</strong> — reinstalar o WhatsApp não afeta nada.
@@ -579,6 +907,69 @@ onBeforeUnmount(stopTicker);
 
 .wa-link__help {
   margin: 0;
+  max-width: 72ch;
+}
+
+/* ── Janela de ação (fase 05) ─────────────────────────────────────────────── */
+
+.wa-window__status {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.wa-window__status-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.wa-window__timer {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.78);
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-window__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.wa-window__fact dt {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+.wa-window__fact dd {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  color: rgba(var(--v-theme-on-surface), 0.88);
+  overflow-wrap: anywhere;
+}
+
+.wa-window__budget {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.wa-window__budget-label {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.82);
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-window__hint {
+  margin: var(--space-2) 0 0;
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.62);
   max-width: 72ch;
 }
 </style>
