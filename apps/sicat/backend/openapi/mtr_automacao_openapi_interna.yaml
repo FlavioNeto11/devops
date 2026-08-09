@@ -387,6 +387,77 @@ paths:
               refreshToken: sicat_refresh_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
+  /v1/sicat/auth/keycloak:
+    post:
+      summary: Login no SICAT via SSO Keycloak (OIDC)
+      description: |-
+        Troca um `access_token` do Keycloak (realm `nvit`, obtido pelo frontend em Authorization Code
+        + PKCE) pela MESMA sessão que `POST /v1/sicat/auth/login` emite — mesmo par de tokens, mesmo
+        `SicatLoginResponse`. É ADITIVO: o login local continua como fallback e a autenticação
+        SIGOR/CETESB não é tocada.
+
+        Validação: o token é apresentado ao `/userinfo` do realm, então só tokens deste IdP passam. O
+        usuário SICAT é provisionado por e-mail no primeiro login via SSO (com senha aleatória, que o
+        SSO nunca usa); corrida de cadastro (`23505`) é reabsorvida relendo o usuário por e-mail.
+
+        `security: []` não é descuido: o access token do Keycloak vai no CORPO e É a credencial —
+        não há como exigir Bearer de quem ainda não tem sessão SICAT. Esta é a razão de a rota NÃO
+        passar pelo `sicatAuthMiddleware`, e ela está na allowlist FECHADA de
+        `tests/api/v1-auth-coverage.test.js`, ao lado de `login`, `register` e `refresh`.
+      tags:
+      - SICAT Authentication
+      security: []
+      responses:
+        '200':
+          description: Sessão SICAT emitida a partir do token do Keycloak
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SicatLoginResponse'
+              example:
+                accessToken: sicat_access_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                refreshToken: sicat_refresh_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                expiresAt: '2026-03-13T18:00:00Z'
+                user:
+                  userId: usr_01JQWABCDEF1234567890
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
+                  roles:
+                  - operator
+        '400':
+          description: '`accessToken` ausente ou vazio no corpo (`MISSING_KEYCLOAK_TOKEN`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: |-
+            Token do Keycloak inválido ou expirado (`INVALID_KEYCLOAK_TOKEN`), claims sem e-mail
+            (`KEYCLOAK_NO_EMAIL`) ou usuário SICAT inativo (`INVALID_SICAT_USER`). Este 401 SEMPRE
+            traz `code` (por isso `CodedProblem`, e não `UnauthorizedProblem`): quem o emite é o
+            handler, com `AppError`, e não o gate de Bearer.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '502':
+          description: Falha ao falar com o `/userinfo` do Keycloak (`KEYCLOAK_UNAVAILABLE`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SicatKeycloakLoginRequest'
+            example:
+              accessToken: keycloak_access_eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
   /v1/sicat/cetesb-accounts:
     get:
       summary: Listar contas CETESB vinculadas ao usuário SICAT
@@ -2746,6 +2817,71 @@ paths:
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
       - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/manifestos/receipt-responsibles:
+    get:
+      summary: Listar responsáveis pelo recebimento
+      description: |-
+        Lista SÍNCRONA (não passa pela fila) dos responsáveis pelo recebimento cadastrados na CETESB
+        para o parceiro da conta — é a lista que o destinador escolhe na baixa do MTR e que alimenta
+        `receiptPayload.rrmCodigo` de `POST /v1/manifestos/receive`.
+
+        Fonte: gateway → `GET /api/mtr/manifesto/listaResponsavelRecebimento/{parCodigo}`. O DTO
+        expõe SÓ `rrmCodigo`, `name` e `cargo`; a assinatura (`rrmAssinatura`) nunca sai daqui.
+
+        Item sem `rrmCodigo` é descartado da lista. Se o gateway em uso não implementar a operação, a
+        resposta é `{"items": []}` — 200 com lista vazia, nunca erro.
+
+        No Express esta rota é registrada ANTES de `/v1/manifestos/{id}`, de propósito: invertida, o
+        `:id` capturaria `receipt-responsibles`.
+      tags:
+      - Manifestos
+      responses:
+        '200':
+          description: Lista de responsáveis pelo recebimento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptResponsibleListResponse'
+              example:
+                items:
+                - rrmCodigo: 12345
+                  name: Responsável Exemplo
+                  cargo: Encarregado de recebimento
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '502':
+          description: |-
+            Falha ao consultar a CETESB (`CETESB_REMOTE_ERROR`, `CETESB_HTTP_ERROR`,
+            `CETESB_AUTH_FAILED`, `CETESB_NON_JSON_RESPONSE`, `CETESB_NETWORK_ERROR` ou
+            `CETESB_RETRY_EXHAUSTED`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: integrationAccountId
+        in: query
+        required: true
+        description: Conta de integração. Ausente ou vazio responde 400.
+        schema:
+          type: string
+      - name: sessionContextId
+        in: query
+        required: false
+        description: |-
+          Contexto de sessão operacional. Presente, é validado (tem de existir e pertencer à conta —
+          senão 400); ausente, a conta é apenas garantida e o gateway resolve a sessão.
+        schema:
+          type: string
   /v1/manifestos/{id}:
     get:
       summary: Consultar manifesto
@@ -3288,6 +3424,70 @@ paths:
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
       - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/cdf/responsibles:
+    get:
+      summary: Listar responsáveis pela emissão de CDF
+      description: |-
+        Lista SÍNCRONA (não passa pela fila) dos responsáveis pela emissão de CDF cadastrados na
+        CETESB para o parceiro da conta — alimenta `cdfPayload.responsavel.cdrCodigo` de
+        `POST /v1/cdf/generate`, e o worker de `cdf.generate` revalida o código contra a lista remota.
+
+        É uma lista DIFERENTE da de `GET /v1/manifestos/receipt-responsibles`: lá o código é
+        `rrmCodigo` (responsável pelo RECEBIMENTO), aqui é `cdrCodigo`. Trocar um pelo outro é o
+        erro fácil.
+
+        Fonte: gateway → `GET /api/mtr/responsavel/{parCodigo}`. O DTO expõe SÓ `cdrCodigo`, `name` e
+        `cargo`; assinatura nunca sai daqui. Item sem `cdrCodigo` é descartado. Se o gateway em uso
+        não implementar a operação, a resposta é `{"items": []}` — 200 com lista vazia, nunca erro.
+      tags:
+      - CDF
+      responses:
+        '200':
+          description: Lista de responsáveis pela emissão de CDF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CdfResponsibleListResponse'
+              example:
+                items:
+                - cdrCodigo: 445566
+                  name: Responsável Exemplo
+                  cargo: Responsável técnico
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '502':
+          description: |-
+            Falha ao consultar a CETESB (`CETESB_REMOTE_ERROR`, `CETESB_HTTP_ERROR`,
+            `CETESB_AUTH_FAILED`, `CETESB_NON_JSON_RESPONSE`, `CETESB_NETWORK_ERROR` ou
+            `CETESB_RETRY_EXHAUSTED`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: integrationAccountId
+        in: query
+        required: true
+        description: Conta de integração. Ausente ou vazio responde 400.
+        schema:
+          type: string
+      - name: sessionContextId
+        in: query
+        required: false
+        description: |-
+          Contexto de sessão operacional. Presente, é validado (tem de existir e pertencer à conta —
+          senão 400); ausente, a conta é apenas garantida e o gateway resolve a sessão.
+        schema:
+          type: string
   /v1/cdf/generate:
     post:
       summary: Solicitar geração de CDF
@@ -3776,6 +3976,104 @@ paths:
                 $ref: '#/components/schemas/UnauthorizedProblem'
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
+  /v1/health/jobs/active/{jobId}/cancel:
+    post:
+      summary: Cancelar job da fila ativa
+      description: |-
+        Cancela um job que ainda NÃO começou a rodar. O cancelamento é gravado como TÉRMINO: a linha
+        vai para `status = 'failed'`, com `last_error_code = 'JOB_CANCELLED_MANUAL'` e o motivo em
+        `last_error_message`. Por isso o `status` devolvido é `failed`, e não `cancelled` — o enum de
+        `JobResource` tem `cancelled`, mas esta rota não o usa.
+
+        Só `queued` e `retry_wait` são canceláveis. `running` responde 409
+        (`JOB_RUNNING_CANNOT_CANCEL`): quem solta a linha é o worker. Qualquer outro status responde
+        409 `JOB_NOT_ACTIVE`.
+      tags:
+      - Health
+      responses:
+        '200':
+          description: Job cancelado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthJobCancelResponse'
+              example:
+                jobId: job_01JQW5M0D2G3CTQYV4N9AB8F1R
+                status: failed
+                message: Job cancelled successfully.
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: |-
+            Job em execução (`JOB_RUNNING_CANNOT_CANCEL`) ou fora da fila ativa (`JOB_NOT_ACTIVE`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthJobCancelRequest'
+            example:
+              reason: cancelado pelo operador na janela de manutenção
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/health/jobs/active/{jobId}:
+    delete:
+      summary: Remover job da fila ativa
+      description: |-
+        PURGA, não cancelamento: apaga a linha de `jobs` (`delete from jobs`) e não deixa histórico.
+        Para encerrar um job preservando a trilha, use
+        `POST /v1/health/jobs/active/{jobId}/cancel`.
+
+        Aceita `queued`, `retry_wait`, `failed` e `succeeded`. `running` responde 409
+        (`JOB_RUNNING_CANNOT_REMOVE`); qualquer outro status — `dlq`, inclusive — responde 409
+        `JOB_STATUS_CANNOT_REMOVE`, porque job em DLQ sai por `DELETE /v1/health/jobs/dlq/{jobId}`.
+      tags:
+      - Health
+      responses:
+        '204':
+          description: Job removido (sem corpo)
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: |-
+            Job em execução (`JOB_RUNNING_CANNOT_REMOVE`) ou em status que não permite remoção
+            (`JOB_STATUS_CANNOT_REMOVE`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
   /v1/health/jobs/dlq:
     get:
       summary: Verificar jobs em dead letter queue
@@ -3816,6 +4114,97 @@ paths:
                 $ref: '#/components/schemas/UnauthorizedProblem'
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
+  /v1/health/jobs/dlq/{jobId}/requeue:
+    post:
+      summary: Reprocessar job da DLQ
+      description: |-
+        Devolve o job da DLQ para a fila: `status = 'queued'`, `attempts = 0`, `next_retry_at`,
+        `started_at`, `finished_at` e as marcas de DLQ zerados, e a linha some de
+        `job_dead_letter_queue`. O `jobId` é PRESERVADO — difere de `POST /v1/jobs/{jobId}/retry`,
+        que para `failed`/`cancelled` cria um job novo.
+
+        Concorrência: lock otimista (DL-022) sobre `status = 'dlq' and version = <atual>`; entre dois
+        requeues simultâneos, só um tem efeito. O perdedor, e também o job que já saiu de `dlq`,
+        chegam ao cliente como 500 — hoje esses conflitos são `Error` puro, não `AppError` com 409.
+      tags:
+      - Health
+      responses:
+        '200':
+          description: Job reenfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthJobRequeueResponse'
+              example:
+                jobId: job_01JQW5M0D2G3CTQYV4N9AB8F1R
+                status: queued
+                message: Job requeued successfully
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          description: |-
+            Job inexistente na DLQ.
+
+            Dois avisos que valem mais que a forma do corpo:
+
+            1. O corpo é `application/json` `{"message": ...}`, e NÃO `application/problem+json`: a
+               rota monta este 404 inline, sem passar pelo `errorHandlerMiddleware`. É a única
+               resposta de erro desta família fora do padrão problem+json.
+            2. Este é o comportamento PRETENDIDO, ainda não o observado. Hoje `requeueFromDLQ`
+               (`src/repositories/job-repo.ts`) lança `Error` puro quando o job não está na DLQ, o
+               handler global o converte em 500 e o ramo `if (!job)` da rota fica inalcançável. A
+               correção do repositório vem em mudança separada; este 404 só passa a ser verdade
+               quando ela entrar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthJobRequeueNotFound'
+              example:
+                message: Job not found
+        '500':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/health/jobs/dlq/{jobId}:
+    delete:
+      summary: Descartar job da DLQ
+      description: |-
+        Purga definitiva: apaga a linha de `job_dead_letter_queue` e marca o job original como
+        `failed` (só quando ele ainda estiver em `dlq`), para que nenhum worker o retome.
+
+        IDEMPOTENTE e SEM 404: `jobId` inexistente também responde 204. Os dois comandos são um
+        `delete` e um `update` sem checagem de linhas afetadas — não há como a rota distinguir
+        "descartei" de "não havia nada para descartar", e não vale inventar um 404 que o código não
+        emite.
+      tags:
+      - Health
+      responses:
+        '204':
+          description: Job descartado (sem corpo). Também é a resposta para `jobId` inexistente.
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '500':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
   /v1/health/metrics/performance:
     get:
       summary: Verificar métricas de performance
@@ -7917,6 +8306,82 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CdfCertificateListItem'
+    ReceiptResponsible:
+      description: |-
+        Responsável pelo RECEBIMENTO, para a baixa do MTR. Projeção enxuta do item da CETESB: os
+        demais campos do envelope — incluindo `rrmAssinatura` — ficam de fora de propósito.
+      type: object
+      required:
+      - rrmCodigo
+      - name
+      - cargo
+      properties:
+        rrmCodigo:
+          type:
+          - integer
+          - string
+          description: |-
+            `rrmCodigo` da CETESB, repassado como veio (número ou string). É o valor que vai em
+            `receiptPayload.rrmCodigo` de `POST /v1/manifestos/receive`. Item sem este campo é
+            descartado da lista, então aqui ele nunca é nulo.
+        name:
+          type:
+          - string
+          - 'null'
+          description: '`rrmNome` da CETESB.'
+        cargo:
+          type:
+          - string
+          - 'null'
+          description: '`rrmCargo` da CETESB.'
+    ReceiptResponsibleListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          description: Lista completa, sem paginação. Vazia quando a conta não tem responsável cadastrado.
+          items:
+            $ref: '#/components/schemas/ReceiptResponsible'
+    CdfResponsible:
+      description: |-
+        Responsável pela EMISSÃO de CDF. Lista distinta da de recebimento — aqui o código é
+        `cdrCodigo`. Assinatura nunca é exposta.
+      type: object
+      required:
+      - cdrCodigo
+      - name
+      - cargo
+      properties:
+        cdrCodigo:
+          type:
+          - integer
+          - string
+          description: |-
+            `cdrCodigo` da CETESB, repassado como veio (número ou string). É o valor que vai em
+            `cdfPayload.responsavel.cdrCodigo` de `POST /v1/cdf/generate`. Item sem este campo é
+            descartado da lista, então aqui ele nunca é nulo.
+        name:
+          type:
+          - string
+          - 'null'
+          description: '`cdrNome` da CETESB.'
+        cargo:
+          type:
+          - string
+          - 'null'
+          description: '`cdrCargo` da CETESB.'
+    CdfResponsibleListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          description: Lista completa, sem paginação. Vazia quando a conta não tem responsável cadastrado.
+          items:
+            $ref: '#/components/schemas/CdfResponsible'
     BatchCommandAccepted:
       type: object
       required:
@@ -8522,6 +8987,17 @@ components:
         expiresAt:
           type: string
           format: date-time
+    SicatKeycloakLoginRequest:
+      type: object
+      required:
+      - accessToken
+      properties:
+        accessToken:
+          type: string
+          writeOnly: true
+          description: |-
+            `access_token` emitido pelo Keycloak (realm `nvit`). É a credencial desta rota — por isso
+            ela é pública (`security: []`) e por isso o campo é `writeOnly`.
     SicatCetesbAccountType:
       type: string
       enum:
@@ -9352,6 +9828,61 @@ components:
           type: string
           format: date-time
           description: Data/hora da resposta
+    HealthJobCancelRequest:
+      type: object
+      description: Corpo OPCIONAL do cancelamento; a rota lê `req.body?.reason` e tolera corpo ausente.
+      properties:
+        reason:
+          type: string
+          description: |-
+            Motivo gravado em `jobs.last_error_message`. Ausente, o serviço grava
+            `Cancelled manually by operator`.
+    HealthJobCancelResponse:
+      type: object
+      required:
+      - jobId
+      - status
+      - message
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          description: |-
+            Status do job DEPOIS do cancelamento. O cancelamento é escrito como término, então o
+            valor é `failed` (com `last_error_code = JOB_CANCELLED_MANUAL`) — nunca `cancelled`.
+        message:
+          type: string
+          example: Job cancelled successfully.
+    HealthJobRequeueResponse:
+      type: object
+      required:
+      - jobId
+      - status
+      - message
+      properties:
+        jobId:
+          type: string
+          description: O MESMO `jobId` que estava na DLQ — o requeue preserva a identidade do job.
+        status:
+          type: string
+          description: Status do job depois do requeue (`queued`).
+        message:
+          type: string
+          example: Job requeued successfully
+    HealthJobRequeueNotFound:
+      description: |-
+        Corpo do 404 de `POST /v1/health/jobs/dlq/{jobId}/requeue`. Deliberadamente NÃO é `Problem`
+        nem `CodedProblem`: a rota monta este objeto inline, sem passar pelo
+        `errorHandlerMiddleware`, então não há `type`, `title`, `status` nem `correlationId`.
+        Normalizá-lo exige mudar a rota, não só o contrato.
+      type: object
+      required:
+      - message
+      properties:
+        message:
+          type: string
+          example: Job not found
     HealthMetricsResponse:
       type: object
       required:

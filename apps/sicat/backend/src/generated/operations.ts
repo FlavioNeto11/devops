@@ -55,6 +55,15 @@ const operationsData = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_sicat_auth_keycloak",
+    "method": "post",
+    "specPath": "/v1/sicat/auth/keycloak",
+    "expressPath": "/v1/sicat/auth/keycloak",
+    "summary": "Login no SICAT via SSO Keycloak (OIDC)",
+    "tag": "SICAT Authentication",
+    "successStatus": 200
+  },
+  {
     "key": "get_v1_sicat_cetesb_accounts",
     "method": "get",
     "specPath": "/v1/sicat/cetesb-accounts",
@@ -370,6 +379,15 @@ const operationsData = [
     "successStatus": 202
   },
   {
+    "key": "get_v1_manifestos_receipt_responsibles",
+    "method": "get",
+    "specPath": "/v1/manifestos/receipt-responsibles",
+    "expressPath": "/v1/manifestos/receipt-responsibles",
+    "summary": "Listar responsáveis pelo recebimento",
+    "tag": "Manifestos",
+    "successStatus": 200
+  },
+  {
     "key": "get_v1_manifestos_id",
     "method": "get",
     "specPath": "/v1/manifestos/{id}",
@@ -440,6 +458,15 @@ const operationsData = [
     "summary": "Solicitar recebimento de manifesto",
     "tag": "Manifestos",
     "successStatus": 202
+  },
+  {
+    "key": "get_v1_cdf_responsibles",
+    "method": "get",
+    "specPath": "/v1/cdf/responsibles",
+    "expressPath": "/v1/cdf/responsibles",
+    "summary": "Listar responsáveis pela emissão de CDF",
+    "tag": "CDF",
+    "successStatus": 200
   },
   {
     "key": "post_v1_cdf_generate",
@@ -541,6 +568,24 @@ const operationsData = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_health_jobs_active_jobId_cancel",
+    "method": "post",
+    "specPath": "/v1/health/jobs/active/{jobId}/cancel",
+    "expressPath": "/v1/health/jobs/active/:jobId/cancel",
+    "summary": "Cancelar job da fila ativa",
+    "tag": "Health",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_health_jobs_active_jobId",
+    "method": "delete",
+    "specPath": "/v1/health/jobs/active/{jobId}",
+    "expressPath": "/v1/health/jobs/active/:jobId",
+    "summary": "Remover job da fila ativa",
+    "tag": "Health",
+    "successStatus": 204
+  },
+  {
     "key": "get_v1_health_jobs_dlq",
     "method": "get",
     "specPath": "/v1/health/jobs/dlq",
@@ -548,6 +593,24 @@ const operationsData = [
     "summary": "Verificar jobs em dead letter queue",
     "tag": "Health",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_health_jobs_dlq_jobId_requeue",
+    "method": "post",
+    "specPath": "/v1/health/jobs/dlq/{jobId}/requeue",
+    "expressPath": "/v1/health/jobs/dlq/:jobId/requeue",
+    "summary": "Reprocessar job da DLQ",
+    "tag": "Health",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_health_jobs_dlq_jobId",
+    "method": "delete",
+    "specPath": "/v1/health/jobs/dlq/{jobId}",
+    "expressPath": "/v1/health/jobs/dlq/:jobId",
+    "summary": "Descartar job da DLQ",
+    "tag": "Health",
+    "successStatus": 204
   },
   {
     "key": "get_v1_health_metrics_performance",
