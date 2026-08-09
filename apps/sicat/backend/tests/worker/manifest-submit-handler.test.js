@@ -21,6 +21,9 @@ import { queuedSubmitJob } from '../fixtures/jobs.js';
  * - logging de exchange para auditoria
  */
 
+// Nunca esperar o backoff real do reconciliador dentro de teste.
+const NO_SLEEP = async () => {};
+
 // Mock do gateway CETESB
 class MockCetesbGateway {
   constructor(shouldFail = false) {
@@ -168,7 +171,6 @@ describe('handleManifestSubmit - Worker', () => {
     await query('DELETE FROM manifests WHERE id LIKE $1', ['man_test_wrk_%']);
     await query('DELETE FROM session_contexts WHERE id LIKE $1', ['scx_test_wrk_%']);
     await query('DELETE FROM integration_accounts WHERE id LIKE $1', ['acc_test_wrk_%']);
-    await pool.end();
   });
 
   it('deve processar submit com sucesso e atualizar manifesto', async () => {
@@ -426,6 +428,9 @@ describe('handleManifestSubmit - Worker', () => {
       ['submitting', testManifestId]
     );
 
+    // Double OBRIGATÓRIO: sem ele o side-effect não teria como perguntar à
+    // CETESB e o desfecho honesto seria `submit_unconfirmed`. Devolver lista
+    // vazia = "perguntei, esgotei o polling, o MTR não está lá".
     await applyManifestSubmitTerminalFailureSideEffect(job, {
       action: 'dlq',
       dlqReason: 'Max attempts exceeded. Last error: Resíduo informado com unidade incorreta!',
@@ -433,13 +438,254 @@ describe('handleManifestSubmit - Worker', () => {
         lastErrorCode: 'CETESB_VALIDATION_ERROR',
         lastErrorMessage: 'Resíduo informado com unidade incorreta!'
       }
-    });
+    }, null, { searchManifests: async () => [], sleep: NO_SLEEP });
 
     const manifest = await findManifestById(testManifestId);
     assert.strictEqual(manifest.status, 'failed');
     assert.match(manifest.externalStatus, /DLQ/i);
     assert.match(manifest.externalStatus, /Resíduo informado com unidade incorreta/i);
+    assert.match(manifest.externalStatus, /realize novo envio/i, 'ausência PROVADA autoriza mandar reenviar');
     assert.strictEqual(manifest.payload.jobResults['manifest.submit'].outcome, 'manifest_submit_failed');
     assert.strictEqual(manifest.payload.jobResults['manifest.submit'].terminalAction, 'dlq');
+  });
+
+  // -------------------------------------------------------------------------
+  // O DEFEITO que esta unidade fecha: a falha terminal gravava `failed` +
+  // "revise os dados e reenfileire o envio" SEM perguntar nada à CETESB. Se a
+  // resposta do PUT tinha se perdido DEPOIS de o MTR nascer, o operador lia
+  // "reenvie", reenviava, e a CETESB ganhava um SEGUNDO MTR real.
+  // -------------------------------------------------------------------------
+
+  it('NÃO marca failed quando a CETESB confirma que o MTR nasceu (marcador de correlação)', async () => {
+    const job = await findJobById(testJobId);
+
+    // Estado exato do defeito: submit despachado, resposta perdida — status
+    // transiente, sem hash e sem manCodigo/manNumero.
+    await query(
+      `UPDATE manifests SET status = $1, payload = payload || $2::jsonb WHERE id = $3`,
+      [
+        'submitting',
+        JSON.stringify({ submitCorrelation: { marker: `[sicat:${testManifestId}]`, jobId: testJobId } }),
+        testManifestId
+      ]
+    );
+
+    let searchCalls = 0;
+    await applyManifestSubmitTerminalFailureSideEffect(job, {
+      action: 'dlq',
+      dlqReason: 'Max attempts exceeded. Last error: socket hang up',
+      patch: { lastErrorCode: 'CETESB_TIMEOUT', lastErrorMessage: 'socket hang up' }
+    }, null, {
+      sleep: NO_SLEEP,
+      // Dado CRU da pesquisa CETESB. Dois manifestos com identidades DISTINTAS;
+      // quem casa pelo marcador é o código sob teste, não este double.
+      searchManifests: async () => {
+        searchCalls += 1;
+        return [
+          { manCodigo: 111, manNumero: 'SP-111', manHashCode: 'hash-vizinho', manObservacao: 'Obra 1 [sicat:man_outro_qualquer]' },
+          { manCodigo: 987654, manNumero: '000987654', manHashCode: 'hash-real-987', manObservacao: `Obra 5 [sicat:${testManifestId}] via SICAT` }
+        ];
+      }
+    });
+
+    assert.strictEqual(searchCalls, 1, 'tem de PERGUNTAR à CETESB antes de declarar qualquer coisa');
+
+    const manifest = await findManifestById(testManifestId);
+    assert.strictEqual(manifest.status, 'submitted', 'o MTR nasceu — declarar falha aqui é o que gera o duplicado');
+    assert.strictEqual(manifest.externalHashCode, 'hash-real-987');
+    assert.strictEqual(manifest.externalReference.manCodigo, 987654);
+    assert.strictEqual(manifest.externalReference.manNumero, '000987654');
+    assert.doesNotMatch(manifest.externalStatus, /realize novo envio|reenfileire o envio/i);
+    assert.strictEqual(
+      manifest.payload.jobResults['manifest.submit'].outcome,
+      'manifest_submit_confirmed_by_reconcile'
+    );
+    assert.strictEqual(manifest.payload.jobResults['manifest.submit'].retriable, false);
+  });
+
+  it('CONTROLE NEGATIVO: marcador de outro manifesto não confirma este', async () => {
+    const job = await findJobById(testJobId);
+    await query('UPDATE manifests SET status = $1 WHERE id = $2', ['submitting', testManifestId]);
+
+    await applyManifestSubmitTerminalFailureSideEffect(job, {
+      action: 'dlq',
+      dlqReason: 'Max attempts exceeded.'
+    }, null, {
+      sleep: NO_SLEEP,
+      searchManifests: async () => [
+        { manCodigo: 111, manNumero: 'SP-111', manHashCode: 'hash-vizinho', manObservacao: 'Obra 1 [sicat:man_outro_qualquer]' }
+      ]
+    });
+
+    const manifest = await findManifestById(testManifestId);
+    assert.strictEqual(manifest.status, 'failed');
+    assert.strictEqual(manifest.externalHashCode, null, 'não pode adotar o hash do vizinho');
+  });
+
+  it('sem meio de perguntar à CETESB o desfecho é submit_unconfirmed — nunca failed', async () => {
+    const job = await findJobById(testJobId);
+    await query('UPDATE manifests SET status = $1 WHERE id = $2', ['submitting', testManifestId]);
+
+    // Nenhum `searchManifests`: "não perguntei" não é "não existe".
+    await applyManifestSubmitTerminalFailureSideEffect(job, {
+      action: 'dlq',
+      dlqReason: 'Max attempts exceeded. Last error: socket hang up'
+    });
+
+    const manifest = await findManifestById(testManifestId);
+    assert.strictEqual(manifest.status, 'submit_unconfirmed');
+    assert.match(manifest.externalStatus, /NÃO reenvie/);
+    assert.doesNotMatch(manifest.externalStatus, /realize novo envio|reenfileire o envio/i);
+    assert.strictEqual(manifest.payload.jobResults['manifest.submit'].retriable, false);
+  });
+
+  it('erro de pesquisa na CETESB também é submit_unconfirmed', async () => {
+    const job = await findJobById(testJobId);
+    await query('UPDATE manifests SET status = $1 WHERE id = $2', ['processing', testManifestId]);
+
+    await applyManifestSubmitTerminalFailureSideEffect(job, { action: 'failed' }, null, {
+      sleep: NO_SLEEP,
+      searchManifests: async () => {
+        throw Object.assign(new Error('CETESB 503'), { code: 'CETESB_HTTP_ERROR', remoteStatus: 503 });
+      }
+    });
+
+    const manifest = await findManifestById(testManifestId);
+    assert.strictEqual(manifest.status, 'submit_unconfirmed');
+    assert.doesNotMatch(manifest.externalStatus, /realize novo envio/i);
+  });
+
+  it('não toca manifesto que já saiu do estado transiente de submit', async () => {
+    const job = await findJobById(testJobId);
+    await query('UPDATE manifests SET status = $1 WHERE id = $2', ['cancelled', testManifestId]);
+
+    let searchCalls = 0;
+    const result = await applyManifestSubmitTerminalFailureSideEffect(job, { action: 'dlq' }, null, {
+      sleep: NO_SLEEP,
+      searchManifests: async () => { searchCalls += 1; return []; }
+    });
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(searchCalls, 0, 'nem sequer pergunta: o manifesto já tem desfecho');
+    const manifest = await findManifestById(testManifestId);
+    assert.strictEqual(manifest.status, 'cancelled');
+  });
+});
+
+describe('handleManifestReconcileSubmit - varredura periódica', () => {
+  const ACCOUNT_ID = 'acc_test_wrk_rec_001';
+  const SWEEP_JOB_ID = 'job_test_wrk_rec_sweep';
+
+  before(async () => {
+    await pool.connect().then(client => client.release());
+  });
+
+  beforeEach(async () => {
+    await query('DELETE FROM jobs WHERE job_id = $1', [SWEEP_JOB_ID]);
+    await query('DELETE FROM manifests WHERE integration_account_id = $1', [ACCOUNT_ID]);
+    await query('DELETE FROM integration_accounts WHERE id = $1', [ACCOUNT_ID]);
+    await query(
+      'INSERT INTO integration_accounts(id, account_name, is_active) VALUES ($1,$2,$3)',
+      [ACCOUNT_ID, 'Test Reconcile Sweep Account', true]
+    );
+
+    // Três candidatos com identidades DISTINTAS: um que nasceu na CETESB, um
+    // que não nasceu, e um já `submit_unconfirmed` (que precisa continuar
+    // visível para a varredura, senão o rebaixamento vira beco sem saída).
+    for (const [id, status] of [
+      ['man_test_wrk_rec_nasceu', 'submitting'],
+      ['man_test_wrk_rec_nao_nasceu', 'processing'],
+      ['man_test_wrk_rec_pendente', 'submit_unconfirmed']
+    ]) {
+      await query(
+        `INSERT INTO manifests(id, integration_account_id, status, payload, requested_by, correlation_id)
+         VALUES ($1,$2,$3,$4::jsonb,$5,$6)`,
+        [id, ACCOUNT_ID, status, JSON.stringify({ ...validManifestDraft.payload }), 'operator', `corr_${id}`]
+      );
+    }
+
+    await query(
+      // `chk_job_running_integrity` exige started_at + claimed_at + claimed_by
+      // + claim_heartbeat_at para status 'running'.
+      `INSERT INTO jobs(job_id, command_id, entity_type, entity_id, operation, payload, status,
+        max_attempts, attempts, correlation_id, started_at, claimed_at, claim_heartbeat_at, claimed_by)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,now(),now(),now(),$11)`,
+      [
+        SWEEP_JOB_ID,
+        'cmd_test_wrk_rec_sweep',
+        'integration_account',
+        ACCOUNT_ID,
+        'manifest.reconcile_submit',
+        JSON.stringify({ integrationAccountId: ACCOUNT_ID, updatedSince: new Date(Date.now() - 3600_000).toISOString() }),
+        'running',
+        3,
+        1,
+        'corr_test_wrk_rec_sweep',
+        'worker-test'
+      ]
+    );
+  });
+
+  after(async () => {
+    await query('DELETE FROM jobs WHERE job_id = $1', [SWEEP_JOB_ID]);
+    await query('DELETE FROM manifests WHERE integration_account_id = $1', [ACCOUNT_ID]);
+    await query('DELETE FROM integration_accounts WHERE id = $1', [ACCOUNT_ID]);
+    // `pool.end()` mora AQUI (último describe do arquivo): fechá-lo no `after`
+    // do primeiro describe deixaria este suite inteiro sem conexão.
+    await pool.end();
+  });
+
+  it('confirma quem nasceu, falha quem não nasceu e mantém a varredura enxergando os pendentes', async () => {
+    const job = await findJobById(SWEEP_JOB_ID);
+
+    const gateway = {
+      // Dado CRU: um único item real na CETESB, com o marcador de UM dos três.
+      async searchManifests() {
+        return [
+          {
+            manCodigo: 424242,
+            manNumero: '000424242',
+            manHashCode: 'hash-nasceu',
+            manObservacao: 'Obra [sicat:man_test_wrk_rec_nasceu] via SICAT'
+          }
+        ];
+      }
+    };
+
+    await processJob(job, gateway);
+
+    const nasceu = await findManifestById('man_test_wrk_rec_nasceu');
+    assert.strictEqual(nasceu.status, 'submitted');
+    assert.strictEqual(nasceu.externalHashCode, 'hash-nasceu');
+
+    const naoNasceu = await findManifestById('man_test_wrk_rec_nao_nasceu');
+    assert.strictEqual(naoNasceu.status, 'failed', 'orçamento cheio de polling: a varredura PODE concluir ausência');
+    assert.strictEqual(naoNasceu.externalHashCode, null);
+
+    // Prova de que `submit_unconfirmed` continua no conjunto varrido.
+    const pendente = await findManifestById('man_test_wrk_rec_pendente');
+    assert.strictEqual(pendente.status, 'failed');
+
+    const finished = await findJobById(SWEEP_JOB_ID);
+    assert.strictEqual(finished.status, 'succeeded');
+    assert.strictEqual(finished.payload.candidateCount, 3);
+    assert.strictEqual(finished.payload.confirmedCount, 1);
+    assert.strictEqual(finished.payload.failedCount, 2);
+  });
+
+  it('falha ALTO quando o gateway não sabe pesquisar — nunca "não achei nada" em silêncio', async () => {
+    const job = await findJobById(SWEEP_JOB_ID);
+
+    await assert.rejects(
+      async () => processJob(job, {}),
+      (error) => {
+        assert.strictEqual(error.code, 'MANIFEST_RECONCILE_SUBMIT_MISSING_GATEWAY');
+        return true;
+      }
+    );
+
+    // Controle negativo: nenhum manifesto pode ter sido tocado.
+    const intocado = await findManifestById('man_test_wrk_rec_nasceu');
+    assert.strictEqual(intocado.status, 'submitting');
   });
 });

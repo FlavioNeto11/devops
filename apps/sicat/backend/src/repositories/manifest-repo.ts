@@ -1,6 +1,10 @@
 import { query } from '../db/pool.js';
 import type { PoolClient } from 'pg';
 import { AppError } from '../lib/problem.js';
+import {
+  RECONCILABLE_MANIFEST_SUBMIT_STATUSES,
+  TRANSIENT_MANIFEST_SUBMIT_STATUSES
+} from '../lib/manifest-submit-status.js';
 
 type DbClient = Pick<PoolClient, 'query'> | null;
 type JsonObject = Record<string, unknown>;
@@ -441,11 +445,11 @@ export async function listPotentialGhostManifestsForMirrorWindow(filters: {
   return result.rows.map((row) => mapRow(row));
 }
 
-// Mesmo conjunto transiente de submit definido em
-// workers/operation-handlers.ts e services/manifest-service.ts
-// (TRANSIENT_MANIFEST_SUBMIT_STATUSES): manifestos que iniciaram o submit
-// mas ainda nao receberam confirmacao da CETESB.
-export const TRANSIENT_SUBMIT_MANIFEST_STATUSES = ['queued_submit', 'submitting', 'processing'] as const;
+// Reexport do vocabulario canonico (lib/manifest-submit-status.ts). Ate esta
+// unidade o conjunto era uma TERCEIRA copia literal do mesmo array, ao lado das
+// copias de workers/operation-handlers.ts e services/manifest-service.ts.
+// Mantido como nome proprio deste repositorio porque ja e importado por testes.
+export const TRANSIENT_SUBMIT_MANIFEST_STATUSES = TRANSIENT_MANIFEST_SUBMIT_STATUSES;
 
 // Funcao irma de listPotentialGhostManifestsForMirrorWindow, para o caso
 // OPOSTO: a irma exige external_hash_code preenchido e status pos-submit,
@@ -480,8 +484,11 @@ export async function listUnconfirmedSubmitManifestsForReconciliation(filters: {
     `external_hash_code is null`
   ];
 
+  // RECONCILABLE (transientes + `submit_unconfirmed`) e nao apenas os
+  // transientes: um manifesto rebaixado para "nao sei" sairia do radar desta
+  // varredura no instante seguinte e ficaria preso para sempre.
   const statusPlaceholders: string[] = [];
-  for (const status of TRANSIENT_SUBMIT_MANIFEST_STATUSES) {
+  for (const status of RECONCILABLE_MANIFEST_SUBMIT_STATUSES) {
     values.push(status);
     statusPlaceholders.push(`$${values.length}`);
   }
@@ -508,6 +515,141 @@ export async function listUnconfirmedSubmitManifestsForReconciliation(filters: {
   );
 
   return result.rows.map((row) => mapRow(row));
+}
+
+// Fonte das contas que precisam de varredura de reconciliacao. Sem isto o
+// enfileirador periodico teria de adivinhar por qual conta comecar (ou varrer a
+// tabela inteira em cada iteracao do worker).
+export async function listIntegrationAccountIdsWithUnconfirmedSubmits(filters: {
+  updatedSince: string;
+  limit?: number;
+}): Promise<string[]> {
+  const updatedSince = String(filters?.updatedSince ?? '').trim();
+  if (!updatedSince) {
+    return [];
+  }
+
+  const values: Array<string | number> = [updatedSince];
+  const statusPlaceholders: string[] = [];
+  for (const status of RECONCILABLE_MANIFEST_SUBMIT_STATUSES) {
+    values.push(status);
+    statusPlaceholders.push(`$${values.length}`);
+  }
+
+  values.push(Math.max(1, Math.min(Number(filters?.limit) || 25, 200)));
+
+  const result = await query<{ integration_account_id: string }>(
+    `select distinct integration_account_id
+       from manifests
+      where updated_at >= $1::timestamptz
+        and coalesce(requested_by, '') <> 'cetesb.search'
+        and external_hash_code is null
+        and status in (${statusPlaceholders.join(', ')})
+      order by integration_account_id
+      limit $${values.length}`,
+    values
+  );
+
+  return result.rows.map((row) => row.integration_account_id);
+}
+
+// Costura do ORFAO: liga um item remoto da pesquisa CETESB de volta a linha
+// local que o originou, identificada pelo marcador de correlacao gravado em
+// `manObservacao` antes do PUT.
+//
+// Por que nao da para usar `upsertManifestFromExternalSearch`: o match dele so
+// casa por `external_hash_code` / `manCodigo` / `manNumero` — e NENHUM dos tres
+// existe justamente no manifesto cuja resposta de submit se perdeu. O resultado
+// era uma linha NOVA e desvinculada (`createPrefixedId('man')`) toda vez que o
+// operador usava "Atualizar da CETESB".
+//
+// As duas guardas do WHERE nao sao decorativas:
+//  - `external_hash_code is null` garante IDEMPOTENCIA e, principalmente, que um
+//    SEGUNDO MTR real com o mesmo marcador (reenvio duplicado ja consumado) NAO
+//    sobrescreva a costura do primeiro — ele cai no upsert normal e vira a sua
+//    propria linha, que e a verdade;
+//  - `status in RECONCILABLE` impede costurar sobre um manifesto que ja teve
+//    outro desfecho (cancelado, recebido, rascunho).
+//
+// `requested_by` NAO e tocado de proposito: a linha continua sendo um manifesto
+// local do operador e nao pode ser varrida por `deleteManifestsForMirrorWindow`
+// (que apaga apenas `requested_by = 'cetesb.search'`).
+export async function stitchManifestFromExternalSearchByCorrelation(input: {
+  manifestId: string;
+  integrationAccountId: string;
+  status?: string | null;
+  externalStatus?: string | null;
+  externalReference?: { manCodigo?: string | number | null; manNumero?: string | number | null } | null;
+  externalHashCode?: string | null;
+  payload?: JsonObject | null;
+  lastSyncAt?: string | null;
+}) {
+  const manifestId = String(input?.manifestId ?? '').trim();
+  const integrationAccountId = String(input?.integrationAccountId ?? '').trim();
+  if (!manifestId || !integrationAccountId) {
+    return null;
+  }
+
+  const values: string[] = [manifestId, integrationAccountId];
+  const statusPlaceholders: string[] = [];
+  for (const status of RECONCILABLE_MANIFEST_SUBMIT_STATUSES) {
+    values.push(status);
+    statusPlaceholders.push(`$${values.length}`);
+  }
+
+  const existing = await query<ManifestRow>(
+    `select * from manifests
+      where id = $1
+        and integration_account_id = $2
+        and external_hash_code is null
+        and status in (${statusPlaceholders.join(', ')})`,
+    values
+  );
+
+  const row = existing.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const externalReference = input.externalReference || null;
+  const mergedPayload = input.payload
+    ? mergePreservingNonNull(row.payload || {}, input.payload)
+    : (row.payload || {});
+
+  // `chk_manifest_submitted_integrity` exige `external_hash_code not null`
+  // quando `status = 'submitted'`. A linha costurada tem hash NULO por
+  // definicao (e a guarda do SELECT acima); se o item remoto tambem vier sem
+  // `manHashCode`, gravar 'submitted' estouraria 23514 e derrubaria a
+  // sincronizacao inteira. Nesse caso a costura vale mesmo assim — ela ainda
+  // liga manCodigo/manNumero a linha certa — so que como 'processing'.
+  const requestedStatus = input.status || null;
+  const effectiveStatus = requestedStatus === 'submitted' && !input.externalHashCode
+    ? 'processing'
+    : requestedStatus;
+
+  const updated = await query<ManifestRow>(
+    `update manifests set
+       status = coalesce($2, status),
+       external_status = coalesce($3, external_status),
+       external_reference = coalesce($4::jsonb, external_reference),
+       external_hash_code = coalesce($5, external_hash_code),
+       payload = coalesce($6::jsonb, payload),
+       last_sync_at = coalesce($7::timestamptz, last_sync_at),
+       updated_at = now()
+     where id = $1
+     returning *`,
+    [
+      row.id,
+      effectiveStatus,
+      input.externalStatus || null,
+      externalReference ? JSON.stringify(externalReference) : null,
+      input.externalHashCode || null,
+      mergedPayload ? JSON.stringify(mergedPayload) : null,
+      input.lastSyncAt || null
+    ]
+  );
+
+  return mapRow(updated.rows[0]);
 }
 
 export async function upsertManifestFromExternalSearch(input: {

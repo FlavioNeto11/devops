@@ -3,7 +3,13 @@ import path from 'node:path';
 import { ZipFile } from 'yazl';
 import { insertAuditEntry } from '../repositories/audit-repo.js';
 import { findJobById, insertJob, updateJob, updateJobIfOwned } from '../repositories/job-repo.js';
-import { findManifestById, listManifestDocuments, updateManifest, upsertManifestFromExternalSearch } from '../repositories/manifest-repo.js';
+import {
+  findManifestById,
+  listManifestDocuments,
+  listUnconfirmedSubmitManifestsForReconciliation,
+  updateManifest,
+  upsertManifestFromExternalSearch
+} from '../repositories/manifest-repo.js';
 import {
   findMtrProvisorioById,
   updateMtrProvisorioStatus,
@@ -39,6 +45,15 @@ import {
 } from '../services/conversation/conversation-persistence-service.js';
 import { createPrefixedId } from '../lib/ids.js';
 import { buildManifestCorrelationMarker } from '../lib/manifest-correlation.js';
+import {
+  buildManifestSubmitFailureExternalStatus,
+  isTransientManifestSubmitStatus
+} from '../lib/manifest-submit-status.js';
+import {
+  resolveManifestSubmitReconcilePatch,
+  type GatewaySearchManifestsArgs,
+  type ManifestSubmitReconcileDeps
+} from '../services/manifest-submit-reconciler.js';
 import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/retry.js';
 import { patchJobPayload } from './job-payload-patch.js';
 import { findConversationChannelLinkForChannel } from '../repositories/conversation-channel-link-repo.js';
@@ -46,8 +61,6 @@ import { runWhatsAppInboundTurn } from '../services/conversation/channel/whatsap
 import { runWhatsAppOutboundNotice } from '../services/conversation/channel/whatsapp/whatsapp-outbound-notice-service.js';
 import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsapp/index.js';
 import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
-
-const TRANSIENT_MANIFEST_SUBMIT_STATUSES = new Set(['queued_submit', 'submitting', 'processing']);
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -159,17 +172,10 @@ function summarizeTechnicalCause(value: unknown, maxLength = 180) {
   return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
-function buildManifestSubmitFailureExternalStatus(technicalCause: string | null, terminalAction: string) {
-  const baseMessage = terminalAction === 'dlq'
-    ? 'Falha no envio para CETESB. Job movido para DLQ; revise os dados e reenfileire o envio.'
-    : 'Falha definitiva no envio para CETESB. Revise os dados e realize novo envio.';
-
-  if (!technicalCause) {
-    return baseMessage;
-  }
-
-  return `${baseMessage} Causa técnica: ${technicalCause}`;
-}
+// A mensagem de falha de submit vive em `lib/manifest-submit-status.ts` — fonte
+// ÚNICA, compartilhada com `services/manifest-service.ts`. Antes eram duas
+// quase-duplicatas com textos diferentes e o MESMO defeito: mandavam reenviar
+// sem nunca perguntar à CETESB se o MTR já tinha nascido.
 
 function buildManifestCancelFailureUserMessage(errorCode: string | null, technicalCause: string | null, terminalAction: string) {
   if (errorCode === 'MANIFEST_CANCEL_NOT_CONFIRMED') {
@@ -674,7 +680,12 @@ function mergeEntityJobResult(existingPayload: unknown, operation: string, resul
   };
 }
 
-export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntity, terminalFailure: TerminalFailure = {}, error: unknown = null) {
+export async function applyManifestSubmitTerminalFailureSideEffect(
+  job: JobEntity,
+  terminalFailure: TerminalFailure = {},
+  error: unknown = null,
+  deps: ManifestSubmitReconcileDeps = {}
+) {
   if (
     (job?.entityType !== 'manifest' && job?.entityType !== 'mtr_provisorio')
     || job?.operation !== 'manifest.submit'
@@ -687,26 +698,39 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
     return null;
   }
 
+  const technicalCause = summarizeTechnicalCause(
+    terminalFailure.patch?.lastErrorMessage
+    || terminalFailure.dlqReason
+    || getErrorMessage(error)
+    || job.lastErrorMessage
+  );
+
   // R3-C: para `mtr_provisorio`, usar o repo provisório dedicado (preserva
-  // locking otimista). Caminho `manifest` permanece inalterado.
+  // locking otimista).
+  //
+  // ⚠️ LIMITE CONHECIDO: este ramo NÃO reconcilia contra a CETESB e continua
+  // marcando `failed_submit`. A taxonomia de status do provisório vive em
+  // `repositories/mtr-provisorio-repo.ts` e não tem equivalente de
+  // `submit_unconfirmed`; introduzir um é escopo de outra unidade. O que MUDA
+  // aqui é só a mensagem: com certeza `unknown` ela para de mandar reenviar —
+  // que é exatamente o gatilho do MTR duplicado.
   if (job.entityType === 'mtr_provisorio') {
     const record = await findMtrProvisorioById(job.entityId);
     if (!record) return null;
-    if (!TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(String(record.status || '').toLowerCase())) {
+    if (!isTransientManifestSubmitStatus(record.status)) {
       return null;
     }
-    const technicalCause = summarizeTechnicalCause(
-      terminalFailure.patch?.lastErrorMessage
-      || terminalFailure.dlqReason
-      || getErrorMessage(error)
-      || job.lastErrorMessage
-    );
+    const provisorioExternalStatus = buildManifestSubmitFailureExternalStatus({
+      certainty: 'unknown',
+      terminalAction,
+      technicalCause
+    });
     const payloadWithResult = mergeEntityJobResult(record.payload, 'manifest.submit', {
       jobId: job.jobId,
       outcome: 'manifest_submit_failed',
       kind: 'provisorio',
       status: 'failed_submit',
-      externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+      externalStatus: provisorioExternalStatus,
       terminalAction,
       lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
       lastErrorMessage: technicalCause,
@@ -716,7 +740,7 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
       record.id,
       {
         status: 'failed_submit',
-        externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+        externalStatus: provisorioExternalStatus,
         payload: payloadWithResult,
         lastSyncAt: nowIso()
       },
@@ -729,31 +753,39 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
     return null;
   }
 
-  if (!TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(String(manifest.status || '').toLowerCase())) {
+  if (!isTransientManifestSubmitStatus(manifest.status)) {
     return null;
   }
 
-  const technicalCause = summarizeTechnicalCause(
-    terminalFailure.patch?.lastErrorMessage
-    || terminalFailure.dlqReason
-    || getErrorMessage(error)
-    || job.lastErrorMessage
-  );
+  // AQUI estava o defeito: gravava `status: 'failed'` + "revise os dados e
+  // reenfileire o envio" sem NUNCA perguntar à CETESB. Quando a resposta do PUT
+  // se perdia depois de o MTR nascer, o operador lia "reenvie", reenviava, e a
+  // CETESB ganhava um SEGUNDO MTR real. Orçamento de polling cheio: este
+  // caminho já roda fora do ciclo de request, no worker.
+  const reconcilePatch = await resolveManifestSubmitReconcilePatch(manifest, deps, {
+    allowTerminalFailure: true,
+    terminalAction,
+    technicalCause,
+    correlationId: job.correlationId ?? null
+  });
 
   const payloadWithResult = mergeEntityJobResult(manifest.payload, 'manifest.submit', {
     jobId: job.jobId,
-    outcome: 'manifest_submit_failed',
-    status: 'failed',
-    externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+    outcome: reconcilePatch.confirmed ? 'manifest_submit_confirmed_by_reconcile' : 'manifest_submit_failed',
+    status: reconcilePatch.status,
+    externalStatus: reconcilePatch.externalStatus,
     terminalAction,
     lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
     lastErrorMessage: technicalCause,
-    retriable: terminalAction !== 'failed'
+    // Reenviar só é seguro quando a pesquisa PROVOU que o MTR não nasceu.
+    retriable: !reconcilePatch.confirmed && reconcilePatch.status === 'failed' && terminalAction !== 'failed'
   });
 
   return updateManifest(manifest.id, {
-    status: 'failed',
-    externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+    status: reconcilePatch.status,
+    externalStatus: reconcilePatch.externalStatus,
+    externalHashCode: reconcilePatch.externalHashCode ?? null,
+    ...(reconcilePatch.externalReference ? { externalReference: reconcilePatch.externalReference } : {}),
     payload: payloadWithResult,
     lastSyncAt: nowIso()
   });
@@ -990,10 +1022,17 @@ export async function processJob(job: JobEntity, gateway: {
     integrationAccountId?: string | null;
     correlationId?: string | null;
   }) => Promise<unknown>;
+  // OPCIONAL de propósito: o tipo acima é um literal inline com 14 métodos
+  // obrigatórios e torná-lo o 15º quebraria todo teste que fabrica um gateway.
+  // `handleManifestReconcileSubmit` falha ALTO quando ele não vem — nunca
+  // silenciosamente "não achei nada", que seria indistinguível de "não existe".
+  searchManifests?: (options: GatewaySearchManifestsArgs) => Promise<unknown>;
 }) {
   switch (job.operation) {
     case 'manifest.submit':
       return handleManifestSubmit(job, gateway);
+    case 'manifest.reconcile_submit':
+      return handleManifestReconcileSubmit(job, gateway);
     case 'manifest.print':
       return handleManifestPrint(job, gateway);
     case 'manifest.cancel':
@@ -1171,6 +1210,83 @@ async function handleManifestSubmit(job: JobEntity, gateway: {
       tags: extractJobTags({ operation, entityType: 'manifest', status: 'queued' })
     });
   }
+}
+
+/**
+ * Varredura de reconciliação de submits sem confirmação.
+ *
+ * Fecha o ciclo: `listUnconfirmedSubmitManifestsForReconciliation` (que até
+ * aqui tinha ZERO chamadores) entrega os manifestos presos em estado transiente
+ * ou `submit_unconfirmed` com `external_hash_code` nulo, e o reconciliador
+ * pergunta à CETESB, um a um, pelo marcador de correlação.
+ *
+ * NÃO usa `finishJob` com patch de payload grande: o resumo é enxuto de
+ * propósito (o payload do job vai para a auditoria e para a UI de operações).
+ */
+async function handleManifestReconcileSubmit(job: JobEntity, gateway: {
+  searchManifests?: (options: GatewaySearchManifestsArgs) => Promise<unknown>;
+}) {
+  if (typeof gateway?.searchManifests !== 'function') {
+    // Falhar ALTO. Um handler que "não achou nada" por falta de gateway é
+    // indistinguível de um que perguntou e não achou — e o segundo autoriza
+    // marcar `failed`.
+    throw new AppError(500, 'Internal Server Error', 'Gateway sem searchManifests: impossível reconciliar submits sem confirmação.', {
+      code: 'MANIFEST_RECONCILE_SUBMIT_MISSING_GATEWAY'
+    });
+  }
+
+  const integrationAccountId = toNonEmptyString(job.payload?.integrationAccountId) || job.entityId;
+  const updatedSince = toNonEmptyString(job.payload?.updatedSince);
+  const candidates = await listUnconfirmedSubmitManifestsForReconciliation({
+    integrationAccountId,
+    updatedSince,
+    dateFrom: toNonEmptyString(job.payload?.dateFrom),
+    dateTo: toNonEmptyString(job.payload?.dateTo)
+  });
+
+  const searchManifests = gateway.searchManifests.bind(gateway);
+  let confirmedCount = 0;
+  let failedCount = 0;
+  let unconfirmedCount = 0;
+
+  for (const manifest of candidates) {
+    if (!manifest) continue;
+
+    // Orçamento CHEIO: esta varredura roda no worker, fora de qualquer request.
+    // É o único lugar (junto com a falha terminal do job) com autoridade para
+    // concluir `failed` — o caminho de leitura só tem uma tentativa.
+    const patch = await resolveManifestSubmitReconcilePatch(manifest, { searchManifests }, {
+      allowTerminalFailure: true,
+      terminalAction: 'reconcile_sweep',
+      detail: 'varredura periódica de envios sem confirmação',
+      correlationId: job.correlationId ?? null
+    });
+
+    if (patch.confirmed) {
+      confirmedCount += 1;
+    } else if (patch.status === 'failed') {
+      failedCount += 1;
+    } else {
+      unconfirmedCount += 1;
+    }
+
+    await updateManifest(manifest.id, {
+      status: patch.status,
+      externalStatus: patch.externalStatus,
+      externalHashCode: patch.externalHashCode ?? null,
+      ...(patch.externalReference ? { externalReference: patch.externalReference } : {}),
+      lastSyncAt: nowIso()
+    });
+  }
+
+  await finishJob(job, {
+    outcome: 'manifest_submit_reconcile_completed',
+    integrationAccountId,
+    candidateCount: candidates.length,
+    confirmedCount,
+    failedCount,
+    unconfirmedCount
+  });
 }
 
 async function handleManifestPrint(job: JobEntity, gateway: {
