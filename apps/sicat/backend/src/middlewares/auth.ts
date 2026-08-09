@@ -17,8 +17,13 @@ import { CHANNEL_PATH_PREFIX } from '../lib/raw-body.js';
  *
  * **NUNCA** isentar `/v1/sicat/channel-links`: aquela é a superfície AUTENTICADA da fase 2 (o
  * cadastro do número pelo próprio dono) e continua sob `sicatAuthMiddleware`.
+ *
+ * `/docs` e `/openapi.` SAÍRAM daqui: o contrato interno passou a exigir `sicatAuthMiddleware` em
+ * `app.ts`. Manter a isenção não reabriria as rotas (o gate forte está nelas), mas deixaria os dois
+ * middlewares afirmando coisas opostas sobre a mesma superfície — e é dessa divergência que sai o
+ * próximo "achei que estava fechado".
  */
-const PUBLIC_PATH_PREFIXES = ['/docs', '/openapi.', CHANNEL_PATH_PREFIX];
+const PUBLIC_PATH_PREFIXES = [CHANNEL_PATH_PREFIX];
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (!config.authRequired) return next();

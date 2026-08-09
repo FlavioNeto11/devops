@@ -118,17 +118,17 @@ paths:
                 token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMzM5NDgiLCJuYW1lIjoiRmxhdmlvIFBhZGlsaGEgTmV0byIsInBhcnRuZXJDb2RlIjoxNzYxNjMsImlhdCI6MTcwOTg1NjAwMCwiZXhwIjoxNzA5OTQyNDAwfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
                 expiresAt: '2026-03-08T23:59:59Z'
                 user:
-                  accessCode: 333948
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
-                  cpf: '37088641828'
-                  document: '31913781000139'
+                  accessCode: 999999
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
+                  cpf: '12345678909'
+                  document: '12345678000195'
                   documentType: J
                 partner:
-                  code: 176163
-                  description: Nova IT
-                  tradeName: Nova IT
-                  document: '31913781000139'
+                  code: 900001
+                  description: Empresa Exemplo LTDA
+                  tradeName: Empresa Exemplo LTDA
+                  document: '12345678000195'
                   state:
                     code: 26
                     abbreviation: SP
@@ -160,20 +160,20 @@ paths:
               cnpjLogin:
                 summary: Login com CNPJ
                 value:
-                  document: '31913781000139'
-                  password: 2dlzft
+                  document: '12345678000195'
+                  password: senha-de-exemplo
                   recaptchaToken: 03AGdBq24PBCd...XYZ
               cpfLogin:
                 summary: Login com CPF
                 value:
-                  document: '37088641828'
-                  password: 2dlzft
+                  document: '12345678909'
+                  password: senha-de-exemplo
                   recaptchaToken: ''
               emailLogin:
                 summary: Login com Email (se suportado)
                 value:
-                  document: flavio_padilha_neto@msn.com
-                  password: 2dlzft
+                  document: operador@exemplo.invalid
+                  password: senha-de-exemplo
                   recaptchaToken: ''
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -197,19 +197,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/PartnerInfo'
               example:
-                partnerCode: 176163
-                description: Nova IT
-                tradeName: Nova IT
-                document: '31913781000139'
+                partnerCode: 900001
+                description: Empresa Exemplo LTDA
+                tradeName: Empresa Exemplo LTDA
+                document: '12345678000195'
                 documentType: J
                 state:
                   code: 26
                   abbreviation: SP
                 registeredUsers:
-                - accessCode: 333948
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
-                  cpf: '37088641828'
+                - accessCode: 999999
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
+                  cpf: '12345678909'
         '404':
           description: Parceiro não encontrado
           content:
@@ -221,7 +221,7 @@ paths:
                 title: Parceiro Não Encontrado
                 status: 404
                 code: PARTNER_NOT_FOUND
-                detail: Nenhum parceiro encontrado para o documento 31913781000139
+                detail: Nenhum parceiro encontrado para o documento 12345678000195
                 correlationId: corr_partner_lookup_001
         '401':
           description: Sessão SICAT ausente, inválida ou expirada
@@ -236,7 +236,7 @@ paths:
         description: CNPJ, CPF ou email do parceiro
         schema:
           type: string
-        example: '31913781000139'
+        example: '12345678000195'
       - $ref: '#/components/parameters/CorrelationId'
   /v1/sicat/auth/login:
     post:
@@ -259,8 +259,8 @@ paths:
                 expiresAt: '2026-03-13T18:00:00Z'
                 user:
                   userId: usr_01JQWABCDEF1234567890
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   roles:
                   - operator
         '400':
@@ -288,7 +288,7 @@ paths:
             schema:
               $ref: '#/components/schemas/SicatLoginRequest'
             example:
-              email: flavio_padilha_neto@msn.com
+              email: operador@exemplo.invalid
               password: super-secret-password
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -313,8 +313,8 @@ paths:
                 expiresAt: '2026-03-13T18:00:00Z'
                 user:
                   userId: usr_01JQWABCDEF1234567890
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   roles:
                   - operator
         '400':
@@ -342,8 +342,8 @@ paths:
             schema:
               $ref: '#/components/schemas/SicatRegisterRequest'
             example:
-              name: Flavio Padilha Neto
-              email: flavio_padilha_neto@msn.com
+              name: Fulano de Tal
+              email: operador@exemplo.invalid
               password: super-secret-password
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -405,9 +405,9 @@ paths:
                 activeAccountId: acc_01JQWACCOUNT0001
                 accounts:
                 - accountId: acc_01JQWACCOUNT0001
-                  partnerCode: 176163
+                  partnerCode: 900001
                   partnerDocument: 31.913.781/0001-39
-                  partnerName: Nova IT
+                  partnerName: Empresa Exemplo LTDA
                   accountType: generator
                   lastConnectionAt: '2026-03-13T14:10:00Z'
                   lastUsageAt: '2026-03-13T14:52:11Z'
@@ -490,10 +490,10 @@ paths:
             schema:
               $ref: '#/components/schemas/SicatCetesbAccountCreateRequest'
             example:
-              login: '31913781000139'
-              password: 2dlzft
-              email: flavio_padilha_neto@msn.com
-              partnerCode: 176163
+              login: '12345678000195'
+              password: senha-de-exemplo
+              email: operador@exemplo.invalid
+              partnerCode: 900001
               recaptchaToken: ''
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -514,8 +514,8 @@ paths:
               example:
                 user:
                   userId: usr_01JQWABCDEF1234567890
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   roles:
                   - operator
                   adminAccess:
@@ -523,9 +523,9 @@ paths:
                     source: none
                 activeAccount:
                   accountId: acc_01JQWACCOUNT0001
-                  partnerCode: 176163
+                  partnerCode: 900001
                   partnerDocument: 31.913.781/0001-39
-                  partnerName: Nova IT
+                  partnerName: Empresa Exemplo LTDA
                   accountType: generator
                   lastConnectionAt: '2026-03-13T15:20:00Z'
                   lastUsageAt: '2026-03-13T15:20:00Z'
@@ -537,7 +537,7 @@ paths:
                   isActive: true
                 sessionContext:
                   sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                  integrationAccountId: acc_nova_it_prod
+                  integrationAccountId: acc_exemplo_prod
                   status: active
         '401':
           description: Sessão SICAT inválida
@@ -615,15 +615,15 @@ paths:
               example:
                 user:
                   userId: usr_01JQWABCDEF1234567890
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   roles:
                   - operator
                 activeAccount:
                   accountId: acc_01JQWACCOUNT0001
-                  partnerCode: 176163
+                  partnerCode: 900001
                   partnerDocument: 31.913.781/0001-39
-                  partnerName: Nova IT
+                  partnerName: Empresa Exemplo LTDA
                   accountType: generator
                   lastConnectionAt: '2026-03-13T15:20:00Z'
                   lastUsageAt: '2026-03-13T15:20:00Z'
@@ -635,7 +635,7 @@ paths:
                   isActive: true
                 sessionContext:
                   sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                  integrationAccountId: acc_nova_it_prod
+                  integrationAccountId: acc_exemplo_prod
                   status: active
         '401':
           description: Sessão SICAT inválida
@@ -661,8 +661,8 @@ paths:
               example:
                 items:
                 - userId: usr_01JQWABCDEF1234567890
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   status: active
                   roles:
                   - roleId: role_admin_global
@@ -739,8 +739,8 @@ paths:
                 $ref: '#/components/schemas/AdminAccessUserDetailsResponse'
               example:
                 userId: usr_01JQWABCDEF1234567890
-                name: Flavio Padilha Neto
-                email: flavio_padilha_neto@msn.com
+                name: Fulano de Tal
+                email: operador@exemplo.invalid
                 status: active
                 roles:
                 - roleId: role_admin_global
@@ -1482,7 +1482,7 @@ paths:
                 items:
                 - sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
                   userId: usr_01JQWABCDEF1234567890
-                  integrationAccountId: acc_nova_it_prod
+                  integrationAccountId: acc_exemplo_prod
                   status: active
                   lastValidatedAt: '2026-03-13T15:20:00Z'
                   expiresAt: '2026-03-13T23:59:59Z'
@@ -1622,42 +1622,42 @@ paths:
                   summary: Sessão ativa após bootstrap bem-sucedido
                   value:
                     id: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                    integrationAccountId: acc_nova_it_prod
+                    integrationAccountId: acc_exemplo_prod
                     status: active
-                    partnerDocument: '31913781000139'
+                    partnerDocument: '12345678000195'
                     partnerType: J
-                    partnerCode: 176163
-                    userAccessCode: 333948
-                    userName: Flavio Padilha Neto
-                    email: flavio_padilha_neto@msn.com
+                    partnerCode: 900001
+                    userAccessCode: 999999
+                    userName: Fulano de Tal
+                    email: operador@exemplo.invalid
                     jwtTokenRef: vault://mtr/session-contexts/scx_01JQW5M0D2G3CTQYV4N9AB8F1R
                     expiresAt: '2026-03-07T23:59:59Z'
                     lastValidatedAt: '2026-03-07T20:18:44Z'
                     metadata:
                       stateCode: 26
                       stateAbbreviation: SP
-                      partnerDescription: Nova IT
+                      partnerDescription: Empresa Exemplo LTDA
                       autenticacaoNova: true
                       recaptchaToken: ''
                 pendingAuth:
                   summary: Sessão pendente quando bootstrap não retorna token
                   value:
                     id: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                    integrationAccountId: acc_nova_it_prod
+                    integrationAccountId: acc_exemplo_prod
                     status: pending_auth
-                    partnerDocument: '31913781000139'
+                    partnerDocument: '12345678000195'
                     partnerType: J
-                    partnerCode: 176163
-                    userAccessCode: 333948
-                    userName: Flavio Padilha Neto
-                    email: flavio_padilha_neto@msn.com
+                    partnerCode: 900001
+                    userAccessCode: 999999
+                    userName: Fulano de Tal
+                    email: operador@exemplo.invalid
                     jwtTokenRef: vault://mtr/session-contexts/scx_01JQW5M0D2G3CTQYV4N9AB8F1R
                     expiresAt: null
                     lastValidatedAt: null
                     metadata:
                       stateCode: 26
                       stateAbbreviation: SP
-                      partnerDescription: Nova IT
+                      partnerDescription: Empresa Exemplo LTDA
                       autenticacaoNova: true
                       recaptchaToken: ''
         '400':
@@ -1675,25 +1675,25 @@ paths:
             schema:
               $ref: '#/components/schemas/SessionContextCreateRequest'
             example:
-              integrationAccountId: acc_nova_it_prod
-              partnerDocument: '31913781000139'
+              integrationAccountId: acc_exemplo_prod
+              partnerDocument: '12345678000195'
               partnerType: J
-              partnerCode: 176163
-              userAccessCode: 333948
-              userName: Flavio Padilha Neto
-              email: flavio_padilha_neto@msn.com
+              partnerCode: 900001
+              userAccessCode: 999999
+              userName: Fulano de Tal
+              email: operador@exemplo.invalid
               authMode: bootstrap
               metadata:
                 stateCode: 26
                 stateAbbreviation: SP
-                partnerDescription: Nova IT
+                partnerDescription: Empresa Exemplo LTDA
                 autenticacaoNova: true
                 recaptchaToken: ''
                 credentials:
-                  login: '31913781000139'
-                  email: flavio_padilha_neto@msn.com
-                  password: '2dlzft'
-                  cpf: '37088641828'
+                  login: '12345678000195'
+                  email: operador@exemplo.invalid
+                  password: 'senha-de-exemplo'
+                  cpf: '12345678909'
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
   /v1/session-contexts/{id}:
@@ -1715,42 +1715,42 @@ paths:
                   summary: Sessão ativa
                   value:
                     id: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                    integrationAccountId: acc_nova_it_prod
+                    integrationAccountId: acc_exemplo_prod
                     status: active
-                    partnerDocument: '31913781000139'
+                    partnerDocument: '12345678000195'
                     partnerType: J
-                    partnerCode: 176163
-                    userAccessCode: 333948
-                    userName: Flavio Padilha Neto
-                    email: flavio_padilha_neto@msn.com
+                    partnerCode: 900001
+                    userAccessCode: 999999
+                    userName: Fulano de Tal
+                    email: operador@exemplo.invalid
                     jwtTokenRef: vault://mtr/session-contexts/scx_01JQW5M0D2G3CTQYV4N9AB8F1R
                     expiresAt: '2026-03-07T23:59:59Z'
                     lastValidatedAt: '2026-03-07T20:18:44Z'
                     metadata:
                       stateCode: 26
                       stateAbbreviation: SP
-                      partnerDescription: Nova IT
+                      partnerDescription: Empresa Exemplo LTDA
                       autenticacaoNova: true
                       recaptchaToken: ''
                 pendingAuth:
                   summary: Sessão pendente de autenticação
                   value:
                     id: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                    integrationAccountId: acc_nova_it_prod
+                    integrationAccountId: acc_exemplo_prod
                     status: pending_auth
-                    partnerDocument: '31913781000139'
+                    partnerDocument: '12345678000195'
                     partnerType: J
-                    partnerCode: 176163
-                    userAccessCode: 333948
-                    userName: Flavio Padilha Neto
-                    email: flavio_padilha_neto@msn.com
+                    partnerCode: 900001
+                    userAccessCode: 999999
+                    userName: Fulano de Tal
+                    email: operador@exemplo.invalid
                     jwtTokenRef: vault://mtr/session-contexts/scx_01JQW5M0D2G3CTQYV4N9AB8F1R
                     expiresAt: null
                     lastValidatedAt: null
                     metadata:
                       stateCode: 26
                       stateAbbreviation: SP
-                      partnerDescription: Nova IT
+                      partnerDescription: Empresa Exemplo LTDA
                       autenticacaoNova: true
                       recaptchaToken: ''
         '404':
@@ -1810,7 +1810,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogSyncRequest'
             example:
-              integrationAccountId: acc_nova_it_prod
+              integrationAccountId: acc_exemplo_prod
               catalogs:
               - states
               - cities
@@ -1824,7 +1824,7 @@ paths:
               - abnt
               - generatorAbnt
               forceRefresh: true
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -1914,27 +1914,27 @@ paths:
                 $ref: '#/components/schemas/PartnerSearchResponse'
               example:
                 items:
-                - partnerCode: 160627
+                - partnerCode: 900002
                   role: transportador
-                  description: CASAMAX COMERCIAL LTDA.
+                  description: TRANSPORTADORA EXEMPLO LTDA.
                   tradeName: ''
-                  document: 08183516000120
+                  document: 98765432000198
                   registration: null-null
                   address:
-                    street: AVENIDA MANOEL CASANOVA
-                    number: '1435'
-                    complement: bloco c
-                    district: MEU CANTINHO
-                    postalCode: 08664645
-                    city: SUZANO
+                    street: AVENIDA EXEMPLO DOIS
+                    number: '200'
+                    complement: galpao 2
+                    district: BAIRRO EXEMPLO DOIS
+                    postalCode: 02002000
+                    city: CIDADE EXEMPLO DOIS
                     state: SP
                   licenseIssuer: null
                   licenseNumber: null
                   statusCode: 1
                   hasProfile: null
                   raw:
-                    parCodigo: 160627
-                    parDescricao: CASAMAX COMERCIAL LTDA.
+                    parCodigo: 900002
+                    parDescricao: TRANSPORTADORA EXEMPLO LTDA.
                 page: 1
                 pageSize: 20
                 totalItems: 1
@@ -2028,39 +2028,39 @@ paths:
             schema:
               $ref: '#/components/schemas/CadastroCreateRequest'
             example:
-              integrationAccountId: acc_nova_it_prod
-              requestedBy: flavio.padilha
+              integrationAccountId: acc_exemplo_prod
+              requestedBy: operador.exemplo
               enterprise:
-                legalName: Nova IT
-                tradeName: Nova IT
+                legalName: Empresa Exemplo LTDA
+                tradeName: Empresa Exemplo LTDA
                 personType: J
-                document: '31913781000139'
+                document: '12345678000195'
                 partnerTypes:
                 - code: 8
                   description: Gerador
               primaryContact:
-                email: flavio_padilha_neto@msn.com
-                phone: '16981110147'
+                email: operador@exemplo.invalid
+                phone: '11999990000'
               address:
-                postalCode: '14802370'
-                street: DIDIMO VIEIRA DA SILVA
-                number: '507'
-                district: VILA FERROVIARIA
-                complement: apt 306
-                cityCode: 9194
-                cityName: ARARAQUARA
+                postalCode: '01001000'
+                street: RUA EXEMPLO UM
+                number: '100'
+                district: BAIRRO EXEMPLO UM
+                complement: sala 1
+                cityCode: 9999
+                cityName: CIDADE EXEMPLO UM
                 stateCode: 26
                 stateAbbreviation: SP
-                latitude: -21.776223236537398
-                longitude: -48.17416663848557
+                latitude: -23.55
+                longitude: -46.63
               responsibles:
-              - cpf: '37088641828'
-                name: Flavio Padilha Neto
-                email: flavio_padilha_neto@msn.com
+              - cpf: '12345678909'
+                name: Fulano de Tal
+                email: operador@exemplo.invalid
                 role: Proprietário
-              - cpf: '41037425855'
-                name: Ana Paula Rabottini Padilha
-                email: flavio.padilha.neto@gmail.com
+              - cpf: '11144477735'
+                name: Maria Exemplo
+                email: maria.exemplo@exemplo.invalid
                 role: Proprietária
               classes: []
               licenses: []
@@ -2085,40 +2085,40 @@ paths:
                 $ref: '#/components/schemas/CadastroResource'
               example:
                 id: cad_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
-                integrationAccountId: acc_nova_it_prod
+                integrationAccountId: acc_exemplo_prod
                 status: submitted
-                requestedBy: flavio.padilha
+                requestedBy: operador.exemplo
                 enterprise:
-                  legalName: Nova IT
-                  tradeName: Nova IT
+                  legalName: Empresa Exemplo LTDA
+                  tradeName: Empresa Exemplo LTDA
                   personType: J
-                  document: '31913781000139'
+                  document: '12345678000195'
                   partnerTypes:
                   - code: 8
                     description: Gerador
                 primaryContact:
-                  email: flavio_padilha_neto@msn.com
-                  phone: '16981110147'
+                  email: operador@exemplo.invalid
+                  phone: '11999990000'
                 address:
-                  postalCode: '14802370'
-                  street: DIDIMO VIEIRA DA SILVA
-                  number: '507'
-                  district: VILA FERROVIARIA
-                  complement: apt 306
-                  cityCode: 9194
-                  cityName: ARARAQUARA
+                  postalCode: '01001000'
+                  street: RUA EXEMPLO UM
+                  number: '100'
+                  district: BAIRRO EXEMPLO UM
+                  complement: sala 1
+                  cityCode: 9999
+                  cityName: CIDADE EXEMPLO UM
                   stateCode: 26
                   stateAbbreviation: SP
-                  latitude: -21.776223236537398
-                  longitude: -48.17416663848557
+                  latitude: -23.55
+                  longitude: -46.63
                 responsibles:
-                - cpf: '37088641828'
-                  name: Flavio Padilha Neto
-                  email: flavio_padilha_neto@msn.com
+                - cpf: '12345678909'
+                  name: Fulano de Tal
+                  email: operador@exemplo.invalid
                   role: Proprietário
-                - cpf: '41037425855'
-                  name: Ana Paula Rabottini Padilha
-                  email: flavio.padilha.neto@gmail.com
+                - cpf: '11144477735'
+                  name: Maria Exemplo
+                  email: maria.exemplo@exemplo.invalid
                   role: Proprietária
                 classes: []
                 licenses: []
@@ -2166,17 +2166,17 @@ paths:
                 $ref: '#/components/schemas/ManifestResource'
               example:
                 id: man_01JQW5M6YY9M7K7B5N63GQ6E9S
-                integrationAccountId: acc_nova_it_prod
+                integrationAccountId: acc_exemplo_prod
                 status: draft
                 externalStatus: pending_submission
                 externalReference: null
                 externalHashCode: null
                 manifestType: 1
-                requestedBy: flavio.padilha
+                requestedBy: operador.exemplo
                 state:
                   code: 26
                   abbreviation: SP
-                responsibleName: Flavio Padilha Neto
+                responsibleName: Fulano de Tal
                 expeditionDate: '2026-03-07'
                 driverName: Osvaldo
                 vehiclePlate: ETA26D1
@@ -2184,44 +2184,44 @@ paths:
                 hasTemporaryStorage: false
                 hasCadriInResidueList: false
                 generator:
-                  partnerCode: 176163
-                  description: Nova IT
-                  tradeName: Nova IT
-                  document: '31913781000139'
+                  partnerCode: 900001
+                  description: Empresa Exemplo LTDA
+                  tradeName: Empresa Exemplo LTDA
+                  document: '12345678000195'
                   registration: null-null
                   address:
-                    street: DIDIMO VIEIRA DA SILVA
-                    number: '507'
-                    complement: apt 306
-                    district: VILA FERROVIARIA
-                    postalCode: '14802370'
-                    city: ARARAQUARA
+                    street: RUA EXEMPLO UM
+                    number: '100'
+                    complement: sala 1
+                    district: BAIRRO EXEMPLO UM
+                    postalCode: '01001000'
+                    city: CIDADE EXEMPLO UM
                     state: SP
                 carrier:
-                  partnerCode: 160627
-                  description: CASAMAX COMERCIAL LTDA.
-                  document: 08183516000120
+                  partnerCode: 900002
+                  description: TRANSPORTADORA EXEMPLO LTDA.
+                  document: 98765432000198
                   address:
-                    street: AVENIDA MANOEL CASANOVA
-                    number: '1435'
-                    complement: bloco c
-                    district: MEU CANTINHO
-                    postalCode: 08664645
-                    city: SUZANO
+                    street: AVENIDA EXEMPLO DOIS
+                    number: '200'
+                    complement: galpao 2
+                    district: BAIRRO EXEMPLO DOIS
+                    postalCode: 02002000
+                    city: CIDADE EXEMPLO DOIS
                     state: SP
                 receiver:
-                  partnerCode: 40110
-                  description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
-                  document: '13539643000150'
-                  registration: 239-542012
+                  partnerCode: 900003
+                  description: DESTINADORA EXEMPLO LTDA.
+                  document: '11222333000181'
+                  registration: 111-111111
                   licenseIssuer: Estadual
-                  licenseNumber: '29008724'
+                  licenseNumber: '99999999'
                   address:
-                    street: RUA JOAQUIM JOSE FIORAVANTE
-                    number: '11'
-                    district: VILA ROSINA
-                    postalCode: 07749105
-                    city: CAIEIRAS
+                    street: RUA EXEMPLO TRES
+                    number: '300'
+                    district: BAIRRO EXEMPLO TRES
+                    postalCode: 03003000
+                    city: CIDADE EXEMPLO TRES
                     state: SP
                 temporaryStorage: null
                 temporaryStorageCarrier: null
@@ -2277,14 +2277,14 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestCreateRequest'
             example:
-              integrationAccountId: acc_nova_it_prod
+              integrationAccountId: acc_exemplo_prod
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               manifestType: 1
               state:
                 code: 26
                 abbreviation: SP
-              responsibleName: Flavio Padilha Neto
+              responsibleName: Fulano de Tal
               expeditionDate: '2026-03-07'
               driverName: Osvaldo
               vehiclePlate: ETA26D1
@@ -2292,44 +2292,44 @@ paths:
               hasTemporaryStorage: false
               hasCadriInResidueList: false
               generator:
-                partnerCode: 176163
-                description: Nova IT
-                tradeName: Nova IT
-                document: '31913781000139'
+                partnerCode: 900001
+                description: Empresa Exemplo LTDA
+                tradeName: Empresa Exemplo LTDA
+                document: '12345678000195'
                 registration: null-null
                 address:
-                  street: DIDIMO VIEIRA DA SILVA
-                  number: '507'
-                  complement: apt 306
-                  district: VILA FERROVIARIA
-                  postalCode: '14802370'
-                  city: ARARAQUARA
+                  street: RUA EXEMPLO UM
+                  number: '100'
+                  complement: sala 1
+                  district: BAIRRO EXEMPLO UM
+                  postalCode: '01001000'
+                  city: CIDADE EXEMPLO UM
                   state: SP
               carrier:
-                partnerCode: 160627
-                description: CASAMAX COMERCIAL LTDA.
-                document: 08183516000120
+                partnerCode: 900002
+                description: TRANSPORTADORA EXEMPLO LTDA.
+                document: 98765432000198
                 address:
-                  street: AVENIDA MANOEL CASANOVA
-                  number: '1435'
-                  complement: bloco c
-                  district: MEU CANTINHO
-                  postalCode: 08664645
-                  city: SUZANO
+                  street: AVENIDA EXEMPLO DOIS
+                  number: '200'
+                  complement: galpao 2
+                  district: BAIRRO EXEMPLO DOIS
+                  postalCode: 02002000
+                  city: CIDADE EXEMPLO DOIS
                   state: SP
               receiver:
-                partnerCode: 40110
-                description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
-                document: '13539643000150'
-                registration: 239-542012
+                partnerCode: 900003
+                description: DESTINADORA EXEMPLO LTDA.
+                document: '11222333000181'
+                registration: 111-111111
                 licenseIssuer: Estadual
-                licenseNumber: '29008724'
+                licenseNumber: '99999999'
                 address:
-                  street: RUA JOAQUIM JOSE FIORAVANTE
-                  number: '11'
-                  district: VILA ROSINA
-                  postalCode: 07749105
-                  city: CAIEIRAS
+                  street: RUA EXEMPLO TRES
+                  number: '300'
+                  district: BAIRRO EXEMPLO TRES
+                  postalCode: 03003000
+                  city: CIDADE EXEMPLO TRES
                   state: SP
               temporaryStorage: null
               temporaryStorageCarrier: null
@@ -2388,19 +2388,19 @@ paths:
                 - id: man_01JQW5M6YY9M7K7B5N63GQ6E9S
                   status: submitted
                   externalStatus: salvo
-                  manifestNumber: '260010679516'
+                  manifestNumber: '999900000001'
                   externalCode: 22169012
                   externalHashCode: 0Ydw6T0Mu8eQWMfqXmMzUaaj8XiPJh
                   expeditionDate: '2026-03-07'
                   generator:
-                    partnerCode: 176163
-                    description: Nova IT
+                    partnerCode: 900001
+                    description: Empresa Exemplo LTDA
                   carrier:
-                    partnerCode: 160627
-                    description: CASAMAX COMERCIAL LTDA.
+                    partnerCode: 900002
+                    description: TRANSPORTADORA EXEMPLO LTDA.
                   receiver:
-                    partnerCode: 40110
-                    description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
+                    partnerCode: 900003
+                    description: DESTINADORA EXEMPLO LTDA.
                   driverName: Osvaldo
                   vehiclePlate: ETA26D1
                   lastSyncAt: '2026-03-07T20:19:15Z'
@@ -2518,7 +2518,7 @@ paths:
                 total: 3
                 items:
                 - id: man_01JQW5M6YY9M7K7B5N63GQ6E9S
-                  integrationAccountId: acc_nova_it_prod
+                  integrationAccountId: acc_exemplo_prod
                   status: draft
                   externalStatus: pending_submission
                   groupId: grp_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
@@ -2530,17 +2530,17 @@ paths:
                   state:
                     code: 26
                     abbreviation: SP
-                  responsibleName: Flavio Padilha Neto
+                  responsibleName: Fulano de Tal
                   expeditionDate: '2026-03-07'
                   generator:
-                    partnerCode: 176163
-                    description: Nova IT
+                    partnerCode: 900001
+                    description: Empresa Exemplo LTDA
                   carrier:
-                    partnerCode: 160627
-                    description: CASAMAX COMERCIAL LTDA.
+                    partnerCode: 900002
+                    description: TRANSPORTADORA EXEMPLO LTDA.
                   receiver:
-                    partnerCode: 40110
-                    description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
+                    partnerCode: 900003
+                    description: DESTINADORA EXEMPLO LTDA.
                   residues:
                   - lineNumber: 1
                     quantity: 18
@@ -2580,19 +2580,19 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestBatchCreateRequest'
             example:
-              integrationAccountId: acc_nova_it_prod
+              integrationAccountId: acc_exemplo_prod
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               count: 3
               template:
-                integrationAccountId: acc_nova_it_prod
+                integrationAccountId: acc_exemplo_prod
                 sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-                requestedBy: flavio.padilha
+                requestedBy: operador.exemplo
                 manifestType: 1
                 state:
                   code: 26
                   abbreviation: SP
-                responsibleName: Flavio Padilha Neto
+                responsibleName: Fulano de Tal
                 expeditionDate: '2026-03-07'
                 driverName: Osvaldo
                 vehiclePlate: ETA26D1
@@ -2600,14 +2600,14 @@ paths:
                 hasTemporaryStorage: false
                 hasCadriInResidueList: false
                 generator:
-                  partnerCode: 176163
-                  description: Nova IT
+                  partnerCode: 900001
+                  description: Empresa Exemplo LTDA
                 carrier:
-                  partnerCode: 160627
-                  description: CASAMAX COMERCIAL LTDA.
+                  partnerCode: 900002
+                  description: TRANSPORTADORA EXEMPLO LTDA.
                 receiver:
-                  partnerCode: 40110
-                  description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
+                  partnerCode: 900003
+                  description: DESTINADORA EXEMPLO LTDA.
                 residues:
                 - lineNumber: 1
                   quantity: 18
@@ -2680,7 +2680,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestBatchSubmitRequest'
             example:
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
               validateOnly: false
               printAfterSubmit: false
@@ -2738,7 +2738,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestBatchCancelRequest'
             example:
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               reason: erro no cadastro
               manifestIds:
               - man_01JQW5M6YY9M7K7B5N63GQ6E9S
@@ -2762,19 +2762,19 @@ paths:
                 $ref: '#/components/schemas/ManifestResource'
               example:
                 id: man_01JQW5M6YY9M7K7B5N63GQ6E9S
-                integrationAccountId: acc_nova_it_prod
+                integrationAccountId: acc_exemplo_prod
                 status: submitted
                 externalStatus: salvo
                 externalReference:
                   manCodigo: 22169012
-                  manNumero: '260010679516'
+                  manNumero: '999900000001'
                 externalHashCode: 0Ydw6T0Mu8eQWMfqXmMzUaaj8XiPJh
                 manifestType: 1
-                requestedBy: flavio.padilha
+                requestedBy: operador.exemplo
                 state:
                   code: 26
                   abbreviation: SP
-                responsibleName: Flavio Padilha Neto
+                responsibleName: Fulano de Tal
                 expeditionDate: '2026-03-07'
                 driverName: Osvaldo
                 vehiclePlate: ETA26D1
@@ -2782,44 +2782,44 @@ paths:
                 hasTemporaryStorage: false
                 hasCadriInResidueList: false
                 generator:
-                  partnerCode: 176163
-                  description: Nova IT
-                  tradeName: Nova IT
-                  document: '31913781000139'
+                  partnerCode: 900001
+                  description: Empresa Exemplo LTDA
+                  tradeName: Empresa Exemplo LTDA
+                  document: '12345678000195'
                   registration: null-null
                   address:
-                    street: DIDIMO VIEIRA DA SILVA
-                    number: '507'
-                    complement: apt 306
-                    district: VILA FERROVIARIA
-                    postalCode: '14802370'
-                    city: ARARAQUARA
+                    street: RUA EXEMPLO UM
+                    number: '100'
+                    complement: sala 1
+                    district: BAIRRO EXEMPLO UM
+                    postalCode: '01001000'
+                    city: CIDADE EXEMPLO UM
                     state: SP
                 carrier:
-                  partnerCode: 160627
-                  description: CASAMAX COMERCIAL LTDA.
-                  document: 08183516000120
+                  partnerCode: 900002
+                  description: TRANSPORTADORA EXEMPLO LTDA.
+                  document: 98765432000198
                   address:
-                    street: AVENIDA MANOEL CASANOVA
-                    number: '1435'
-                    complement: bloco c
-                    district: MEU CANTINHO
-                    postalCode: 08664645
-                    city: SUZANO
+                    street: AVENIDA EXEMPLO DOIS
+                    number: '200'
+                    complement: galpao 2
+                    district: BAIRRO EXEMPLO DOIS
+                    postalCode: 02002000
+                    city: CIDADE EXEMPLO DOIS
                     state: SP
                 receiver:
-                  partnerCode: 40110
-                  description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
-                  document: '13539643000150'
-                  registration: 239-542012
+                  partnerCode: 900003
+                  description: DESTINADORA EXEMPLO LTDA.
+                  document: '11222333000181'
+                  registration: 111-111111
                   licenseIssuer: Estadual
-                  licenseNumber: '29008724'
+                  licenseNumber: '99999999'
                   address:
-                    street: RUA JOAQUIM JOSE FIORAVANTE
-                    number: '11'
-                    district: VILA ROSINA
-                    postalCode: 07749105
-                    city: CAIEIRAS
+                    street: RUA EXEMPLO TRES
+                    number: '300'
+                    district: BAIRRO EXEMPLO TRES
+                    postalCode: 03003000
+                    city: CIDADE EXEMPLO TRES
                     state: SP
                 temporaryStorage: null
                 temporaryStorageCarrier: null
@@ -2864,7 +2864,7 @@ paths:
                 lastSyncAt: '2026-03-07T20:19:15Z'
                 externalSnapshot:
                   manCodigo: 22169012
-                  manNumero: '260010679516'
+                  manNumero: '999900000001'
                   manHashCode: 0Ydw6T0Mu8eQWMfqXmMzUaaj8XiPJh
                   simDescricao: salvo
                 documents:
@@ -2872,7 +2872,7 @@ paths:
                   type: manifest_pdf
                   status: available
                   mimeType: application/pdf
-                  fileName: mtr-260010679516.pdf
+                  fileName: mtr-999900000001.pdf
                   hash: 0Ydw6T0Mu8eQWMfqXmMzUaaj8XiPJh
                   downloadUrl: /v1/manifestos/man_01JQW5M6YY9M7K7B5N63GQ6E9S/documents/doc_01JQW5PZ0J2MY0S3QJ8V9PH9PN
                   generatedAt: '2026-03-07T20:19:39Z'
@@ -2951,7 +2951,7 @@ paths:
                 total: 2
                 items:
                 - id: man_01JQW5M6YY9M7K7B5N63GQ6EA0
-                  integrationAccountId: acc_nova_it_prod
+                  integrationAccountId: acc_exemplo_prod
                   status: draft
                   externalStatus: pending_submission
                   groupId: grp_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
@@ -2963,17 +2963,17 @@ paths:
                   state:
                     code: 26
                     abbreviation: SP
-                  responsibleName: Flavio Padilha Neto
+                  responsibleName: Fulano de Tal
                   expeditionDate: '2026-03-07'
                   generator:
-                    partnerCode: 176163
-                    description: Nova IT
+                    partnerCode: 900001
+                    description: Empresa Exemplo LTDA
                   carrier:
-                    partnerCode: 160627
-                    description: CASAMAX COMERCIAL LTDA.
+                    partnerCode: 900002
+                    description: TRANSPORTADORA EXEMPLO LTDA.
                   receiver:
-                    partnerCode: 40110
-                    description: MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.
+                    partnerCode: 900003
+                    description: DESTINADORA EXEMPLO LTDA.
                   residues:
                   - lineNumber: 1
                     quantity: 18
@@ -3015,7 +3015,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestReplicateRequest'
             example:
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               count: 2
               overrides:
                 expeditionDate: '2026-03-08'
@@ -3074,7 +3074,7 @@ paths:
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
               validateOnly: false
               printAfterSubmit: false
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
       - name: id
@@ -3127,7 +3127,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestPrintRequest'
             example:
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               documentType: manifest_pdf
               regenerateIfMissing: true
       parameters:
@@ -3183,7 +3183,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ManifestCancelRequest'
             example:
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               reason: erro no cadastro
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -3273,17 +3273,17 @@ paths:
             example:
               integrationAccountId: iac_01JQW5M0D2G3CTQYV4N9AB8F1R
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               printReceiptAfterReceive: true
               receiptPayload:
                 remCodigo: null
                 remDataRecebimento: '2026-04-18T13:00:00.000Z'
                 remObservacao: recebimento realizado via integração interna
-                paaCodigo: 40110
+                paaCodigo: 900003
                 rrmCodigo: 12345
                 manifesto:
                   manCodigo: 987654
-                  manNumero: '260010679516'
+                  manNumero: '999900000001'
                   manHashCode: hash_manifesto_recebido
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -3332,16 +3332,16 @@ paths:
             example:
               integrationAccountId: iac_01JQW5M0D2G3CTQYV4N9AB8F1R
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               cdfPayload:
                 cerData: '2026-04-18T14:00:00.000Z'
                 cerDataInicial: '2026-04-01T00:00:00.000Z'
                 cerDataFinal: '2026-04-18T23:59:59.999Z'
                 cerObservacao: CDF gerado via integração interna
                 parceiroDestinador:
-                  parCodigo: 40110
+                  parCodigo: 900003
                 parceiroAcesso:
-                  paaCodigo: 40110
+                  paaCodigo: 900003
                   paaNome: Destinador Exemplo
                 tipoCertificadoDestinacao: 9
                 listaManifesto: []
@@ -3395,7 +3395,7 @@ paths:
             example:
               integrationAccountId: iac_01JQW5M0D2G3CTQYV4N9AB8F1R
               sessionContextId: scx_01JQW5M0D2G3CTQYV4N9AB8F1R
-              requestedBy: flavio.padilha
+              requestedBy: operador.exemplo
               documentId: cer_hash_code_exemplo
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -3431,7 +3431,7 @@ paths:
                   dateTo: '2026-04-18'
                   notes: Certificado de destinação final
                   receiver:
-                    partnerCode: 40110
+                    partnerCode: 900003
                     description: Destinador Exemplo
                   type:
                     code: 9
@@ -3632,7 +3632,7 @@ paths:
                     authorization: Bearer ***
                   sanitizedBody:
                     manCodigo: null
-                    manResponsavel: Flavio Padilha Neto
+                    manResponsavel: Fulano de Tal
                     manPlacaVeiculo: ETA26D1
                 - occurredAt: '2026-03-07T20:19:15Z'
                   direction: inbound
@@ -8239,12 +8239,12 @@ components:
         document:
           type: string
           description: CNPJ (14 dígitos), CPF (11 dígitos) ou email de login
-          example: '31913781000139'
+          example: '12345678000195'
         password:
           type: string
           format: password
           description: Senha do usuário cadastrada no portal CETESB
-          example: 2dlzft
+          example: senha-de-exemplo
           writeOnly: true
         recaptchaToken:
           type: string
@@ -8280,22 +8280,22 @@ components:
             accessCode:
               type: integer
               description: Código de acesso do usuário no sistema CETESB
-              example: 333948
+              example: 999999
             name:
               type: string
-              example: Flavio Padilha Neto
+              example: Fulano de Tal
             email:
               type: string
               format: email
-              example: flavio_padilha_neto@msn.com
+              example: operador@exemplo.invalid
             cpf:
               type: string
-              example: '37088641828'
+              example: '12345678909'
               nullable: true
             document:
               type: string
               description: CNPJ ou CPF do login realizado
-              example: '31913781000139'
+              example: '12345678000195'
             documentType:
               type: string
               enum:
@@ -8313,19 +8313,19 @@ components:
             code:
               type: integer
               description: Código do parceiro no sistema CETESB
-              example: 176163
+              example: 900001
             description:
               type: string
               description: Razão social ou nome do parceiro
-              example: Nova IT
+              example: Empresa Exemplo LTDA
             tradeName:
               type: string
               nullable: true
-              example: Nova IT
+              example: Empresa Exemplo LTDA
             document:
               type: string
               description: CNPJ do parceiro
-              example: '31913781000139'
+              example: '12345678000195'
             state:
               type: object
               required:
@@ -8352,19 +8352,19 @@ components:
         partnerCode:
           type: integer
           description: Código do parceiro CETESB
-          example: 176163
+          example: 900001
         description:
           type: string
           description: Razão social
-          example: Nova IT
+          example: Empresa Exemplo LTDA
         tradeName:
           type: string
           nullable: true
-          example: Nova IT
+          example: Empresa Exemplo LTDA
         document:
           type: string
           description: CNPJ ou CPF
-          example: '31913781000139'
+          example: '12345678000195'
         documentType:
           type: string
           enum:
@@ -8395,17 +8395,17 @@ components:
             properties:
               accessCode:
                 type: integer
-                example: 333948
+                example: 999999
               name:
                 type: string
-                example: Flavio Padilha Neto
+                example: Fulano de Tal
               email:
                 type: string
                 format: email
-                example: flavio_padilha_neto@msn.com
+                example: operador@exemplo.invalid
               cpf:
                 type: string
-                example: '37088641828'
+                example: '12345678909'
                 nullable: true
     SicatUser:
       type: object
@@ -8421,11 +8421,11 @@ components:
           example: usr_01JQWABCDEF1234567890
         name:
           type: string
-          example: Flavio Padilha Neto
+          example: Fulano de Tal
         email:
           type: string
           format: email
-          example: flavio_padilha_neto@msn.com
+          example: operador@exemplo.invalid
         roles:
           type: array
           items:
@@ -8457,7 +8457,7 @@ components:
         email:
           type: string
           format: email
-          example: flavio_padilha_neto@msn.com
+          example: operador@exemplo.invalid
         password:
           type: string
           format: password
@@ -8473,11 +8473,11 @@ components:
         name:
           type: string
           minLength: 2
-          example: Flavio Padilha Neto
+          example: Fulano de Tal
         email:
           type: string
           format: email
-          example: flavio_padilha_neto@msn.com
+          example: operador@exemplo.invalid
         password:
           type: string
           format: password
@@ -8612,23 +8612,23 @@ components:
           type: string
           description: Login CETESB (documento, código de acesso ou email conforme
             cadastro CETESB).
-          example: '31913781000139'
+          example: '12345678000195'
         password:
           type: string
           format: password
           writeOnly: true
-          example: 2dlzft
+          example: senha-de-exemplo
         email:
           type:
           - string
           - 'null'
           format: email
-          example: flavio_padilha_neto@msn.com
+          example: operador@exemplo.invalid
         partnerCode:
           type:
           - integer
           - 'null'
-          example: 176163
+          example: 900001
         recaptchaToken:
           type:
           - string
@@ -8741,11 +8741,11 @@ components:
           example: usr_01JQWABCDEF1234567890
         name:
           type: string
-          example: Flavio Padilha Neto
+          example: Fulano de Tal
         email:
           type: string
           format: email
-          example: flavio_padilha_neto@msn.com
+          example: operador@exemplo.invalid
         status:
           type: string
           enum:
@@ -8934,7 +8934,7 @@ components:
           example: usr_01JQWABCDEF1234567890
         integrationAccountId:
           type: string
-          example: acc_nova_it_prod
+          example: acc_exemplo_prod
         status:
           type: string
           enum:
