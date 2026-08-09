@@ -18,11 +18,20 @@ import {
   deleteManifestsForMirrorWindow,
   listPotentialGhostManifestsForMirrorWindow,
   upsertManifestFromExternalSearch,
+  stitchManifestFromExternalSearchByCorrelation,
   upsertManifestDocument,
   listManifestDocuments,
   findManifestDocument,
   type ManifestListOrderBy
 } from '../repositories/manifest-repo.js';
+import {
+  MANIFEST_SUBMIT_UNCONFIRMED_STATUS,
+  buildManifestSubmitFailureExternalStatus,
+  isManifestSubmitUnconfirmedStatus,
+  isTransientManifestSubmitStatus
+} from '../lib/manifest-submit-status.js';
+import { extractManifestIdFromObservation } from '../lib/manifest-correlation.js';
+import { resolveManifestSubmitReconcilePatch } from './manifest-submit-reconciler.js';
 import {
   insertAsyncOperationEntity,
   findAsyncOperationDocumentByHash,
@@ -81,8 +90,17 @@ type CetesbGateway = {
 
 let gateway = createCetesbGateway() as CetesbGateway;
 const require = createRequire(import.meta.url);
-const TRANSIENT_MANIFEST_SUBMIT_STATUSES = new Set(['queued_submit', 'submitting', 'processing']);
+// O conjunto transiente do submit vem de `lib/manifest-submit-status.ts` —
+// fonte única compartilhada com o repositório e com o worker.
 const TERMINAL_FAILED_SUBMIT_JOB_STATUSES = new Set(['failed', 'dlq', 'cancelled']);
+
+// Orçamento de polling do caminho de LEITURA: UMA tentativa, sem sleep. Um GET
+// de manifesto não pode ficar 32 s dormindo dentro do backoff do reconciliador.
+// A contrapartida está em `allowTerminalFailure: false`: uma única pesquisa que
+// não achou nada NÃO é prova de ausência (a pesquisa da CETESB atrasa em
+// relação ao envio), então este caminho jamais conclui `failed` — só confirma
+// ou rebaixa para `submit_unconfirmed`, e deixa a conclusão para a varredura.
+const READ_PATH_RECONCILE_DELAYS_MS: readonly number[] = Object.freeze([0]);
 
 export function setManifestGatewayOverrideForTests(nextGateway: CetesbGateway | null): void {
   gateway = nextGateway ?? createCetesbGateway() as CetesbGateway;
@@ -558,10 +576,7 @@ function mapManifestListItem(manifest: ManifestLike) {
 
 async function reconcileTransientManifests(result: PagedManifestResult, filters: ManifestRepoFilters) {
   const normalizedItems = normalizeManifestListItems(result.items);
-  const transientCandidates = normalizedItems.filter((manifest) => {
-    const status = String(manifest?.status || '').toLowerCase();
-    return TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(status);
-  });
+  const transientCandidates = normalizedItems.filter((manifest) => isTransientManifestSubmitStatus(manifest?.status));
 
   if (transientCandidates.length === 0) {
     return result;
@@ -1045,22 +1060,11 @@ function canReplicateManifest(manifest: ManifestLike) {
   ].some((fragment) => combinedStatus.includes(fragment));
 }
 
-function buildManifestOrphanExternalStatus() {
-  return 'Falha no envio: job de submit não encontrado (possível interrupção/restart). Revise e reenvie o manifesto.';
-}
-
-function buildManifestSubmitTerminalErrorExternalStatus(jobStatus: string, technicalCause: string | null) {
-  const normalizedStatus = toTrimmedString(jobStatus).toLowerCase();
-  const baseMessage = normalizedStatus === 'dlq'
-    ? 'Falha no envio para CETESB: job finalizado em DLQ. Revise os dados e reenfileire o envio.'
-    : 'Falha no envio para CETESB: job finalizado com erro. Revise os dados e realize novo envio.';
-
-  if (!technicalCause) {
-    return baseMessage;
-  }
-
-  return `${baseMessage} Causa técnica: ${technicalCause}`;
-}
+// `buildManifestOrphanExternalStatus` e `buildManifestSubmitTerminalErrorExternalStatus`
+// foram absorvidas por `lib/manifest-submit-status.ts`. Eram quase-duplicatas do
+// par que vivia no worker, com o MESMO defeito: mandavam "revise e reenvie" sem
+// nunca perguntar à CETESB se o MTR já existia.
+const MANIFEST_ORPHAN_SUBMIT_DETAIL = 'job de submit não encontrado (possível interrupção/restart)';
 
 function buildManifestMissingFromMirrorExternalStatus() {
   return 'Falha no envio: manifesto não localizado na pesquisa CETESB durante a sincronização. Revise os dados e realize novo envio.';
@@ -1124,25 +1128,53 @@ async function reconcileGhostManifestsMissingFromRemoteSearch(filters: MirrorWin
   return updatedCount;
 }
 
+/**
+ * Aplica na linha local o desfecho da pergunta "esse envio nasceu na CETESB?".
+ * O caminho de leitura NUNCA conclui `failed` — ver `READ_PATH_RECONCILE_DELAYS_MS`.
+ */
+async function applyReadPathSubmitReconcile(
+  manifest: ManifestLike,
+  options: { terminalAction?: string | null; detail?: string | null; technicalCause?: string | null }
+) {
+  const patch = await resolveManifestSubmitReconcilePatch(
+    manifest,
+    { searchManifests: (args) => gateway.searchManifests(args), delaysMs: READ_PATH_RECONCILE_DELAYS_MS },
+    {
+      allowTerminalFailure: false,
+      terminalAction: options.terminalAction ?? null,
+      detail: options.detail ?? null,
+      technicalCause: options.technicalCause ?? null
+    }
+  );
+
+  return updateManifest(manifest.id, {
+    status: patch.status,
+    externalStatus: patch.externalStatus,
+    externalHashCode: patch.externalHashCode ?? null,
+    ...(patch.externalReference ? { externalReference: patch.externalReference } : {}),
+    lastSyncAt: new Date().toISOString()
+  });
+}
+
 async function reconcileManifestSubmitState(manifest: ManifestLike | null) {
   if (!manifest) {
     return manifest;
   }
 
-  const currentStatus = String(manifest.status || '').toLowerCase();
-  const isTransientSubmit = TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(currentStatus);
-  if (!isTransientSubmit) {
+  if (!isTransientManifestSubmitStatus(manifest.status)) {
     return manifest;
   }
 
   const jobs = await listJobsByEntity('manifest', manifest.id);
   const submitJob = jobs.find((job) => job.operation === 'manifest.submit') || null;
 
+  // Órfão: nenhum job de submit. Antes isto virava `failed` + "revise e reenvie"
+  // na hora — sem job para consultar, o sistema declarava a ausência do MTR que
+  // nunca tinha procurado. É o mesmo vício do side-effect terminal do worker.
   if (!submitJob) {
-    return updateManifest(manifest.id, {
-      status: 'failed',
-      externalStatus: buildManifestOrphanExternalStatus(),
-      lastSyncAt: new Date().toISOString()
+    return applyReadPathSubmitReconcile(manifest, {
+      terminalAction: 'orphan',
+      detail: MANIFEST_ORPHAN_SUBMIT_DETAIL
     });
   }
 
@@ -1151,12 +1183,9 @@ async function reconcileManifestSubmitState(manifest: ManifestLike | null) {
     return manifest;
   }
 
-  const technicalCause = summarizeTechnicalCause(submitJob.lastErrorMessage || submitJob.dlqReason);
-
-  return updateManifest(manifest.id, {
-    status: 'failed',
-    externalStatus: buildManifestSubmitTerminalErrorExternalStatus(submitJobStatus, technicalCause),
-    lastSyncAt: new Date().toISOString()
+  return applyReadPathSubmitReconcile(manifest, {
+    terminalAction: submitJobStatus,
+    technicalCause: summarizeTechnicalCause(submitJob.lastErrorMessage || submitJob.dlqReason)
   });
 }
 
@@ -1414,18 +1443,10 @@ export async function listManifests(queryString: ManifestListQuery, correlationI
     const syncCorrelationId = correlationId || createPrefixedId('corr');
     for (const item of remoteItems) {
       const mapped = mapExternalManifestSearchItem(item);
-      await upsertManifestFromExternalSearch({
-        id: createPrefixedId('man'),
+      await persistRemoteManifestSearchItem(mapped, {
         integrationAccountId: queryString.integrationAccountId,
         sessionContextId: queryString.sessionContextId || null,
-        status: mapped.status,
-        externalStatus: mapped.externalStatus,
-        externalReference: mapped.externalReference,
-        externalHashCode: mapped.externalHashCode,
-        payload: mapped.payload,
-        requestedBy: 'cetesb.search',
-        correlationId: syncCorrelationId,
-        lastSyncAt: mapped.lastSyncAt
+        correlationId: syncCorrelationId
       });
     }
 
@@ -1557,6 +1578,61 @@ export async function listCdfResponsibles(
     .filter((item): item is CdfResponsible => item != null && item.cdrCodigo != null);
 
   return { items };
+}
+
+/**
+ * Persiste UM item da pesquisa CETESB, COSTURANDO-O de volta à linha local que o
+ * originou quando o `manObservacao` traz o marcador de correlação.
+ *
+ * O defeito que isto conserta: `upsertManifestFromExternalSearch` casa a linha
+ * existente por `external_hash_code` / `manCodigo` / `manNumero` — e NENHUM dos
+ * três existe justamente no manifesto cuja resposta de submit se perdeu. O MTR
+ * verdadeiro voltava como linha NOVA e desvinculada (`createPrefixedId('man')`),
+ * enquanto a linha original continuava presa em transiente/`submit_unconfirmed`.
+ *
+ * `mapExternalManifestSearchItem` já levava o `manObservacao` para
+ * `payload.notes` desde sempre — o dado chegava, só ninguém lia.
+ */
+async function persistRemoteManifestSearchItem(
+  mapped: ReturnType<typeof mapExternalManifestSearchItem>,
+  context: { integrationAccountId: string; sessionContextId: string | null; correlationId: string }
+) {
+  const correlatedManifestId = extractManifestIdFromObservation(mapped.payload.notes);
+
+  if (correlatedManifestId) {
+    const stitched = await stitchManifestFromExternalSearchByCorrelation({
+      manifestId: correlatedManifestId,
+      integrationAccountId: context.integrationAccountId,
+      status: mapped.status,
+      externalStatus: mapped.externalStatus,
+      externalReference: mapped.externalReference,
+      externalHashCode: mapped.externalHashCode,
+      payload: mapped.payload,
+      lastSyncAt: mapped.lastSyncAt
+    });
+
+    // `null` = o marcador aponta para uma linha que não existe nesta conta, ou
+    // que já tem identidade externa (segundo MTR real do mesmo marcador). Nos
+    // dois casos o item remoto segue para o upsert normal e vira a sua própria
+    // linha — que é a verdade.
+    if (stitched) {
+      return stitched;
+    }
+  }
+
+  return upsertManifestFromExternalSearch({
+    id: createPrefixedId('man'),
+    integrationAccountId: context.integrationAccountId,
+    sessionContextId: context.sessionContextId,
+    status: mapped.status,
+    externalStatus: mapped.externalStatus,
+    externalReference: mapped.externalReference,
+    externalHashCode: mapped.externalHashCode,
+    payload: mapped.payload,
+    requestedBy: 'cetesb.search',
+    correlationId: context.correlationId,
+    lastSyncAt: mapped.lastSyncAt
+  });
 }
 
 function mapExternalManifestSearchItem(item: unknown) {
@@ -1899,6 +1975,17 @@ async function enqueueManifestSubmitInternal(
 ) {
   const manifest = await findManifestById(id);
   if (!manifest) throw new AppError(404, 'Not Found', `Manifesto ${id} was not found.`);
+
+  // A TRAVA que fecha o ciclo do MTR duplicado. `submit_unconfirmed` significa
+  // "o envio anterior pode ter nascido na CETESB e o sistema não sabe" —
+  // reenviar aqui é exatamente a ação que cria o SEGUNDO MTR real. Puramente
+  // aditiva: nenhum manifesto tinha este status antes desta unidade, então
+  // nenhum fluxo existente muda de comportamento.
+  if (isManifestSubmitUnconfirmedStatus(manifest.status)) {
+    throw new AppError(409, 'Conflict', `Manifesto ${id} tem um envio anterior sem confirmação da CETESB. Reenviar agora pode gerar um segundo MTR real — use "Atualizar da CETESB" para reconciliar antes de decidir.`, {
+      code: 'MANIFEST_SUBMIT_UNCONFIRMED'
+    });
+  }
 
   const idempotencyKey = headers['idempotency-key'];
   const reused = await getIdempotentResponse(`manifest.submit:${id}`, idempotencyKey);

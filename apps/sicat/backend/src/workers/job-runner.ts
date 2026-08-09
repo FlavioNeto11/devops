@@ -1,6 +1,9 @@
 import { config } from '../lib/config.js';
 import { sleep } from '../lib/time.js';
-import { claimJobs, updateJobIfOwned, moveJobToDLQ, requeueStaleRunningJobs, heartbeatJobClaim } from '../repositories/job-repo.js';
+import { claimJobs, updateJobIfOwned, moveJobToDLQ, requeueStaleRunningJobs, heartbeatJobClaim, insertJobDeduplicated } from '../repositories/job-repo.js';
+import { listIntegrationAccountIdsWithUnconfirmedSubmits } from '../repositories/manifest-repo.js';
+import { createPrefixedId } from '../lib/ids.js';
+import type { GatewaySearchManifestsArgs } from '../services/manifest-submit-reconciler.js';
 import {
   registerWorker,
   sendWorkerHeartbeat,
@@ -19,7 +22,22 @@ import {
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
 
-const gateway = createCetesbGateway();
+// O gateway vive em JS (DL-093) e o TS infere os parâmetros destructurados a
+// partir dos DEFAULTS (`= null`), o que produz assinaturas como
+// `integrationAccountId?: null`. `manifest-service.ts` resolve isso do mesmo
+// jeito: declara o contrato esperado e converte UMA vez, na fronteira.
+type WorkerCetesbGateway = Parameters<typeof processJob>[1] & {
+  searchManifests: (options: GatewaySearchManifestsArgs) => Promise<unknown>;
+};
+
+const gateway = createCetesbGateway() as unknown as WorkerCetesbGateway;
+
+// Único ponto do processo que dá ao reconciliador o meio de perguntar à CETESB.
+// A dependência é INJETADA (e não importada dentro do handler) justamente para
+// que nenhum teste consiga acionar a CETESB real sem passar por aqui.
+const submitReconcileDeps = {
+  searchManifests: (args: GatewaySearchManifestsArgs) => gateway.searchManifests(args)
+};
 
 type JobEntity = {
   jobId: string;
@@ -278,6 +296,82 @@ async function requeueStaleJobsIfNeeded() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Varredura periódica de submits sem confirmação.
+//
+// NÃO existe cron neste app: nenhum CronJob em `k8s/` e nenhum `setInterval` de
+// negócio. Criar um CronJob k8s mexeria em manifesto sob Argo (selfHeal) e é
+// escopo maior; o gancho certo é este loop, ao lado de
+// `requeueStaleJobsIfNeeded()` — que resolve um problema da mesma natureza
+// (estado preso que ninguém mais vai destravar).
+// ---------------------------------------------------------------------------
+
+const MANIFEST_SUBMIT_RECONCILE_SWEEP_DEFAULT_MS = 5 * 60 * 1000;
+// Janela de atividade das linhas candidatas. Sem recorte a varredura do
+// repositório degenera em full scan (a própria função se recusa a rodar).
+const MANIFEST_SUBMIT_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Lido do ambiente e não de `lib/config.ts` porque é knob de operação desta
+// varredura. `0` (ou negativo) DESLIGA — a válvula de escape sem redeploy de código.
+function resolveSubmitReconcileSweepIntervalMs(): number {
+  const raw = Number(process.env.MANIFEST_SUBMIT_RECONCILE_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return MANIFEST_SUBMIT_RECONCILE_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastSubmitReconcileSweepAt = 0;
+
+export function resetSubmitReconcileSweepClockForTests() {
+  lastSubmitReconcileSweepAt = 0;
+}
+
+async function enqueueManifestSubmitReconcileSweepIfNeeded() {
+  const intervalMs = resolveSubmitReconcileSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastSubmitReconcileSweepAt && (now - lastSubmitReconcileSweepAt) < intervalMs) {
+    return;
+  }
+  lastSubmitReconcileSweepAt = now;
+
+  const updatedSince = new Date(now - MANIFEST_SUBMIT_RECONCILE_LOOKBACK_MS).toISOString();
+
+  try {
+    const accountIds = await listIntegrationAccountIdsWithUnconfirmedSubmits({ updatedSince });
+    for (const integrationAccountId of accountIds) {
+      // `insertJobDeduplicated` tem alvo de conflito
+      // `(entity_type, entity_id, operation) where status in ('queued','running','retry_wait')`:
+      // no máximo UMA varredura ativa por conta, mesmo com o loop passando aqui
+      // a cada iteração.
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'integration_account',
+        entityId: integrationAccountId,
+        operation: 'manifest.reconcile_submit',
+        payload: { integrationAccountId, updatedSince },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: createPrefixedId('corr'),
+        priority: 2,
+        retryStrategy: 'fixed',
+        baseDelayMs: 30000,
+        maxDelayMs: 120000,
+        tags: extractJobTags({ operation: 'manifest.reconcile_submit', entityType: 'integration_account', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker: a varredura é reparo de
+    // fundo, não caminho crítico. Volta na próxima janela.
+    console.warn(`[worker] varredura de reconciliação de submit não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
 function startClaimHeartbeat(jobId: string, workerName: string) {
   if (config.workerClaimHeartbeatMs <= 0) {
     return null;
@@ -314,7 +408,10 @@ async function markJobSucceeded(job: JobEntity, workerName: string, startTime: n
 async function handleDlqTransition(job: JobEntity, workerName: string, transition: Extract<FailureTransition, { action: 'dlq' }>, error: unknown) {
   const effectJob = { ...job, payload: job.payload ?? {} };
   await applyAsyncOperationTerminalFailureSideEffect(effectJob, transition, error);
-  await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error);
+  // O 4º argumento é o que permite ao side-effect PERGUNTAR à CETESB se o MTR
+  // nasceu antes de declarar falha. Sem ele o desfecho é `submit_unconfirmed` —
+  // nunca `failed`, porque "não perguntei" não é "não existe".
+  await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error, submitReconcileDeps);
   await applyManifestCancelTerminalFailureSideEffect(effectJob, transition, error);
   await applyConversationArtifactTerminalFailureSideEffect(effectJob, transition, error);
   // Registrado AQUI e em `handleFailedTransition`. Registrar em só um dos dois produz a assimetria
@@ -355,7 +452,10 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
   if (transition.action === 'failed') {
     const effectJob = { ...job, payload: job.payload ?? {} };
     await applyAsyncOperationTerminalFailureSideEffect(effectJob, transition, error);
-    await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error);
+    // O 4º argumento é o que permite ao side-effect PERGUNTAR à CETESB se o MTR
+  // nasceu antes de declarar falha. Sem ele o desfecho é `submit_unconfirmed` —
+  // nunca `failed`, porque "não perguntei" não é "não existe".
+  await applyManifestSubmitTerminalFailureSideEffect(effectJob, transition, error, submitReconcileDeps);
     await applyManifestCancelTerminalFailureSideEffect(effectJob, transition, error);
     await applyConversationArtifactTerminalFailureSideEffect(effectJob, transition, error);
     // Par obrigatório da chamada em `handleDlqTransition` — ver comentário lá.
@@ -410,6 +510,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   }
 
   await requeueStaleJobsIfNeeded();
+  await enqueueManifestSubmitReconcileSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {
