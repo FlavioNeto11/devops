@@ -10,6 +10,17 @@ import {
   validateGatewayStructure
 } from '../../scripts/har-gateway-structural-validator.js';
 
+// ⚠️ DEPENDÊNCIA DE CAPTURA LOCAL NÃO VERSIONADA
+//
+// Este caso lê os `.har` de `apps/sicat/docs/cetesb/`, que estão no `.gitignore`
+// (regra `*.har`) por conterem JWT e CPF/CNPJ de sessões CETESB reais — o repositório
+// é público. Em clone limpo (e no CI) ele FALHA por arquivo ausente, e isso é
+// intencional: não há `skip` nem HAR sintético, porque os asserts congelam evidência
+// REAL da API da CETESB. Como regenerar e lista de arquivos esperados:
+// `apps/sicat/docs/cetesb/README.md`.
+//
+// Os dois casos abaixo (controles negativos) não dependem de captura: usam entrada
+// forjada em memória e um `tmpdir`, e passam em qualquer clone.
 test('validateHarGatewayStructure valida estrutura real do repositório', () => {
   const report = validateHarGatewayStructure(process.cwd());
 
