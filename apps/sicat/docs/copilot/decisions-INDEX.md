@@ -17,10 +17,11 @@ language: pt-BR
 3. **Leia Planejamento, Decisões e Validação** para entender o raciocínio e estado atual.
 4. **Consulte Handoff** para checkpoints de implementação (se houver).
 
-## Decisões Arquiteturais (DL-101 a DL-001)
+## Decisões Arquiteturais (DL-102 a DL-001)
 
 | DL | Título | Status | Handoff/Referência |
 |---|---|---|---|
+| [DL-102](13-decision-log.md#dl-102) | Correlação pré-submit de manifesto — marcador determinístico em `manObservacao` contra MTR duplicado, entregue **inerte** | ⚠️ PARCIAL (**1 de 3 partes ligada**) | [docs/05-operacao/runbook-canal-whatsapp.md](../05-operacao/runbook-canal-whatsapp.md) §8 |
 | [DL-101](13-decision-log.md#dl-101) | Canal conversacional externo (WhatsApp) — identidade no servidor, 2 provedores, ticket como linha, níveis por efeito irreversível e as recusas (N2/N3) | ✅ COMPLETADO (**N2 fechado por desenho**) | [docs/handoffs/whatsapp-channel-sicat/](../handoffs/whatsapp-channel-sicat/) |
 | [DL-100](#dl-100) | Refatoração UX/UI corporativa — design system `Sicat*`, navegação por audiência e decomposição de telas-monstro | ✅ COMPLETADO | [docs/copilot/handoffs/DL-100/](handoffs/DL-100/) |
 | [DL-099](#dl-099) | Tema autenticado alinhado à home + navegação modular por domínio + módulo CDF | ✅ COMPLETADO | [docs/copilot/handoffs/DL-099/](handoffs/DL-099/) |

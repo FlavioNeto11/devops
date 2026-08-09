@@ -3,6 +3,66 @@
 > Cadeia `whatsapp-channel-sicat`. Este runbook cobre o **catálogo de permissões**, o **gate de três
 > estados** e, principalmente, **como voltar atrás em minutos** se o fechamento do gate travar alguém.
 
+## 0. 🔴 LEIA ANTES DE COMMITAR O MANIFESTO — o default de código é `enforce`
+
+**O regime restritivo é o que acontece se você não fizer nada.** Esta é a inversão que derruba
+quem assume o contrário:
+
+| Camada | Valor | Verificado em |
+|---|---|---|
+| Default de **código** | **`enforce`** | `String(process.env.CONVERSATION_PERMISSION_ENFORCEMENT \|\| 'enforce')` — [config.ts:155](../../backend/src/lib/config.ts) |
+| Manifesto `k8s/backend.yaml` | `observe` na `sicat-api` **e** na `sicat-worker` | linhas 83–84 e 237–238 |
+| Git | **a chave não existe** | `git show sicat/whatsapp-channel:apps/sicat/k8s/backend.yaml` não tem nenhuma ocorrência de `CONVERSATION_PERMISSION_ENFORCEMENT` |
+
+Ou seja: **o `observe` está no diff retido, não no git.** Duas consequências, as duas ruins se
+descobertas depois:
+
+1. **Commitar `k8s/backend.yaml` sem a linha `observe` sobe os pods em `enforce`** — sob Argo com
+   `selfHeal: true`, commitar **é** aplicar. A janela de observação do §3 nunca acontece: você
+   descobre quem seria negado **negando**.
+2. **Com o seed do catálogo nunca executado e o regime em `enforce`**, o gate cai no ramo de catálogo
+   degradado (§2, passo 4) e as **ações** — criar, enviar, receber, cancelar, replicar, imprimir — são
+   negadas por serem **insatisfazíveis por qualquer um, inclusive os dois `admin.global`**. Não é
+   "o admin destrava": não há chave a conceder enquanto `access_permissions` estiver vazia. A leitura
+   continua passando (menos `audit.read`, que nega de propósito), então o sintoma é um chat que
+   *responde* e *não faz nada* — com pod `Ready` e health verde.
+
+Faça o passo 0 do §3 (validar o SQL do seed) **antes** do commit do manifesto, e commite a linha
+`observe` junto com a raia. A sequência completa está no
+[runbook-canal-whatsapp.md §3](runbook-canal-whatsapp.md), ponto de não-retorno 2.
+
+### As três alavancas que fazem o contrário do que parecem
+
+Resumo de bolso da armadilha 14 do [`apps/sicat/CLAUDE.md`](../../CLAUDE.md). Cada uma já custou uma
+rodada de revisão; as três estão detalhadas adiante e **nenhuma delas é rollback**.
+
+| Alavanca | O que parece | O que faz de verdade | Onde |
+|---|---|---|---|
+| Desativar a permissão | "destrava aquele usuário" | remove a chave do conjunto de **todos** e torna a ação insatisfazível para o mundo inteiro, **inclusive admins**. E quem desativa é o **`DELETE`**, não o `PATCH {isActive:false}` (esse é NO-OP) — sem volta pela API | §5 |
+| Alargar o papel-**piso** `sicat.reader` | "destrava todo mundo" | o piso é o que o **`POST /v1/sicat/auth/register` PÚBLICO** concede: alargá-lo **promove a internet inteira**, sobrevive a todo restart (o seed é aditivo) e **some da métrica** (todos passam no passo 2, o contador para de emitir amostra) | §4.3 |
+| Revogar todos os papéis / criar papel próprio vazio | "tira o acesso" / "dá menos acesso" | revogar não é durável (o piso é reconcedido no login e no boot); papel próprio vazio **não é menos, é zero** — o corte real é `sicat_users.is_active = false` | §5 |
+
+**O rollback de regime é a env** — `CONVERSATION_PERMISSION_ENFORCEMENT=observe` em **todos** os
+Deployments do backend, reversível sem SQL e sem tocar em permissão nenhuma (§4.2). **O rollback de
+um usuário é CONCEDER papel** (§4.1). Não existe terceira forma.
+
+> ### 🔴 Quantos Deployments? **DOIS.** Verificado em 2026-08-08
+>
+> Este runbook dizia "os TRÊS Deployments" e mandava rodar comandos contra `sicat-worker-channel`.
+> **Esse Deployment não existe** — nem commitado, nem no diff retido:
+> `grep -rl 'sicat-worker-channel' apps/sicat/k8s/` não retorna nada, e `WORKER_LANE` não aparece em
+> manifesto algum. `k8s/backend.yaml` tem **1 PVC, 2 Deployments (`sicat-api`, `sicat-worker`) e 1
+> Service (`sicat-api`)**. Todo `kubectl ... deploy/sicat-worker-channel` **falha com `NotFound`** —
+> as ocorrências abaixo foram corrigidas; trate qualquer sobrevivente como erro de texto.
+>
+> **Isto piora o passo 4 do §3, não só a digitação.** A afirmação de que "os dois Services headless
+> de métrica entraram em `k8s/backend.yaml`" também é **falsa**: os únicos Services do app são
+> `sicat-api`, `sicat-frontend` e `sicat-postgres`, e o `ServiceMonitor` (`sicat-api-ai`) seleciona
+> *Services*. **A métrica do `sicat-worker` não é raspada.** Logo, o critério objetivo do flip
+> (`would_deny` estável em zero) hoje mede **só a api** — e o zero do worker é zero por falta de
+> coleta. Escrever a raia e os Services de métrica é a decisão **O1b** do
+> [runbook-canal-whatsapp.md §2](runbook-canal-whatsapp.md), e é **pré-requisito do flip**.
+
 ## 1. O que mudou
 
 Antes, `hasConversationPermission` era **fail-open por usuário**: quem não tinha papel nenhum
@@ -154,15 +214,23 @@ Comparação é **igualdade exata de string**: não há prefixo nem curinga. `ma
    desativou a chave / o seed falhou num pod" produziriam amostras idênticas durante a janela inteira.
    Qualquer amostra `false` aqui: volte ao passo 0.
 
-   **A coleta cobre os 3 pods?** Até a fase 4.5 havia **um único Service** (`sicat-api`), e o
-   ServiceMonitor seleciona *Services*: as métricas de `sicat-worker` e `sicat-worker-channel` nunca
-   eram raspadas — inclusive as do pod que avalia a policy dos turnos de WhatsApp. Os dois Services
-   headless de métrica entraram em `k8s/backend.yaml`. Confirme antes de confiar em qualquer zero:
+   🔴 **A coleta NÃO cobre todos os pods — e isto invalida o critério do flip.** Há **um único
+   Service** com label `app.kubernetes.io/part-of: sicat` e porta `metrics` (`sicat-api`), e o
+   `ServiceMonitor` (`k8s/servicemonitor.yaml`, nome `sicat-api-ai`) seleciona *Services*. Logo a
+   métrica do **`sicat-worker` não é raspada** — e ele é um dos dois pods que avaliam a policy.
+   Versões anteriores deste runbook afirmavam que "os dois Services headless de métrica entraram em
+   `k8s/backend.yaml`"; **isso é falso**, verificado em 2026-08-08: os Services do app são
+   `sicat-api`, `sicat-frontend` e `sicat-postgres`.
+
+   **Consequência:** `would_deny` estável em zero hoje significa "estável em zero **na api**".
+   Escrever os Services de métrica é parte da decisão **O1b**
+   ([runbook-canal-whatsapp.md §2](runbook-canal-whatsapp.md)) e é **bloqueante para o passo 6**.
+   Confirme antes de confiar em qualquer zero:
    ```bash
-   kubectl -n apps get endpoints sicat-worker-metrics sicat-worker-channel-metrics
+   kubectl -n apps get svc -l app.kubernetes.io/part-of=sicat
    ```
    ```promql
-   # tem de aparecer amostra dos TRÊS pods
+   # tem de aparecer amostra de TODOS os pods que avaliam policy (hoje: api e worker)
    count by (pod) (sicat_conversation_permission_decision_total)
    ```
 5. **Conceder ANTES de negar.** Cada `would_deny` é "esta pessoa precisa de `sicat.operator`".
@@ -187,12 +255,17 @@ Comparação é **igualdade exata de string**: não há prefixo nem curinga. `ma
    > torna esse zero *mensurável* — não o torna *prova*: a fase 5 é justamente quem desbloqueia o
    > canal e exercita essas chaves pela primeira vez. Trate a liberação do canal como um flip próprio,
    > com sua própria janela.
-6. **O flip**: commit único que REMOVE a linha `CONVERSATION_PERMISSION_ENFORCEMENT: observe` dos
-   **TRÊS** Deployments + push + `kubectl annotate application sicat -n argocd
-   argocd.argoproj.io/refresh=hard --overwrite`. **Esse commit é o ponto de rollback.**
+6. **O flip**: commit único que REMOVE a linha `CONVERSATION_PERMISSION_ENFORCEMENT: observe` de
+   **TODOS** os Deployments do backend (**hoje 2**: `sicat-api` e `sicat-worker`; 3 depois de O1b)
+   + push + `kubectl annotate application sicat -n argocd argocd.argoproj.io/refresh=hard
+   --overwrite`. **Esse commit é o ponto de rollback.**
    - Nunca `kubectl set env`: `k8s/backend.yaml` está sob Argo com `selfHeal: true` e seria revertido.
-   - **Esquecer o `sicat-worker-channel` é o erro mais grave possível** — é o pod que avalia a policy
-     dos turnos de WhatsApp; o canal continuaria fail-open com todo mundo achando que fechou.
+   - **Esquecer um Deployment é o erro mais grave possível.** Quando o `sicat-worker-channel` existir,
+     ele é o pod que avalia a policy dos turnos de WhatsApp; deixá-lo para trás manteria o canal
+     fail-open com todo mundo achando que fechou. Enumere sem digitar nomes de cor:
+     ```bash
+     kubectl -n apps get deploy -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].env[?(@.name=="CONVERSATION_PERMISSION_ENFORCEMENT")].value}{"\n"}{end}'
+     ```
 
 ## 4. ROLLBACK
 
