@@ -5,6 +5,7 @@ import {
   getConversationTelemetrySnapshot,
   resetConversationObservabilityForTests
 } from '../../src/services/conversation/conversation-observability.js';
+import { buildTestPrincipal } from '../helpers/conversation-principal.js';
 
 describe('conversation-service provider unavailability', () => {
   beforeEach(() => {
@@ -30,6 +31,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_fallback',
       headers: {},
       idempotencyKey: undefined
@@ -72,6 +74,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_rule_based_invalid_provider',
       headers: {}
     });
@@ -107,6 +110,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_provider_adapter_invalid_provider',
       headers: {}
     });
@@ -142,6 +146,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_deterministic_invalid_provider',
       headers: {}
     });
@@ -177,6 +182,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_unknown_invalid_provider',
       headers: {}
     });
@@ -207,6 +213,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_greeting_fallback',
       headers: {},
       idempotencyKey: undefined
@@ -243,6 +250,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_no_regex_fallback',
       headers: {},
       idempotencyKey: undefined
@@ -277,6 +285,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_unclear_no_tool',
       headers: {},
       idempotencyKey: undefined
@@ -312,6 +321,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_explicit_tool_request_allowed',
       headers: {}
     });
@@ -349,6 +359,7 @@ describe('conversation-service provider unavailability', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_explicit_tool_without_body_tool_request',
       headers: {}
     });
@@ -425,6 +436,7 @@ describe('conversation-service provider unavailability', () => {
           allowActions: true
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_test_layered_classifier_planner',
       headers: {},
       idempotencyKey: undefined

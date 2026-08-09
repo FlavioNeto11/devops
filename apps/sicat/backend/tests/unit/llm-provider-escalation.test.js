@@ -2,6 +2,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createConversationService } from '../../src/services/conversation/conversation-service.js';
 import { resetConversationObservabilityForTests } from '../../src/services/conversation/conversation-observability.js';
+import { buildTestPrincipal } from '../helpers/conversation-principal.js';
 
 describe('LLM Provider Escalation Detection', () => {
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_escalation_low_conf',
       headers: {},
       idempotencyKey: undefined
@@ -81,6 +83,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_escalation_high_risk',
       headers: {},
       idempotencyKey: undefined
@@ -120,6 +123,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_no_escalation',
       headers: {},
       idempotencyKey: undefined
@@ -162,6 +166,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_reason_test',
       headers: {},
       idempotencyKey: undefined
@@ -205,6 +210,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_no_gpt51_default',
       headers: {},
       idempotencyKey: undefined
@@ -248,6 +254,7 @@ describe('LLM Provider Escalation Detection', () => {
           requestedBy: 'qa_tester'
         }
       },
+      principal: buildTestPrincipal(),
       correlationId: 'corr_both_fields',
       headers: {},
       idempotencyKey: undefined

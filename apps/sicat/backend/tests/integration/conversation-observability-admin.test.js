@@ -2,6 +2,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query } from '../../src/db/pool.js';
 import { createConversationService } from '../../src/services/conversation/conversation-service.js';
+import { buildTestPrincipal } from '../helpers/conversation-principal.js';
 
 const ACCOUNT_ID = 'acc_test_conv_obs_001';
 const SESSION_ID = 'csn_test_conv_obs_001';
@@ -82,6 +83,14 @@ describe('conversation observability admin integration', () => {
           allowActions: true
         }
       },
+      // Identidade REAL do turno: a conta e a sessão CETESB criadas no `beforeEach`. Precisa casar
+      // com as linhas do banco — as escritas filhas (sessão, mensagens, action logs) têm FK para
+      // `integration_accounts`/`session_contexts`, e é sobre essas linhas que este teste assere.
+      principal: buildTestPrincipal({
+        integrationAccountId: ACCOUNT_ID,
+        sessionContextId: SESSION_CONTEXT_ID,
+        requestedBy: 'qa_tester_obs'
+      }),
       correlationId: CORRELATION_ID,
       headers: {},
       idempotencyKey: 'idem_test_conv_obs_001'

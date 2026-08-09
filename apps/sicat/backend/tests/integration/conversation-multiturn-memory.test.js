@@ -13,6 +13,7 @@ import { before, beforeEach, after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { pool, query } from '../../src/db/pool.js';
 import { createConversationService } from '../../src/services/conversation/conversation-service.js';
+import { buildTestPrincipalFromBody } from '../helpers/conversation-principal.js';
 
 const ACCOUNT_ID = 'acc_test_conv_mem_001';
 const ACCOUNT_ID_ALT = 'acc_test_conv_mem_002';
@@ -20,7 +21,7 @@ const SESSION_A = 'csn_test_conv_mem_A';
 const SESSION_B = 'csn_test_conv_mem_B';
 
 function buildTurnInput(overrides = {}) {
-  return {
+  const input = {
     body: {
       channel: 'inapp',
       message: { text: 'mensagem de teste' },
@@ -36,6 +37,11 @@ function buildTurnInput(overrides = {}) {
     idempotencyKey: null,
     ...overrides
   };
+
+  // A identidade do turno vem do PRINCIPAL — o serviço não lê mais conta/usuário do `body`.
+  // Derivada do `body.context` de cada caso: é assim que o teste de isolamento entre contas
+  // (ACCOUNT_ID × ACCOUNT_ID_ALT) continua exprimindo "outro usuário, outra conta".
+  return { ...input, principal: input.principal || buildTestPrincipalFromBody(input.body) };
 }
 
 /** Cria um provider mock que armazena o history recebido no último plano. */
