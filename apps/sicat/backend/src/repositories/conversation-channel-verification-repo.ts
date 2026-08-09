@@ -533,7 +533,7 @@ export async function markChannelVerificationDelivery(
  * O limitador por usuário contém o atacante; só esta contagem fecha o bombing multi-conta contra um
  * mesmo número, que é o abuso que atinge quem nem é usuário do sistema.
  *
- * Três exclusões são o que impedem o escudo de trancar justamente a vítima:
+ * Quatro exclusões são o que impedem o escudo de trancar justamente a vítima:
  *  - `user_id <> $4` — o próprio solicitante NUNCA conta contra si mesmo. Sem isso, com o limiar em
  *    3, bastavam DUAS contas descartáveis para trancar o dono legítimo do número: a tentativa dele
  *    virava a terceira;
@@ -544,7 +544,12 @@ export async function markChannelVerificationDelivery(
  *    vítima, e um envio que nunca saiu não incomodou ninguém. Excluir só encolhe a contagem, então
  *    não abre bombing: o atacante não tem como preferir falhar. `cancelled` NÃO entra nesta lista —
  *    o `start` já despachou a mensagem antes de o solicitante cancelar, e cancelar depois seria um
- *    jeito barato de zerar o próprio rastro.
+ *    jeito barato de zerar o próprio rastro;
+ *  - `metadata->>'shieldWaived'` — WAIVER administrativo (D-A2). É o único caminho de escape do dono
+ *    de PRIMEIRA viagem: N+1 contas descartáveis trancavam o número dele indefinidamente (janela
+ *    deslizante, sem TTL), e o bypass de `verified` exige um vínculo que ele por definição não tem.
+ *    A marca é gravada por `waiveVictimShieldChallengesForPhone` (só via API administrativa gateada);
+ *    o atacante não tem como plantá-la, então excluí-la não reabre o bombing.
  */
 export async function countDistinctChallengersForPhone(
   client: PoolClient | null,
@@ -559,10 +564,59 @@ export async function countDistinctChallengersForPhone(
         and created_at > now() - make_interval(hours => $3::int)
         and user_id <> $4
         and (outcome is null or outcome <> 'verified')
-        and (outcome is null or outcome <> 'send_failed')`,
+        and (outcome is null or outcome <> 'send_failed')
+        and coalesce(metadata->>'shieldWaived', '') <> 'true'`,
     [input.channelType, input.externalUserKey, input.windowHours, input.exceptUserId]
   );
   return toCount(result.rows[0]?.total);
+}
+
+/**
+ * WAIVER administrativo do escudo da vítima (D-A2): marca com `shieldWaived` TODAS as linhas do par
+ * (canal, telefone) — vivas ou fechadas, de qualquer solicitante — para que
+ * `countDistinctChallengersForPhone` deixe de contá-las e o dono de primeira viagem volte a receber
+ * código.
+ *
+ * Três decisões deliberadas:
+ *  - a marca vai no `metadata` (mesmo mecanismo de `patchChannelVerificationMetadata`, que já
+ *    escreve em linha fechada) — os fatos operacionais da linha ficam intactos: reaproveitar
+ *    `verified`/`send_failed` para escapar da contagem registraria na trilha que o suporte lê um
+ *    desfecho que NÃO aconteceu;
+ *  - o objeto inteiro é montado por `jsonb_build_object` NO SQL, não em JS: é o que garante que
+ *    toda linha tocada satisfaz a exclusão da contagem (um patch vindo de fora poderia esquecer a
+ *    marca e "liberar" sem liberar) e o que mantém UM relógio só — `shieldWaivedAt` e `updated_at`
+ *    saem do MESMO `now()` da transação, em vez de um `Date.now()` do processo que discorda dele;
+ *  - o filtro de idempotência no `where` faz a segunda chamada devolver 0 linhas: o retorno é
+ *    "quantas linhas NOVAS foram liberadas", que é o número honesto para a auditoria.
+ *
+ * Linhas criadas DEPOIS do waiver não carregam a marca: bombing novo re-arma o escudo normalmente.
+ * A liberação é pontual — o caminho durável do dono é confirmar a posse logo em seguida.
+ */
+export async function waiveVictimShieldChallengesForPhone(
+  client: PoolClient | null,
+  input: {
+    channelType: string;
+    externalUserKey: string;
+    waivedBy: string;
+    correlationId?: string | null;
+  }
+): Promise<number> {
+  const result = await run(
+    client,
+    `update conversation_channel_verifications
+        set metadata = metadata || jsonb_build_object(
+              'shieldWaived', true,
+              'shieldWaivedBy', $3::text,
+              'shieldWaivedAt', now(),
+              'shieldWaiverCorrelationId', $4::text
+            ),
+            updated_at = now()
+      where channel_type = $1
+        and external_user_key = $2
+        and coalesce(metadata->>'shieldWaived', '') <> 'true'`,
+    [input.channelType, input.externalUserKey, input.waivedBy, input.correlationId || null]
+  );
+  return result.rowCount ?? 0;
 }
 
 /**

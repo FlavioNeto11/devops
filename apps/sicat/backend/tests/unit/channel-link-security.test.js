@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { config, setConfigOverride } from '../../src/lib/config.js';
 import { hashPassword, verifyPassword } from '../../src/lib/sicat-security.js';
+import { setAccessAdminGateDependenciesForTests } from '../../src/services/access-admin-service.js';
 import { lockChannelLinkUserScope } from '../../src/repositories/conversation-channel-link-repo.js';
 import { maskChannelUserKey } from '../../src/services/conversation/channel/whatsapp/types.js';
 import { setWhatsAppProviderOverrideForTests } from '../../src/services/conversation/channel/whatsapp/index.js';
@@ -16,7 +17,8 @@ import {
   resetChannelLinkDispatchLimiterForTests,
   sanitizeDeliveryError,
   setChannelLinkRepositoriesForTests,
-  startChannelLinkService
+  startChannelLinkService,
+  waiveChannelLinkVictimShieldService
 } from '../../src/services/conversation-channel-link-service.js';
 
 /**
@@ -74,6 +76,7 @@ const OVERRIDDEN_CONFIG_KEYS = [
 
 /** Métodos de persistência do seam. `withTransaction`/`insertAccessAdminAudit` têm tratamento próprio. */
 const REPO_METHODS = [
+  'waiveVictimShieldChallengesForPhone',
   'listConversationChannelLinksByUser',
   'countConversationChannelLinksByUser',
   'findConversationChannelLinkById',
@@ -379,10 +382,24 @@ beforeEach(() => {
 
 afterEach(() => {
   setChannelLinkRepositoriesForTests(null);
+  setAccessAdminGateDependenciesForTests(null);
   setWhatsAppProviderOverrideForTests(null);
   resetChannelLinkDispatchLimiterForTests();
   for (const key of OVERRIDDEN_CONFIG_KEYS) setConfigOverride(key, undefined);
 });
+
+/**
+ * Vínculos do dono por IDENTIDADE: o dono tem (ou não) vínculo com este status neste número; todo
+ * outro usuário não tem nada. O double só FORNECE o dado — quem decide pular o balde de telefone é
+ * o service, então a guarda continua sendo do código. Usado pelo start (seção 8b) e pelo resend
+ * (seção 8c), que exercitam o MESMO bypass.
+ */
+function ownedLinksImpl(ownerStatus) {
+  return async (_client, userId) =>
+    (userId === OWNER && ownerStatus
+      ? [linkRecord({ userId: OWNER, externalUserKey: PHONE, verificationStatus: ownerStatus })]
+      : []);
+}
 
 // ---------------------------------------------------------------------------------------------
 // 1. Ordem: cobrar a tentativa ANTES de comparar o código
@@ -627,6 +644,8 @@ describe('resend — rotação do código', () => {
     const live = challengeRecord({ attemptCount: 2, codeHash: CODE_HASH });
     const harness = createHarness({
       findLiveChannelVerificationById: async () => live,
+      // Titularidade do balde de telefone (o bypass do dono verificado): sem vínculo, paga o balde.
+      listConversationChannelLinksByUser: async () => [],
       rotateChannelVerificationCode: async (_client, input) =>
         challengeRecord({
           codeHash: input.codeHash,
@@ -1090,15 +1109,6 @@ describe('start — limitador de telefone (o balde real do módulo)', () => {
    * `startChannelLinkService` de verdade, então quem responde é o `DISPATCH_PHONE_RATE_LIMIT` do
    * módulo. O `beforeEach` global zera o balde entre casos (`resetChannelLinkDispatchLimiterForTests`).
    */
-  function ownedLinksImpl(ownerStatus) {
-    // O double só FORNECE o dado (o dono tem, ou não tem, vínculo verificado neste número). Quem
-    // decide pular o balde é o service — a guarda continua sendo do código, não do teste.
-    return async (_client, userId) =>
-      (userId === OWNER && ownerStatus
-        ? [linkRecord({ userId: OWNER, externalUserKey: PHONE, verificationStatus: ownerStatus })]
-        : []);
-  }
-
   it('o 7º despacho para o MESMO número leva 429 CHANNEL_LINK_RATE_LIMITED — e outro número segue livre', async () => {
     const fake = createFakeProvider();
     setWhatsAppProviderOverrideForTests(fake.provider);
@@ -1189,6 +1199,72 @@ describe('start — limitador de telefone (o balde real do módulo)', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// 8c. Resend — o MESMO bypass de titularidade do start (alinhamento D-A2)
+// ---------------------------------------------------------------------------------------------
+
+describe('resend — o dono verificado não paga o balde de telefone', () => {
+  /**
+   * O buraco era assimétrico: o `start` pulava o balde para o dono JÁ VERIFICADO, mas o `resend`
+   * cobrava `check` incondicional — o dono passava no start e levava 429 no reenvio do PRÓPRIO
+   * número quando um atacante envenenava o balde. Estes casos espelham os do start (seção 8b),
+   * inclusive o CONTROLE de que o bypass é só do dono `verified`. O double de vínculos é o MESMO
+   * `ownedLinksImpl` da seção 8b — é o mesmo bypass, provado nas duas portas.
+   */
+  function resendHarness(ownerStatus) {
+    return createHarness(
+      happyStartImpls({
+        listConversationChannelLinksByUser: ownedLinksImpl(ownerStatus),
+        findLiveChannelVerificationById: async () => challengeRecord(),
+        rotateChannelVerificationCode: async (_client, input) =>
+          challengeRecord({ codeHash: input.codeHash, sendCount: 2 })
+      })
+    );
+  }
+
+  it('com o balde envenenado por um atacante, o dono JÁ VERIFICADO reenvia o próprio desafio', async () => {
+    const fake = createFakeProvider();
+    setWhatsAppProviderOverrideForTests(fake.provider);
+    const harness = resendHarness('verified');
+
+    // UMA conta de atacante gasta os 6 hits do balde deste telefone via start.
+    for (let index = 0; index < 6; index += 1) {
+      await startChannelLinkService(OTHER_USER, { phone: PHONE }, `corr_attack_${index}`);
+    }
+    const attackerBlocked = await captureRejection(
+      startChannelLinkService(OTHER_USER, { phone: PHONE }, 'corr_attack_7')
+    );
+    assert.equal(attackerBlocked.code, 'CHANNEL_LINK_RATE_LIMITED', 'o atacante PRECISA ser contido');
+
+    const dto = await resendChannelLinkChallengeService(OWNER, CHALLENGE_ID, 'corr_owner_resend');
+
+    assert.equal(dto.phoneMasked, PHONE_MASKED);
+    assert.equal(fake.calls.sendTemplate.length, 7, 'o reenvio do dono chegou até o despacho');
+    assert.equal(harness.countOf('rotateChannelVerificationCode'), 1);
+  });
+
+  it('CONTROLE: vínculo `pending` no mesmo número continua pagando o balde — e o 429 vem ANTES da rotação', async () => {
+    // Sem este contraste, `if (true)` no lugar da checagem de titularidade (bypass incondicional)
+    // passaria pelo caso acima e desligaria o balde do resend para todo mundo.
+    const fake = createFakeProvider();
+    setWhatsAppProviderOverrideForTests(fake.provider);
+    const harness = resendHarness('pending');
+
+    for (let index = 0; index < 6; index += 1) {
+      await startChannelLinkService(OTHER_USER, { phone: PHONE }, `corr_attack_${index}`);
+    }
+
+    const error = await captureRejection(resendChannelLinkChallengeService(OWNER, CHALLENGE_ID, 'corr_pending'));
+
+    assert.equal(error.status, 429);
+    assert.equal(error.code, 'CHANNEL_LINK_RATE_LIMITED');
+    assert.equal(fake.calls.sendTemplate.length, 6, 'nenhuma mensagem paga a mais foi despachada');
+    // A recusa do balde precede a rotação: um resend barrado não pode invalidar o código que a
+    // pessoa tem na mão.
+    assert.equal(harness.countOf('rotateChannelVerificationCode'), 0);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
 // 9. Reenvio com palpites esgotados (correção C4)
 // ---------------------------------------------------------------------------------------------
 
@@ -1225,6 +1301,7 @@ describe('resend — palpites esgotados', () => {
 
     createHarness({
       findLiveChannelVerificationById: async () => challengeRecord({ attemptCount: 4, maxAttempts: 5 }),
+      listConversationChannelLinksByUser: async () => [],
       rotateChannelVerificationCode: async (_client, input) =>
         challengeRecord({ codeHash: input.codeHash, attemptCount: 4, sendCount: 2 }),
       markChannelVerificationDelivery: async () => challengeRecord({ attemptCount: 4, sendCount: 2 })
@@ -1557,6 +1634,136 @@ describe('auditoria — telefone só mascarado, código nunca', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// 12b. Waiver administrativo do escudo da vítima (D-A2)
+// ---------------------------------------------------------------------------------------------
+
+describe('admin — waiver do escudo da vítima', () => {
+  /** Papel no token: o gate REAL decide sozinho, sem tocar o banco. */
+  const ADMIN = { userId: 'usr_admin_shield', roles: ['admin'] };
+  /** Sem papel no token: o gate REAL cai na consulta de acesso global — que o seam abaixo responde. */
+  const NON_ADMIN = { userId: OTHER_USER, roles: [] };
+
+  /**
+   * O gate roda de VERDADE (`ensureAdminAuthorization`, importado direto pelo service). O único
+   * double é a consulta de banco que ele faz quando o token não traz papel, injetada pelo seam
+   * PRÓPRIO do `access-admin-service` — e ela responde por IDENTIDADE, nunca um `false` fixo: um
+   * double que negasse todo mundo passaria mesmo com o gate arrancado do service, porque o caso
+   * feliz usa papel de token. O que se prova aqui é que o service CHAMA o gate e ABORTA no throw.
+   */
+  function grantOnlyTo(allowedUserId) {
+    return async (userId) => userId === allowedUserId;
+  }
+
+  it('não-admin: 403 ANTES de qualquer validação ou escrita — nem o oráculo "telefone válido?" escapa', async () => {
+    // Telefone INVENTADO E INVÁLIDO de propósito: se a validação corresse antes do gate, o status
+    // seria 400 — o 403 é a prova da ordem, não só da recusa.
+    const harness = createHarness();
+    setAccessAdminGateDependenciesForTests({ hasAdminGlobalAccessByUserId: grantOnlyTo(ADMIN.userId) });
+
+    const invalidPhone = await captureRejection(
+      waiveChannelLinkVictimShieldService(NON_ADMIN, { phone: '1' }, 'corr_waive_deny')
+    );
+    assert.equal(invalidPhone.status, 403);
+
+    const validPhone = await captureRejection(
+      waiveChannelLinkVictimShieldService(NON_ADMIN, { phone: PHONE }, 'corr_waive_deny2')
+    );
+    assert.equal(validPhone.status, 403);
+
+    assert.equal(harness.countOf('waiveVictimShieldChallengesForPhone'), 0, 'não-admin não escreve nada');
+    assert.equal(harness.audits.length, 0);
+  });
+
+  it('CONTROLE: admin passa — gate primeiro, telefone canonicalizado, waiver e auditoria mascarada', async () => {
+    const harness = createHarness({
+      // Dado CRU, DISTINTO por identidade: 4 para o número do caso, 0 para qualquer outro. Um double
+      // de valor fixo concordaria consigo mesmo e esconderia um waiver aplicado ao número errado.
+      waiveVictimShieldChallengesForPhone: async (_client, input) =>
+        (input.externalUserKey === PHONE ? 4 : 0)
+    });
+    setAccessAdminGateDependenciesForTests({ hasAdminGlobalAccessByUserId: grantOnlyTo(ADMIN.userId) });
+
+    // Formatação de tela: prova que o service canonicaliza ANTES de tocar o banco.
+    const dto = await waiveChannelLinkVictimShieldService(
+      ADMIN,
+      { phone: '11 98765-4321', reason: `liberar ${'x'.repeat(300)}` },
+      'corr_waive_ok'
+    );
+
+    const [waiveArgs] = harness.argsOf('waiveVictimShieldChallengesForPhone');
+    assert.equal(waiveArgs[0], null, 'sem transação: é um statement só');
+    assert.equal(waiveArgs[1].channelType, 'whatsapp');
+    assert.equal(waiveArgs[1].externalUserKey, PHONE, 'o número canonicalizado é o que vai ao banco');
+    assert.equal(waiveArgs[1].waivedBy, ADMIN.userId);
+    assert.equal(waiveArgs[1].correlationId, 'corr_waive_ok');
+
+    // DTO: só a forma mascarada; a contagem vem CRUA do repositório e o status DERIVA dela.
+    assert.equal(dto.action, 'shield_waive');
+    assert.equal(dto.status, 'applied');
+    assert.equal(dto.waivedChallenges, 4);
+    assert.equal(dto.phoneMasked, PHONE_MASKED);
+    const dtoJson = JSON.stringify(dto);
+    assert.ok(!dtoJson.includes(PHONE), `telefone em claro na resposta: ${dtoJson}`);
+    assert.ok(!dtoJson.includes('98765'), `miolo do telefone na resposta: ${dtoJson}`);
+
+    // Auditoria: ação própria, ator = admin, telefone SÓ mascarado, justificativa truncada em 200.
+    assert.equal(harness.audits.length, 1);
+    const [audit] = harness.audits;
+    assert.equal(audit.actionType, 'channel_link.shield_waived');
+    assert.equal(audit.actorUserId, ADMIN.userId);
+    assert.equal(audit.correlationId, 'corr_waive_ok');
+    assert.equal(audit.metadata.waivedChallenges, 4);
+    assert.equal(audit.reason.length, 200);
+    const auditJson = JSON.stringify(audit);
+    assert.ok(!auditJson.includes(PHONE), `telefone em claro na auditoria: ${auditJson}`);
+    assert.ok(!auditJson.includes('98765'), `miolo do telefone na auditoria: ${auditJson}`);
+    assert.ok(auditJson.includes(PHONE_MASKED), 'a auditoria carrega a forma mascarada');
+  });
+
+  it('sem linha nova para liberar, o status DERIVA para `noop` — o campo não é constante', async () => {
+    // `applied` fixo tornava três asserts incapazes de falhar. O `noop` é o waiver repetido (a marca
+    // já estava lá) ou um número sem desafio nenhum: sucesso, mas com desfecho distinto na trilha.
+    const harness = createHarness({ waiveVictimShieldChallengesForPhone: async () => 0 });
+    setAccessAdminGateDependenciesForTests({ hasAdminGlobalAccessByUserId: grantOnlyTo(ADMIN.userId) });
+
+    const dto = await waiveChannelLinkVictimShieldService(ADMIN, { phone: PHONE }, 'corr_waive_noop');
+
+    assert.equal(dto.status, 'noop');
+    assert.equal(dto.waivedChallenges, 0);
+    // Mesmo em `noop` a trilha registra a TENTATIVA — o suporte precisa ver quem pediu o quê.
+    assert.equal(harness.audits.length, 1);
+    assert.equal(harness.audits[0].actionType, 'channel_link.shield_waived');
+    assert.equal(harness.audits[0].metadata.waivedChallenges, 0);
+  });
+
+  it('admin com telefone inválido: 400 CHANNEL_LINK_PHONE_INVALID depois do gate, sem escrita', async () => {
+    const harness = createHarness();
+    setAccessAdminGateDependenciesForTests({ hasAdminGlobalAccessByUserId: grantOnlyTo(ADMIN.userId) });
+
+    const error = await captureRejection(
+      waiveChannelLinkVictimShieldService(ADMIN, { phone: '1' }, 'corr_waive_bad')
+    );
+
+    assert.equal(error.status, 400);
+    assert.equal(error.code, 'CHANNEL_LINK_PHONE_INVALID');
+    assert.equal(harness.countOf('waiveVictimShieldChallengesForPhone'), 0);
+    assert.equal(harness.audits.length, 0);
+  });
+
+  it('canal não suportado: 400 explícito — o waiver não inventa canal que a fase não verifica', async () => {
+    const harness = createHarness();
+    setAccessAdminGateDependenciesForTests({ hasAdminGlobalAccessByUserId: grantOnlyTo(ADMIN.userId) });
+
+    const error = await captureRejection(
+      waiveChannelLinkVictimShieldService(ADMIN, { channelType: 'telegram', phone: PHONE }, 'corr_waive_chan')
+    );
+
+    assert.equal(error.code, 'CHANNEL_LINK_CHANNEL_UNSUPPORTED');
+    assert.equal(harness.countOf('waiveVictimShieldChallengesForPhone'), 0);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
 // 13. Contrato de SQL — as guardas moram no texto do statement
 // ---------------------------------------------------------------------------------------------
 
@@ -1702,11 +1909,18 @@ describe('contrato de SQL dos repositórios de vínculo', () => {
     // `user_id <> $3`: fechar TODOS incluiria o desafio de quem acabou de provar posse.
     closeLiveChannelVerificationsByPhoneExcept:
       'channel_type = $1 and external_user_key = $2 and user_id <> $3 and consumed_at is null',
-    // As três exclusões são o que impede o escudo de trancar a própria vítima. `send_failed` é o único
-    // outcome terminal em que NENHUMA mensagem chegou ao aparelho; `cancelled` NÃO entra (o start já
-    // despachou antes do cancelamento — excluí-lo seria um jeito barato de zerar o próprio rastro).
+    // As quatro exclusões são o que impede o escudo de trancar a própria vítima. `send_failed` é o
+    // único outcome terminal em que NENHUMA mensagem chegou ao aparelho; `cancelled` NÃO entra (o
+    // start já despachou antes do cancelamento — excluí-lo seria um jeito barato de zerar o próprio
+    // rastro); `shieldWaived` é o waiver ADMINISTRATIVO (D-A2) — só a API gateada o grava, então
+    // ignorá-lo não reabre bombing. Remover a cláusula do waiver re-tranca o dono de primeira viagem.
     countDistinctChallengersForPhone:
-      "channel_type = $1 and external_user_key = $2 and created_at > now() - make_interval(hours => $3::int) and user_id <> $4 and (outcome is null or outcome <> 'verified') and (outcome is null or outcome <> 'send_failed')",
+      "channel_type = $1 and external_user_key = $2 and created_at > now() - make_interval(hours => $3::int) and user_id <> $4 and (outcome is null or outcome <> 'verified') and (outcome is null or outcome <> 'send_failed') and coalesce(metadata->>'shieldwaived', '') <> 'true'",
+    // O waiver marca TODAS as linhas do par (canal, telefone) — sem filtro de `consumed_at` (linha
+    // fechada também conta no escudo) e sem tocar o desfecho. O filtro de `shieldWaived` é a
+    // idempotência: a segunda chamada devolve 0 linhas, que é o número honesto para a auditoria.
+    waiveVictimShieldChallengesForPhone:
+      "channel_type = $1 and external_user_key = $2 and coalesce(metadata->>'shieldwaived', '') <> 'true'",
     // O predicado do `on conflict` é o cinto de segurança da POSSE: sem ele o upsert troca o dono de
     // um número em silêncio e o OTP vira decoração.
     claimConversationChannelLink:
@@ -1729,7 +1943,8 @@ describe('contrato de SQL dos repositórios de vínculo', () => {
       'findLiveChannelVerificationByUser',
       'closeLiveChannelVerificationsByUser',
       'closeLiveChannelVerificationsByPhoneExcept',
-      'countDistinctChallengersForPhone'
+      'countDistinctChallengersForPhone',
+      'waiveVictimShieldChallengesForPhone'
     ]) {
       assertWhere(verificationSource, fnName, WHERE[fnName]);
     }
@@ -1763,6 +1978,18 @@ describe('contrato de SQL dos repositórios de vínculo', () => {
     assertAbsent(verificationSource, 'rotateChannelVerificationCode', ['attempt_count']);
     assertClauses(verificationSource, 'countDistinctChallengersForPhone', ['count(distinct user_id)']);
     assertClauses(linkSource, 'findConversationChannelLinkForUpdate', ['for update']);
+    // A marca do waiver mora no SQL (`jsonb_build_object`), não num patch do chamador: toda linha
+    // tocada satisfaz a exclusão da contagem — um patch montado fora poderia "liberar" sem liberar.
+    // E `shieldWaivedAt` sai do MESMO `now()` de `updated_at`: um `Date.now()` do processo seria um
+    // segundo relógio para o mesmo evento, livre para discordar do primeiro.
+    assertClauses(verificationSource, 'waiveVictimShieldChallengesForPhone', [
+      "'shieldWaived', true",
+      "'shieldWaivedAt', now()"
+    ]);
+    assertAbsent(verificationSource, 'waiveVictimShieldChallengesForPhone', ['new Date(', 'Date.now(']);
+    // O waiver NUNCA toca o desfecho do desafio: reaproveitar `verified`/`send_failed` para escapar
+    // da contagem registraria na trilha operacional um fato que não aconteceu.
+    assertAbsent(verificationSource, 'waiveVictimShieldChallengesForPhone', ['outcome', 'consumed_at']);
   });
 
   it('a conta de integração é zerada na TRANSFERÊNCIA e preservada na re-verificação do próprio dono', () => {
@@ -1994,6 +2221,18 @@ describe('parâmetros dos statements batem com os placeholders', () => {
         channel_type: 'input.channelType',
         external_user_key: 'input.externalUserKey',
         user_id: 'input.exceptUserId'
+      }
+    },
+    {
+      repo: 'verification',
+      fn: 'waiveVictimShieldChallengesForPhone',
+      // Só os DADOS vão como parâmetro; a marca e o carimbo de tempo moram no `jsonb_build_object`
+      // do statement (seção 13). `shieldWaivedBy` amarrado a `$3` é o que impede a trilha de
+      // creditar o waiver a outra pessoa.
+      params: ['input.channelType', 'input.externalUserKey', 'input.waivedBy', 'input.correlationId || null'],
+      bindings: {
+        channel_type: 'input.channelType',
+        external_user_key: 'input.externalUserKey'
       }
     },
     {

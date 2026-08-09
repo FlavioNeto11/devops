@@ -253,6 +253,15 @@ const operationsData = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_admin_channel_links_shield_waive",
+    "method": "post",
+    "specPath": "/v1/admin/channel-links/shield/waive",
+    "expressPath": "/v1/admin/channel-links/shield/waive",
+    "summary": "Liberar um telefone do escudo anti-bombing do vínculo de canal",
+    "tag": "Admin Access",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_session_contexts",
     "method": "post",
     "specPath": "/v1/session-contexts",

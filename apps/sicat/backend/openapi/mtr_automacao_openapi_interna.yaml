@@ -1530,6 +1530,71 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /v1/admin/channel-links/shield/waive:
+    post:
+      operationId: adminChannelLinkShieldWaive
+      summary: Liberar um telefone do escudo anti-bombing do vínculo de canal
+      description: |-
+        Waiver administrativo (D-A2). O escudo da vítima tranca um telefone quando contas DISTINTAS
+        demais pedem código para ele na janela — e o único bypass automático é o vínculo já
+        `verified`, que o dono de PRIMEIRA viagem não tem: N+1 contas descartáveis o trancavam
+        indefinidamente. Esta operação marca os desafios existentes do par (canal, telefone) com
+        `shieldWaived` e a contagem do escudo passa a ignorá-los.
+
+        A liberação é PONTUAL: desafios abertos DEPOIS do waiver contam de novo (bombing novo re-arma
+        o escudo). Nenhum desfecho (`outcome`) de desafio é alterado — a trilha operacional continua
+        dizendo a verdade sobre cada envio. `waivedChallenges: 0` também é sucesso: ou o waiver já
+        estava em vigor, ou não havia linha a liberar.
+
+        O telefone é dado pessoal: resposta e auditoria (`channel_link.shield_waived` em
+        `access_session_admin_audit`) carregam apenas a forma mascarada.
+      tags:
+      - Admin Access
+      responses:
+        '200':
+          description: Waiver aplicado (idempotente)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminChannelLinkShieldWaiveResponse'
+              example:
+                action: shield_waive
+                status: applied
+                channelType: whatsapp
+                phoneMasked: +55 11 ****-0032
+                waivedChallenges: 4
+                correlationId: corr_admin_shield_waive_001
+                performedAt: '2026-08-08T14:20:00Z'
+        '400':
+          description: Canal não suportado ou telefone inválido (`CHANNEL_LINK_CHANNEL_UNSUPPORTED`, `CHANNEL_LINK_PHONE_INVALID`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+        '401':
+          description: Sessão SICAT inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Usuário sem permissão administrativa
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminChannelLinkShieldWaiveRequest'
+            example:
+              channelType: whatsapp
+              phone: '5511999990032'
+              reason: Chamado 4821 — dono do número trancado por contas descartáveis
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
   /v1/session-contexts:
     post:
       summary: Registrar ou atualizar contexto de sessão
@@ -8657,6 +8722,66 @@ components:
           minimum: 0
         correlationId:
           type: string
+        performedAt:
+          type: string
+          format: date-time
+    AdminChannelLinkShieldWaiveRequest:
+      type: object
+      required:
+      - phone
+      properties:
+        channelType:
+          description: Canal do vínculo. Ausente equivale a `whatsapp`.
+          type: string
+          enum:
+          - whatsapp
+        phone:
+          description: |-
+            Telefone a liberar, em qualquer formatação aceita pela canonicalização BR (DDI+DDD+número;
+            `11 99999-0032` e `5511999990032` são o mesmo número).
+          type: string
+        reason:
+          description: Justificativa livre (vai para a coluna `reason` da auditoria; truncada em 200).
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+    AdminChannelLinkShieldWaiveResponse:
+      type: object
+      required:
+      - action
+      - status
+      - channelType
+      - phoneMasked
+      - waivedChallenges
+      - performedAt
+      properties:
+        action:
+          type: string
+          enum:
+          - shield_waive
+        status:
+          description: |-
+            `applied` quando o waiver liberou linhas novas; `noop` quando não havia o que liberar
+            (waiver já em vigor, ou nenhum desafio para o número). Os dois são sucesso — em ambos o
+            número está livre do escudo neste instante.
+          type: string
+          enum:
+          - applied
+          - noop
+        channelType:
+          type: string
+        phoneMasked:
+          description: Única forma do telefone que a resposta carrega.
+          type: string
+        waivedChallenges:
+          description: Quantos desafios foram liberados NESTA chamada (repetir devolve 0).
+          type: integer
+          minimum: 0
+        correlationId:
+          type:
+          - string
+          - 'null'
         performedAt:
           type: string
           format: date-time

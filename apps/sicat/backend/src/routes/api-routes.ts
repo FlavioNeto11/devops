@@ -86,6 +86,7 @@ import { config } from '../lib/config.js';
 import { registerDmrRoutes } from './dmr-routes.js';
 import { registerMtrProvisorioRoutes } from './mtr-provisorio-routes.js';
 import { registerChannelLinkRoutes } from './channel-link-routes.js';
+import { waiveChannelLinkVictimShieldService } from '../services/conversation-channel-link-service.js';
 
 const { Client } = pg;
 
@@ -737,6 +738,17 @@ export function createApiRouter() {
       requireSicatUser(req),
       String(req.params.userId),
       req.body || {},
+      getCorrelationId(req)
+    );
+    res.json(response);
+  }));
+
+  // Waiver administrativo do escudo anti-bombing do vínculo de canal (D-A2). O gate de admin
+  // (`ensureAdminAuthorization`) roda DENTRO do service, como nas demais rotas `/v1/admin/*`.
+  router.post('/v1/admin/channel-links/shield/waive', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await waiveChannelLinkVictimShieldService(
+      requireSicatUser(req),
+      (req.body || {}) as LooseRecord,
       getCorrelationId(req)
     );
     res.json(response);
