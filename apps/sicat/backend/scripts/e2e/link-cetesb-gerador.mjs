@@ -69,8 +69,9 @@ async function main() {
   if (accountId) {
     console.log(`[link-cetesb] Conta GERADOR já vinculada (doc ${maskDoc(cnpj)}) — reutilizando.`);
   } else {
-    // 3) partnerCode via lookup read-only (capturado internamente, não impresso)
-    const info = await api(`/v1/auth/partner-info?document=${encodeURIComponent(cnpj)}`);
+    // 3) partnerCode via lookup read-only (capturado internamente, não impresso).
+    //    `token` é obrigatório: `/v1/auth/partner-info` deixou de ser anônimo.
+    const info = await api(`/v1/auth/partner-info?document=${encodeURIComponent(cnpj)}`, { token });
     const partnerCode = info.json?.partnerCode ? Number(info.json.partnerCode) : null;
 
     // 4) Vínculo — ÚNICA tentativa real de auth CETESB

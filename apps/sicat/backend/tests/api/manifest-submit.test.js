@@ -5,6 +5,7 @@ import { ensureStartup } from '../../src/bootstrap/startup.js';
 import { createApp } from '../../src/app.js';
 import { validManifestDraft, validManifestWithoutSessionContext } from '../fixtures/manifests.js';
 import { validSessionContext } from '../fixtures/session-contexts.js';
+import { createTestAccessToken } from '../helpers/sicat-token.js';
 
 /**
  * Testes de API para POST /v1/manifestos/:id/submit
@@ -23,6 +24,10 @@ import { validSessionContext } from '../fixtures/session-contexts.js';
 
 let API_BASE = process.env.API_URL || '';
 let server;
+
+// `POST /v1/manifestos/:id/submit` passou a exigir sessão SICAT (era anônima, e enfileira uma
+// submissão IRREVERSÍVEL na CETESB). Toda requisição desta suíte carrega Bearer.
+const accessToken = createTestAccessToken();
 
 describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () => {
   const runSuffix = `${process.pid}_${Date.now().toString(36)}`;
@@ -162,6 +167,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Correlation-Id': 'test_corr_001',
         'Idempotency-Key': `${idempotencyPrefix}001`
@@ -204,6 +210,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Correlation-Id': 'test_corr_002'
       },
@@ -230,6 +237,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response1 = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey
       },
@@ -247,6 +255,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response2 = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey
       },
@@ -273,6 +282,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/man_inexistente_999/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -292,6 +302,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -311,6 +322,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestNoSessionId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -331,6 +343,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Correlation-Id': correlationId
       },
@@ -356,6 +369,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -378,6 +392,7 @@ describe('POST /v1/manifestos/:id/submit - API Routes', { concurrency: 1 }, () =
     const response = await fetch(`${API_BASE}/v1/manifestos/${testManifestId}/submit`, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
