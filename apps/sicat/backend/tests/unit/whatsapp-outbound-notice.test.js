@@ -201,13 +201,14 @@ afterEach(() => {
 });
 
 describe('fase 6 — os DEFAULTS são parte do contrato', () => {
-  it('a política de arquivo nasce DESLIGADA e os tetos são os justificados no desenho', async () => {
+  it('a política de arquivo nasce LIGADA (decisão do operador) e os tetos são os justificados no desenho', async () => {
     const { config } = await import('../../src/lib/config.js');
 
-    // POLÍTICA, não capacidade: o mecanismo existe inteiro e é testado, mas quem decide se o PDF de
-    // um cliente vai para um aparelho pessoal — onde fica no backup de nuvem para sempre e um
-    // encaminhamento é um toque — é a organização, não um default.
-    assert.equal(config.whatsappMediaDeliveryEnabled, false);
+    // POLÍTICA, não capacidade: continua sendo a organização quem decide, e ela decidiu ligar.
+    // `WHATSAPP_MEDIA_DELIVERY_ENABLED=false` segue desligando sem tocar em código. Ligada, a
+    // entrega ainda depende de CAPACIDADE (só a Meta aceita bytes) e dos tetos abaixo — cada recusa
+    // tem rótulo próprio de métrica, testado mais adiante neste arquivo.
+    assert.equal(config.whatsappMediaDeliveryEnabled, true);
 
     // 23 h, não 24: a margem cobre relógio do provedor × relógio do pod, latência de fila e a âncora
     // ser limite inferior. Mudar este número para 86400000 quebra também o caso da janela.
@@ -456,7 +457,7 @@ describe('fase 6 — janela de 24 h', () => {
     // ⚠️ SEM ESTA ASSERÇÃO o fallback do adapter Twilio (que renderiza `{{n}}` e posta como texto
     // livre quando o nome do template não é um SID `HX…`) deixaria a suíte verde e a produção muda.
     assert.equal(harness.fake.calls.sendTemplate.length, 0, 'sendTemplate JAMAIS é chamado nesta fase');
-    assert.equal(harness.fake.calls.sendMedia.length, 0, 'mídia desligada por default');
+    assert.equal(harness.fake.calls.sendMedia.length, 0, 'sem artefato de documento não existe mídia a enviar');
     assert.equal(result.outcome, 'whatsapp_notice_succeeded');
     assert.equal(result.patch.userNotified, true);
     // O texto some de `jobs` no caminho feliz: ele nomeia MTR, gerador e datas.
@@ -706,7 +707,7 @@ describe('fase 6 — entrega de arquivo', () => {
     assert.ok(metrics.some((entry) => entry.path === 'skipped_media_oversize' && entry.value === 1));
   });
 
-  it('política DESLIGADA (default): `sendMedia` fica ZERADO e o texto é o honesto de hoje', async () => {
+  it('política DESLIGADA por env: `sendMedia` ZERADO, texto honesto, e o rótulo é o de POLÍTICA', async () => {
     setConfigOverride('whatsappMediaDeliveryEnabled', false);
     const job = noticeJob();
     const harness = createHarness({
@@ -719,9 +720,17 @@ describe('fase 6 — entrega de arquivo', () => {
     assert.equal(harness.fake.calls.sendMedia.length, 0);
     assert.equal(harness.fake.calls.sendText.length, 1);
     assert.ok(harness.fake.calls.sendText[0].text.includes('o download fica em *MTRs* no SICAT'));
+
+    // MUTAÇÃO (discriminador de path): este caso e o do Twilio abaixo se testam UM CONTRA O OUTRO.
+    // Colapsar os dois ramos num rótulo só (o defeito que este par existe para matar) quebra um dos
+    // dois `equal(..., false)`.
+    const metrics = await readChannelOutboundNoticeMetricsForTests();
+    assert.ok(metrics.some((entry) => entry.path === 'skipped_media_disabled' && entry.value === 1));
+    assert.equal(metrics.some((entry) => entry.path === 'skipped_media_provider_unsupported'), false,
+      'política desligada não pode se disfarçar de provedor incapaz');
   });
 
-  it('`WHATSAPP_NOTICE_MAX_DOCUMENTS=0` desliga arquivo sem tocar em código', async () => {
+  it('`WHATSAPP_NOTICE_MAX_DOCUMENTS=0` desliga arquivo sem tocar em código — e conta como POLÍTICA', async () => {
     setConfigOverride('whatsappMediaDeliveryEnabled', true);
     setConfigOverride('whatsappNoticeMaxDocuments', 0);
     const job = noticeJob();
@@ -733,9 +742,14 @@ describe('fase 6 — entrega de arquivo', () => {
     await runWhatsAppOutboundNotice({ job, patchJobPayload: harness.patchJobPayload });
     assert.equal(harness.fake.calls.sendMedia.length, 0);
     assert.equal(harness.fake.calls.sendText.length, 1);
+
+    // Teto 0 é desligamento POR CONFIG, não excesso de itens: o rótulo é o de política.
+    const metrics = await readChannelOutboundNoticeMetricsForTests();
+    assert.ok(metrics.some((entry) => entry.path === 'skipped_media_disabled' && entry.value === 1));
+    assert.equal(metrics.some((entry) => entry.path === 'skipped_media_over_cap'), false);
   });
 
-  it('TWILIO com documento disponível: `sendMedia` ZERADO e texto (2) — o 501 nunca vira falha do aviso', async () => {
+  it('TWILIO com documento disponível: texto (2), rótulo de PROVEDOR INCAPAZ e warn mascarado', async () => {
     setConfigOverride('whatsappMediaDeliveryEnabled', true);
     const job = noticeJob();
     // O adapter real lança 501 `WHATSAPP_MEDIA_URL_REQUIRED` sem `mediaUrl`; a capacidade é conferida
@@ -746,12 +760,70 @@ describe('fase 6 — entrega de arquivo', () => {
       artifacts: { cart_1: ARTIFACT }
     });
 
-    const result = await runWhatsAppOutboundNotice({ job, patchJobPayload: harness.patchJobPayload });
+    const warns = [];
+    const originalWarn = console.warn;
+    console.warn = (...args) => { warns.push(args.map((entry) => String(entry)).join(' ')); };
+    let result;
+    try {
+      result = await runWhatsAppOutboundNotice({ job, patchJobPayload: harness.patchJobPayload });
+    } finally {
+      console.warn = originalWarn;
+    }
 
     assert.equal(harness.fake.calls.sendMedia.length, 0);
     assert.equal(harness.fake.calls.sendText.length, 1);
     assert.ok(harness.fake.calls.sendText[0].text.includes('nao consigo te mandar o arquivo desta vez'));
     assert.equal(result.patch.userNotified, true);
+
+    // MUTAÇÃO (discriminador de path): é o par deste caso com o de "política DESLIGADA" acima. Antes
+    // do rótulo próprio, o operador que ligava a flag numa instalação Twilio via o comportamento não
+    // mudar e a métrica dizer "disabled" — indistinguível de a flag não ter sido lida.
+    const metrics = await readChannelOutboundNoticeMetricsForTests();
+    assert.ok(metrics.some((entry) => entry.path === 'skipped_media_provider_unsupported' && entry.value === 1));
+    assert.equal(metrics.some((entry) => entry.path === 'skipped_media_disabled'), false,
+      'provedor incapaz não pode se disfarçar de política desligada');
+
+    // O warn é o sinal humano do mesmo ramo — com o telefone SEMPRE mascarado por maskChannelUserKey.
+    const warn = warns.find((line) => line.includes('nao aceita bytes'));
+    assert.ok(warn, 'o ramo do provedor incapaz tem de deixar sinal no log');
+    assert.ok(warn.includes('twilio'), 'o warn nomeia o provedor incapaz');
+    assert.ok(warn.includes('+55 11 ****-4321'), 'telefone mascarado no formato de maskChannelUserKey');
+    assert.equal(warn.includes(PHONE), false, 'telefone cru no log');
+  });
+
+  it('acima do teto de ITENS degrada para texto — e a degradação é CONTADA, não invisível', async () => {
+    setConfigOverride('whatsappMediaDeliveryEnabled', true);
+    setConfigOverride('whatsappNoticeMaxDocuments', 1);
+    const job = noticeJob({ payload: { dispatchedJobIds: ['job_1', 'job_2'], itemCount: 2 } });
+    const harness = createHarness({
+      jobs: {
+        job_1: jobRow('job_1', 'succeeded', { payload: { conversationArtifactId: 'cart_1' } }),
+        job_2: jobRow('job_2', 'succeeded', { payload: { conversationArtifactId: 'cart_2' } })
+      },
+      artifacts: {
+        cart_1: ARTIFACT,
+        cart_2: { ...ARTIFACT, artifactId: 'cart_2', fileName: 'mtr_202600123457.pdf' }
+      }
+    });
+
+    const result = await runWhatsAppOutboundNotice({ job, patchJobPayload: harness.patchJobPayload });
+
+    assert.equal(harness.fake.calls.sendMedia.length, 0, 'acima do teto é texto — nunca meia entrega');
+    assert.equal(harness.fake.calls.sendText.length, 1);
+    assert.equal(result.patch.userNotified, true);
+    // A decisão é tomada ANTES de abrir qualquer artefato: nada é lido nem medido.
+    assert.equal(harness.readCalls.length, 0, 'artefato aberto num ramo que já decidiu degradar');
+    assert.equal(harness.statCalls.length, 0);
+
+    // MUTAÇÃO: remover este registro devolve o ramo à degradação INVISÍVEL que ele tinha (retornava
+    // `[]` sem métrica nenhuma). O rótulo é PRÓPRIO — não o de política nem o de provedor.
+    const metrics = await readChannelOutboundNoticeMetricsForTests();
+    assert.ok(metrics.some((entry) => entry.path === 'skipped_media_over_cap' && entry.value === 1));
+    assert.equal(
+      metrics.some((entry) => entry.path === 'skipped_media_disabled' || entry.path === 'skipped_media_provider_unsupported'),
+      false,
+      'excesso de itens não pode se disfarçar de política nem de capacidade'
+    );
   });
 
   it('o ZIP do lote NUNCA vai para o celular', async () => {
