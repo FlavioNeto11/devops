@@ -1448,42 +1448,141 @@ describe('fase 5 — emissão: identidade conferível resolvida dos ids REAIS (`
     assert.ok(resultado.text.startsWith('Descartei o pedido anterior (2a via de 2 MTRs)'), resultado.text);
   });
 
-  /* ---- N2: a fase entrega N1, e o portão é de CÓDIGO ------------------------------------------ */
+  /* ---- N2: o portão de CÓDIGO ABRIU — quem sustenta a emissão agora é a JANELA ---------------- */
 
-  it('MUTAÇÃO (m14a): N2 (`batch_submit_selected`) NÃO emite — e a env NÃO abre o portão', async () => {
-    // O desenho condicionou `submit` ao aviso de conclusão, que não existe. O portão é a constante
-    // `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED`, não o flag de ambiente: um
-    // `WHATSAPP_ACTION_NOTICE_ENABLED=true` num values.yaml abriria emissão IRREVERSÍVEL na CETESB
-    // num canal cego. Ligar a env e ver o mesmo "não" é o ponto deste caso.
+  it('N2 (`batch_submit_selected`) com janela viva EMITE — prévia, liberação, aviso e código', async () => {
+    // ┌─ O CASO QUE PRENDE A ABERTURA DO PORTÃO (2026-08-09) ──────────────────────────────────────┐
+    // │ Este caso era o INVERSO: exigia `whatsapp_inbound_action_notice_missing` e zero insert,     │
+    // │ porque `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` era o literal `false`. O operador o virou para│
+    // │ `true` por decisão registrada no bloco daquela constante, com o estado real de E1–E5 e a    │
+    // │ consequência de cada uma assumida por escrito. Este teste passa a prender o comportamento   │
+    // │ NOVO — e NENHUMA garantia foi afrouxada: janela, prévia de conferência e código de 6        │
+    // │ dígitos continuam obrigatórios, cada um com caso próprio logo abaixo.                       │
+    // │                                                                                             │
+    // │ MUTAÇÃO: devolver o literal para `false` faz este caso voltar a `notice_missing` e quebrar. │
+    // └─────────────────────────────────────────────────────────────────────────────────────────────┘
     setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store);
+
+    const resultado = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending', resultado.text);
+    assert.equal(store.inserts.length, 1, 'nenhum ticket N2 nasceu com o portão aberto e a janela viva');
+    assert.equal(store.inserts[0].metadata.riskTier, 'N2');
+    // A janela é amarrada POR ID na linha do ticket — é esse id que a revalidação da queima confere.
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, 'cvwn_live');
+
+    // A identidade conferível continua sendo exigida E resolvida: número de MTR, nunca id interno.
+    assert.ok(resultado.text.includes(LABEL_A), resultado.text);
+    assert.equal(resultado.text.includes(MANIFEST_A), false, 'id interno vazou para a prévia');
+    // Liberação e aviso de irreversibilidade — os dois só existem em N2.
+    assert.ok(resultado.text.includes('Liberacao ativa - esta seria a 1a de 10 acoes.'), resultado.text);
+    assert.ok(resultado.text.includes('Emitir cria o MTR de verdade'), resultado.text);
+    assert.match(resultado.text, /responda so com o codigo \*\d{6}\*/);
+
+    // O ORÇAMENTO NÃO É DEBITADO NA EMISSÃO. Quem debita é a queima (suíte "N2: janela de ação
+    // (step-up) na queima"); debitar aqui gastaria crédito num pedido que a pessoa ainda pode recusar
+    // ou deixar expirar — e o contador da tela dela mentiria.
+    assert.equal(store.rows.get('cvwn_live').attempt_count, 0, 'a emissão consumiu crédito da janela');
+  });
+
+  it('MUTAÇÃO (segunda tranca): com a env de aviso DESLIGADA, N2 continua recusando', async () => {
+    // SÃO DUAS TRANCAS, e só a de código abriu. `config.whatsappActionNoticeEnabled`
+    // (`WHATSAPP_ACTION_NOTICE_ENABLED`) é a segunda, e é a alavanca de rollback nº 2 registrada no
+    // bloco do literal — aplicável por git, sem build, ao contrário do próprio literal. Sem este
+    // caso, alguém apagaria a condição da env junto com a do literal e o rollback documentado
+    // deixaria de existir em silêncio. Tudo o mais aqui é MAIS permissivo que o caso acima: a janela
+    // está viva e na conta certa.
+    setConfigOverride('whatsappActionNoticeEnabled', false);
     seedWindow(store);
 
     const resultado = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
 
     assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
     assert.equal(resultado.text, WHATSAPP_N2_NOTICE_MISSING_TEXT);
-    assert.equal(store.inserts.length, 0, 'ticket N2 emitido — nada pendente pode existir para ser confirmado');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido com a env de aviso desligada');
   });
 
-  it('N2 na tool DIRETA (`submit_manifest`) recebe o mesmo portão', async () => {
+  it('MUTAÇÃO (janela obrigatória): sem janela nenhuma, N2 NÃO emite — desfecho de step-up', async () => {
+    // A GUARDA QUE PASSOU A SUSTENTAR O N2 SOZINHA depois da abertura do portão. Arrancar o bloco
+    // `if (!window || window.actionsUsed >= window.actionsBudget)` faz este caso emitir ticket e
+    // quebrar. NENHUM ticket é criado: se não existe nada pendente, não existe nada que a vítima
+    // possa ser induzida a confirmar.
     setConfigOverride('whatsappActionNoticeEnabled', true);
-    const resultado = await issueFrom({ manifestId: MANIFEST_A }, { toolName: 'submit_manifest' });
-    assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
-    assert.equal(store.inserts.length, 0);
+
+    const resultado = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_stepup_required');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido sem janela de ação');
+    assert.equal(resultado.text.includes('responda so com o codigo'), false, resultado.text);
   });
 
-  it('CONTROLE NEGATIVO do portão N2: a MESMA emissão em N1 passa', async () => {
-    // Prova que o "não" do N2 vem do tier e não de o harness recusar tudo.
+  it('janela ESGOTADA não emite — o orçamento é conferido ANTES de existir ticket', async () => {
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store, { attempt_count: 10, max_attempts: 10 });
+
+    const estourada = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
+    assert.equal(estourada.outcome, 'whatsapp_inbound_stepup_required');
+    assert.equal(store.inserts.length, 0);
+
+    // CONTROLE NEGATIVO: UM crédito sobrando e a MESMA chamada emite. Prova que o medidor enxerga a
+    // diferença — e prende a aritmética da linha de liberação (`used + 1` de `budget`).
+    seedWindow(store, { attempt_count: 9, max_attempts: 10 });
+    const ultima = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
+    assert.equal(ultima.outcome, 'whatsapp_inbound_confirmation_pending', ultima.text);
+    assert.ok(ultima.text.includes('Liberacao ativa - esta seria a 10a de 10 acoes.'), ultima.text);
+  });
+
+  it('janela de OUTRA CONTA CETESB não emite — a conta é o que limita o estrago', async () => {
+    // Valores DISTINTOS POR IDENTIDADE: a janela foi aberta em `acc_OUTRA` e o principal vivo está em
+    // `acc_TICKET`. Com o mesmo valor nos dois, a troca de conta ficaria invisível.
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store, { metadata: { integrationAccountId: 'acc_OUTRA', openedFromSessionContextId: 'sess_TICKET' } });
+
+    const resultado = await issueFrom({ intent: 'manifest.batch_submit_selected', manifestIds: [MANIFEST_A] });
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_stepup_account_mismatch');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido sobre janela de outra conta');
+  });
+
+  it('N2 na tool DIRETA (`submit_manifest`) passa pelas MESMAS duas guardas', async () => {
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+
+    // Sem janela, recusa.
+    const semJanela = await issueFrom({ manifestId: MANIFEST_A }, { toolName: 'submit_manifest' });
+    assert.equal(semJanela.outcome, 'whatsapp_inbound_stepup_required');
+    assert.equal(store.inserts.length, 0);
+
+    // Com janela, emite — e o ticket nomeia a janela.
+    seedWindow(store);
+    const comJanela = await issueFrom({ manifestId: MANIFEST_A }, { toolName: 'submit_manifest' });
+    assert.equal(comJanela.outcome, 'whatsapp_inbound_confirmation_pending', comJanela.text);
+    assert.equal(store.inserts.length, 1);
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, 'cvwn_live');
+
+    // E a env desligada continua recusando também na tool direta (a segunda tranca não é por intent).
+    setConfigOverride('whatsappActionNoticeEnabled', false);
+    const semEnv = await issueFrom({ manifestId: MANIFEST_A }, { toolName: 'submit_manifest' });
+    assert.equal(semEnv.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(store.inserts.length, 1, 'ticket emitido com a env de aviso desligada');
+  });
+
+  it('CONTROLE NEGATIVO do portão N2: a MESMA emissão em N1 passa SEM janela nenhuma', async () => {
+    // Prova que os "nãos" acima vêm do tier + janela, e não de o harness recusar tudo. `seedWindow`
+    // NÃO é chamado de propósito: N1 não entra no ramo do N2.
     setConfigOverride('whatsappActionNoticeEnabled', true);
     const resultado = await issueFrom({ intent: 'manifest.batch_print_selected', manifestIds: [MANIFEST_A] });
     assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending');
     assert.equal(store.inserts.length, 1);
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, null);
+    assert.equal(resultado.text.includes('Liberacao ativa'), false, resultado.text);
   });
 
-  it('N2 é ELEGÍVEL na tabela de código — o portão é o aviso, e é isso que a fase 6 vai virar', async () => {
-    // Registra a fronteira exata: `submit` está em `WHATSAPP_ELIGIBLE_ACTIONS` (o AI Control Center
-    // consegue ligá-lo) e mesmo assim não emite. Quem remover o portão sem entregar o aviso quebra o
-    // caso acima, não este.
+  it('N2 é ELEGÍVEL na tabela de código, e o AI Control Center consegue ligá-lo', async () => {
+    // A fronteira exata, agora que o portão de código abriu: `submit` está em
+    // `WHATSAPP_ELIGIBLE_ACTIONS` em N2 e o overlay do painel adiciona `whatsapp`. Rebaixar qualquer
+    // um dos dois para N1 tiraria a JANELA do caminho sem quebrar ESTE caso — quem quebra é o par
+    // "sem janela não emite" / "com janela emite" acima, e é por isso que os dois existem.
     assert.equal(WHATSAPP_ELIGIBLE_ACTIONS['manifest.batch_submit_selected'].tier, 'N2');
     assert.equal(WHATSAPP_ELIGIBLE_ACTIONS.submit_manifest.tier, 'N2');
     assert.ok(
@@ -2854,7 +2953,7 @@ describe('fase 5 — usuário INATIVO é desfecho de canal, não exceção técn
 /* UNIDADE D4 — as prévias de conferência LIGADAS, e o portão do N2 ainda FECHADO                  */
 /* ============================================================================================== */
 
-describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do N2 continua fechado', () => {
+describe('D4 — recebimento e criação: prévia dedicada manda, e o N2 exige JANELA VIVA', () => {
   /**
    * Doubles DE LEITURA (repositório de manifestos, cadastro de parceiros, catálogo de resíduos) —
    * nunca da decisão sob teste. Valores DISTINTOS POR IDENTIDADE: cada id devolve outro número, outro
@@ -3067,22 +3166,52 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     assert.ok(Object.prototype.hasOwnProperty.call(WHATSAPP_ELIGIBLE_ACTIONS, WHATSAPP_CREATE_ACTION_KEY));
   });
 
-  /* ---- o portão do N2, que esta entrega NÃO abre -------------------------------------------- */
+  /* ---- o N2 do recebimento: portão de código ABERTO, janela obrigatória --------------------- */
 
-  it('recebimento CONFERÍVEL não emite ticket: responde "aviso indisponível" — e a env não abre', async () => {
-    // O desfecho ESPERADO E CORRETO desta entrega. A conferência existe e fecha; o que falta é a
-    // lista E1–E5 do aviso de conclusão, e a E1 (execução real contra provedor) não tem como ser
-    // produzida sem credenciais. Ligar `WHATSAPP_ACTION_NOTICE_ENABLED` e ver o MESMO "não" é o ponto.
+  it('recebimento CONFERÍVEL com janela viva EMITE — o bloco dedicado vai inteiro na prévia', async () => {
+    // ┌─ O CASO QUE PRENDE A ABERTURA DO PORTÃO (2026-08-09) ──────────────────────────────────────┐
+    // │ Este caso era o INVERSO: exigia `whatsapp_inbound_action_notice_missing` e zero insert. Com │
+    // │ `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` em `true`, a baixa passa a emitir ticket — e o que a │
+    // │ sustenta continua sendo o par CONFERÊNCIA DEDICADA + JANELA, os dois com caso próprio nesta │
+    // │ suíte. MUTAÇÃO: devolver o literal para `false` faz este caso voltar a `notice_missing`.    │
+    // └─────────────────────────────────────────────────────────────────────────────────────────────┘
     setConfigOverride('whatsappActionNoticeEnabled', true);
     seedWindow(store);
 
     const resultado = await issueFrom(argsRecebimento());
 
+    assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending', resultado.text);
+    assert.equal(store.inserts.length, 1, 'nenhum ticket nasceu com o portão aberto e a janela viva');
+    assert.equal(store.inserts[0].metadata.riskTier, 'N2', 'o ticket foi congelado com o tier errado');
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, 'cvwn_live');
+
+    // A CONFERÊNCIA DEDICADA manda: o bloco da baixa vai inteiro, com resíduo e quantidade — e o id
+    // interno, que é exatamente o que a pessoa não consegue conferir, não aparece.
+    assert.ok(resultado.text.includes('*Dar baixa (receber) no MTR 202600777001*'), resultado.text);
+    assert.ok(resultado.text.includes('- Oleo lubrificante usado: 2,5 t'), resultado.text);
+    assert.equal(resultado.text.includes(RECEBER_A), false, 'id interno vazou para a prévia');
+    assert.ok(resultado.text.includes('Liberacao ativa - esta seria a 1a de 10 acoes.'), resultado.text);
+    assert.match(resultado.text, /responda so com o codigo \*\d{6}\*/);
+
+    // O AVISO DE `submit` NÃO ENTRA: o verbo dele mentiria sobre uma baixa (o bloco dedicado já
+    // termina no aviso próprio do recibo).
+    assert.equal(resultado.text.includes('Emitir cria o MTR de verdade'), false, resultado.text);
+  });
+
+  it('MUTAÇÃO (segunda tranca): com a env de aviso DESLIGADA, a baixa volta a recusar', async () => {
+    // A segunda tranca é ENV, e ela NÃO abriu junto com o literal — é a alavanca de rollback nº 2.
+    // Aqui tudo o mais é permissivo: conferência que fecha e janela viva na conta certa.
+    setConfigOverride('whatsappActionNoticeEnabled', false);
+    seedWindow(store);
+
+    const resultado = await issueFrom(argsRecebimento());
+
     assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
-    assert.equal(store.inserts.length, 0, 'ticket N2 emitido — nada pendente pode existir para ser confirmado');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido com a env de aviso desligada');
     // Texto COM O VERBO DA AÇÃO: reusar o de emissão diria à pessoa que ela pediu para emitir.
     assert.ok(resultado.text.startsWith('Dar baixa por aqui ainda nao esta no ar'), resultado.text);
     assert.equal(resultado.text.includes('Emitir MTR por aqui'), false);
+    assert.equal(resultado.text.includes('responda so com o codigo'), false, resultado.text);
   });
 
   it('criação CONFERÍVEL EMITE ticket SEM janela nenhuma — N1 não passa pelo portão do N2', async () => {
@@ -3130,19 +3259,23 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     }
   });
 
-  it('CONTROLE NEGATIVO da janela: o recebimento, N2, NÃO emite nem com janela viva e env ligada', async () => {
-    // O par do caso acima. Mesma suíte, mesmos doubles, mesma forma de chamada — e MAIS permissivo
-    // que ele (aqui há janela e a env está `true`; lá não havia nem uma nem outra). Ainda assim
-    // nenhum ticket nasce, porque `receive_with_receipt` é N2 e o portão do aviso está fechado.
-    // Sem este caso, "a criação emitiu" poderia ser apenas "o harness emite para tudo".
+  it('CONTROLE NEGATIVO da janela: o recebimento, N2, NÃO emite SEM janela — a criação, N1, emite', async () => {
+    // O par do caso acima, e o que separa os dois tiers depois da abertura do portão. Mesma suíte,
+    // mesmos doubles, mesma forma de chamada, env LIGADA nas duas metades: a ÚNICA diferença é o
+    // tier. Sem este caso, "a criação emitiu sem janela" poderia ser apenas "o harness emite para
+    // tudo", e "o recebimento emitiu com janela" poderia ser apenas "a janela nunca é lida".
     setConfigOverride('whatsappActionNoticeEnabled', true);
-    seedWindow(store);
 
-    const resultado = await issueFrom(argsRecebimento());
+    const semJanela = await issueFrom(argsRecebimento());
+    assert.equal(semJanela.outcome, 'whatsapp_inbound_stepup_required');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido sem janela de ação');
+    assert.equal(semJanela.text.includes('responda so com o codigo'), false, semJanela.text);
 
-    assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
-    assert.equal(store.inserts.length, 0, 'ticket N2 emitido — nada pendente pode existir para ser confirmado');
-    assert.equal(resultado.text.includes('responda so com o codigo'), false, resultado.text);
+    // A criação, N1, atravessa a MESMA ausência de janela e emite.
+    const criacao = await issueFrom(argsCriacao());
+    assert.equal(criacao.outcome, 'whatsapp_inbound_confirmation_pending', criacao.text);
+    assert.equal(store.inserts.length, 1);
+    assert.equal(store.inserts[0].metadata.stepUpWindowId, null);
   });
 
   it('CONTROLE NEGATIVO do portão: a MESMA emissão em N1 passa e emite ticket', async () => {
@@ -3195,12 +3328,18 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
     assert.equal(store.inserts.length, 0);
     assert.ok(log.includes('target_mismatch'), log);
 
-    // CONTROLE NEGATIVO: o MESMO número, agora coerente com o manifesto apontado, chega ao portão.
+    // CONTROLE NEGATIVO: o MESMO número, agora coerente com o manifesto apontado, ATRAVESSA a
+    // conferência e emite. A env é ligada EXPLICITAMENTE (e a janela semeada) para que o desfecho
+    // deste controle não dependa do default de ambiente: com a segunda tranca desligada por omissão,
+    // o "passou" viria de uma recusa mais adiante, e o caso pareceria provar o que não prova.
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store);
     const coerente = await issueFrom(argsRecebimento({
       manifestId: RECEBER_B,
       receiptPayload: { remDataRecebimento: '2026-08-07', manNumero: '202600777002' }
     }));
-    assert.equal(coerente.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(coerente.outcome, 'whatsapp_inbound_confirmation_pending', coerente.text);
+    assert.ok(coerente.text.includes('MTR 202600777002'), coerente.text);
   });
 
   it('MUTAÇÃO (guarda da criação): entidade que não vira NOME humano recusa o ticket', async () => {
@@ -3255,8 +3394,9 @@ describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do
   /* ---- o bloco de conferência na prévia do ticket (camada de texto) -------------------------- */
 
   it('o bloco de conferência SUBSTITUI a lista genérica e a cauda do ticket continua inteira', async () => {
-    // O caminho de emissão fica inalcançável enquanto o portão N2 está fechado, então a montagem é
-    // verificada onde ela mora: `buildWhatsAppConfirmationPreview`.
+    // A montagem é verificada onde ela mora — `buildWhatsAppConfirmationPreview` —, com as duas
+    // metades (bloco dedicado × lista genérica) lado a lado. O caminho INTEGRADO da baixa é coberto
+    // pelo caso de emissão acima; aqui se prende a composição, que ele exercita mas não isola.
     const conferencia = await buildWhatsAppReceiveConference(argsRecebimento());
     assert.equal(conferencia.canIssueTicket, true);
 
