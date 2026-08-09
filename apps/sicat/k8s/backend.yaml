@@ -249,6 +249,12 @@ spec:
             - secretRef:
                 name: sicat-config
           env:
+            # PASSO 2 DE 2 da raia (E2): este worker deixa de enxergar as operações de canal.
+            # `default` = `operation <> all(CHANNEL_LANE_OPERATIONS)`, o complemento exato do que a
+            # `sicat-worker-channel` reivindica. Só foi ligado DEPOIS de a raia nova estar Ready —
+            # a ordem inversa deixaria job de canal sem consumidor nenhum, em silêncio.
+            - name: WORKER_LANE
+              value: "default"
             - name: NODE_OPTIONS
               value: "--max-old-space-size=1536"
             - name: DATABASE_URL
