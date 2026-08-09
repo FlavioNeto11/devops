@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { loadOpenApiSpec, getOpenApiYamlText } from './lib/openapi.js';
 import { requestContextMiddleware } from './middlewares/request-context.js';
 import { authMiddleware } from './middlewares/auth.js';
+import { sicatAuthMiddleware } from './middlewares/sicat-auth.js';
 import { notFoundMiddleware } from './middlewares/not-found.js';
 import { errorHandlerMiddleware } from './middlewares/error-handler.js';
 import { createSystemRouter } from './routes/system-routes.js';
@@ -53,15 +54,27 @@ export function createApp() {
   app.use(requestContextMiddleware);
   app.use(authMiddleware);
 
-  app.get('/openapi.yaml', (_req, res) => {
+  // Contrato interno FECHADO. As três superfícies servem o MESMO documento — fechar só o `.yaml` e o
+  // `.json` seria teatro, porque o Swagger UI monta a página a partir do spec já carregado em memória
+  // e não passa por aquelas rotas. Por isso as três levam o mesmo gate, na mesma mudança.
+  //
+  // `swaggerUi.serve` é `[swaggerInitFn, swaggerAssetMiddleware()]`: os assets próprios do Swagger UI
+  // (`/docs/swagger-ui.css`, `/docs/swagger-ui-bundle.js`, …) saem do MESMO mount `/docs`, então o
+  // middleware posicionado antes dele cobre página e assets de uma vez — não há rota irmã aberta.
+  //
+  // Consequência aceita: `/docs` deixa de ser navegável no browser, porque `<link>`/`<script>` não
+  // carregam header `Authorization` nas subrequisições. Quem precisa do contrato busca o spec com
+  // token (`curl -H "Authorization: Bearer …" …/openapi.yaml`). Era um documento com CNPJ, CPF,
+  // endereço e nome de pessoa reais servido anonimamente na internet.
+  app.get('/openapi.yaml', sicatAuthMiddleware, (_req, res) => {
     res.type('text/yaml').send(getOpenApiYamlText());
   });
 
-  app.get('/openapi.json', (_req, res) => {
+  app.get('/openapi.json', sicatAuthMiddleware, (_req, res) => {
     res.json(openApiSpec);
   });
 
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { explorer: true }));
+  app.use('/docs', sicatAuthMiddleware, swaggerUi.serve, swaggerUi.setup(openApiSpec, { explorer: true }));
   app.use('/health', healthRoutes);  // Rotas de health e observabilidade
   app.use(createSystemRouter(openApiSpec));
   app.use(createApiRouter());

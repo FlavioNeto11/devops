@@ -42,14 +42,21 @@ const PUBLIC_ROUTES = new Map([
   ['POST /v1/sicat/auth/refresh', 'o refresh token do corpo É a credencial'],
   ['POST /v1/sicat/auth/keycloak', 'o access token do Keycloak no corpo É a credencial'],
   ['GET /v1/channels/whatsapp/webhook', 'desafio de verificação do Meta; sem corpo e sem estado'],
-  ['POST /v1/channels/whatsapp/webhook', 'autenticado por assinatura HMAC do provedor, na própria rota'],
-  // Documentação, não dado operacional — e isentar só estas duas seria teatro: `/docs` (Swagger UI)
-  // serve o MESMO conteúdo a partir do spec carregado em memória, sem passar por elas. Fechar a
-  // documentação interna é uma decisão à parte (os `examples` do contrato carregam CNPJ, endereço e
-  // nome de pessoa reais) e está registrada como pendência, não silenciada aqui.
-  ['GET /openapi.yaml', 'documentação do contrato; mesma exposição que /docs'],
-  ['GET /openapi.json', 'documentação do contrato; mesma exposição que /docs']
+  ['POST /v1/channels/whatsapp/webhook', 'autenticado por assinatura HMAC do provedor, na própria rota']
+  // `GET /openapi.yaml` e `GET /openapi.json` SAÍRAM desta lista: o contrato interno é fechado. As
+  // três superfícies de documentação (`.yaml`, `.json` e `/docs`) foram para trás do
+  // `sicatAuthMiddleware` na mesma mudança — fechar só as duas enumeráveis seria teatro, já que o
+  // Swagger UI serve o mesmo documento a partir do spec em memória.
 ]);
+
+/**
+ * `/docs` é montado por `app.use(...)`, não por `app.get(...)` — o enumerador acima só enxerga
+ * `layer.route`, então esta família NUNCA apareceria na varredura e ficaria fora da catraca por
+ * construção. As entradas abaixo são exercidas explicitamente, incluindo um ASSET do Swagger UI:
+ * `swaggerUi.serve` monta `[swaggerInitFn, swaggerAssetMiddleware()]` sob o mesmo prefixo, e um gate
+ * posto só na página deixaria os assets abertos.
+ */
+const DOCS_PATHS = ['/docs', '/docs/', '/docs/swagger-ui.css', '/docs/swagger-ui-bundle.js'];
 
 /** Rotas que não podem ser exercidas às cegas: mantêm conexão aberta ou dependem de rede externa. */
 const SKIP_WITH_TOKEN = new Set([
@@ -161,6 +168,22 @@ describe('Catraca de auth — toda rota fora da allowlist exige Bearer', { concu
     assert.deepStrictEqual(vazando, [], `rotas sem gate de auth:\n${vazando.join('\n')}`);
   });
 
+  it('a documentação do contrato (/openapi.* e /docs, inclusive assets) exige Bearer', async () => {
+    const vazando = [];
+
+    for (const routePath of ['/openapi.yaml', '/openapi.json', ...DOCS_PATHS]) {
+      const response = await fetch(`${API_BASE}${routePath}`, { redirect: 'manual' });
+      if (response.status !== 401) vazando.push(`GET ${routePath} -> ${response.status}`);
+      await response.arrayBuffer().catch(() => {});
+    }
+
+    assert.deepStrictEqual(
+      vazando,
+      [],
+      `contrato interno servido sem credencial:\n${vazando.join('\n')}`
+    );
+  });
+
   it('CONTROLE NEGATIVO: rota pública continua respondendo sem token', async () => {
     // Se isto também desse 401, o teste acima passaria por um motivo errado (app quebrada).
     for (const key of ['GET /health', 'GET /v1/ping']) {
@@ -206,7 +229,12 @@ describe('Catraca de auth — toda rota fora da allowlist exige Bearer', { concu
       'GET /v1/mtr-provisorio',
       'GET /v1/auth/partner-info',
       'GET /v1/reports/mtrs',
-      'GET /health/jobs/dlq'
+      'GET /health/jobs/dlq',
+      // As três recém-fechadas: sem esta metade, "fechar a documentação" poderia ter sido
+      // "quebrar a documentação" e nenhum teste veria diferença.
+      'GET /openapi.yaml',
+      'GET /openapi.json',
+      'GET /docs/'
     ];
 
     for (const key of amostra) {
@@ -214,6 +242,7 @@ describe('Catraca de auth — toda rota fora da allowlist exige Bearer', { concu
       const [method, routePath] = key.split(' ');
       const response = await fetch(`${API_BASE}${fillParams(routePath)}`, {
         method,
+        redirect: 'manual',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: method === 'GET' ? undefined : '{}'
       });
