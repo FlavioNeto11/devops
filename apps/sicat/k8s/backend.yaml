@@ -94,6 +94,12 @@ spec:
               value: "twilio"
             - name: WHATSAPP_ACTIONS_ENABLED
               value: "true"
+            # Segunda tranca do N2. O literal WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED foi aberto
+            # em 2026-08-09 por decisão do operador; esta env é a outra metade do `||`.
+            # Rollback mais rápido que este arquivo: revogar `allowChannels` no AI Control
+            # Center (segundos, sem deploy). Este aqui é o segundo mais rápido (minutos).
+            - name: WHATSAPP_ACTION_NOTICE_ENABLED
+              value: "true"
             - name: WHATSAPP_TWILIO_ACCOUNT_SID
               valueFrom:
                 secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
@@ -274,6 +280,12 @@ spec:
             - name: WHATSAPP_PROVIDER
               value: "twilio"
             - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            # Segunda tranca do N2. O literal WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED foi aberto
+            # em 2026-08-09 por decisão do operador; esta env é a outra metade do `||`.
+            # Rollback mais rápido que este arquivo: revogar `allowChannels` no AI Control
+            # Center (segundos, sem deploy). Este aqui é o segundo mais rápido (minutos).
+            - name: WHATSAPP_ACTION_NOTICE_ENABLED
               value: "true"
             - name: WHATSAPP_TWILIO_ACCOUNT_SID
               valueFrom:

@@ -202,7 +202,7 @@ function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): s
 }
 
 /**
- * ┌─ A FASE 6 ENTREGOU O AVISO. N2 CONTINUA FECHADO, E A RAZÃO MUDOU ─────────────────────────────┐
+ * ┌─ N2 ABERTO EM 2026-08-09. O QUE SE SABE E O QUE NÃO SE SABE ESTÁ NA TABELA ABAIXO ────────────┐
  * │ ⚠️ ESTE COMENTÁRIO FOI REESCRITO NA FASE 6. A versão anterior afirmava que "o aviso NÃO ENTROU │
  * │ — `whatsapp.outbound_notice` não existe como job, handler ou chamada de saída". Isso deixou de │
  * │ ser verdade, e comentário obsoleto afirmando propriedade que o código não tem é exatamente     │
