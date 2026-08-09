@@ -452,11 +452,24 @@ export async function tryIssueWhatsAppActionTicket(input: {
       snapshotSessionContextId: input.principal.sessionContextId,
       conversationSessionId: input.output.conversationSessionId ?? null,
       riskTier: eligible.tier,
-      // OPERAÇÕES, não linhas de conferência. `itemCount` vira "Coloquei as N operações na fila" em
-      // `buildWhatsAppConfirmedText`: nas chaves com conferência dedicada os rótulos são as LINHAS do
-      // bloco (resíduos, entidades) e são várias para UMA operação — usar `labels.length` ali diria
-      // "as 6 operações" para uma única criação.
-      itemCount: conference ? identity.effectCount : labels.length,
+      // EFEITOS, não linhas de conferência e não origens. `itemCount` vira "Coloquei as N operações
+      // na fila" em `buildWhatsAppConfirmedText` e viaja para o job de aviso de conclusão — então ele
+      // tem de contar o que a confirmação PROVOCA, que é exatamente `identity.effectCount`. As duas
+      // formas de errar são simétricas, e `labels.length` cometia as duas:
+      //
+      //  · PARA MAIS, nas chaves com conferência dedicada — ali os rótulos são as LINHAS do bloco
+      //    (resíduos, entidades) e são várias para UMA operação: `labels.length` diria "as 6
+      //    operações" para uma única criação. `effectCount` é 1 por construção nesse ramo.
+      //  · PARA MENOS, em `manifest.replicate_segmented` — `labels` lista as ORIGENS distintas, e N
+      //    réplicas da mesma origem colapsam para 1 no `Set` de `collectActionManifestIds`:
+      //    `labels.length` dizia "a operação" DEPOIS de criar N rascunhos. `effectCount` é
+      //    `segments.length`, que é o mesmo número já usado na manchete ("Replicar em N rascunhos") e
+      //    no teto de lote — antes desta correção o ticket contradizia a própria prévia.
+      //
+      // Nas demais chaves os dois números coincidem: a guarda de identidade acima exige
+      // `labels.length === identity.requestedCount`, e fora do caso segmentado `effectCount` É
+      // `requestedCount`. A troca não afrouxa nada — só para de mentir nos dois extremos.
+      itemCount: identity.effectCount,
       previewCorrelationId: input.correlationId,
       stepUpWindowId
     }
