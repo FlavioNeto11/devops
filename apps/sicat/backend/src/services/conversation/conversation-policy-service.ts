@@ -151,14 +151,23 @@ const ORCHESTRATED_INTENT_POLICY: Record<string, ToolPolicy> = {
   'manifest.replicate_segmented': confirmedActionIntentPolicy('R3'),
   'cdf.generate_from_manifest_selection': confirmedActionIntentPolicy('R3'),
   'cdf.download_batch_selected': confirmedActionIntentPolicy('R3'),
-
-  // Rascunho é ação, mas não sai da fronteira do SICAT — por isso R1 e sem confirmação.
-  'manifest.create_draft': {
-    riskLevel: 'R1',
-    allowChannels: IN_APP_CHANNELS,
-    requiresConfirmation: false,
-    isAction: true
-  },
+  // R2, não R1, e COM confirmação — a linha anterior dizia "rascunho não sai da fronteira do SICAT,
+  // por isso R1 e sem confirmação", e as duas metades não se sustentam ao lado do código:
+  //
+  //  · `handleManifestCreateDraft` chama o MESMO `createManifest` de `manifest.create_from_payload`
+  //    (conversation-tool-dispatcher.ts) — grava linha de manifesto. R1 é, por definição da escada
+  //    (`docs/copilot/conversacional/05-seguranca-e-autorizacao.md`), "lê dados do sistema, SEM
+  //    alterar estado"; gravar não cabe nele. R2 é onde a escada põe literalmente "montar rascunho".
+  //  · a diferença para `create_from_payload` (R3) é que o rascunho pula
+  //    `collectManifestRequiredFieldsForCreation` e não exige sessão CETESB
+  //    (`enforceOperationalContext` sem `requireSession`). Ou seja: o irmão com MENOS validação era o
+  //    único sem confirmação. Não sobe a R3 porque nada aqui alcança a CETESB — o efeito externo, que
+  //    é o critério de R3/R4, continua ausente.
+  //
+  // `riskLevel` é descritivo (vai para a trilha, a observabilidade e a tela do AI Control Center);
+  // quem decide são `isAction`, `requiresConfirmation` e `allowChannels`. Portanto R1→R2 não muda
+  // comportamento — o que muda comportamento é a confirmação, e é por isso que ela é o ponto.
+  'manifest.create_draft': confirmedActionIntentPolicy('R2'),
 
   'cdf.resolve_by_manifest_reference': readOnlyIntentPolicy('R1'),
   'cdf.list_by_manifest_selection': readOnlyIntentPolicy('R1'),
@@ -188,18 +197,7 @@ const ORCHESTRATED_INTENT_POLICY: Record<string, ToolPolicy> = {
  * listas já recebe em `whatsapp-action-eligibility.ts`.
  */
 function assertNoActionDefaultAllowsExternalChannel(): void {
-  const offenders: string[] = [];
-
-  for (const item of getConversationToolInventory()) {
-    if (item.policy.isAction && item.policy.allowChannels.includes('whatsapp')) {
-      offenders.push(`tool ${item.toolName}`);
-    }
-  }
-  for (const [intent, policy] of Object.entries(ORCHESTRATED_INTENT_POLICY)) {
-    if (policy.isAction && policy.allowChannels.includes('whatsapp')) {
-      offenders.push(`intent ${intent}`);
-    }
-  }
+  const offenders = findActionDefaultsAllowingExternalChannel(listCodeDefaultPolicies());
 
   if (offenders.length > 0) {
     throw new Error(
@@ -210,7 +208,82 @@ function assertNoActionDefaultAllowsExternalChannel(): void {
   }
 }
 
+/**
+ * INVARIANTE ESTRUTURAL, VERIFICADA NO IMPORT: toda AÇÃO exige confirmação no default de código.
+ *
+ * Irmã da de cima, e pelo mesmo motivo: `evaluateConversationPolicy` tem UM ÚNICO portão de
+ * confirmação (`effectivePolicy.requiresConfirmation && input.confirmed !== true`). Uma ação que
+ * chegue nele com `requiresConfirmation: false` simplesmente passa reto e executa no primeiro turno.
+ *
+ * Isso vira armadilha silenciosa no canal externo porque o ticket de confirmação do WhatsApp NÃO é
+ * emitido por classificação de risco: `whatsapp-turn-service.ts` só o emite quando o turno volta
+ * `blocked` com `reasonCode === 'CONFIRMATION_REQUIRED'`. Ação sem confirmação nunca produz esse
+ * desfecho — logo nunca ganha ticket, nunca pede código, e a primeira mensagem já é a execução.
+ * Nenhuma das travas do canal a pegaria: `WHATSAPP_ELIGIBLE_ACTIONS`/`CHANNEL_HARD_DENY` decidem SE a
+ * chave alcança o canal, não se o efeito precisa de segunda palavra.
+ *
+ * `mergeIntentPolicy` só ENDURECE a confirmação pelo overlay (`=== true ? true : default`), o que
+ * significa que o default de código é o PISO — e um piso no chão não é levantado por configuração
+ * nenhuma. Por isso a checagem é do default, no import, e não do valor efetivo em runtime.
+ *
+ * Foi exatamente esse o buraco de `manifest.create_draft`: única ação das duas tabelas com
+ * `requiresConfirmation: false`, contida só por estar em `CHANNEL_HARD_DENY` — segunda tranca numa
+ * porta cuja fechadura estava errada. Tirar a chave da recusa (um `PATCH` de fase futura, uma linha
+ * apagada) bastaria para publicar a execução sem confirmação. Falhar no import é o desfecho certo.
+ */
+function assertEveryActionRequiresConfirmation(): void {
+  const offenders = findActionsWithoutConfirmation(listCodeDefaultPolicies());
+
+  if (offenders.length > 0) {
+    throw new Error(
+      `[conversation-policy] ação sem confirmação no default de CÓDIGO: ${offenders.join(', ')}. `
+      + 'Toda chave com isAction:true tem de nascer com requiresConfirmation:true — é o único portão '
+      + 'que separa o pedido da execução, e é dele que sai o ticket do canal externo.'
+    );
+  }
+}
+
+/**
+ * Um rótulo por chave de default de código, achatando as DUAS tabelas que existem: tools diretas
+ * (`tool-registry`) e intents orquestrados (a tabela acima). É a fonte única das invariantes
+ * estruturais — tabela nova que entre aqui passa a ser coberta pelas duas de uma vez, em vez de
+ * depender de alguém lembrar de acrescentar mais um laço em cada uma.
+ */
+export type CodeDefaultPolicyEntry = {
+  /** `tool <nome>` ou `intent <nome>` — o mesmo rótulo que sai nas mensagens de erro. */
+  label: string;
+  policy: ToolPolicy;
+};
+
+export function listCodeDefaultPolicies(): CodeDefaultPolicyEntry[] {
+  return [
+    ...getConversationToolInventory().map((item) => ({
+      label: `tool ${item.toolName}`,
+      policy: item.policy
+    })),
+    ...Object.entries(ORCHESTRATED_INTENT_POLICY).map(([intent, policy]) => ({
+      label: `intent ${intent}`,
+      policy
+    }))
+  ];
+}
+
+/** Ações cujo default de código já traz canal externo. Vazio = invariante satisfeita. */
+export function findActionDefaultsAllowingExternalChannel(entries: CodeDefaultPolicyEntry[]): string[] {
+  return entries
+    .filter((entry) => entry.policy.isAction && entry.policy.allowChannels.includes('whatsapp'))
+    .map((entry) => entry.label);
+}
+
+/** Ações que não exigem confirmação no default de código. Vazio = invariante satisfeita. */
+export function findActionsWithoutConfirmation(entries: CodeDefaultPolicyEntry[]): string[] {
+  return entries
+    .filter((entry) => entry.policy.isAction && !entry.policy.requiresConfirmation)
+    .map((entry) => entry.label);
+}
+
 assertNoActionDefaultAllowsExternalChannel();
+assertEveryActionRequiresConfirmation();
 
 /**
  * Consulta em tabela SEM cair no protótipo.
