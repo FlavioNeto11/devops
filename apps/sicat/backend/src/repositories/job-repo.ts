@@ -658,8 +658,12 @@ export async function requeueFromDLQ(jobId: string) {
       [jobId]
     );
 
+    // AUSÊNCIA não é conflito: devolve `null` para o chamador traduzir em 404. Lançar `Error` puro
+    // aqui virava 500 no `error-handler` (ele só honra `.status`/`.statusCode`), e o `if (!job)` que
+    // os dois chamadores já escreveram — a rota `POST /v1/health/jobs/dlq/:jobId/requeue` e
+    // `retryJob` em `operations-service` — era código morto.
     if (dlqResult.rows.length === 0) {
-      throw new Error(`Job ${jobId} not found in DLQ`);
+      return null;
     }
 
     // Lock otimista DL-022: bloqueia a linha do job e captura a version atual
@@ -672,8 +676,9 @@ export async function requeueFromDLQ(jobId: string) {
       'select status, version from jobs where job_id = $1 for update',
       [jobId]
     );
+    // Mesma regra: linha órfã na DLQ sem job correspondente também é AUSÊNCIA, não conflito.
     if (currentResult.rowCount === 0) {
-      throw new Error(`Job ${jobId} not found`);
+      return null;
     }
     const current = currentResult.rows[0];
     if (current?.status !== 'dlq') {
