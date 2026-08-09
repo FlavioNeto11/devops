@@ -1186,6 +1186,22 @@ export function expireAdminAccessUserPassword(userId, payload = {}) {
   });
 }
 
+/**
+ * Waiver do escudo anti-bombing do vínculo WhatsApp (domínio explicado em
+ * `features/access-admin/shieldWaiverState.js`). Telefone e motivo vão no
+ * CORPO — PII em path/query vira log de acesso do Traefik e cabeçalho Referer.
+ *
+ * contrato pareado com a unidade B1: payload `{ channelType, phone, reason }`,
+ * resposta de sucesso com o telefone apenas MASCARADO.
+ */
+export function grantAdminChannelShieldWaiver(payload = {}) {
+  return request('/v1/admin/access/channel-links/shield-waiver', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 // =============================================================================
 // Centro Operacional SICAT — endpoints operacionais (fase 05-frontend).
 // =============================================================================
