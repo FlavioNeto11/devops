@@ -23,11 +23,18 @@ import {
   buildManifestIdentityLabel,
   buildWhatsAppConfirmationPreview,
   buildWhatsAppConfirmedText,
+  buildWhatsAppN2NoticeMissingText,
   buildWhatsAppWrongCodeText,
   collectActionManifestIds,
   extractConferibleItemLabels,
   WHATSAPP_N2_NOTICE_MISSING_TEXT
 } from '../../src/services/conversation/channel/whatsapp/whatsapp-confirmation-texts.js';
+import {
+  buildWhatsAppReceiveConference,
+  setWhatsAppReceivePreviewRepositoriesForTests,
+  WHATSAPP_RECEIVE_ACTION_KEY
+} from '../../src/services/conversation/channel/whatsapp/whatsapp-receive-preview.js';
+import { setWhatsAppCreatePreviewResolversForTests } from '../../src/services/conversation/channel/whatsapp/whatsapp-create-preview.js';
 import {
   canonicalJson,
   checkWhatsAppTicketBinding,
@@ -47,9 +54,11 @@ import {
 } from '../../src/services/conversation/channel/whatsapp/whatsapp-action-ticket-service.js';
 import { requireSupportedChannel } from '../../src/services/conversation-channel-link-service.js';
 import {
+  buildActionHeadline,
   runWhatsAppConfirmationRescue,
   setWhatsAppConfirmationRepositoriesForTests,
-  tryIssueWhatsAppActionTicket
+  tryIssueWhatsAppActionTicket,
+  WHATSAPP_CREATE_ACTION_KEY
 } from '../../src/services/conversation/channel/whatsapp/whatsapp-confirmation-flow.js';
 import {
   runWhatsAppInboundTurn,
@@ -515,10 +524,14 @@ describe('fase 5 — elegibilidade (código) × habilitação (runtime)', () => 
     });
     assert.deepEqual(elegivel, ['whatsapp', 'native_chat', 'inapp']);
 
-    // `manifest.receive_with_receipt` não está em `WHATSAPP_ELIGIBLE_ACTIONS` (e está na recusa):
-    // o MESMO overlay não adiciona nada. Elegibilidade não se inventa em runtime.
+    // `manifest.create_draft` não está em `WHATSAPP_ELIGIBLE_ACTIONS` (e está na recusa): o MESMO
+    // overlay não adiciona nada. Elegibilidade não se inventa em runtime.
+    //
+    // ⚠️ Esta testemunha ERA `manifest.receive_with_receipt` até a unidade D4 promovê-la. Trocar a
+    // testemunha faz parte da promoção: manter a antiga aqui transformaria o caso num teste que
+    // afirma o contrário do desenho novo.
     const inelegivel = resolveEffectiveAllowChannels({
-      key: 'manifest.receive_with_receipt',
+      key: 'manifest.create_draft',
       codeChannels: ['native_chat', 'inapp'],
       overlayChannels: ['whatsapp', 'native_chat', 'inapp']
     });
@@ -565,14 +578,31 @@ describe('fase 5 — elegibilidade (código) × habilitação (runtime)', () => 
     assert.deepEqual(efetivo, ['inapp']);
   });
 
-  it('as duas listas são DISJUNTAS e a recusa tem os dez nomes por extenso', () => {
+  it('as duas listas são DISJUNTAS e a recusa tem os OITO nomes por extenso', () => {
     for (const key of Object.keys(WHATSAPP_ELIGIBLE_ACTIONS)) {
       assert.equal(CHANNEL_HARD_DENY.has(key), false, `${key} está elegível E recusado`);
     }
     // `manifest.create_draft` é a armadilha silenciosa: `requiresConfirmation:false` + `isAction:true`.
-    // Precisa estar EXPLÍCITO na recusa, nunca por omissão.
+    // Precisa estar EXPLÍCITO na recusa, nunca por omissão — e continuou lá depois da unidade D4,
+    // porque prévia de conferência não ajuda numa ação que nunca PEDE conferência.
     assert.equal(CHANNEL_HARD_DENY.has('manifest.create_draft'), true);
-    assert.equal(CHANNEL_HARD_DENY.size, 10);
+
+    // Eram dez até a D4 promover recebimento e criação. O número é conferido para que uma promoção
+    // futura seja uma DECISÃO escrita neste arquivo, nunca um efeito colateral de outra mudança.
+    assert.equal(CHANNEL_HARD_DENY.size, 8);
+    assert.deepEqual(
+      [...CHANNEL_HARD_DENY].sort(),
+      [
+        'cancel_manifest',
+        'cdf.download_batch_selected',
+        'cdf.generate_from_manifest_selection',
+        'enqueue_cdf_download',
+        'manifest.batch_cancel_selected',
+        'manifest.cancel_recent_excluding_first',
+        'manifest.create_draft',
+        'replicate_manifest'
+      ]
+    );
   });
 });
 
@@ -2816,5 +2846,402 @@ describe('fase 5 — usuário INATIVO é desfecho de canal, não exceção técn
         return true;
       }
     );
+  });
+});
+
+/* ============================================================================================== */
+/* UNIDADE D4 — as prévias de conferência LIGADAS, e o portão do N2 ainda FECHADO                  */
+/* ============================================================================================== */
+
+describe('D4 — recebimento e criação: prévia dedicada manda, e o portão do N2 continua fechado', () => {
+  /**
+   * Doubles DE LEITURA (repositório de manifestos, cadastro de parceiros, catálogo de resíduos) —
+   * nunca da decisão sob teste. Valores DISTINTOS POR IDENTIDADE: cada id devolve outro número, outro
+   * gerador e outro resíduo; cada código de parceiro devolve outra razão social. Um double que
+   * devolvesse o mesmo rótulo para todos faria "resolva sempre o primeiro" sobreviver.
+   */
+  const RECEBER_A = `man_${'1'.repeat(26)}`;
+  const RECEBER_B = `man_${'2'.repeat(26)}`;
+
+  const LINHAS_CRUAS = new Map([
+    [RECEBER_A, {
+      id: RECEBER_A,
+      externalReference: { manNumero: '202600777001', manCodigo: 555001 },
+      externalHashCode: 'hash_A',
+      payload: {
+        expeditionDate: '2026-03-12',
+        generator: { partnerCode: 40110, description: 'NOVA IT AMBIENTAL LTDA' },
+        residues: [{ quantity: 2.5, receivedQuantity: null, unit: { symbol: 't' }, residue: { description: 'Oleo lubrificante usado' } }]
+      }
+    }],
+    [RECEBER_B, {
+      id: RECEBER_B,
+      externalReference: { manNumero: '202600777002', manCodigo: 555002 },
+      externalHashCode: 'hash_B',
+      payload: {
+        expeditionDate: '2026-04-20',
+        generator: { partnerCode: 40222, description: 'RECICLA SP LTDA' },
+        residues: [{ quantity: 400, receivedQuantity: 380, unit: { symbol: 'kg' }, residue: { description: 'Borra de tinta' } }]
+      }
+    }]
+  ]);
+
+  /** Cadastro: código → razão social. Distinto por papel, para a troca de papel não ficar invisível. */
+  const PARCEIROS = new Map([
+    ['70001', 'GERADORA CENTRAL LTDA'],
+    ['70002', 'TRANSPORTES BETA LTDA'],
+    ['70003', 'ATERRO GAMA S/A']
+  ]);
+  const RESIDUOS = new Map([['A099', 'Residuo solido industrial']]);
+
+  let store;
+  let leituras;
+
+  function payloadDeCriacaoCompleto(overrides = {}) {
+    return {
+      generator: { partnerCode: '70001' },
+      carrier: { partnerCode: '70002' },
+      receiver: { partnerCode: '70003' },
+      residues: [{ residue: { code: 'A099' }, quantity: 3, unit: { symbol: 't' } }],
+      expeditionDate: '2026-08-10',
+      ...overrides
+    };
+  }
+
+  function issueFrom(args, overrides = {}) {
+    return tryIssueWhatsAppActionTicket({
+      output: {
+        status: 'blocked',
+        policy: { reasonCode: 'CONFIRMATION_REQUIRED' },
+        toolCall: { name: overrides.toolName || 'orchestrate_manifest_operation', arguments: args },
+        conversationSessionId: 'csess_d4',
+        conversationTurnId: 'cturn_d4'
+      },
+      principal: buildPrincipal(overrides.principal),
+      link: LINK,
+      correlationId: 'corr_d4'
+    });
+  }
+
+  const argsRecebimento = (overrides = {}) => ({
+    intent: 'manifest.receive_with_receipt',
+    manifestId: RECEBER_A,
+    receiptPayload: { remDataRecebimento: '2026-08-07', remObservacao: 'chegou lacrado' },
+    ...overrides
+  });
+
+  const argsCriacao = (overrides = {}) => ({
+    intent: 'manifest.create_from_payload',
+    payload: payloadDeCriacaoCompleto(),
+    ...overrides
+  });
+
+  beforeEach(() => {
+    store = makeVerificationStore();
+    leituras = { manifestos: [], parceiros: [], residuos: [] };
+    setWhatsAppActionTicketRepositoriesForTests(store.repositories);
+    setConfigOverride('whatsappActionTicketTtlSeconds', 300);
+
+    // Os TRÊS seams devolvem LINHA CRUA — nenhum deles reimplementa a decisão sob teste.
+    //
+    // ⚠️ O seam do fluxo (`setWhatsAppConfirmationRepositoriesForTests`) é OBRIGATÓRIO aqui mesmo
+    // que a via genérica não devesse ser alcançada: sem ele, uma regressão que ignore a prévia
+    // dedicada cai no repositório REAL, o `select` não acha `man_111…` e o teste passa por ACIDENTE
+    // (e passa a depender de haver Postgres na máquina). Medido: com o seam ausente, a mutação que
+    // ignora `canIssueTicket:false` matava 1 caso; com ele, mata 3.
+    setWhatsAppConfirmationRepositoriesForTests({
+      findManifestById: async (id) => {
+        leituras.manifestos.push(id);
+        return LINHAS_CRUAS.get(id);
+      }
+    });
+    setWhatsAppReceivePreviewRepositoriesForTests({
+      findManifestById: async (id) => {
+        leituras.manifestos.push(id);
+        return LINHAS_CRUAS.get(id);
+      }
+    });
+    setWhatsAppCreatePreviewResolversForTests({
+      findManifestById: async (id) => {
+        leituras.manifestos.push(id);
+        return LINHAS_CRUAS.get(id);
+      },
+      resolvePartnerLabel: async ({ code, role }) => {
+        leituras.parceiros.push(`${role}:${code}`);
+        return PARCEIROS.get(String(code)) ?? null;
+      },
+      resolveResidueLabel: async ({ code }) => {
+        leituras.residuos.push(String(code));
+        return RESIDUOS.get(String(code)) ?? null;
+      }
+    });
+  });
+
+  afterEach(() => {
+    setWhatsAppActionTicketRepositoriesForTests(null);
+    setWhatsAppConfirmationRepositoriesForTests(null);
+    setWhatsAppReceivePreviewRepositoriesForTests(null);
+    setWhatsAppCreatePreviewResolversForTests(null);
+    setConfigOverride('whatsappActionTicketTtlSeconds', undefined);
+    setConfigOverride('whatsappActionNoticeEnabled', undefined);
+  });
+
+  /* ---- a promoção, na tabela --------------------------------------------------------------- */
+
+  it('as duas chaves saíram da recusa e entraram como N2 com `maxItems: 1`', () => {
+    for (const key of [WHATSAPP_RECEIVE_ACTION_KEY, WHATSAPP_CREATE_ACTION_KEY]) {
+      assert.equal(CHANNEL_HARD_DENY.has(key), false, `${key} continua na recusa permanente`);
+      assert.deepEqual(getWhatsAppEligibleAction(key), { tier: 'N2', maxItems: 1 }, key);
+    }
+
+    // O overlay do AI Control Center agora CONSEGUE ligá-las — é o que "promover" significa.
+    assert.ok(
+      resolveEffectiveAllowChannels({
+        key: WHATSAPP_RECEIVE_ACTION_KEY,
+        codeChannels: ['native_chat', 'inapp'],
+        overlayChannels: ['whatsapp', 'native_chat', 'inapp']
+      }).includes('whatsapp')
+    );
+
+    // CONTROLE NEGATIVO: as que NÃO foram promovidas continuam recusadas com o mesmo overlay.
+    for (const key of ['manifest.create_draft', 'cancel_manifest', 'replicate_manifest', 'cdf.generate_from_manifest_selection']) {
+      assert.equal(
+        resolveEffectiveAllowChannels({
+          key,
+          codeChannels: ['native_chat', 'inapp'],
+          overlayChannels: ['whatsapp', 'native_chat', 'inapp']
+        }).includes('whatsapp'),
+        false,
+        `${key} foi promovida junto — a D4 promove DUAS chaves, não a recusa inteira`
+      );
+    }
+  });
+
+  it('MUTAÇÃO (headline ausente): TODA chave elegível tem manchete — sem ela o ticket some sem erro', () => {
+    // A falha é SILENCIOSA: `buildActionHeadline` devolve `null`, `tryIssueWhatsAppActionTicket`
+    // trata `null` como "não é caso de ticket" e a ação desaparece do canal sem log nem exceção.
+    // Apagar qualquer linha de `ACTION_HEADLINES` faz este caso quebrar.
+    for (const key of Object.keys(WHATSAPP_ELIGIBLE_ACTIONS)) {
+      const headline = buildActionHeadline(key, 1);
+      assert.equal(typeof headline, 'string', `${key} não tem manchete em ACTION_HEADLINES`);
+      assert.ok(headline.trim().length >= 3, `${key}: manchete vazia`);
+    }
+
+    // CONTROLE NEGATIVO: chave inexistente continua devolvendo `null` (o medidor enxerga a diferença).
+    assert.equal(buildActionHeadline('manifest.chave_que_nao_existe', 1), null);
+
+    // A manchete do recebimento é a MESMA que a prévia dedicada declara — dois literais que divergem
+    // dariam dois nomes à mesma ação (um na prévia, outro em toda mensagem de erro do ticket).
+    assert.equal(buildActionHeadline(WHATSAPP_RECEIVE_ACTION_KEY, 1), 'Dar baixa (receber) em 1 MTR');
+
+    // E a chave da criação é literal só no fluxo — este caso prende que ela existe na matriz.
+    assert.ok(Object.prototype.hasOwnProperty.call(WHATSAPP_ELIGIBLE_ACTIONS, WHATSAPP_CREATE_ACTION_KEY));
+  });
+
+  /* ---- o portão do N2, que esta entrega NÃO abre -------------------------------------------- */
+
+  it('recebimento CONFERÍVEL não emite ticket: responde "aviso indisponível" — e a env não abre', async () => {
+    // O desfecho ESPERADO E CORRETO desta entrega. A conferência existe e fecha; o que falta é a
+    // lista E1–E5 do aviso de conclusão, e a E1 (execução real contra provedor) não tem como ser
+    // produzida sem credenciais. Ligar `WHATSAPP_ACTION_NOTICE_ENABLED` e ver o MESMO "não" é o ponto.
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store);
+
+    const resultado = await issueFrom(argsRecebimento());
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(store.inserts.length, 0, 'ticket N2 emitido — nada pendente pode existir para ser confirmado');
+    // Texto COM O VERBO DA AÇÃO: reusar o de emissão diria à pessoa que ela pediu para emitir.
+    assert.ok(resultado.text.startsWith('Dar baixa por aqui ainda nao esta no ar'), resultado.text);
+    assert.equal(resultado.text.includes('Emitir MTR por aqui'), false);
+  });
+
+  it('criação CONFERÍVEL não emite ticket, e o texto NÃO inventa resposta da CETESB', async () => {
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    seedWindow(store);
+
+    const resultado = await issueFrom(argsCriacao());
+
+    assert.equal(resultado.outcome, 'whatsapp_inbound_action_notice_missing');
+    assert.equal(store.inserts.length, 0);
+    assert.ok(resultado.text.startsWith('Criar MTR por aqui ainda nao esta liberado'), resultado.text);
+    // `manifest.create_from_payload` grava rascunho LOCAL (`createManifestDraftRecord`): não há
+    // resposta da CETESB para esperar, e afirmar que há seria mais uma afirmação falsa desta cadeia.
+    assert.equal(resultado.text.includes('CETESB responde'), false);
+  });
+
+  it('CONTROLE NEGATIVO do portão: a MESMA emissão em N1 passa e emite ticket', async () => {
+    // Prova que o "não" das duas acima vem do tier, e não de o harness recusar tudo — e, de quebra,
+    // que a via GENÉRICA está viva no mesmo harness (é ela que resolve `manifestIds` aqui).
+    setConfigOverride('whatsappActionNoticeEnabled', true);
+    const resultado = await issueFrom({ intent: 'manifest.batch_print_selected', manifestIds: [RECEBER_A] });
+    assert.equal(resultado.outcome, 'whatsapp_inbound_confirmation_pending');
+    assert.equal(store.inserts.length, 1);
+    assert.ok(resultado.text.includes('MTR 202600777001'), resultado.text);
+  });
+
+  /* ---- a guarda da unidade: `canIssueTicket:false` / `ok:false` ⇒ NENHUM ticket ------------- */
+
+  it('MUTAÇÃO (guarda do recebimento): payload de baixa VAZIO não emite e nem chega ao portão', async () => {
+    // A prova de que a prévia dedicada está no caminho. Sem ela, a via genérica resolveria o rótulo
+    // de `manifestId` (o double devolve a linha) e o desfecho seria `notice_missing`. Ignorar
+    // `canIssueTicket:false` faz este caso virar `notice_missing` e quebrar.
+    const anterior = seedLiveTicket(store);
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsRecebimento({ receiptPayload: undefined }))
+    );
+
+    assert.equal(resultado, null, 'a recusa da prévia dedicada não foi honrada');
+    assert.equal(store.inserts.length, 0);
+    assert.equal(anterior.consumed_at, null, 'o ticket pendente legítimo foi destruído por uma tentativa recusada');
+    assert.ok(log.includes('receipt_payload_missing'), log);
+  });
+
+  it('MUTAÇÃO (guarda do recebimento): override que a prévia não mostra recusa o ticket', async () => {
+    // `rrmCodigo` muda o que será registrado e a conferência não o exibe — mostrar menos do que se
+    // executa é o defeito de "listar 3 e executar 5". Sem a guarda, a via genérica resolveria o
+    // rótulo do `manifestId` e o desfecho seria `notice_missing`.
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsRecebimento({ receiptPayload: { remDataRecebimento: '2026-08-07', rrmCodigo: 91 } }))
+    );
+    assert.equal(resultado, null);
+    assert.equal(store.inserts.length, 0);
+    assert.ok(log.includes('receipt_overrides_not_supported'), log);
+  });
+
+  it('MUTAÇÃO (guarda do recebimento): número nomeado que CONTRADIZ o manifesto recusa', async () => {
+    // Valores distintos por identidade: o `manifestId` aponta para A e o payload nomeia o número de B.
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsRecebimento({
+        receiptPayload: { remDataRecebimento: '2026-08-07', manNumero: '202600777002' }
+      }))
+    );
+    assert.equal(resultado, null);
+    assert.equal(store.inserts.length, 0);
+    assert.ok(log.includes('target_mismatch'), log);
+
+    // CONTROLE NEGATIVO: o MESMO número, agora coerente com o manifesto apontado, chega ao portão.
+    const coerente = await issueFrom(argsRecebimento({
+      manifestId: RECEBER_B,
+      receiptPayload: { remDataRecebimento: '2026-08-07', manNumero: '202600777002' }
+    }));
+    assert.equal(coerente.outcome, 'whatsapp_inbound_action_notice_missing');
+  });
+
+  it('MUTAÇÃO (guarda da criação): entidade que não vira NOME humano recusa o ticket', async () => {
+    // `70009` não está no cadastro: o destinador fica em código cru. Trocar o fail-closed da prévia
+    // por "emite com o que resolveu" faz este caso virar `notice_missing` e quebrar.
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsCriacao({ payload: payloadDeCriacaoCompleto({ receiver: { partnerCode: '70009' } }) }))
+    );
+
+    assert.equal(resultado, null);
+    assert.equal(store.inserts.length, 0);
+    // O double FOI consultado — a recusa não é "ninguém perguntou".
+    assert.ok(leituras.parceiros.includes('receiver:70009'), JSON.stringify(leituras.parceiros));
+    // A criação não tem manifesto para a via genérica resolver, então o `null` sozinho não distingue
+    // "a guarda agiu" de "ninguém achou rótulo". Quem distingue é o MOTIVO no log — sem a guarda ele
+    // não existe, e este caso quebra.
+    assert.ok(log.includes('unresolved_entities'), log);
+  });
+
+  it('MUTAÇÃO (guarda da criação): payload VAZIO recusa — e a via genérica não o salva', async () => {
+    const { value: resultado, text: log } = await captureConsole(() => issueFrom(argsCriacao({ payload: {} })));
+    assert.equal(resultado, null);
+    assert.equal(store.inserts.length, 0);
+    assert.ok(log.includes('empty_payload'), log);
+  });
+
+  it('MUTAÇÃO (snapshot de criação): `creationSnapshot` codificado recusa — a execução veria MAIS', async () => {
+    // `handleManifestCreateFromPayload` executa `{...snapshotPayload, ...args.payload}` e só ELE
+    // decodifica o blob. Com snapshot, a prévia mostraria menos do que seria criado. Apagar
+    // `hasEncodedCreationSnapshot` faz este caso virar `notice_missing` e quebrar.
+    const { value: resultado, text: log } = await captureConsole(() =>
+      issueFrom(argsCriacao({ creationSnapshot: 'eyJzbmFwc2hvdFZlcnNpb24iOiJ2MSJ9' }))
+    );
+    assert.equal(resultado, null);
+    assert.equal(store.inserts.length, 0);
+    assert.ok(log.includes('creation_snapshot_not_conferible'), log);
+
+    // CONTROLE NEGATIVO 1: os MESMOS argumentos sem o snapshot chegam ao portão.
+    const semSnapshot = await issueFrom(argsCriacao());
+    assert.equal(semSnapshot.outcome, 'whatsapp_inbound_action_notice_missing');
+
+    // CONTROLE NEGATIVO 2: `selectionSnapshot` como OBJETO não decodifica no dispatcher (o parser usa
+    // `toNullableString`), logo não muda o payload executado — e também não recusa aqui.
+    const objeto = await issueFrom(argsCriacao({ selectionSnapshot: { selectedManifestIds: [] } }));
+    assert.equal(objeto.outcome, 'whatsapp_inbound_action_notice_missing');
+  });
+
+  /* ---- o bloco de conferência na prévia do ticket (camada de texto) -------------------------- */
+
+  it('o bloco de conferência SUBSTITUI a lista genérica e a cauda do ticket continua inteira', async () => {
+    // O caminho de emissão fica inalcançável enquanto o portão N2 está fechado, então a montagem é
+    // verificada onde ela mora: `buildWhatsAppConfirmationPreview`.
+    const conferencia = await buildWhatsAppReceiveConference(argsRecebimento());
+    assert.equal(conferencia.canIssueTicket, true);
+
+    const previa = buildWhatsAppConfirmationPreview({
+      headline: 'Dar baixa (receber) em 1 MTR',
+      items: [{ label: conferencia.manifestLabel }],
+      accountLabel: 'NOVA IT AMBIENTAL (12.345.678/0001-90)',
+      code: '481902',
+      ttlSeconds: 300,
+      ticketId: 'cvfy_d4',
+      supersededSummary: null,
+      windowLine: 'Liberacao ativa - esta seria a 1a de 3 acoes.',
+      irreversibleWarning: null,
+      conferenceBlock: conferencia.text
+    });
+
+    assert.ok(previa.includes('*Dar baixa (receber) no MTR 202600777001*'), previa);
+    assert.ok(previa.includes('- Oleo lubrificante usado: 2,5 t'), previa);
+    // A manchete genérica NÃO é repetida acima do bloco — dois títulos para a mesma coisa.
+    assert.equal(previa.includes('Confere antes de eu executar:'), false);
+    // A cauda do ticket é do ticket, e continua toda lá.
+    assert.ok(previa.includes('Conta CETESB: NOVA IT AMBIENTAL (12.345.678/0001-90)'));
+    assert.ok(previa.includes('Liberacao ativa - esta seria a 1a de 3 acoes.'));
+    assert.ok(previa.includes('responda so com o codigo *481902*'));
+    assert.ok(previa.includes('Protocolo: cvfy_d4'));
+
+    // CONTROLE NEGATIVO: sem bloco, a MESMA chamada volta à lista genérica.
+    const generica = buildWhatsAppConfirmationPreview({
+      headline: 'Dar baixa (receber) em 1 MTR',
+      items: [{ label: conferencia.manifestLabel }],
+      accountLabel: null,
+      code: '481902',
+      ttlSeconds: 300,
+      ticketId: 'cvfy_d4'
+    });
+    assert.ok(generica.includes('Confere antes de eu executar:'));
+    assert.equal(generica.includes('- Oleo lubrificante usado: 2,5 t'), false);
+  });
+
+  it('bloco presente mas SEM rótulo conferível continua devolvendo `null` — a guarda não foi afrouxada', () => {
+    // O bloco é texto já formatado; deixá-lo satisfazer a guarda faria um id interno virar
+    // "conferência" só por estar dentro de um parágrafo bonito.
+    const semRotulo = buildWhatsAppConfirmationPreview({
+      headline: 'Dar baixa (receber) em 1 MTR',
+      items: [{ label: `man_${'a'.repeat(26)}` }],
+      accountLabel: null,
+      code: '481902',
+      ttlSeconds: 300,
+      ticketId: 'cvfy_d4',
+      conferenceBlock: '*Dar baixa (receber) no MTR 202600777001*\nGerador: NOVA IT AMBIENTAL LTDA'
+    });
+    assert.equal(semRotulo, null);
+  });
+
+  it('o texto do portão por ação: `submit` intacto, e sem entrada o padrão é o de emissão', () => {
+    // O texto de `submit` é asserido palavra por palavra em outro caso desta suíte; aqui se prende
+    // que a tabela nova NÃO o reescreveu, e que uma chave desconhecida cai no desfecho seguro.
+    assert.equal(buildWhatsAppN2NoticeMissingText('submit_manifest'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+    assert.equal(buildWhatsAppN2NoticeMissingText('manifest.batch_submit_selected'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+    assert.equal(buildWhatsAppN2NoticeMissingText('chave.desconhecida'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+    assert.equal(buildWhatsAppN2NoticeMissingText('constructor'), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+
+    // E que as duas promovidas têm texto PRÓPRIO — não o de emissão.
+    assert.notEqual(buildWhatsAppN2NoticeMissingText(WHATSAPP_RECEIVE_ACTION_KEY), WHATSAPP_N2_NOTICE_MISSING_TEXT);
+    assert.notEqual(buildWhatsAppN2NoticeMissingText(WHATSAPP_CREATE_ACTION_KEY), WHATSAPP_N2_NOTICE_MISSING_TEXT);
   });
 });

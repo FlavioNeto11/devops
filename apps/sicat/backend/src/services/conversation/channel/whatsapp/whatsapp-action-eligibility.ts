@@ -19,8 +19,10 @@
  *  N1 — nada muda de estado na CETESB: 2ª via de documento que já existe (`print`) e rascunhos
  *       locais (`replicate_segmented`, `jobId: null`). O código de 6 dígitos aqui é desambiguador e
  *       anti-replay, **não** segundo fator: ele chega pelo mesmo fio que a pergunta.
- *  N2 — nasce MTR real na CETESB e a única compensação é o cancelamento, que este desenho recusa.
- *       Exige, além do ticket, uma JANELA DE AÇÃO aberta na sessão web autenticada.
+ *  N2 — muda o registro externo sem inverso (`submit`, `receive_with_receipt`) ou foi posto aqui por
+ *       decisão explícita do operador para herdar a janela (`create_from_payload`, que só grava
+ *       rascunho local — a exceção está dita por extenso na tabela abaixo). Exige, além do ticket,
+ *       uma JANELA DE AÇÃO aberta na sessão web autenticada.
  *
  * ⚠️ N2 NÃO É LIBERADO NESTA FASE. O desenho condiciona `submit` ao aviso de conclusão
  * (`whatsapp.outbound_notice`): hoje quem age pelo canal não recebe o desfecho — `buildBatchActionFamily`
@@ -56,26 +58,54 @@ export const WHATSAPP_ELIGIBLE_ACTIONS: Readonly<Record<string, WhatsAppEligible
   'manifest.batch_print_selected': { tier: 'N1', maxItems: 5 },
   'manifest.replicate_segmented': { tier: 'N1', maxItems: 2 },
   submit_manifest: { tier: 'N2', maxItems: 1 },
-  'manifest.batch_submit_selected': { tier: 'N2', maxItems: 3 }
+  'manifest.batch_submit_selected': { tier: 'N2', maxItems: 3 },
+  // ┌─ PROMOÇÃO DA UNIDADE D4 — as duas saíram de `CHANNEL_HARD_DENY` ─────────────────────────────┐
+  // │ Saíram porque a razão que as prendia lá era A MESMA nas duas: "não há conferência visual no  │
+  // │ canal". Isso deixou de ser verdade — `whatsapp-receive-preview.ts` e `whatsapp-create-preview`│
+  // │ constroem a conferência item a item, FAIL-CLOSED, e `tryIssueWhatsAppActionTicket` recusa o  │
+  // │ ticket quando a prévia não fecha. As demais chaves da recusa continuam lá, com os motivos     │
+  // │ delas intactos (cancelamento sem inverso, CDF sobre `manifest.read`, `create_draft` sem       │
+  // │ confirmação, `replicate_manifest` sem teto de lote).                                          │
+  // │                                                                                               │
+  // │ `maxItems: 1` nas duas: são ações de UM manifesto por vez, e nenhuma passa por                │
+  // │ `BATCH_LIMITS_BY_INTENT` com lote maior.                                                      │
+  // │                                                                                               │
+  // │ SOBRE O TIER — dito sem maquiagem, porque o critério desta casa é o EFEITO IRREVERSÍVEL e as  │
+  // │ duas NÃO são iguais sob esse critério:                                                        │
+  // │  · `manifest.receive_with_receipt` É N2 por mérito próprio: `handleManifestReceiveWithReceipt`│
+  // │    enfileira `manifest.receive`, e o handler chama `gateway.receiveManifest` — recibo REAL na │
+  // │    CETESB, sem inverso no gateway nem no contrato capturado.                                  │
+  // │  · `manifest.create_from_payload` NÃO cria nada na CETESB. Verificado no código, não no       │
+  // │    comentário: `handleManifestCreateFromPayload` → `createManifest` → `createManifestDraftRecord`,│
+  // │    que faz UM insert local com `status:'draft'`, `externalStatus:'pending_submission'` e      │
+  // │    `externalReference: null`. Nenhuma chamada ao gateway. Pelo critério estrito da            │
+  // │    irreversibilidade externa ela seria N1, como `manifest.replicate_segmented` (que também só │
+  // │    gera rascunho local). Está em N2 por DECISÃO EXPLÍCITA do operador, e a razão é outra: o   │
+  // │    que se confere aqui são 6 entidades montadas pelo LLM sobre texto livre, e N2 é o único    │
+  // │    nível que soma a JANELA DE AÇÃO aberta na sessão web autenticada. O efeito colateral       │
+  // │    aceito é que ela herda o portão fechado do aviso de conclusão junto com a janela.          │
+  // └───────────────────────────────────────────────────────────────────────────────────────────────┘
+  'manifest.receive_with_receipt': { tier: 'N2', maxItems: 1 },
+  'manifest.create_from_payload': { tier: 'N2', maxItems: 1 }
 });
 
 /**
- * Recusa permanente, com os dez nomes por extenso. Cada bloco tem motivo próprio:
+ * Recusa permanente, com os OITO nomes por extenso (eram dez até a unidade D4 promover recebimento e
+ * criação — ver o bloco em `WHATSAPP_ELIGIBLE_ACTIONS`). Cada bloco tem motivo próprio:
  *
  *  · cancelamento (3 chaves) — `POST /api/mtr/manifesto/cancelaManifesto` não tem inverso no gateway
  *    nem no contrato capturado; desfazer é emitir OUTRO MTR, com número, data e trilha novos. Some-se
  *    a seleção cega: `cancel_recent_excluding_first` decide por linguagem natural quais MTRs morrem, e
- *    no celular não há a lista para conferir.
+ *    no celular não há a lista para conferir. PRÉVIA NÃO RESOLVE ISTO: o problema não é conferir, é
+ *    não haver volta nenhuma depois de confirmado.
  *  · CDF (3 chaves) — as três exigem apenas `manifest.read` (`READ_ONLY_TOOLS`), chave do papel-piso
  *    concedida a todo auto-cadastro público, e uma delas EMITE certificado na CETESB. Step-up sobre a
  *    chave errada é teatro. Reavaliar só depois da fase 4.6.
- *  · `manifest.receive_with_receipt` — registra recebimento com recibo na CETESB, sem inverso e sem
- *    contexto visual. Primeira candidata a promoção depois que o mecanismo rodar em produção.
- *  · `manifest.create_from_payload` — conferir gerador, resíduo, transportador, motorista e placa
- *    montados pelo LLM sobre texto livre, por mensagem, não é conferência.
  *  · `manifest.create_draft` — A ARMADILHA SILENCIOSA DA FASE. É `requiresConfirmation: false` e
  *    `isAction: true`: no instante em que `allowActions` deixa de ser o literal `false`, é a ÚNICA
- *    ação que passaria sem nenhuma confirmação. Está aqui EXPLICITAMENTE, nunca por omissão.
+ *    ação que passaria sem nenhuma confirmação. Está aqui EXPLICITAMENTE, nunca por omissão — e
+ *    continuou aqui na D4: prévia de conferência não serve de nada numa ação que nunca PEDE
+ *    conferência.
  *  · `replicate_manifest` (direto) — `normalizeBatchCount` aceita `count` até 100 e
  *    `BATCH_LIMITS_BY_INTENT` não alcança tool sem intent. Quem quer replicar usa
  *    `manifest.replicate_segmented` (<= 2), que passa pelo teto.
@@ -87,8 +117,6 @@ export const CHANNEL_HARD_DENY: ReadonlySet<string> = new Set<string>([
   'cdf.generate_from_manifest_selection',
   'enqueue_cdf_download',
   'cdf.download_batch_selected',
-  'manifest.receive_with_receipt',
-  'manifest.create_from_payload',
   'manifest.create_draft',
   'replicate_manifest'
 ]);

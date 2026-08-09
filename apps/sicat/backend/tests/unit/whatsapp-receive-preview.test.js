@@ -466,12 +466,14 @@ describe('teto de itens e higiene de texto do canal', () => {
   });
 });
 
-describe('inercia da unidade: a promocao de elegibilidade continua sendo do coordenador', () => {
-  it('manifest.receive_with_receipt segue em CHANNEL_HARD_DENY e fora das elegiveis', () => {
-    assert.equal(CHANNEL_HARD_DENY.has(WHATSAPP_RECEIVE_ACTION_KEY), true);
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(WHATSAPP_ELIGIBLE_ACTIONS, WHATSAPP_RECEIVE_ACTION_KEY),
-      false
-    );
+describe('a promocao ACONTECEU: o modulo deixou de ser inerte na unidade D4', () => {
+  it('manifest.receive_with_receipt saiu de CHANNEL_HARD_DENY e entrou como N2 / maxItems 1', () => {
+    // ⚠️ ESTE CASO FOI INVERTIDO. Ele afirmava a inercia da unidade D2 ("segue em CHANNEL_HARD_DENY
+    // e fora das elegiveis"), que era verdade enquanto ninguem chamava `buildWhatsAppReceiveConference`.
+    // A unidade D4 ligou a previa a `tryIssueWhatsAppActionTicket` e promoveu a chave; manter a
+    // afirmacao antiga aqui deixaria no repo um teste verde dizendo o contrario do codigo — que e
+    // exatamente o modo de falha que esta cadeia ja pagou cinco vezes.
+    assert.equal(CHANNEL_HARD_DENY.has(WHATSAPP_RECEIVE_ACTION_KEY), false);
+    assert.deepEqual(WHATSAPP_ELIGIBLE_ACTIONS[WHATSAPP_RECEIVE_ACTION_KEY], { tier: 'N2', maxItems: 1 });
   });
 });

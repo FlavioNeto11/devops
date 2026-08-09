@@ -1,13 +1,22 @@
 /**
- * D3 — PRÉVIA DE CONFERÊNCIA PARA CRIAR MANIFESTO POR WHATSAPP (módulo NOVO, INERTE).
+ * D3 — PRÉVIA DE CONFERÊNCIA PARA CRIAR MANIFESTO POR WHATSAPP (ligada na unidade D4).
  *
  * ┌─ POR QUE ESTE MÓDULO EXISTE ──────────────────────────────────────────────────────────────────┐
- * │ Criar (`manifest.create_from_payload` / `manifest.create_draft`) está em `CHANNEL_HARD_DENY`   │
+ * │ Criar (`manifest.create_from_payload` / `manifest.create_draft`) ESTAVA em `CHANNEL_HARD_DENY` │
  * │ (`whatsapp-action-eligibility.ts`) com uma razão explícita: "conferir 6 entidades montadas pelo│
  * │ LLM sobre texto livre, por mensagem, não é conferência". O operador decidiu liberar assim mesmo,│
- * │ nas duas formas, MAS só com uma prévia que torne a criação de fato conferível. Este módulo é    │
- * │ essa prévia — e nada além dela. A PROMOÇÃO da elegibilidade é do COORDENADOR; aqui não se toca  │
- * │ `whatsapp-action-eligibility.ts`, e ninguém chama este módulo ainda (INERTE).                    │
+ * │ MAS só com uma prévia que torne a criação de fato conferível. Este módulo é essa prévia — e     │
+ * │ nada além dela; a PROMOÇÃO da elegibilidade nunca foi feita aqui.                               │
+ * │                                                                                                │
+ * │ ⚠️ CABEÇALHO CORRIGIDO NA D4. Ele dizia "INERTE / ninguém chama este módulo ainda", e isso     │
+ * │ deixou de ser verdade: `tryIssueWhatsAppActionTicket` chama `buildWhatsAppCreatePreview` no    │
+ * │ modo `complete` para `manifest.create_from_payload`, que foi promovida em N2. Duas coisas NÃO  │
+ * │ mudaram: `manifest.create_draft` CONTINUA na recusa permanente (ela não pede confirmação, então│
+ * │ prévia não a salva) e o portão do N2 continua fechado, então nenhum ticket de criação sai hoje.│
+ * │                                                                                                │
+ * │ O modo `replicate` segue SEM CHAMADOR: nenhuma chave promovida executa "replicar a partir de   │
+ * │ uma origem" — `manifest.replicate_segmented` (N1) tem identidade própria e                     │
+ * │ `manifest.replicate_with_patch` não é elegível no canal.                                        │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * DOIS MODOS:
