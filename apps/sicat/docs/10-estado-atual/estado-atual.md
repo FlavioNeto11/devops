@@ -88,6 +88,13 @@ Rotas publicadas em `src/routes/*.ts`, conferidas contra o código:
 - **Canal WhatsApp**: `GET|POST /v1/channels/whatsapp/webhook` (rota **pública**) e 9 rotas
   `/v1/sicat/channel-links/*` (§2.7).
 
+> **Autenticação desta superfície.** Toda rota acima exige `sicatAuthMiddleware` (Bearer do SICAT),
+> com exatamente **9 exceções**: `GET /health`, `GET /v1/ping`, `POST /v1/auth/login`,
+> `POST /v1/sicat/auth/{login,register,refresh,keycloak}` e o webhook do canal (GET+POST, autenticado
+> por HMAC do provedor). A lista é fechada e verificada por
+> [tests/api/v1-auth-coverage.test.js](../../backend/tests/api/v1-auth-coverage.test.js), que enumera
+> o router realmente montado — rota nova nasce fechada. Ver §4, item "autorização das rotas REST".
+
 ### 2.2 Contrato OpenAPI — 104 operações
 
 [openapi/mtr_automacao_openapi_interna.yaml](../../backend/openapi/mtr_automacao_openapi_interna.yaml)
@@ -367,11 +374,18 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 
 ## 4. Riscos e limites conhecidos
 
-- **P0 — autorização das rotas REST.** `middlewares/auth.ts` só verifica a **presença** de um header
-  `Bearer`. `GET /v1/jobs/search`, `GET /v1/jobs/:jobId`, a DLQ (incluindo `requeue`/`delete`, que
-  **mutam**) e as rotas de ação de manifesto **não têm** `sicatAuthMiddleware`. Depois da fase 4.5,
-  **o chat é a superfície mais restrita do SICAT** — a propriedade "a IA não eleva permissão" é
-  verdadeira; "o usuário não conseguiria pela tela" continua **falsa**, por outro motivo.
+- ~~**P0 — autorização das rotas REST.**~~ **FECHADO.** `middlewares/auth.ts` continua verificando só
+  a **presença** de um `Bearer` (e tem default `AUTH_REQUIRED=false`), mas ele deixou de ser a única
+  linha: `sicatAuthMiddleware` foi aplicado às **74 rotas** que estavam abertas — 67 em `/v1` e as 7
+  de `/health/*`. Medição que motivou o fechamento (produção `dev.nvit.com.br`, 2026-08-08):
+  `GET /v1/manifestos` sem token respondia **400** (`integrationAccountId is required`), isto é,
+  passava da autenticação e morria na validação de negócio. A superfície pública agora é uma lista
+  FECHADA de 9 caminhos (`GET /health`, `GET /v1/ping`, `POST /v1/auth/login`,
+  `POST /v1/sicat/auth/{login,register,refresh,keycloak}`, webhook do canal GET+POST), e
+  `tests/api/v1-auth-coverage.test.js` enumera o router montado para que rota nova nasça fechada.
+  Contrato em lockstep: 17 operações perderam `security: []` e 61 ganharam o `401`
+  (`UnauthorizedProblem`). **Pendência remanescente:** `/docs` e `/openapi.{json,yaml}` seguem
+  públicos — servem o contrato interno, cujos `examples` carregam CNPJ, endereço e nome reais.
 - **Heartbeat de claim por lote** — `claimJobs(10)` reivindica 10 jobs, o laço processa em série e
   `startClaimHeartbeat` só começa na vez de cada job: os jobs 2..N ficam `running` com heartbeat
   congelado e viram candidatos de `requeueStaleRunningJobs` em 5 min → **risco de execução dupla de

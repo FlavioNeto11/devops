@@ -219,7 +219,19 @@ async function testPartnerInfo() {
 
   try {
     const document = '31913781000139';
-    const response = await fetchWithTimeout(`${API_BASE}/v1/auth/partner-info?document=${document}`);
+    // `/v1/auth/partner-info` exige sessão SICAT desde o fechamento da superfície `/v1` — o login
+    // CETESB testado acima devolve um token do ÓRGÃO, que não serve aqui. Exporte
+    // `SMOKE_ACCESS_TOKEN` (access token do `POST /v1/sicat/auth/login`) para exercitar de verdade.
+    const sicatToken = String(process.env.SMOKE_ACCESS_TOKEN || '').trim();
+    const response = await fetchWithTimeout(
+      `${API_BASE}/v1/auth/partner-info?document=${document}`,
+      sicatToken ? { headers: { Authorization: `Bearer ${sicatToken}` } } : {}
+    );
+
+    if (response.status === 401 && !sicatToken) {
+      logInfo('Partner info exige sessão SICAT (401 esperado sem SMOKE_ACCESS_TOKEN)');
+      return true;
+    }
 
     if (response.status !== 200) {
       logWarning(`Partner info retornou status ${response.status} (pode ser esperado se não implementado mock)`);

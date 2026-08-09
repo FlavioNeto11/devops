@@ -691,10 +691,12 @@ export function searchPartners(params = {}) {
   return dedupedGet(`/v1/partners/search${toQueryString(buildPartnerSearchQueryParams(params))}`);
 }
 
+// SEM `skipAuth`: `/v1/auth/partner-info` passou a exigir sessão SICAT. O único chamador é
+// `CetesbAccountSelectionView`, cuja rota `/login/cetesb` já é `requiresSicatAuth: true` — o token
+// sempre existe aqui. Sem sessão, a rota é um proxy anônimo de consulta de CNPJ contra a CETESB,
+// feito com a CA e o IP do nosso backend.
 export function getPartnerInfo(document) {
-  return request(`/v1/auth/partner-info${toQueryString({ document })}`, {
-    skipAuth: true
-  });
+  return request(`/v1/auth/partner-info${toQueryString({ document })}`);
 }
 
 export function createManifest(payload) {
