@@ -27,6 +27,7 @@ import {
 import {
   MANIFEST_SUBMIT_UNCONFIRMED_STATUS,
   buildManifestSubmitFailureExternalStatus,
+  isManifestFailureState,
   isManifestSubmitUnconfirmedStatus,
   isTransientManifestSubmitStatus
 } from '../lib/manifest-submit-status.js';
@@ -1031,16 +1032,12 @@ function buildBatchResponse({ groupId, operation, items, sourceManifestId = null
   };
 }
 
+// Delegado a `lib/manifest-submit-status.ts`: a classificação por substring lia
+// como sinal de estado a palavra "DLQ" que aparece no TEXTO da mensagem de
+// "envio sem confirmação" — e era isto que autorizava `removeManifest` a apagar
+// a linha local de um MTR que pode ter nascido na CETESB.
 function isManifestInFailureState(manifest: ManifestLike) {
-  const status = toTrimmedString(manifest?.status).toLowerCase();
-  const externalStatus = toTrimmedString(manifest?.externalStatus).toLowerCase();
-  const combinedStatus = `${status} ${externalStatus}`;
-
-  return combinedStatus.includes('fail')
-    || combinedStatus.includes('error')
-    || combinedStatus.includes('falha')
-    || combinedStatus.includes('erro')
-    || combinedStatus.includes('dlq');
+  return isManifestFailureState(manifest);
 }
 
 function canReplicateManifest(manifest: ManifestLike) {

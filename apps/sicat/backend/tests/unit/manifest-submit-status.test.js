@@ -6,6 +6,7 @@ import {
   TRANSIENT_MANIFEST_SUBMIT_STATUSES,
   buildManifestSubmitConfirmedExternalStatus,
   buildManifestSubmitFailureExternalStatus,
+  isManifestFailureState,
   isManifestSubmitUnconfirmedStatus,
   isReconcilableManifestSubmitStatus,
   isTransientManifestSubmitStatus
@@ -108,4 +109,94 @@ test('mensagem de confirmação identifica o MTR encontrado', () => {
   const semIdentidade = buildManifestSubmitConfirmedExternalStatus();
   assert.match(semIdentidade, /confirmado na CETESB/i);
   assert.equal(instructsResend(semIdentidade), false);
+});
+
+// ---------------------------------------------------------------------------
+// O TEXTO DA MENSAGEM NÃO PODE VIRAR SINAL DE ESTADO
+//
+// `isManifestFailureState` autoriza `removeManifest` a APAGAR a linha local. A
+// mensagem que este mesmo módulo grava em `external_status` para um submit sem
+// confirmação morto em DLQ contém a palavra "DLQ" — e a classificação por
+// substring lia isso como falha, liberando a remoção do único rastro de um MTR
+// que pode ter nascido na CETESB.
+//
+// As mensagens abaixo saem do gerador REAL (`buildManifestSubmitFailureExternalStatus`),
+// não de literais copiados: se o texto mudar, o teste continua medindo o texto
+// que o sistema de fato grava.
+// ---------------------------------------------------------------------------
+
+const UNCONFIRMED_DLQ_MESSAGE = buildManifestSubmitFailureExternalStatus({
+  certainty: 'unknown',
+  terminalAction: 'dlq'
+});
+
+test('a palavra "DLQ" no texto de "envio sem confirmação" NÃO torna o manifesto uma falha', () => {
+  // Pré-condição do defeito: o texto realmente contém o fragmento que a
+  // classificação por substring procura. Sem esta âncora o teste passaria
+  // vaziamente caso a mensagem deixasse de mencionar DLQ.
+  assert.ok(UNCONFIRMED_DLQ_MESSAGE.toLowerCase().includes('dlq'));
+
+  assert.equal(
+    isManifestFailureState({
+      status: MANIFEST_SUBMIT_UNCONFIRMED_STATUS,
+      externalStatus: UNCONFIRMED_DLQ_MESSAGE
+    }),
+    false,
+    'remover a linha de um MTR que pode ter nascido apaga o único fio para achar o órfão'
+  );
+});
+
+test('nenhuma mensagem de "envio sem confirmação" promove o manifesto a falha', () => {
+  for (const terminalAction of ['dlq', 'failed', 'cancelled', 'orphan', null]) {
+    const externalStatus = buildManifestSubmitFailureExternalStatus({
+      certainty: 'unknown',
+      terminalAction,
+      detail: 'job de submit não encontrado',
+      technicalCause: 'socket hang up'
+    });
+
+    assert.equal(
+      isManifestFailureState({ status: MANIFEST_SUBMIT_UNCONFIRMED_STATUS, externalStatus }),
+      false,
+      `terminalAction=${terminalAction} vazou como falha: ${externalStatus}`
+    );
+  }
+});
+
+test('CONTROLE NEGATIVO: falha DE VERDADE continua sendo falha (e removível)', () => {
+  // Sem este par, o guard poderia ter sido escrito como `return false` e os
+  // testes acima passariam igual — com `removeManifest` inutilizado.
+  const provenAbsent = buildManifestSubmitFailureExternalStatus({
+    certainty: 'confirmed-absent',
+    terminalAction: 'dlq'
+  });
+
+  assert.equal(isManifestFailureState({ status: 'failed', externalStatus: provenAbsent }), true);
+  assert.equal(isManifestFailureState({ status: 'failed', externalStatus: '' }), true);
+  assert.equal(isManifestFailureState({ status: 'dlq' }), true);
+  assert.equal(isManifestFailureState({ status: 'submitted', externalStatus: 'Falha na validação' }), true);
+  assert.equal(isManifestFailureState({ status: 'submitted', externalStatus: 'Erro no envio' }), true);
+});
+
+test('CONTROLE NEGATIVO: estados saudáveis não viram falha', () => {
+  for (const manifest of [
+    { status: 'draft' },
+    { status: 'submitted', externalStatus: 'Recebido' },
+    { status: 'cancelled', externalStatus: 'Cancelado' },
+    {},
+    null
+  ]) {
+    assert.equal(isManifestFailureState(manifest), false, `${JSON.stringify(manifest)} não é falha`);
+  }
+});
+
+test('o guard casa o status INTERNO exato — texto livre da CETESB não blinda ninguém', () => {
+  // Se o guard casasse por substring no par inteiro, bastaria a CETESB devolver
+  // a expressão para um manifesto FALHO deixar de ser removível.
+  assert.equal(
+    isManifestFailureState({ status: 'failed', externalStatus: 'submit_unconfirmed' }),
+    true,
+    'o token só vale como status interno'
+  );
+  assert.equal(isManifestFailureState({ status: '  SUBMIT_UNCONFIRMED  ', externalStatus: 'dlq' }), false, 'caixa/espaço não importam');
 });

@@ -6,6 +6,7 @@ import { useCdfOperationalContext } from '../composables/useCdfOperationalContex
 import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
 import { formatPageCounter } from '../lib/pagination-label.js';
 import { pluralize } from '../lib/plural-pt.js';
+import { isoToday } from '../utils/date-format.js';
 import {
   CDF_PAGE_SIZE_OPTIONS,
   clampPage,
@@ -14,6 +15,21 @@ import {
   paginateRows,
   resolveTotalPages
 } from '../features/cdf/cdfTableState.js';
+// Quem decide elegibilidade para CDF é `manifestHelpers`, via este módulo — esta
+// tela NÃO tem opinião própria. Ela já teve: a cópia local não conhecia
+// `submit_unconfirmed` e oferecia como elegível o manifesto que a listagem
+// bloqueia de propósito (ver o cabeçalho de cdfCandidateEligibility.js).
+import {
+  areAllEligibleSelected,
+  buildCdfCandidateEntry,
+  collectEligibleSnapshots,
+  resolveEligibleSelectionToggle
+} from '../features/cdf/cdfCandidateEligibility.js';
+import {
+  normalizeDocument,
+  resolveManifestIdentifier,
+  toIntegerOrNull
+} from '../features/mtr/list/manifestHelpers.js';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
@@ -25,14 +41,6 @@ import SicatInlineAlert from '../components/sicat/SicatInlineAlert.vue';
 
 const route = useRoute();
 const router = useRouter();
-
-function pad2(value) {
-  return String(value).padStart(2, '0');
-}
-
-function formatLocalDateInput(date = new Date()) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
 
 function toStartOfDayIso(value) {
   const normalized = String(value || '').trim();
@@ -59,105 +67,6 @@ function toNoonIso(value) {
   return Number.isNaN(candidate.getTime()) ? '' : candidate.toISOString();
 }
 
-function toIntegerOrNull(value) {
-  const normalized = String(value ?? '').trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-function normalizeDocument(documentValue) {
-  return String(documentValue || '').replaceAll(/\D/g, '');
-}
-
-function resolveManifestIdentifier(manifest) {
-  return String(
-    manifest?.id
-    || manifest?.manifestId
-    || manifest?.entityId
-    || manifest?.manifestNumber
-    || manifest?.externalCode
-    || ''
-  ).trim();
-}
-
-function resolveManifestIdentifiers(manifest) {
-  const externalReference = manifest?.externalReference || manifest?.externalSnapshot || {};
-  const externalSnapshot = manifest?.externalSnapshot || {};
-
-  return {
-    manCodigo: externalReference?.manCodigo ?? externalSnapshot?.manCodigo ?? null,
-    manNumero: externalReference?.manNumero ?? externalSnapshot?.manNumero ?? null,
-    manHashCode: manifest?.externalHashCode || externalSnapshot?.manHashCode || null
-  };
-}
-
-function resolveManifestSnapshot(manifest) {
-  if (!manifest) {
-    return null;
-  }
-
-  const identifiers = resolveManifestIdentifiers(manifest);
-  const generatorDocument = normalizeDocument(manifest?.generator?.document);
-
-  return {
-    ...identifiers,
-    parceiroGerador: generatorDocument ? { parCnpj: generatorDocument } : undefined
-  };
-}
-
-function formatManifestLabel(manifest) {
-  return String(manifest?.manifestNumber || manifest?.externalCode || resolveManifestIdentifier(manifest) || 'manifesto').trim();
-}
-
-function normalizedStatusValue(manifest) {
-  return `${String(manifest?.status || '').toLowerCase()} ${String(manifest?.externalStatus || '').toLowerCase()}`.trim();
-}
-
-function hasIssuedCdfReference(manifest) {
-  const externalSnapshot = manifest?.externalSnapshot || {};
-  const externalReference = manifest?.externalReference || {};
-
-  return [
-    manifest?.cdfEmitidoNumero,
-    externalSnapshot?.cdfEmitidoNumero,
-    externalReference?.cdfEmitidoNumero,
-    manifest?.certificateCode,
-    manifest?.certificateId
-  ].some((value) => String(value ?? '').trim());
-}
-
-function describeCdfManifestRestriction(manifest, hasRemoteIdentity) {
-  const status = normalizedStatusValue(manifest);
-  const alreadyCancelled = status.includes('cancel');
-  const hasFailure = status.includes('fail') || status.includes('erro') || status.includes('error') || status.includes('dlq');
-
-  if (!hasRemoteIdentity) {
-    return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
-  }
-
-  if (hasIssuedCdfReference(manifest)) {
-    return 'Este manifesto já tem um certificado (CDF).';
-  }
-
-  if (alreadyCancelled) {
-    return 'Este manifesto foi cancelado.';
-  }
-
-  if (hasFailure) {
-    return 'Este manifesto teve um problema. Reenvie antes de gerar o certificado.';
-  }
-
-  if (!status.includes('receb')) {
-    return 'Ainda não foi recebido. O certificado só sai depois do recebimento.';
-  }
-
-  return '';
-}
-
 const {
   activeAccount,
   integrationAccountId,
@@ -173,17 +82,19 @@ const requestedManifestIds = computed(() => {
   return Array.from(new Set(raw.split(',').map((id) => id.trim()).filter(Boolean)));
 });
 
-function formatFirstDayOfMonthInput(date = new Date()) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-01`;
+// Derivado de `isoToday()` (utils/date-format.js) para não haver uma SEGUNDA
+// formatação de data local nesta tela — era daí que vinha o `pad2` duplicado.
+function isoFirstDayOfCurrentMonth() {
+  return `${isoToday().slice(0, 8)}01`;
 }
 
 // Período pré-preenchido de forma SIMÉTRICA (mês corrente até hoje). Antes só a
 // "Data final" vinha preenchida e a "Data inicial" ficava vazia, o que parecia
 // erro de carregamento — o operador segue livre para trocar as duas datas.
 const cdfForm = reactive({
-  issueAt: formatLocalDateInput(new Date()),
-  dateFrom: formatFirstDayOfMonthInput(new Date()),
-  dateTo: formatLocalDateInput(new Date()),
+  issueAt: isoToday(),
+  dateFrom: isoFirstDayOfCurrentMonth(),
+  dateTo: isoToday(),
   responsibleCode: null,
   observation: ''
 });
@@ -216,45 +127,20 @@ const cdfLoading = ref(false);
 
 const selectedManifestEntries = computed(() => (Array.isArray(manifests.value) ? manifests.value : [])
   .filter((manifest) => selectedManifestIds.value.includes(resolveManifestIdentifier(manifest)))
-  .map((manifest) => {
-    const snapshot = resolveManifestSnapshot(manifest);
-    const hasRemoteIdentity = Boolean(snapshot?.manCodigo || snapshot?.manNumero || snapshot?.manHashCode);
-    const reason = describeCdfManifestRestriction(manifest, hasRemoteIdentity);
-    const eligible = hasRemoteIdentity && !reason;
+  .map((manifest) => buildCdfCandidateEntry(manifest)));
 
-    return {
-      manifest,
-      snapshot,
-      eligible,
-      reason,
-      manifestId: resolveManifestIdentifier(manifest),
-      manifestLabel: formatManifestLabel(manifest)
-    };
-  }));
-
-const selectedManifestSnapshots = computed(() => selectedManifestEntries.value
-  .filter((entry) => entry.eligible && entry.snapshot)
-  .map((entry) => entry.snapshot));
+const selectedManifestSnapshots = computed(() => collectEligibleSnapshots(selectedManifestEntries.value));
 
 const selectedManifestCount = computed(() => selectedManifestEntries.value.length);
 const eligibleManifestCount = computed(() => selectedManifestSnapshots.value.length);
 const blockedManifestCount = computed(() => selectedManifestCount.value - eligibleManifestCount.value);
 
 const candidateManifestEntries = computed(() => (Array.isArray(manifests.value) ? manifests.value : []).map((manifest) => {
-  const snapshot = resolveManifestSnapshot(manifest);
-  const hasRemoteIdentity = Boolean(snapshot?.manCodigo || snapshot?.manNumero || snapshot?.manHashCode);
-  const reason = describeCdfManifestRestriction(manifest, hasRemoteIdentity);
-  const eligible = hasRemoteIdentity && !reason;
-  const manifestId = resolveManifestIdentifier(manifest);
+  const entry = buildCdfCandidateEntry(manifest);
 
   return {
-    manifest,
-    snapshot,
-    eligible,
-    reason,
-    manifestId,
-    manifestLabel: formatManifestLabel(manifest),
-    selected: selectedManifestIds.value.includes(manifestId)
+    ...entry,
+    selected: selectedManifestIds.value.includes(entry.manifestId)
   };
 }));
 
@@ -352,14 +238,7 @@ watch([candidatesPageSize, showOnlyBlockedCandidates], () => {
 watch(candidatesTotalRows, () => {
   candidatesPage.value = clampPage(candidatesPage.value, candidatesTotalRows.value, candidatesPageSize.value);
 });
-const allEligibleSelected = computed(() => {
-  const ids = eligibleCandidates.value.map((entry) => entry.manifestId).filter(Boolean);
-  if (!ids.length) {
-    return false;
-  }
-
-  return ids.every((id) => selectedManifestIds.value.includes(id));
-});
+const allEligibleSelected = computed(() => areAllEligibleSelected(candidateManifestEntries.value, selectedManifestIds.value));
 
 const generatorPartners = computed(() => {
   const seen = new Set();
@@ -500,15 +379,7 @@ function toggleManifestSelection(manifestId) {
 }
 
 function toggleAllEligibleManifests() {
-  if (allEligibleSelected.value) {
-    const eligibleIds = new Set(eligibleCandidates.value.map((entry) => entry.manifestId));
-    selectedManifestIds.value = selectedManifestIds.value.filter((id) => !eligibleIds.has(id));
-    return;
-  }
-
-  const next = new Set(selectedManifestIds.value);
-  eligibleCandidates.value.forEach((entry) => next.add(entry.manifestId));
-  selectedManifestIds.value = Array.from(next);
+  selectedManifestIds.value = resolveEligibleSelectionToggle(candidateManifestEntries.value, selectedManifestIds.value);
 }
 
 function openManifest(manifestId) {
