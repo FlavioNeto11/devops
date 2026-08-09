@@ -45,14 +45,12 @@ import {
 } from '../services/conversation/conversation-persistence-service.js';
 import { createPrefixedId } from '../lib/ids.js';
 import { buildManifestCorrelationMarker } from '../lib/manifest-correlation.js';
-import {
-  buildManifestSubmitFailureExternalStatus,
-  isTransientManifestSubmitStatus
-} from '../lib/manifest-submit-status.js';
+import { isTransientManifestSubmitStatus } from '../lib/manifest-submit-status.js';
 import {
   resolveManifestSubmitReconcilePatch,
   type GatewaySearchManifestsArgs,
-  type ManifestSubmitReconcileDeps
+  type ManifestSubmitReconcileDeps,
+  type ManifestSubmitReconcilePatch
 } from '../services/manifest-submit-reconciler.js';
 import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/retry.js';
 import { patchJobPayload } from './job-payload-patch.js';
@@ -680,6 +678,63 @@ function mergeEntityJobResult(existingPayload: unknown, operation: string, resul
   };
 }
 
+/**
+ * O ramo provisório pode CONFIRMAR pela pesquisa, mas não pode concluir
+ * AUSÊNCIA por ela.
+ *
+ * Motivo medido (não suposto): `searchManifests` monta o path com
+ * `tipoManifesto` 8/5/9 conforme o tipo da conta (`resolveManifestSearchTipo`
+ * em `src/gateways/cetesb-gateway.js`), enquanto o provisório é enviado com
+ * `tipoManifesto = 2` (`PROVISORIO_TIPO_MANIFESTO_OVERRIDE`, em
+ * `src/services/mtr-provisorio-service.ts`). Achar o marcador é prova de que o
+ * MTR NASCEU; não achar não é prova de que não nasceu — é só "esta pesquisa não
+ * o alcança". Por isso `allowTerminalFailure` fica FALSE aqui: só o desfecho
+ * `found` tem autoridade neste ramo.
+ *
+ * Ligar esta constante exige antes uma pesquisa provisório-aware no gateway
+ * (`tipoManifesto` do provisório na busca) — fora do escopo desta unidade.
+ */
+export const PROVISORIO_SUBMIT_RECONCILE_ALLOWS_TERMINAL_FAILURE = false;
+
+/**
+ * Traduz o patch do reconciliador (taxonomia do manifesto definitivo) para a
+ * taxonomia do provisório (`MtrProvisorioStatus`). Função PURA e total sobre os
+ * quatro desfechos possíveis do reconciliador — testável sem banco e sem CETESB.
+ *
+ * A correção que ela carrega: o ramo provisório gravava `failed_submit` sem
+ * nunca perguntar nada. "Falhou" e "não sei" são fatos diferentes, e o operador
+ * lê a diferença: `failed_submit` cai em `failed_*` no mapa operacional
+ * (`src/lib/operational-status.ts`), enquanto `awaiting_remote` cai em
+ * `awaiting_remote_confirmation` — que é literalmente o que aconteceu quando o
+ * PUT saiu e a resposta se perdeu. `awaiting_remote` NÃO é estado novo: o
+ * próprio `handleMtrProvisorioSubmit` já o usa quando o PUT responde sem
+ * resolver `manCodigo`/`manNumero`.
+ *
+ * ⚠️ CORREÇÃO DE UMA AFIRMAÇÃO QUE CIRCULOU: a tabela de transições em
+ * `src/lib/validators/mtr-provisorio-validator.ts` declara `failed_submit →
+ * queued_submit` como permitida e `awaiting_remote → queued_submit` como
+ * proibida, mas ela NÃO impede reenvio nenhum hoje — `validateStatusTransition`
+ * daquele módulo não tem chamador em `src/` (o repo escreve o status direto), e
+ * o provisório nem sequer tem rota de reenvio: `createMtrProvisorioService`
+ * sempre cria um registro NOVO. A tabela documenta a intenção; o que protege o
+ * operador aqui é o RÓTULO e a mensagem de `external_status`, não a máquina.
+ */
+export function mapManifestSubmitReconcilePatchToProvisorioStatus(
+  patch: Pick<ManifestSubmitReconcilePatch, 'status' | 'confirmed'>
+): MtrProvisorioRecord['status'] {
+  if (patch.confirmed) {
+    // `submitted` só sai do reconciliador com manCodigo + manNumero +
+    // manHashCode (a constraint `chk_manifest_submitted_integrity` exige o
+    // hash). O `processing` do ramo definitivo — "a CETESB reconheceu, a
+    // identidade ainda não fechou" — chama-se `awaiting_remote` aqui.
+    return patch.status === 'submitted' ? 'submitted' : 'awaiting_remote';
+  }
+  // `failed` só chega com ausência PROVADA (allowTerminalFailure = true).
+  if (patch.status === 'failed') return 'failed_submit';
+  // `submit_unconfirmed` = não sei. Nunca `failed_submit`.
+  return 'awaiting_remote';
+}
+
 export async function applyManifestSubmitTerminalFailureSideEffect(
   job: JobEntity,
   terminalFailure: TerminalFailure = {},
@@ -706,41 +761,52 @@ export async function applyManifestSubmitTerminalFailureSideEffect(
   );
 
   // R3-C: para `mtr_provisorio`, usar o repo provisório dedicado (preserva
-  // locking otimista).
-  //
-  // ⚠️ LIMITE CONHECIDO: este ramo NÃO reconcilia contra a CETESB e continua
-  // marcando `failed_submit`. A taxonomia de status do provisório vive em
-  // `repositories/mtr-provisorio-repo.ts` e não tem equivalente de
-  // `submit_unconfirmed`; introduzir um é escopo de outra unidade. O que MUDA
-  // aqui é só a mensagem: com certeza `unknown` ela para de mandar reenviar —
-  // que é exatamente o gatilho do MTR duplicado.
+  // locking otimista). Este ramo agora PERGUNTA à CETESB antes de rotular,
+  // pelo mesmo reconciliador do ramo definitivo — ele é puro e recebe o
+  // `searchManifests` que o job-runner já injeta nesta mesma chamada. O
+  // marcador de correlação existe aqui: `handleMtrProvisorioSubmit` grava
+  // `payload.submitCorrelation` no MESMO update que move para `submitting`,
+  // antes do PUT.
   if (job.entityType === 'mtr_provisorio') {
     const record = await findMtrProvisorioById(job.entityId);
     if (!record) return null;
     if (!isTransientManifestSubmitStatus(record.status)) {
       return null;
     }
-    const provisorioExternalStatus = buildManifestSubmitFailureExternalStatus({
-      certainty: 'unknown',
+
+    const reconcilePatch = await resolveManifestSubmitReconcilePatch(record, deps, {
+      allowTerminalFailure: PROVISORIO_SUBMIT_RECONCILE_ALLOWS_TERMINAL_FAILURE,
       terminalAction,
-      technicalCause
+      technicalCause,
+      correlationId: job.correlationId ?? null
     });
+    const provisorioStatus = mapManifestSubmitReconcilePatchToProvisorioStatus(reconcilePatch);
+    const confirmedManNumero = reconcilePatch.externalReference?.manNumero ?? null;
+
     const payloadWithResult = mergeEntityJobResult(record.payload, 'manifest.submit', {
       jobId: job.jobId,
-      outcome: 'manifest_submit_failed',
+      outcome: reconcilePatch.confirmed
+        ? 'manifest_submit_confirmed_by_reconcile'
+        : (provisorioStatus === 'failed_submit' ? 'manifest_submit_failed' : 'manifest_submit_unconfirmed'),
       kind: 'provisorio',
-      status: 'failed_submit',
-      externalStatus: provisorioExternalStatus,
+      status: provisorioStatus,
+      externalStatus: reconcilePatch.externalStatus,
       terminalAction,
       lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
       lastErrorMessage: technicalCause,
-      retriable: terminalAction !== 'failed'
+      // Reenviar só é seguro quando a pesquisa PROVOU que o MTR não nasceu — o
+      // que hoje este ramo nunca conclui (ver a constante logo acima).
+      retriable: provisorioStatus === 'failed_submit' && terminalAction !== 'failed'
     });
+
     return updateMtrProvisorioStatus(
       record.id,
       {
-        status: 'failed_submit',
-        externalStatus: provisorioExternalStatus,
+        status: provisorioStatus,
+        externalStatus: reconcilePatch.externalStatus,
+        ...(reconcilePatch.externalHashCode ? { externalHashCode: reconcilePatch.externalHashCode } : {}),
+        ...(reconcilePatch.externalReference ? { externalReference: reconcilePatch.externalReference } : {}),
+        ...(confirmedManNumero != null ? { provisionalNumber: String(confirmedManNumero) } : {}),
         payload: payloadWithResult,
         lastSyncAt: nowIso()
       },
@@ -910,6 +976,47 @@ async function handleWhatsAppOutboundNotice(job: JobEntity) {
   await finishJob(job, { outcome: result.outcome, ...result.patch });
 }
 
+// ---------------------------------------------------------------------------
+// Seam de teste do aviso de falha terminal do canal WhatsApp.
+//
+// POR QUE EXISTE: sem ele, a única dependência observável desta função
+// (`findConversationChannelLinkForChannel`) ia direto no pool real do Postgres,
+// e o teste da guarda passava a depender do AMBIENTE — com o banco fora, a
+// query rejeitava e o `catch` produzia o warn que o teste media; com o banco no
+// ar, a query resolvia `null` em silêncio e o mesmo teste falhava. Uma prova que
+// se apoia num erro de conexão não prova nada sobre o filtro: ela nunca chega a
+// exercitar o caminho de envio com um vínculo válido. Mesmo molde de
+// `setWhatsAppNoticeDependenciesForTests` no serviço de aviso — o double é FONTE
+// DE DADO (devolve a linha crua) e nunca decide se o aviso sai.
+// ---------------------------------------------------------------------------
+
+type TerminalNoticeChannelLink = {
+  userId: string | null;
+  externalUserKey: string;
+  verificationStatus: string;
+};
+
+export type WhatsAppTerminalNoticeDependencies = {
+  resolveProvider: typeof resolveWhatsAppProvider;
+  findLink: (channelLinkId: string) => Promise<TerminalNoticeChannelLink | null>;
+};
+
+const defaultWhatsAppTerminalNoticeDependencies: WhatsAppTerminalNoticeDependencies = {
+  resolveProvider: resolveWhatsAppProvider,
+  findLink: (channelLinkId: string) => findConversationChannelLinkForChannel(null, channelLinkId)
+};
+
+let whatsappTerminalNoticeDependencies: WhatsAppTerminalNoticeDependencies =
+  defaultWhatsAppTerminalNoticeDependencies;
+
+export function setWhatsAppTerminalNoticeDependenciesForTests(
+  overrides: Partial<WhatsAppTerminalNoticeDependencies> | null
+): void {
+  whatsappTerminalNoticeDependencies = overrides
+    ? { ...defaultWhatsAppTerminalNoticeDependencies, ...overrides }
+    : defaultWhatsAppTerminalNoticeDependencies;
+}
+
 /**
  * Falha TERMINAL de um job de canal: avisa o usuário que a mensagem dele morreu.
  *
@@ -931,6 +1038,7 @@ export async function applyWhatsAppInboundTerminalFailureSideEffect(
   terminalFailure: TerminalFailure = {},
   _error: unknown = null
 ) {
+  const deps = whatsappTerminalNoticeDependencies;
   try {
     // Só a mensagem de ENTRADA produz este aviso. O aviso de conclusão morrendo na DLQ é silêncio
     // sobre o silêncio, por desenho — nunca uma segunda mensagem sem janela nem checagem de dono.
@@ -945,10 +1053,10 @@ export async function applyWhatsAppInboundTerminalFailureSideEffect(
     const terminalAction = String(terminalFailure.action || '').toLowerCase();
     if (!['failed', 'dlq', 'cancelled'].includes(terminalAction)) return null;
 
-    const provider = resolveWhatsAppProvider();
+    const provider = deps.resolveProvider();
     if (!provider) return null;
 
-    const link = await findConversationChannelLinkForChannel(null, channelLinkId);
+    const link = await deps.findLink(channelLinkId);
     if (!link || !link.userId || link.verificationStatus !== 'verified') return null;
 
     await provider.sendText({
@@ -1866,9 +1974,17 @@ export function normalizeCetesbReceiptTimestamp(value: unknown, now: Date): stri
  * Raiz do POST /api/mtr/manifesto/recebimento/ EXATAMENTE como o portal real
  * envia (captura cap_3012dde41ef83433f6): {manifesto, paaCodigo, remCodigo,
  * rrmCodigo, remObservacao, remDataRecebimento}. paaCodigo é o código de
- * ACESSO da sessão logada (session.userAccessCode — 57380 na captura), NÃO o
- * parCodigo do destinador (40110, usado só nos paths dos GETs); remCodigo é
- * null; remDataRecebimento é ISO-8601.
+ * ACESSO da sessão logada (`session.userAccessCode`), NÃO o `parCodigo` do
+ * destinador (que aparece só nos paths dos GETs) — são códigos DISTINTOS e
+ * trocá-los é o erro que a captura desfaz; remCodigo é null; remDataRecebimento
+ * é ISO-8601.
+ *
+ * Os dois códigos da captura eram reproduzidos aqui em claro e foram removidos:
+ * são identificadores CETESB de conta real, e um comentário não é lugar de
+ * fixture. Os valores da captura vivem na captura versionada, na raiz do
+ * monorepo (`docs/portal-contracts/cetesb/2026-06-12/`), fora do código; a
+ * catraca que detecta a reintrodução deles é
+ * `tests/unit/openapi-no-real-pii.test.js` (por digest, nunca em claro).
  */
 export function buildReceiveRequestBody(input: {
   mergedManifestPayload: LooseRecord;
