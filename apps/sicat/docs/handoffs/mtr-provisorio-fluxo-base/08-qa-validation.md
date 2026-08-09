@@ -129,7 +129,7 @@ Reproduzido **uma vez** na primeira execução desta fase
 (reconciliation de ownership perdido em job
 `job_e79527a7c32e5e3ca11ca7e6b2`); reexecução imediata retornou
 **124/124**. Comportamento idêntico ao registrado em
-[docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade).
+[docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados).
 Não bloqueante; sem ação nesta fase.
 
 ## 5. Regressões encontradas
@@ -196,7 +196,7 @@ Nenhum dos itens acima impede o handoff para `documentador-mtr`.
   estiver disponível, ou cadeia frontend MTR provisório com wizard
   guiado conforme §7.3 do checkpoint 07);
 - registrar incidentes abertos (AUD-09, F4) em
-  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade)
+  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados)
   caso já não estejam.
 
 ### 8.3. Pendências conhecidas

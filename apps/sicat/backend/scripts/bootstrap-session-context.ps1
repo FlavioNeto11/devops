@@ -26,12 +26,21 @@ param(
 
   [string]$RecaptchaToken = '',
 
+  # `POST /v1/session-contexts` exige sessão SICAT desde o fechamento da superfície `/v1` — ele faz
+  # login REAL na CETESB. Passe o access token do `POST /v1/sicat/auth/login` (ou exporte
+  # SICAT_ACCESS_TOKEN no ambiente).
+  [string]$AccessToken = $env:SICAT_ACCESS_TOKEN,
+
   [string]$BaseUrl = 'http://localhost:8080',
   [int]$StateCode = 26,
   [int]$System = 0
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+  throw 'AccessToken ausente. Obtenha um access token em POST /v1/sicat/auth/login e passe -AccessToken (ou defina $env:SICAT_ACCESS_TOKEN).'
+}
 
 $passwordBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
 $plainPassword = $null
@@ -65,7 +74,7 @@ try {
 
   $response = Invoke-RestMethod -Method Post `
     -Uri "$BaseUrl/v1/session-contexts" `
-    -Headers @{ 'Content-Type' = 'application/json'; 'X-Correlation-Id' = $correlationId } `
+    -Headers @{ 'Content-Type' = 'application/json'; 'X-Correlation-Id' = $correlationId; 'Authorization' = "Bearer $AccessToken" } `
     -Body $payload
 
   Write-Host "Session context criado com sucesso."

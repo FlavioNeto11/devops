@@ -9,12 +9,27 @@
  * Tones disponíveis:
  *   neutral  -> cinza claro    (queued, draft, cancelled)
  *   running  -> azul ciano     (processing, printing, retry)
- *   warning  -> amarelo        (retry_wait, pendente operacional)
+ *   warning  -> amarelo        (retry_wait, pendente operacional, envio sem confirmação)
  *   success  -> verde          (succeeded, submitted, completed)
  *   error    -> vermelho       (failed, dlq, error)
  */
 
 export const STATUS_TONES = Object.freeze(['neutral', 'running', 'warning', 'success', 'error']);
+
+/**
+ * Status INTERNO do manifesto quando o envio foi despachado para a CETESB e o
+ * SICAT **não sabe** se o MTR nasceu (resposta perdida/ilegível do SIGOR).
+ *
+ * É um terceiro estado, não um sinônimo dos outros dois:
+ *   - `submitted` = sabemos que nasceu;
+ *   - `failed`    = sabemos que NÃO nasceu;
+ *   - `submit_unconfirmed` = não sabemos.
+ *
+ * Exportado como constante porque o token é consumido fora deste módulo
+ * (`features/mtr/list/manifestHelpers.js` decide ações a partir dele) — string
+ * literal duplicada é como um dos dois lados sai do ar sem ninguém notar.
+ */
+export const MANIFEST_STATUS_SUBMIT_UNCONFIRMED = 'submit_unconfirmed';
 
 const JOB_STATUS_TONES = Object.freeze({
   queued: 'neutral',
@@ -59,6 +74,12 @@ const MANIFEST_STATUS_TONES = Object.freeze({
   completed: 'success',
   received: 'success',
   cancelled: 'neutral',
+  // Envio despachado, desfecho DESCONHECIDO. Tem de ser 'warning': sem entrada
+  // própria a chave caía no fallback por substring (que não reconhece nada aqui)
+  // e virava 'neutral' — cinza, indistinguível de rascunho, ESCONDENDO do
+  // operador que existe um MTR possivelmente órfão na CETESB. Jogá-la no balde
+  // de falha seria o erro oposto: a tela passaria a MENTIR dizendo que falhou.
+  [MANIFEST_STATUS_SUBMIT_UNCONFIRMED]: 'warning',
   failed: 'error',
   error: 'error'
 });
@@ -105,6 +126,9 @@ const MANIFEST_STATUS_LABELS = Object.freeze({
   completed: 'Concluído',
   received: 'Recebido',
   cancelled: 'Cancelado',
+  // Linguagem de operador, não de máquina: sem esta entrada o humanizador
+  // devolvia 'Submit Unconfirmed' (jargão em inglês) na coluna Situação.
+  [MANIFEST_STATUS_SUBMIT_UNCONFIRMED]: 'Envio sem confirmação',
   failed: 'Falhou',
   error: 'Erro'
 });

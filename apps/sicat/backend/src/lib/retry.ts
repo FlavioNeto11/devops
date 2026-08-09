@@ -72,7 +72,9 @@ type RetryableOperation =
   | 'cdf.download'
   | 'catalog.sync'
   | 'cadastro.submit'
-  | 'conversation.bundle_documents';
+  | 'conversation.bundle_documents'
+  | 'whatsapp.inbound_message'
+  | 'whatsapp.outbound_notice';
 
 type JobLike = {
   attempts: number;
@@ -308,7 +310,17 @@ export function calculateJobPriority(operation: string): number {
     'cdf.download': 5,             // Média prioridade - obtenção de PDF
     'catalog.sync': 3,             // Baixa prioridade - sincronização
     'cadastro.submit': 6,          // Média-alta prioridade
-    'conversation.bundle_documents': 4 // Média-baixa - compactação de arquivos
+    'conversation.bundle_documents': 4, // Média-baixa - compactação de arquivos
+    // Abaixo de `catalog.sync` (3) DE PROPÓSITO. `claimJobs` ordena por `priority desc, queued_at
+    // asc` e o worker é consumidor SERIAL: enquanto a raia dedicada (`WORKER_LANE=channel`) não
+    // estiver no ar, um turno de conversa e um `manifest.submit` disputam o mesmo consumidor. Nesse
+    // modo degradado a conversa NUNCA pode preemptar operação CETESB.
+    'whatsapp.inbound_message': 2,
+    // ACIMA do turno de conversa (2) e ABAIXO de qualquer operação CETESB (5+): o aviso nunca
+    // preempta o trabalho que ele descreve. Consequência assumida enquanto `WORKER_LANE=channel`
+    // não estiver no ar: sob backlog o aviso ESPERA, e o prazo de parede de 10 min encosta —
+    // desfecho normal vira aviso parcial (texto 6).
+    'whatsapp.outbound_notice': 3
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -439,6 +451,42 @@ export function getRetryConfig(operation: string): RetryConfig {
       maxAttempts: 5,
       strategy: 'exponential',
       baseDelayMs: 1500,
+      maxDelayMs: 120000
+    },
+    /*
+     * Mensagem recebida no WhatsApp. Os QUATRO campos divergem do default herdado
+     * (`{ jobMaxAttempts||5, 'exponential', 1000, 300000 }`) e a divergência é o ponto:
+     *
+     *  - `fixed` + `maxDelayMs: 15000` — o backoff exponencial padrão chega a 5 MINUTOS, e uma
+     *    resposta de WhatsApp que chega 5 minutos depois é pior que nenhuma;
+     *  - `maxAttempts: 3` — o retry aqui é de ENTREGA, não de LLM: o caminho rápido do handler relê
+     *    `payload.replyText` e, se a resposta já foi preparada, PULA o turno e só reenvia. Sem essa
+     *    garantia, 5 tentativas significariam 5 chamadas de LLM e 5 respostas diferentes para a
+     *    mesma pergunta.
+     */
+    'whatsapp.inbound_message': {
+      maxAttempts: 3,
+      strategy: 'fixed',
+      baseDelayMs: 5000,
+      maxDelayMs: 15000
+    },
+    /*
+     * Aviso de conclusão de ação confirmada (fase 6). A entrada é EXPLÍCITA de propósito: o default
+     * de operação desconhecida funcionaria, mas herdaria `maxDelayMs: 300000` exponencial — o mesmo
+     * defeito que o comentário de `whatsapp.inbound_message` acima já nomeou.
+     *
+     * O job de aviso tem DOIS usos de tentativa, e por isso `maxAttempts` é maior:
+     *  - REAGENDAMENTO: enquanto os jobs da ação não terminam e o prazo não venceu, o handler lança
+     *    erro retentável SEM enviar nada. 15 s → 30 → 60 → 120 (cap) cobre ~10 min em 8 tentativas,
+     *    que é o `whatsappNoticeDeadlineMs` default;
+     *  - ENTREGA: falha do provedor no envio, exatamente como na fase 3.
+     * Na ÚLTIMA tentativa o handler NUNCA lança: entrega o parcial honesto e SUCEDE. Aviso na DLQ é
+     * silêncio sobre o silêncio.
+     */
+    'whatsapp.outbound_notice': {
+      maxAttempts: 8,
+      strategy: 'exponential',
+      baseDelayMs: 15000,
       maxDelayMs: 120000
     }
   };

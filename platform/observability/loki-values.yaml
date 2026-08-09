@@ -70,12 +70,18 @@ loki:
 singleBinary:
   replicas: 1
   resources:
+    # ATENCAO: nao volte para 512Mi. Com esse teto o processo era OOMKilled
+    # (exit 137) ~72s apos subir, antes de o compactor concluir a retencao.
+    # O resultado era um ciclo vicioso: sem compactar, os indices acumulavam
+    # (chegou a 2,4Gi com retention_period=72h), e mais backlog exigia mais
+    # memoria no boot seguinte -> OOM mais cedo. 5.348 restarts em 48 dias.
+    # Limite nao reserva memoria: o custo real e zero enquanto nao for usado.
     requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 500m
+      cpu: 100m
       memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
   persistence:
     # Habilitado para nao perder os indices a cada restart; tamanho pequeno.
     enabled: true

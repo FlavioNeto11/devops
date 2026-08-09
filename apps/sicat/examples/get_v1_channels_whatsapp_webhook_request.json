@@ -1,0 +1,7 @@
+{
+  "query": {
+    "hub.mode": "subscribe",
+    "hub.verify_token": "<WHATSAPP_META_VERIFY_TOKEN>",
+    "hub.challenge": "1158201444"
+  }
+}

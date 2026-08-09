@@ -1,0 +1,11 @@
+{
+  "params": {
+    "challengeId": "cver_01JQW5M6YY9M7K7B5N63GQ6E9S"
+  },
+  "body": {
+    "code": "000000"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_channel_link_confirm_2026_03_13"
+  }
+}

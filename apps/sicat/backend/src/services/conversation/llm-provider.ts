@@ -16,6 +16,7 @@ import {
 } from '../ai-control/ai-runtime-registry-service.js';
 import { anchorConversationDateWindow, userNamedPeriod } from './planning/conversation-window-anchor.js';
 import { MANIFEST_STATUS_VOCABULARY_HINT } from './conversation-status-vocabulary.js';
+import { buildChannelStyleDirective } from './prompts/conversation-channel-style.js';
 
 // ─── Tipos públicos (mantidos para compatibilidade com conversation-service.ts) ──
 
@@ -32,6 +33,12 @@ type ConversationContextLike = {
   askedManifestIds?: string[];
   /** Bloco textual da Working Memory desta conversa (continuidade + relógio operacional), injetado no raciocínio. */
   workingMemoryBlock?: string | null;
+  /**
+   * Canal de entrega, resolvido NO SERVIDOR (`conversation-principal.ts`). Só a REDAÇÃO o consome —
+   * o planner continua cego a canal de propósito: escolha de tool não pode variar por canal, isso
+   * seria mudança de correção disfarçada de formatação, e quem diferencia canal é a policy.
+   */
+  channel?: string | null;
 };
 
 export type LlmToolCall = {
@@ -72,6 +79,15 @@ export type LlmProvider = {
 };
 
 type PlanningMessage = AIMessage | HumanMessage | SystemMessage | ToolMessage;
+
+/**
+ * Zero ou uma `SystemMessage` com o estilo do canal. PORTÃO: fora do WhatsApp devolve `[]`, e o
+ * spread de um array vazio deixa a lista de mensagens IDÊNTICA à de antes desta fase.
+ */
+function channelStyleMessages(channel: string | null | undefined): SystemMessage[] {
+  const directive = buildChannelStyleDirective(channel);
+  return directive ? [new SystemMessage(directive)] : [];
+}
 
 type PlanningGraph = {
   invoke(input: {
@@ -1637,6 +1653,7 @@ async function respondConversationally(input: {
   workingMemoryBlock?: string | null;
   history?: Array<{ role: string; text: string }>;
   userContent?: Array<Record<string, unknown>> | null;
+  channel?: string | null;
 }): Promise<string> {
   try {
     const historyMessages = sanitizeHistory(input.history).slice(-12).map((turn) =>
@@ -1657,6 +1674,7 @@ async function respondConversationally(input: {
         'Para saudacoes, cumprimente e ofereca ajuda. Para datas relativas (hoje/ontem/anteontem/amanha), calcule a partir da data atual. ' +
         'NUNCA invente dados operacionais NOVOS (manifestos, status, numeros) que nao estejam no historico/memoria; para buscar dados novos, diga que pode consultar e pergunte o que falta.'
       ),
+      ...channelStyleMessages(input.channel),
       ...(input.workingMemoryBlock ? [new SystemMessage(input.workingMemoryBlock)] : []),
       ...historyMessages,
       userMessage
@@ -2077,6 +2095,12 @@ function createEscalationGraph(llm: ChatOpenAI): PlanningGraph {
 export async function synthesizeNaturalResponse(input: {
   userMessage: string;
   toolSummary: string;
+  /**
+   * Canal de entrega (fase 4 da cadeia `whatsapp-channel-sicat`). Opcional e com PORTÃO: só
+   * `'whatsapp'` acrescenta um SystemMessage; qualquer outro valor (ou a ausência) deixa a lista de
+   * mensagens byte-a-byte idêntica à de antes — o chat nativo e o copiloto in-app não são tocados.
+   */
+  channel?: string | null;
 }): Promise<string | null> {
   try {
     const config = getAiConfig();
@@ -2107,6 +2131,9 @@ export async function synthesizeNaturalResponse(input: {
         'Nunca mencione nomes técnicos de ferramentas, intenções internas ou metadados de orquestração. ' +
         'Se a pergunta se referir a um item por posição (ex.: terceiro, segundo), destaque-o explicitamente.'
       ),
+      // Bloco ADICIONAL, nunca edição das linhas acima: menor blast radius, testável isolado, e o
+      // caminho do navegador recebe ZERO tokens novos.
+      ...channelStyleMessages(input.channel),
       new HumanMessage(
         `Data operacional atual: ${operationalTodayIso()} (use-a para resolver "hoje"/"ontem"; não invente datas).`
         + (knowledgeBlock ? `\n\n${knowledgeBlock}` : '')
@@ -2215,6 +2242,10 @@ export function createLlmProvider(): LlmProvider {
           messageText: text,
           history: input.history,
           workingMemoryBlock: input.context.workingMemoryBlock,
+          // Turno puramente conversacional: esta saída vira `responseText` SEM passar por síntese
+          // nenhuma. Sem o canal aqui, saudação e pedido de esclarecimento continuariam saindo em
+          // prosa de navegador.
+          channel: input.context.channel ?? null,
           userContent: input.userContent ?? null,
           fallback:
             classification.clarifyingQuestion

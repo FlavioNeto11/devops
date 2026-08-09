@@ -131,7 +131,7 @@ sempre que o HAR já cobrir o caso.
   fora do escopo desta cadeia. Plano em
   [docs/handoffs/dmr-fluxo-base/02-source-validation.md §6](../dmr-fluxo-base/02-source-validation.md#6-plano-de-captura-har-dmr-n%C3%A3o-executado-nesta-fase).
 - **F4** — flake única `test:integration` 1/124 não reproduzível,
-  registrada em [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade).
+  registrada em [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados).
   Não-bloqueante; investigar oportunisticamente se reaparecer.
 - **F2** — 15 falhas Playwright pré-existentes (`responsive-smoke`,
   `qa-global-home-back-button`, `full-navigation-e2e`,

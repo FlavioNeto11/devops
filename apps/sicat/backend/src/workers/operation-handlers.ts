@@ -3,7 +3,13 @@ import path from 'node:path';
 import { ZipFile } from 'yazl';
 import { insertAuditEntry } from '../repositories/audit-repo.js';
 import { findJobById, insertJob, updateJob, updateJobIfOwned } from '../repositories/job-repo.js';
-import { findManifestById, listManifestDocuments, updateManifest, upsertManifestFromExternalSearch } from '../repositories/manifest-repo.js';
+import {
+  findManifestById,
+  listManifestDocuments,
+  listUnconfirmedSubmitManifestsForReconciliation,
+  updateManifest,
+  upsertManifestFromExternalSearch
+} from '../repositories/manifest-repo.js';
 import {
   findMtrProvisorioById,
   updateMtrProvisorioStatus,
@@ -38,9 +44,23 @@ import {
   prepareConversationBundleStorage
 } from '../services/conversation/conversation-persistence-service.js';
 import { createPrefixedId } from '../lib/ids.js';
+import { buildManifestCorrelationMarker } from '../lib/manifest-correlation.js';
+import {
+  buildManifestSubmitFailureExternalStatus,
+  isTransientManifestSubmitStatus
+} from '../lib/manifest-submit-status.js';
+import {
+  resolveManifestSubmitReconcilePatch,
+  type GatewaySearchManifestsArgs,
+  type ManifestSubmitReconcileDeps
+} from '../services/manifest-submit-reconciler.js';
 import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/retry.js';
-
-const TRANSIENT_MANIFEST_SUBMIT_STATUSES = new Set(['queued_submit', 'submitting', 'processing']);
+import { patchJobPayload } from './job-payload-patch.js';
+import { findConversationChannelLinkForChannel } from '../repositories/conversation-channel-link-repo.js';
+import { runWhatsAppInboundTurn } from '../services/conversation/channel/whatsapp/whatsapp-turn-service.js';
+import { runWhatsAppOutboundNotice } from '../services/conversation/channel/whatsapp/whatsapp-outbound-notice-service.js';
+import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsapp/index.js';
+import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -152,17 +172,10 @@ function summarizeTechnicalCause(value: unknown, maxLength = 180) {
   return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
-function buildManifestSubmitFailureExternalStatus(technicalCause: string | null, terminalAction: string) {
-  const baseMessage = terminalAction === 'dlq'
-    ? 'Falha no envio para CETESB. Job movido para DLQ; revise os dados e reenfileire o envio.'
-    : 'Falha definitiva no envio para CETESB. Revise os dados e realize novo envio.';
-
-  if (!technicalCause) {
-    return baseMessage;
-  }
-
-  return `${baseMessage} Causa técnica: ${technicalCause}`;
-}
+// A mensagem de falha de submit vive em `lib/manifest-submit-status.ts` — fonte
+// ÚNICA, compartilhada com `services/manifest-service.ts`. Antes eram duas
+// quase-duplicatas com textos diferentes e o MESMO defeito: mandavam reenviar
+// sem nunca perguntar à CETESB se o MTR já tinha nascido.
 
 function buildManifestCancelFailureUserMessage(errorCode: string | null, technicalCause: string | null, terminalAction: string) {
   if (errorCode === 'MANIFEST_CANCEL_NOT_CONFIRMED') {
@@ -632,6 +645,23 @@ function toGatewayExchange(value: unknown): GatewayExchange {
   };
 }
 
+// C1: intenção de submit persistida ANTES do PUT na CETESB — fecha a janela
+// cega entre `status: 'submitting'` e o commit da resposta. O marcador é
+// determinístico (derivado do id local, via lib/manifest-correlation) e é o
+// MESMO que o gateway grava em `manObservacao`; se o processo morrer com a
+// resposta perdida, a linha local sabe qual marcador procurar depois no
+// resultado de `searchManifests`. Sem migration: vive no payload (jsonb).
+function buildPayloadWithSubmitIntent(existingPayload: unknown, marker: string, jobId: string): LooseRecord {
+  return {
+    ...toRecord(existingPayload),
+    submitCorrelation: {
+      marker,
+      jobId,
+      dispatchedAt: nowIso()
+    }
+  };
+}
+
 function mergeEntityJobResult(existingPayload: unknown, operation: string, result: LooseRecord) {
   const basePayload = isObject(existingPayload) ? existingPayload : {};
   const previousResults = isObject(basePayload.jobResults) ? basePayload.jobResults : {};
@@ -650,7 +680,12 @@ function mergeEntityJobResult(existingPayload: unknown, operation: string, resul
   };
 }
 
-export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntity, terminalFailure: TerminalFailure = {}, error: unknown = null) {
+export async function applyManifestSubmitTerminalFailureSideEffect(
+  job: JobEntity,
+  terminalFailure: TerminalFailure = {},
+  error: unknown = null,
+  deps: ManifestSubmitReconcileDeps = {}
+) {
   if (
     (job?.entityType !== 'manifest' && job?.entityType !== 'mtr_provisorio')
     || job?.operation !== 'manifest.submit'
@@ -663,26 +698,39 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
     return null;
   }
 
+  const technicalCause = summarizeTechnicalCause(
+    terminalFailure.patch?.lastErrorMessage
+    || terminalFailure.dlqReason
+    || getErrorMessage(error)
+    || job.lastErrorMessage
+  );
+
   // R3-C: para `mtr_provisorio`, usar o repo provisório dedicado (preserva
-  // locking otimista). Caminho `manifest` permanece inalterado.
+  // locking otimista).
+  //
+  // ⚠️ LIMITE CONHECIDO: este ramo NÃO reconcilia contra a CETESB e continua
+  // marcando `failed_submit`. A taxonomia de status do provisório vive em
+  // `repositories/mtr-provisorio-repo.ts` e não tem equivalente de
+  // `submit_unconfirmed`; introduzir um é escopo de outra unidade. O que MUDA
+  // aqui é só a mensagem: com certeza `unknown` ela para de mandar reenviar —
+  // que é exatamente o gatilho do MTR duplicado.
   if (job.entityType === 'mtr_provisorio') {
     const record = await findMtrProvisorioById(job.entityId);
     if (!record) return null;
-    if (!TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(String(record.status || '').toLowerCase())) {
+    if (!isTransientManifestSubmitStatus(record.status)) {
       return null;
     }
-    const technicalCause = summarizeTechnicalCause(
-      terminalFailure.patch?.lastErrorMessage
-      || terminalFailure.dlqReason
-      || getErrorMessage(error)
-      || job.lastErrorMessage
-    );
+    const provisorioExternalStatus = buildManifestSubmitFailureExternalStatus({
+      certainty: 'unknown',
+      terminalAction,
+      technicalCause
+    });
     const payloadWithResult = mergeEntityJobResult(record.payload, 'manifest.submit', {
       jobId: job.jobId,
       outcome: 'manifest_submit_failed',
       kind: 'provisorio',
       status: 'failed_submit',
-      externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+      externalStatus: provisorioExternalStatus,
       terminalAction,
       lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
       lastErrorMessage: technicalCause,
@@ -692,7 +740,7 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
       record.id,
       {
         status: 'failed_submit',
-        externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+        externalStatus: provisorioExternalStatus,
         payload: payloadWithResult,
         lastSyncAt: nowIso()
       },
@@ -705,31 +753,39 @@ export async function applyManifestSubmitTerminalFailureSideEffect(job: JobEntit
     return null;
   }
 
-  if (!TRANSIENT_MANIFEST_SUBMIT_STATUSES.has(String(manifest.status || '').toLowerCase())) {
+  if (!isTransientManifestSubmitStatus(manifest.status)) {
     return null;
   }
 
-  const technicalCause = summarizeTechnicalCause(
-    terminalFailure.patch?.lastErrorMessage
-    || terminalFailure.dlqReason
-    || getErrorMessage(error)
-    || job.lastErrorMessage
-  );
+  // AQUI estava o defeito: gravava `status: 'failed'` + "revise os dados e
+  // reenfileire o envio" sem NUNCA perguntar à CETESB. Quando a resposta do PUT
+  // se perdia depois de o MTR nascer, o operador lia "reenvie", reenviava, e a
+  // CETESB ganhava um SEGUNDO MTR real. Orçamento de polling cheio: este
+  // caminho já roda fora do ciclo de request, no worker.
+  const reconcilePatch = await resolveManifestSubmitReconcilePatch(manifest, deps, {
+    allowTerminalFailure: true,
+    terminalAction,
+    technicalCause,
+    correlationId: job.correlationId ?? null
+  });
 
   const payloadWithResult = mergeEntityJobResult(manifest.payload, 'manifest.submit', {
     jobId: job.jobId,
-    outcome: 'manifest_submit_failed',
-    status: 'failed',
-    externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+    outcome: reconcilePatch.confirmed ? 'manifest_submit_confirmed_by_reconcile' : 'manifest_submit_failed',
+    status: reconcilePatch.status,
+    externalStatus: reconcilePatch.externalStatus,
     terminalAction,
     lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
     lastErrorMessage: technicalCause,
-    retriable: terminalAction !== 'failed'
+    // Reenviar só é seguro quando a pesquisa PROVOU que o MTR não nasceu.
+    retriable: !reconcilePatch.confirmed && reconcilePatch.status === 'failed' && terminalAction !== 'failed'
   });
 
   return updateManifest(manifest.id, {
-    status: 'failed',
-    externalStatus: buildManifestSubmitFailureExternalStatus(technicalCause, terminalAction),
+    status: reconcilePatch.status,
+    externalStatus: reconcilePatch.externalStatus,
+    externalHashCode: reconcilePatch.externalHashCode ?? null,
+    ...(reconcilePatch.externalReference ? { externalReference: reconcilePatch.externalReference } : {}),
     payload: payloadWithResult,
     lastSyncAt: nowIso()
   });
@@ -802,6 +858,111 @@ export async function applyConversationArtifactTerminalFailureSideEffect(job: Jo
   });
 }
 
+/**
+ * Mensagem recebida no WhatsApp (fase 3 da cadeia `whatsapp-channel-sicat`).
+ *
+ * O corpo do turno vive em `whatsapp-turn-service.ts`; aqui só a costura com a fila. Todo desfecho de
+ * NEGÓCIO — vínculo revogado, mensagem expirada, já respondida, disposição estática, timeout — volta
+ * como `{ outcome }` e termina com `finishJob`, no molde do `DMR_GATEWAY_PENDING_HAR`. Um `Error`
+ * cru seria classificado como RETENTÁVEL por `isRetryableJobError` (`retry.ts` devolve `true` quando
+ * não reconhece a mensagem) e viraria retry + DLQ com o rastro da mensagem do usuário.
+ */
+async function handleWhatsAppInboundMessage(job: JobEntity) {
+  const result = await runWhatsAppInboundTurn({
+    job: {
+      jobId: job.jobId,
+      entityId: job.entityId,
+      correlationId: job.correlationId ?? null,
+      claimedBy: job.claimedBy ?? null,
+      payload: job.payload
+    },
+    patchJobPayload: (target, patch) => patchJobPayload(target, patch)
+  });
+
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+/**
+ * Aviso de conclusão de ação confirmada no WhatsApp (fase 6).
+ *
+ * Costura com a fila, no mesmo molde do handler acima: o corpo vive em
+ * `whatsapp-outbound-notice-service.ts` e todo desfecho de NEGÓCIO — vínculo revogado, vínculo
+ * transferido, janela fechada, canal desligado, não-entregue na última tentativa — volta como
+ * `{ outcome }` e termina em `finishJob`.
+ *
+ * O ÚNICO erro que sobe daqui é o reagendamento (`WHATSAPP_NOTICE_NOT_READY`, retentável) e a falha
+ * de envio fora da última tentativa. Na última tentativa o serviço nunca lança: aviso na DLQ é
+ * silêncio sobre o silêncio.
+ */
+async function handleWhatsAppOutboundNotice(job: JobEntity) {
+  const result = await runWhatsAppOutboundNotice({
+    job: {
+      jobId: job.jobId,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      correlationId: job.correlationId ?? null,
+      claimedBy: job.claimedBy ?? null,
+      payload: job.payload
+    },
+    patchJobPayload: (target, patch) => patchJobPayload(target, patch)
+  });
+
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+/**
+ * Falha TERMINAL de um job de canal: avisa o usuário que a mensagem dele morreu.
+ *
+ * Sem isto, um job que vai para `failed`/`dlq` deixa a pessoa esperando para sempre — o WhatsApp não
+ * tem "spinner que some". Gatilho DUPLO: a operação tem de ser `whatsapp.inbound_message` E o payload
+ * tem de carregar `channelLinkId` (molde de `applyConversationArtifactTerminalFailureSideEffect`).
+ * O filtro por operação é obrigatório: o job `whatsapp.outbound_notice` também carrega `channelLinkId`
+ * no payload (de propósito, para não levar telefone), então sem ele um AVISO que morresse em
+ * `failed`/`dlq` dispararia "Não consegui processar sua última mensagem" — factualmente falso (a
+ * mensagem FOI processada), mensagem PAGA extra, e fora das guardas de janela de 24 h e de dono do
+ * ticket que o serviço de aviso construiu.
+ *
+ * O corpo INTEIRO é try/catch: `handleDlqTransition` é awaited dentro do `catch` de
+ * `processClaimedJob`, que não tem catch externo — um `throw` daqui sobe até o `while` de
+ * `runWorkerLoop` e MATA O WORKER.
+ */
+export async function applyWhatsAppInboundTerminalFailureSideEffect(
+  job: JobEntity,
+  terminalFailure: TerminalFailure = {},
+  _error: unknown = null
+) {
+  try {
+    // Só a mensagem de ENTRADA produz este aviso. O aviso de conclusão morrendo na DLQ é silêncio
+    // sobre o silêncio, por desenho — nunca uma segunda mensagem sem janela nem checagem de dono.
+    if (job.operation !== 'whatsapp.inbound_message') return null;
+
+    const channelLinkId = toNonEmptyString(job.payload?.channelLinkId);
+    if (!channelLinkId) return null;
+
+    // Já avisado no caminho feliz (a resposta saiu e o job morreu depois): não repetir.
+    if (job.payload?.userNotified === true) return null;
+
+    const terminalAction = String(terminalFailure.action || '').toLowerCase();
+    if (!['failed', 'dlq', 'cancelled'].includes(terminalAction)) return null;
+
+    const provider = resolveWhatsAppProvider();
+    if (!provider) return null;
+
+    const link = await findConversationChannelLinkForChannel(null, channelLinkId);
+    if (!link || !link.userId || link.verificationStatus !== 'verified') return null;
+
+    await provider.sendText({
+      to: link.externalUserKey,
+      text: buildWhatsAppTerminalFailureNotice(job.correlationId ?? null)
+    });
+
+    return { notified: true };
+  } catch (error) {
+    console.warn(`[worker] aviso de falha terminal do canal WhatsApp não pôde ser enviado (job ${job.jobId}): ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
 async function logExchange(job: JobEntity, exchange: {
   request?: LooseRecord;
   response?: LooseRecord;
@@ -861,10 +1022,17 @@ export async function processJob(job: JobEntity, gateway: {
     integrationAccountId?: string | null;
     correlationId?: string | null;
   }) => Promise<unknown>;
+  // OPCIONAL de propósito: o tipo acima é um literal inline com 14 métodos
+  // obrigatórios e torná-lo o 15º quebraria todo teste que fabrica um gateway.
+  // `handleManifestReconcileSubmit` falha ALTO quando ele não vem — nunca
+  // silenciosamente "não achei nada", que seria indistinguível de "não existe".
+  searchManifests?: (options: GatewaySearchManifestsArgs) => Promise<unknown>;
 }) {
   switch (job.operation) {
     case 'manifest.submit':
       return handleManifestSubmit(job, gateway);
+    case 'manifest.reconcile_submit':
+      return handleManifestReconcileSubmit(job, gateway);
     case 'manifest.print':
       return handleManifestPrint(job, gateway);
     case 'manifest.cancel':
@@ -883,6 +1051,13 @@ export async function processJob(job: JobEntity, gateway: {
       return handleDmrSubmit(job, gateway);
     case 'conversation.bundle_documents':
       return handleConversationBundleDocuments(job);
+    // SEM o parâmetro `gateway`, no molde de `handleConversationBundleDocuments`: o tipo acima é um
+    // literal inline com 14 métodos OBRIGATÓRIOS e qualquer teste que chame `processJob` teria de
+    // fabricar todos. Dependências deste handler entram por import direto.
+    case 'whatsapp.inbound_message':
+      return handleWhatsAppInboundMessage(job);
+    case 'whatsapp.outbound_notice':
+      return handleWhatsAppOutboundNotice(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }
@@ -927,7 +1102,14 @@ async function handleManifestSubmit(job: JobEntity, gateway: {
   const manifest = await findManifestById(job.entityId);
   if (!manifest) throw new Error(`Manifest ${job.entityId} not found`);
 
-  await updateManifest(manifest.id, { status: 'submitting' });
+  // C1: grava a intenção (marcador de correlação) na linha local ANTES da
+  // chamada ao gateway — ver buildPayloadWithSubmitIntent. O objeto em memória
+  // é alinhado ao gravado para os merges pós-resposta preservarem a intenção.
+  const correlationMarker = buildManifestCorrelationMarker(manifest.id);
+  const payloadWithIntent = buildPayloadWithSubmitIntent(manifest.payload, correlationMarker, job.jobId);
+  await updateManifest(manifest.id, { status: 'submitting', payload: payloadWithIntent });
+  manifest.payload = payloadWithIntent;
+
   const exchange = toGatewayExchange(await gateway.submitManifest(manifest, job.payload));
   const responseData = exchange.response.data ?? {};
   await logExchange(job, exchange);
@@ -1030,6 +1212,83 @@ async function handleManifestSubmit(job: JobEntity, gateway: {
   }
 }
 
+/**
+ * Varredura de reconciliação de submits sem confirmação.
+ *
+ * Fecha o ciclo: `listUnconfirmedSubmitManifestsForReconciliation` (que até
+ * aqui tinha ZERO chamadores) entrega os manifestos presos em estado transiente
+ * ou `submit_unconfirmed` com `external_hash_code` nulo, e o reconciliador
+ * pergunta à CETESB, um a um, pelo marcador de correlação.
+ *
+ * NÃO usa `finishJob` com patch de payload grande: o resumo é enxuto de
+ * propósito (o payload do job vai para a auditoria e para a UI de operações).
+ */
+async function handleManifestReconcileSubmit(job: JobEntity, gateway: {
+  searchManifests?: (options: GatewaySearchManifestsArgs) => Promise<unknown>;
+}) {
+  if (typeof gateway?.searchManifests !== 'function') {
+    // Falhar ALTO. Um handler que "não achou nada" por falta de gateway é
+    // indistinguível de um que perguntou e não achou — e o segundo autoriza
+    // marcar `failed`.
+    throw new AppError(500, 'Internal Server Error', 'Gateway sem searchManifests: impossível reconciliar submits sem confirmação.', {
+      code: 'MANIFEST_RECONCILE_SUBMIT_MISSING_GATEWAY'
+    });
+  }
+
+  const integrationAccountId = toNonEmptyString(job.payload?.integrationAccountId) || job.entityId;
+  const updatedSince = toNonEmptyString(job.payload?.updatedSince);
+  const candidates = await listUnconfirmedSubmitManifestsForReconciliation({
+    integrationAccountId,
+    updatedSince,
+    dateFrom: toNonEmptyString(job.payload?.dateFrom),
+    dateTo: toNonEmptyString(job.payload?.dateTo)
+  });
+
+  const searchManifests = gateway.searchManifests.bind(gateway);
+  let confirmedCount = 0;
+  let failedCount = 0;
+  let unconfirmedCount = 0;
+
+  for (const manifest of candidates) {
+    if (!manifest) continue;
+
+    // Orçamento CHEIO: esta varredura roda no worker, fora de qualquer request.
+    // É o único lugar (junto com a falha terminal do job) com autoridade para
+    // concluir `failed` — o caminho de leitura só tem uma tentativa.
+    const patch = await resolveManifestSubmitReconcilePatch(manifest, { searchManifests }, {
+      allowTerminalFailure: true,
+      terminalAction: 'reconcile_sweep',
+      detail: 'varredura periódica de envios sem confirmação',
+      correlationId: job.correlationId ?? null
+    });
+
+    if (patch.confirmed) {
+      confirmedCount += 1;
+    } else if (patch.status === 'failed') {
+      failedCount += 1;
+    } else {
+      unconfirmedCount += 1;
+    }
+
+    await updateManifest(manifest.id, {
+      status: patch.status,
+      externalStatus: patch.externalStatus,
+      externalHashCode: patch.externalHashCode ?? null,
+      ...(patch.externalReference ? { externalReference: patch.externalReference } : {}),
+      lastSyncAt: nowIso()
+    });
+  }
+
+  await finishJob(job, {
+    outcome: 'manifest_submit_reconcile_completed',
+    integrationAccountId,
+    candidateCount: candidates.length,
+    confirmedCount,
+    failedCount,
+    unconfirmedCount
+  });
+}
+
 async function handleManifestPrint(job: JobEntity, gateway: {
   printManifest: (manifest: unknown) => Promise<unknown>;
   printMtrProvisorio?: (manHashCode: string, options?: LooseRecord) => Promise<unknown>;
@@ -1111,9 +1370,16 @@ async function handleMtrProvisorioSubmit(job: JobEntity, gateway: {
   const record = await findMtrProvisorioById(job.entityId);
   if (!record) throw new Error(`Manifesto provisório ${job.entityId} não encontrado.`);
 
+  // C1: mesma intenção pré-PUT do caminho comum — o gateway delega
+  // `submitMtrProvisorio` → `submitManifest`, então o marcador também vai
+  // no `manObservacao` do provisório.
+  const provisorioCorrelationMarker = buildManifestCorrelationMarker(record.id);
   const submitting = await updateMtrProvisorioStatus(
     record.id,
-    { status: 'submitting' },
+    {
+      status: 'submitting',
+      payload: buildPayloadWithSubmitIntent(record.payload, provisorioCorrelationMarker, job.jobId)
+    },
     record.version
   );
 

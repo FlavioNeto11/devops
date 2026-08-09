@@ -649,7 +649,11 @@ describe('SICAT Dual Auth + CETESB Accounts API', { concurrency: 1 }, () => {
       assert.strictEqual(certificatesPayload.totalItems, 1);
       assert.strictEqual(certificatesPayload.items[0]?.documentId, 'cdf-hash-audit-001');
 
-      const auditResponse = await fetch(`${API_BASE}/v1/audit/${encodeURIComponent(correlationId)}`);
+      // `/v1/audit/:correlationId` deixou de ser anônima: a trilha guarda endpoint, payload
+      // sanitizado e status das chamadas à CETESB.
+      const auditResponse = await fetch(`${API_BASE}/v1/audit/${encodeURIComponent(correlationId)}`, {
+        headers: { Authorization: `Bearer ${loginPayload.accessToken}` }
+      });
       assert.strictEqual(auditResponse.status, 200);
       const auditPayload = await auditResponse.json();
 

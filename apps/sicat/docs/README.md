@@ -2,7 +2,7 @@
 title: "Documentação SICAT — Índice"
 status: reference
 applies_to: [sicat]
-updated: 2026-07-16
+updated: 2026-08-08
 language: pt-BR
 ---
 
@@ -53,6 +53,17 @@ Checkpoints da cadeia (em `docs/handoffs/centro-operacional-sicat/`):
 - [07-observability-admin.md](handoffs/centro-operacional-sicat/07-observability-admin.md)
 - [09-qa-validation.md](handoffs/centro-operacional-sicat/09-qa-validation.md)
 - [10-documentation-final.md](handoffs/centro-operacional-sicat/10-documentation-final.md)
+
+## Canal conversacional externo — WhatsApp (cadeia `whatsapp-channel-sicat`, DL-101)
+
+Canal entregue **desligado por default** e **inerte no cluster**. A manchete — emitir MTR pelo
+WhatsApp — **não** está entregue (N2 fechado por constante de código).
+
+- [docs/CHANGELOG-WHATSAPP-CHANNEL.md](CHANGELOG-WHATSAPP-CHANNEL.md) — release notes da cadeia (fases 0–7), o que ficou de fora e a dívida escrita.
+- [docs/05-operacao/runbook-canal-whatsapp.md](05-operacao/runbook-canal-whatsapp.md) — **ativação e desligamento**: sequência numerada, pontos de não-retorno e as 12 decisões pendentes do operador (seção canônica).
+- [docs/05-operacao/runbook-rbac-conversacional.md](05-operacao/runbook-rbac-conversacional.md) — regime de permissão do chat: catálogo, gate de 3 estados, flip e rollback.
+- [docs/handoffs/whatsapp-channel-sicat/](handoffs/whatsapp-channel-sicat/) — checkpoints `00` a `09`.
+- [docs/copilot/13-decision-log.md](copilot/13-decision-log.md) — **DL-101** (decisões estruturais e recusas).
 
 ## Comercial (pricing e go-to-market)
 

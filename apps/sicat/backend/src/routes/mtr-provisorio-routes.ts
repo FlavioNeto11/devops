@@ -9,6 +9,7 @@
 
 import express from 'express';
 import { asyncHandler } from '../lib/http.js';
+import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 import {
   cancelMtrProvisorioService,
   createMtrProvisorioService,
@@ -36,12 +37,12 @@ function toHeaderMap(headers: express.Request['headers']): Record<string, string
 }
 
 export function registerMtrProvisorioRoutes(router: express.Router): void {
-  router.get('/v1/mtr-provisorio', asyncHandler(async (req, res) => {
+  router.get('/v1/mtr-provisorio', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listMtrProvisorioService((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
-  router.post('/v1/mtr-provisorio', asyncHandler(async (req, res) => {
+  router.post('/v1/mtr-provisorio', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await createMtrProvisorioService(
       (req.body || {}) as LooseRecord,
       toHeaderMap(req.headers),
@@ -50,12 +51,12 @@ export function registerMtrProvisorioRoutes(router: express.Router): void {
     res.status(202).json(response);
   }));
 
-  router.get('/v1/mtr-provisorio/:id', asyncHandler(async (req, res) => {
+  router.get('/v1/mtr-provisorio/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getMtrProvisorioService(String(req.params.id || ''));
     res.json(response);
   }));
 
-  router.delete('/v1/mtr-provisorio/:id', asyncHandler(async (req, res) => {
+  router.delete('/v1/mtr-provisorio/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await cancelMtrProvisorioService(
       String(req.params.id || ''),
       getCorrelationId(req)
@@ -63,7 +64,7 @@ export function registerMtrProvisorioRoutes(router: express.Router): void {
     res.json(response);
   }));
 
-  router.post('/v1/mtr-provisorio/:id/print', asyncHandler(async (req, res) => {
+  router.post('/v1/mtr-provisorio/:id/print', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueMtrProvisorioPrintService(
       String(req.params.id || ''),
       (req.body || {}) as LooseRecord,

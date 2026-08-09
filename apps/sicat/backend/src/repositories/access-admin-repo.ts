@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import type { QueryResultRow } from 'pg';
+import { ADMIN_ROLE_NAME_ALIASES } from '../lib/conversation-permission-catalog.js';
 
 type IsoLike = Date | string | null | undefined;
 
@@ -34,6 +35,8 @@ type RoleRow = {
 
 type PermissionRow = {
   permission_id: string;
+  /** Opcional só porque nem todo SELECT legado a projetava; todos os desta camada projetam. */
+  permission_key?: string | null;
   resource: string;
   action: string;
   description: string | null;
@@ -76,9 +79,18 @@ function mapRole(row: RoleRow) {
   };
 }
 
+/**
+ * ⚠️ `permissionKey` é ADITIVO e existe por causa da fase 4.5: a partir dela a chave é LOAD-BEARING
+ * (é a string que `hasConversationPermission` compara), e esta camada a OMITIA. Como
+ * `updateAdminAccessPermissionById` deixa alterar `resource`, `action` e `permission_key` de forma
+ * independente, dava para editar `resource/action` e a chave real divergir do que a tela mostra, sem
+ * nenhum aviso — quebrando o gate de forma invisível. Expor a chave é a metade barata da mitigação;
+ * a outra é o seed, que reconcilia `resource`/`action` a partir da chave a cada boot.
+ */
 function mapPermission(row: PermissionRow) {
   return {
     permissionId: row.permission_id,
+    permissionKey: row.permission_key || '',
     resource: row.resource,
     action: row.action,
     description: row.description || ''
@@ -135,6 +147,18 @@ function buildUserFilters(filters: AdminAccessUserFilters = {}) {
   };
 }
 
+/**
+ * Administração global por NOME DE PAPEL — nunca por permissão.
+ *
+ * ⚠️ INVARIANTE DE ROLLBACK (fase 4.5): esta função e `ensureAdminAuthorization` NÃO leem
+ * `access_permissions`. É isso que faz a tela de Acessos sobreviver ao fechamento do gate
+ * conversacional: com o chat trancado, os administradores continuam podendo CONCEDER papel — que é o
+ * rollback de Nível 0 (segundos, sem deploy, sem kubectl, sem SQL). Se um dia alguém tornar a API
+ * administrativa gated por PERMISSÃO, este desenho PERDE a escada de saída e o rollback vira redeploy.
+ *
+ * A lista de aliases vem de `lib/conversation-permission-catalog.ts` — antes estava literal aqui E em
+ * `access-admin-service.ts`, e as duas cópias podiam divergir.
+ */
 export async function hasAdminGlobalAccessByUserId(userId: string) {
   const result = await query<SessionRow>(
     `select exists(
@@ -144,12 +168,100 @@ export async function hasAdminGlobalAccessByUserId(userId: string) {
        where aur.user_id = $1
          and ar.is_active = true
          and (aur.expires_at is null or aur.expires_at > now())
-         and lower(ar.role_name) in ('admin.global', 'admin_global', 'admin', 'role_admin_global')
+         and lower(ar.role_name) = any($2::text[])
      ) as has_access`,
-    [userId]
+    [userId, [...ADMIN_ROLE_NAME_ALIASES]]
   );
 
   return Boolean(result.rows[0]?.has_access);
+}
+
+/**
+ * Predicado "este usuário JÁ TEM alguma chave de permissão EFETIVA".
+ *
+ * ⚠️ É o MESMO caminho de `PERMISSION_KEYS_BY_USER_SQL` (papel ativo × grant não expirado × vínculo ×
+ * permissão ativa). Isso não é preciosismo: a versão anterior deste predicado fazia join só em
+ * `access_roles`, ou seja, condicionava o piso a TER ALGUM PAPEL e não a TER ALGUMA PERMISSÃO. Um
+ * papel VAZIO — que `createAdminAccessRole` cria em um POST e a tela de Acessos concede em um clique —
+ * satisfazia a condição, suprimia o piso e deixava a pessoa com conjunto de chaves VAZIO. Sob
+ * `enforce`, chat morto; e durável, porque o backfill do boot repetia o mesmo engano.
+ *
+ * Fonte ÚNICA de propósito: o seed do boot (`bootstrap/access-control-seed.ts`) importa esta função em
+ * vez de repetir o SQL. Os dois sítios divergirem foi exatamente o defeito.
+ *
+ * `userIdExpression` é uma EXPRESSÃO SQL do chamador (`$2` no grant de login, `u.id` no backfill em
+ * conjunto) — nunca dado de usuário. Não há concatenação de valor aqui.
+ */
+export function buildHasEffectivePermissionSql(userIdExpression: string): string {
+  return `exists (
+            select 1
+              from access_user_roles aur
+              inner join access_roles ar_existing on ar_existing.id = aur.role_id
+              inner join access_role_permissions arp on arp.role_id = aur.role_id
+              inner join access_permissions ap on ap.id = arp.permission_id
+             where aur.user_id = ${userIdExpression}
+               and ar_existing.is_active = true
+               and ap.is_active = true
+               and (aur.expires_at is null or aur.expires_at > now())
+          )`;
+}
+
+/**
+ * Revive de grant EXPIRADO, e só dele.
+ *
+ * A unique `(user_id, role_id)` guarda a linha expirada, então `on conflict do nothing` fazia o piso
+ * NUNCA ser reconcedido a quem tivesse um grant de `sicat.reader` vencido: o `not exists` dizia "sem
+ * permissão", o insert disparava, o conflito engolia, e a pessoa ficava sem nenhuma chave para sempre
+ * — sem login, refresh, restart ou backfill que reparasse.
+ *
+ * O `where` é a diferença entre isto e o `do update` cego de `grantAdminAccessRoleToUser`: uma
+ * expiração deliberada AINDA NO FUTURO (terceirizado até 31/12) é preservada intacta.
+ */
+const FLOOR_ROLE_REVIVE_EXPIRED_CLAUSE = `on conflict (user_id, role_id) do update
+        set expires_at = null,
+            assigned_at = now(),
+            updated_at = now()
+      where access_user_roles.expires_at is not null
+        and access_user_roles.expires_at <= now()`;
+
+/**
+ * Concede o papel-PISO a um usuário ATIVO que não tenha NENHUMA PERMISSÃO EFETIVA.
+ *
+ * Chamado no funil único de autenticação (`issueTokenPair`) — não nos sítios de criação de usuário.
+ * Instrumentar os sítios seria pior: não conserta os usuários que já existem (viraria a migration de
+ * dados que esta fase evita) e faria o endpoint PÚBLICO de registro conceder papel no ato da criação.
+ *
+ * Idempotente por construção: `not exists` + `on conflict ... do update` restrito a grant EXPIRADO.
+ * NÃO usa o `do update` de `grantAdminAccessRoleToUser`, que reescreveria `assigned_by_user_id` e
+ * `expires_at` e re-expiraria a cada login um grant deliberadamente temporário.
+ *
+ * ⚠️ Consequência ACEITA: revogar todos os papéis de alguém deixa de ser durável — o próximo login
+ * reconcede o piso. O instrumento correto de corte é `sicat_users.is_active = false`, que a auth já
+ * rejeita e por onde este SQL também filtra.
+ */
+export const FLOOR_ROLE_GRANT_SQL = `insert into access_user_roles (id, user_id, role_id, assigned_by_user_id)
+     select $1, $2, ar.id, null
+       from access_roles ar
+      where ar.role_name = $3
+        and ar.is_active = true
+        and exists (select 1 from sicat_users u where u.id = $2 and u.is_active = true)
+        and not ${buildHasEffectivePermissionSql('$2')}
+     ${FLOOR_ROLE_REVIVE_EXPIRED_CLAUSE}`;
+
+/** Cláusula de conflito do piso, compartilhada com o backfill do boot. */
+export const FLOOR_ROLE_CONFLICT_SQL = FLOOR_ROLE_REVIVE_EXPIRED_CLAUSE;
+
+export async function ensureFloorRoleForUser(input: {
+  grantId: string;
+  userId: string;
+  roleName: string;
+}): Promise<boolean> {
+  const result = await query(
+    FLOOR_ROLE_GRANT_SQL,
+    [input.grantId, input.userId, input.roleName]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function listAdminAccessUsers(filters: AdminAccessUserFilters = {}) {
@@ -256,6 +368,7 @@ export async function getAdminAccessUserById(userId: string) {
   const permissionRows = await query(
     `select distinct
        ap.id as permission_id,
+       ap.permission_key,
        ap.resource,
        ap.action,
        coalesce(ap.description, '') as description
@@ -273,6 +386,44 @@ export async function getAdminAccessUserById(userId: string) {
     ...mapUser(userResult.rows[0] as UserRow),
     permissions: permissionRows.rows.map((row) => mapPermission(row as PermissionRow))
   };
+}
+
+/**
+ * Chaves de permissão EFETIVAS de um usuário (papéis não expirados × permissões ativas).
+ *
+ * Usado pelo principal conversacional para resolver as permissões NO SERVIDOR — antes elas vinham
+ * em `context.metadata.permissionKeys`, declaradas pelo próprio cliente.
+ *
+ * Resolvido POR TURNO — o access token não carrega permissão (`issueTokenPair` chumba um
+ * `roles: ['operator']` decorativo). Consequência boa: não existe janela de token velho. Quem recebe
+ * um grant passa a valer no turno SEGUINTE, sem relogin, e é isso que torna o rollback instantâneo.
+ *
+ * ⚠️ O join com `sicat_users.is_active` (fase 4.5) não é adorno: sem ele, desativar um funcionário
+ * NÃO desligava o WhatsApp dele — no HTTP a janela é o TTL de 1 h do token, mas no canal não há token
+ * e a identidade vem do vínculo, ou seja, era ilimitada. O join zera as permissões; a rejeição do
+ * turno inteiro está em `resolveChannelPrincipal`, porque as tools sem chave exigida rodariam mesmo
+ * com o conjunto vazio.
+ */
+export const PERMISSION_KEYS_BY_USER_SQL = `select distinct ap.permission_key
+       from access_user_roles aur
+       inner join sicat_users u on u.id = aur.user_id and u.is_active = true
+       inner join access_role_permissions arp on arp.role_id = aur.role_id
+       inner join access_permissions ap on ap.id = arp.permission_id
+       inner join access_roles ar on ar.id = aur.role_id
+      where aur.user_id = $1
+        and ap.is_active = true
+        and ar.is_active = true
+        and (aur.expires_at is null or aur.expires_at > now())`;
+
+export async function listPermissionKeysByUserId(userId: string): Promise<string[]> {
+  const result = await query<{ permission_key: string }>(
+    PERMISSION_KEYS_BY_USER_SQL,
+    [userId]
+  );
+
+  return result.rows
+    .map((row) => String(row.permission_key || '').trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export async function listAdminAccessRoles() {
@@ -319,6 +470,7 @@ export async function listAdminAccessPermissions(filters: AdminAccessPermissionF
   const result = await query(
     `select
        ap.id as permission_id,
+       ap.permission_key,
        ap.resource,
        ap.action,
        coalesce(ap.description, '') as description
@@ -448,6 +600,7 @@ export async function findAdminAccessRoleDetailsById(roleId: string) {
   const permissionResult = await query(
     `select
        ap.id as permission_id,
+       ap.permission_key,
        ap.resource,
        ap.action,
        coalesce(ap.description, '') as description
@@ -723,6 +876,7 @@ export async function findAdminAccessPermissionById(permissionId: string) {
   const result = await query(
     `select
        ap.id as permission_id,
+       ap.permission_key,
        ap.resource,
        ap.action,
        coalesce(ap.description, '') as description
@@ -759,6 +913,7 @@ export async function createAdminAccessPermission(input: {
      ) values ($1,$2,$3,$4,$5,true,now(),now())
      returning
        id as permission_id,
+       permission_key,
        resource,
        action,
        coalesce(description, '') as description`,
@@ -792,6 +947,7 @@ export async function updateAdminAccessPermissionById(input: {
         and is_active = true
       returning
         id as permission_id,
+        permission_key,
         resource,
         action,
         coalesce(description, '') as description`,

@@ -691,10 +691,12 @@ export function searchPartners(params = {}) {
   return dedupedGet(`/v1/partners/search${toQueryString(buildPartnerSearchQueryParams(params))}`);
 }
 
+// SEM `skipAuth`: `/v1/auth/partner-info` passou a exigir sessão SICAT. O único chamador é
+// `CetesbAccountSelectionView`, cuja rota `/login/cetesb` já é `requiresSicatAuth: true` — o token
+// sempre existe aqui. Sem sessão, a rota é um proxy anônimo de consulta de CNPJ contra a CETESB,
+// feito com a CA e o IP do nosso backend.
 export function getPartnerInfo(document) {
-  return request(`/v1/auth/partner-info${toQueryString({ document })}`, {
-    skipAuth: true
-  });
+  return request(`/v1/auth/partner-info${toQueryString({ document })}`);
 }
 
 export function createManifest(payload) {
@@ -1186,6 +1188,22 @@ export function expireAdminAccessUserPassword(userId, payload = {}) {
   });
 }
 
+/**
+ * Waiver do escudo anti-bombing do vínculo WhatsApp (domínio explicado em
+ * `features/access-admin/shieldWaiverState.js`). Telefone e motivo vão no
+ * CORPO — PII em path/query vira log de acesso do Traefik e cabeçalho Referer.
+ *
+ * contrato pareado com a unidade B1: payload `{ channelType, phone, reason }`,
+ * resposta de sucesso com o telefone apenas MASCARADO.
+ */
+export function grantAdminChannelShieldWaiver(payload = {}) {
+  return request('/v1/admin/access/channel-links/shield-waiver', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 // =============================================================================
 // Centro Operacional SICAT — endpoints operacionais (fase 05-frontend).
 // =============================================================================
@@ -1433,6 +1451,99 @@ export function printMtrProvisorio(id, payload = {}, { idempotencyKey } = {}) {
     method: 'POST',
     headers: buildMtrProvisorioCommandHeaders(idempotencyKey),
     body: JSON.stringify(payload || {})
+  });
+}
+
+// =============================================================================
+// Vínculos de canal (WhatsApp) — cadeia whatsapp-channel-sicat (fase 02).
+//
+// Vinculação de telefone ↔ usuário SICAT por OTP SEMPRE iniciado no app: o
+// usuário autenticado informa o número, recebe 6 dígitos pelo WhatsApp e
+// confirma na tela. A identidade sai do Bearer no backend — nenhuma destas
+// chamadas manda `userId`.
+//
+// O telefone trafega SÓ no corpo do POST de criação; as demais rotas endereçam
+// `challengeId`/`linkId`. PII em path/query vira log de acesso do Traefik e
+// cabeçalho Referer.
+//
+// Estas rotas NÃO mandam `Idempotency-Key`: não existe middleware de idempotência
+// em /v1/sicat/channel-links, e um header que ninguém lê aparenta uma garantia que
+// não existe. A deduplicação real é do servidor — índice único PARCIAL do desafio
+// vivo (`conversation_channel_verifications_live_idx`: canal + telefone + usuário
+// enquanto `consumed_at is null`) mais os limitadores (cooldown de reenvio, teto de
+// envios, teto de vínculos por usuário). `request()` já
+// não repete POST/DELETE (`shouldRetryRequest`), então o cliente não gera duplicata
+// sozinho.
+// =============================================================================
+
+function buildChannelLinkCommandHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+export function listChannelLinks(params = {}) {
+  return request(`/v1/sicat/channel-links${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function startChannelLink(payload) {
+  return request('/v1/sicat/channel-links', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function resendChannelLinkChallenge(challengeId) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/resend`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify({})
+  });
+}
+
+export function confirmChannelLinkChallenge(challengeId, payload = {}) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/confirm`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function cancelChannelLinkChallenge(challengeId, params = {}) {
+  return request(
+    `/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}${toQueryString(params)}`,
+    { method: 'DELETE' }
+  );
+}
+
+export function deleteChannelLink(linkId) {
+  return request(`/v1/sicat/channel-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+}
+
+// --- Janela de ação do WhatsApp (step-up do N2, fase 05) ---------------------
+//
+// A janela é aberta na SESSÃO WEB autenticada — nunca pelo canal. O corpo leva
+// só duração e orçamento: telefone e conta CETESB são resolvidos no servidor a
+// partir do vínculo `verified` e da conta ativa (nenhum identificador de conta
+// sai do cliente). O DTO devolve o telefone MASCARADO; o E.164 cru nunca chega
+// aqui. Sem `Idempotency-Key` pelo mesmo motivo das rotas acima: o servidor já
+// deduplica (uma janela viva por usuário+telefone) e `request()` não repete
+// POST/DELETE.
+
+export function openWhatsAppActionWindow(payload) {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function getWhatsAppActionWindow() {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', { retry: 1, timeoutMs: 15000 });
+}
+
+export function revokeWhatsAppActionWindow(windowId) {
+  return request(`/v1/sicat/channel-links/whatsapp/action-window/${encodeURIComponent(windowId)}`, {
+    method: 'DELETE'
   });
 }
 

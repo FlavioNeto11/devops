@@ -24,6 +24,7 @@ import ManifestCreateView from './views/ManifestCreateView.vue';
 import ManifestDetailView from './views/ManifestDetailView.vue';
 import JobsView from './views/JobsView.vue';
 import SessionAccountView from './views/SessionAccountView.vue';
+import WhatsAppLinkView from './views/WhatsAppLinkView.vue';
 import AccessAdminView from './views/AccessAdminView.vue';
 import ConversationalChatAppView from './views/ConversationalChatAppView.vue';
 import DmrListView from './views/dmr/DmrListView.vue';
@@ -227,6 +228,23 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       breadcrumb: ['Minha sessão', 'Conta CETESB']
+    }
+  },
+  {
+    // Vincular o WhatsApp é configuração da CONTA SICAT, não operação CETESB:
+    // por isso `requiresActiveCetesbAccount: false`. Nenhum dos endpoints
+    // (/v1/sicat/channel-links) toca a CETESB — a identidade sai do Bearer. E,
+    // como o vínculo vira credencial de entrada pelo canal, exigir conta CETESB
+    // ativa colocaria a REVOGAÇÃO de um número (aparelho roubado, chip devolvido)
+    // atrás de um sistema externo cuja disponibilidade não controlamos.
+    path: '/perfil/canais',
+    name: 'PerfilCanais',
+    component: WhatsAppLinkView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: false,
+      audience: 'operator',
+      breadcrumb: ['Minha conta', 'WhatsApp do assistente']
     }
   },
   {

@@ -196,7 +196,7 @@ sem regressão atribuível ao DMR), 11 did not run (também herdado).
 Falha única na 1ª execução de `npm run test:integration`, verde na 2ª
 sem alteração de código. Registrada como follow-up de estabilidade
 não-bloqueante em
-[docs/10-estado-atual/estado-atual.md](10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade).
+[docs/10-estado-atual/estado-atual.md](10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados).
 
 ## 7. Caminho B — gateway DMR como stub
 

@@ -1,0 +1,32 @@
+{
+  "body": {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "000000000000000",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "messaging_product": "whatsapp",
+              "messages": [
+                {
+                  "from": "5511999990032",
+                  "id": "wamid.PLACEHOLDER",
+                  "timestamp": "1773412331",
+                  "type": "text",
+                  "text": {
+                    "body": "quais manifestos estão em rascunho?"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "headers": {
+    "X-Hub-Signature-256": "sha256=<hmac-sha256-do-rawBody>"
+  }
+}

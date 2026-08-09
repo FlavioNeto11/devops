@@ -68,7 +68,7 @@
 - **AUD-09** (fase 08): flake intermitente em `audit.spec.ts:267`
   sob full-suite paralela; passa 10/10 em isolado. Não atribuível à
   cadeia. Registrado em
-  [estado-atual.md §3.1](10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade).
+  [estado-atual.md §3.1](10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados).
 - **F4** (herdado de `dmr-fluxo-base`): flake única
   `test:integration` 1/124 reproduzida uma vez nesta cadeia,
   resolvida em reexecução imediata. Comportamento idêntico ao

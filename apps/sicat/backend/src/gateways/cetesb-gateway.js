@@ -9,6 +9,7 @@ import { findIntegrationAccountById } from '../repositories/integration-account-
 import { findById as findSicatCetesbAccountById } from '../repositories/sicat-cetesb-account-repo.js';
 import { decryptSecret } from '../lib/sicat-security.js';
 import { validateManifestPayload, normalizeExpeditionDate } from '../lib/validators/manifest-validator.js';
+import { appendManifestCorrelationMarker } from '../lib/manifest-correlation.js';
 
 const CATALOG_ENDPOINTS = {
   states: { method: 'GET', path: () => '/api/estados', auth: false, mapper: mapStates },
@@ -1313,7 +1314,14 @@ function mapManifestToCetesb(payload, sessionContext) {
     manDataExpedicao: normalizeExpeditionDate(payload.expeditionDate),
     manNomeMotorista: payload.driverName || '',
     manPlacaVeiculo: payload.vehiclePlate || '',
-    manObservacao: payload.notes || '',
+    // C1: marcador determinístico de correlação pré-submit. O manHashCode só
+    // existe na RESPOSTA da CETESB; se ela se perder, o marcador gravado aqui
+    // permite reencontrar o MTR via pesquisaManifesto (o manObservacao volta
+    // no snapshot) mesmo em lotes com atributos idênticos. A observação do
+    // usuário é preservada — o marcador é concatenado, nunca sobrescreve.
+    manObservacao: payload.correlationManifestId
+      ? appendManifestCorrelationMarker(payload.notes, payload.correlationManifestId)
+      : (payload.notes || ''),
     manJustificativaCancelamento: '',
     manNomeMotoristaArmazenamentoTemporario: payload.temporaryStorageDriverName || '',
     manPlacaVeiculoArmazenamentoTemporario: payload.temporaryStorageVehiclePlate || '',
@@ -2267,7 +2275,13 @@ class RealCetesbGateway {
     const enrichedPayload = await this.enrichPartnerData(manifest.payload, sessionContext);
     const enrichedResiduesPayload = await this.enrichResidueData(enrichedPayload, sessionContext);
     const partnerAccess = await this.resolveManifestPartnerAccess(enrichedResiduesPayload, sessionContext);
-    const cetesbPayload = mapManifestToCetesb(enrichedResiduesPayload, {
+    // C1: injeta o id local no payload mapeado para que `mapManifestToCetesb`
+    // grave o marcador de correlação em `manObservacao`. Vale também para o
+    // MTR provisório (submitMtrProvisorio delega para cá).
+    const cetesbPayload = mapManifestToCetesb({
+      ...enrichedResiduesPayload,
+      correlationManifestId: manifest.id || null
+    }, {
       ...sessionContext,
       userAccessCode: partnerAccess.paaCodigo ?? sessionContext?.userAccessCode ?? null,
       userName: partnerAccess.paaNome || sessionContext?.userName || enrichedResiduesPayload?.responsibleName || null

@@ -1,0 +1,110 @@
+{
+  "titulo": "Canonicalização de telefone — fixture COMPARTILHADO backend × frontend",
+  "cadeia": "whatsapp-channel-sicat / fase 02-identity-binding",
+  "porQueExiste": [
+    "A mesma regra é implementada duas vezes: `canonicalizeChannelUserKey` em",
+    "backend/src/services/conversation/channel/whatsapp/types.ts (AUTORITATIVA — é ela que grava",
+    "`conversation_channel_links.external_user_key`) e `canonicalizePhoneDigits` em",
+    "frontend/src/features/channel-link/channelLinkState.js (espelho, valida antes de gastar",
+    "mensagem paga e mostra ao operador o número que será usado).",
+    "Se as duas divergirem, a falha é SILENCIOSA: a tela valida e exibe um número, o backend grava",
+    "outra chave, e na fase 3 a mensagem do WhatsApp chega e não casa com vínculo nenhum — sem erro.",
+    "Este arquivo é a ÚNICA lista de expectativas: as duas suítes iteram sobre ele.",
+    "Consumidores: backend/tests/unit/channel-link-service.test.js e",
+    "frontend/tests/unit/channel-link-view-state.test.js — ambos resolvem",
+    "`../../../tests/fixtures/phone-canonicalization.json` relativo ao próprio arquivo de teste."
+  ],
+  "defaultCountryCode": "55",
+  "regraDeIdempotencia": "Toda entrada canonicalizada é ponto fixo: canonicalize(canonicalize(x)) === canonicalize(x). As duas suítes devem verificar isso para TODOS os casos, além dos casos marcados `idempotencia: true`.",
+  "cases": [
+    {
+      "input": "1133334444",
+      "expected": "551133334444",
+      "nota": "10 dígitos (fixo com DDD, como o brasileiro digita) → ganha o DDI 55 e NÃO ganha nono dígito (assinante começa em 3)."
+    },
+    {
+      "input": "11999999999",
+      "expected": "5511999999999",
+      "nota": "11 dígitos (celular com DDD) → ganha só o DDI 55; já tem o nono dígito."
+    },
+    {
+      "input": "551155554444",
+      "expected": "551155554444",
+      "nota": "FRONTEIRA: 12 dígitos com 55 e assinante começando em 5 → é fixo, passa INTACTO. Inserir o 9 aqui criaria um número inexistente."
+    },
+    {
+      "input": "551122223333",
+      "expected": "551122223333",
+      "nota": "FRONTEIRA: 12 dígitos com 55 e assinante começando em 2 → fixo, intacto (piso da faixa de fixo)."
+    },
+    {
+      "input": "551186667777",
+      "expected": "5511986667777",
+      "nota": "FRONTEIRA: 12 dígitos com 55 e assinante começando em 8 (faixa 6–9) → celular antigo, GANHA o nono dígito depois do DDD."
+    },
+    {
+      "input": "551166667777",
+      "expected": "5511966667777",
+      "nota": "FRONTEIRA: assinante começando em 6 — piso da faixa que ganha o nono dígito."
+    },
+    {
+      "input": "551199999999",
+      "expected": "5511999999999",
+      "nota": "FRONTEIRA: assinante começando em 9 — teto da faixa que ganha o nono dígito."
+    },
+    {
+      "input": "5511999999999",
+      "expected": "5511999999999",
+      "nota": "Já canônico (13 dígitos) → intacto. É a forma que o provedor reporta em `from`.",
+      "idempotencia": true
+    },
+    {
+      "input": "whatsapp:+5511999999999",
+      "expected": "5511999999999",
+      "nota": "Prefixo de provedor (Twilio usa `whatsapp:+55…`) → some junto com o `+`."
+    },
+    {
+      "input": "whatsapp:+551186667777",
+      "expected": "5511986667777",
+      "nota": "Prefixo de provedor SOMADO à heurística do nono dígito — o caminho real do webhook da fase 3."
+    },
+    {
+      "input": "+55 (11) 99999-9999",
+      "expected": "5511999999999",
+      "nota": "Entrada mascarada, como o operador cola da agenda → só dígitos sobrevivem."
+    },
+    {
+      "input": "+55 (11) 8666-7777",
+      "expected": "5511986667777",
+      "nota": "Máscara antiga de 8 dígitos + heurística do nono dígito.",
+      "idempotencia": true
+    },
+    {
+      "input": "351912345678",
+      "expected": "351912345678",
+      "nota": "Estrangeiro em E.164 com 12 dígitos que NÃO começa com 55 → intacto (a heurística do nono dígito é só BR)."
+    },
+    {
+      "input": "",
+      "expected": "",
+      "nota": "String vazia → chave vazia. Nunca vira `55`."
+    },
+    {
+      "input": "não é telefone",
+      "expected": "",
+      "nota": "Texto sem dígito nenhum → chave vazia (o serviço rejeita com CHANNEL_LINK_PHONE_INVALID)."
+    },
+    {
+      "input": "551133334444",
+      "expected": "551133334444",
+      "nota": "IDEMPOTÊNCIA explícita: é o `expected` do caso de 10 dígitos reaplicado — tem de ser ponto fixo.",
+      "idempotencia": true
+    },
+    {
+      "input": "5511986667777",
+      "expected": "5511986667777",
+      "nota": "IDEMPOTÊNCIA explícita: é o `expected` do caso do nono dígito reaplicado — não pode ganhar um segundo 9.",
+      "idempotencia": true
+    }
+  ]
+}

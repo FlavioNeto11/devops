@@ -12,7 +12,19 @@ import {
   getConversationOperationalReadiness,
   getConversationTelemetrySnapshot
 } from '../services/conversation/conversation-observability.js';
+import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 
+/**
+ * Router montado em `/health` (`app.use('/health', healthRoutes)`).
+ *
+ * TODA rota daqui exige sessão SICAT. O que o Kubernetes sonda é `GET /health` EXATO — servido por
+ * `system-routes.ts`, que continua público e é o único caminho isento no `authMiddleware` global.
+ * Nenhuma probe, IngressRoute ou monitor da plataforma aponta para `/health/<algo>`: os únicos
+ * chamadores eram scripts de diagnóstico em `tests/manual/`, que rodam com o operador na máquina.
+ *
+ * Antes disto, `POST /health/maintenance/cleanup` apagava jobs sem nenhuma credencial — e fechar só
+ * o gêmeo `/v1/maintenance/cleanup` deixaria a mesma operação destrutiva a um caminho de distância.
+ */
 const router = Router();
 
 function parseNumericInput(value: unknown, fallback: number): number {
@@ -32,7 +44,7 @@ function parseNumericInput(value: unknown, fallback: number): number {
  * GET /health/system
  * Visão geral do health do sistema
  */
-router.get('/system', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/system', sicatAuthMiddleware, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const health = await getSystemHealth();
     const workerStats = await getWorkerStatistics();
@@ -84,7 +96,7 @@ router.get('/system', async (_req: Request, res: Response, next: NextFunction) =
  * GET /health/workers
  * Lista workers e seu status
  */
-router.get('/workers', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/workers', sicatAuthMiddleware, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await getWorkerStatistics();
     const unhealthy = await detectUnhealthyWorkers(300); // 5 minutos
@@ -116,7 +128,7 @@ router.get('/workers', async (_req: Request, res: Response, next: NextFunction) 
  * GET /health/jobs/active
  * Lista jobs atualmente ativos (queued, running, retry_wait)
  */
-router.get('/jobs/active', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/jobs/active', sicatAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = parseNumericInput(req.query.limit, 100);
     const jobs = await listActiveJobs(limit);
@@ -151,7 +163,7 @@ router.get('/jobs/active', async (req: Request, res: Response, next: NextFunctio
  * GET /health/jobs/dlq
  * Lista jobs na Dead Letter Queue
  */
-router.get('/jobs/dlq', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/jobs/dlq', sicatAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = parseNumericInput(req.query.limit, 100);
     const dlqJobs = await listDLQJobs(limit);
@@ -185,7 +197,7 @@ router.get('/jobs/dlq', async (req: Request, res: Response, next: NextFunction) 
  * GET /health/metrics/performance
  * Métricas de performance dos jobs (últimas 24h por padrão)
  */
-router.get('/metrics/performance', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/metrics/performance', sicatAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const hoursBack = parseNumericInput(req.query.hours, 24);
     const metrics = await calculateJobPerformanceMetrics(hoursBack);
@@ -214,7 +226,7 @@ router.get('/metrics/performance', async (req: Request, res: Response, next: Nex
  * POST /health/maintenance/cleanup
  * Executa limpeza de jobs antigos
  */
-router.post('/maintenance/cleanup', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/maintenance/cleanup', sicatAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = req.body as Record<string, unknown> | undefined;
     const retentionDays = parseNumericInput(body?.retentionDays, 30);
@@ -237,7 +249,7 @@ router.post('/maintenance/cleanup', async (req: Request, res: Response, next: Ne
  * GET /health/ping
  * Health check simples (para load balancers)
  */
-router.get('/ping', (_req: Request, res: Response) => {
+router.get('/ping', sicatAuthMiddleware, (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),

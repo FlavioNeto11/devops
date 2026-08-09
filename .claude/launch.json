@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "sicat-frontend-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/sicat/frontend", "--", "--port", "5177", "--strictPort"],
+      "port": 5177
+    },
+    {
       "name": "anarabottini",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/anarabottini", "--", "--port", "5173", "--strictPort"],

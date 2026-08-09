@@ -155,28 +155,12 @@ function mapBackendActionToUiAction(action) {
   };
 }
 
-function buildRequestedBy(user) {
-  if (!user || typeof user !== 'object') {
-    return null;
-  }
-
-  return toNullableString(user.userId) || toNullableString(user.email) || toNullableString(user.name);
-}
-
 function buildUserId(user) {
   if (!user || typeof user !== 'object') {
     return null;
   }
 
   return toNullableString(user.userId) || toNullableString(user.email);
-}
-
-function buildChannelSessionKey(userId, integrationAccountId) {
-  return [
-    'native_chat',
-    userId || 'anonymous',
-    integrationAccountId || 'no-account'
-  ].join(':');
 }
 
 function detectSensitiveAction(text) {
@@ -463,9 +447,6 @@ export function useConversationalChatApp() {
   }
 
   async function sendToBackend(userInput, options = {}) {
-    const user = authStore.user.value || null;
-    const requestedBy = buildRequestedBy(user);
-    const userId = buildUserId(user);
     const metadata = {
       source: 'native-chat-app-simplified',
       app: 'conversational-chat-app'
@@ -481,16 +462,14 @@ export function useConversationalChatApp() {
       message: {
         text: userInput
       },
+      // Identidade (usuário, conta CETESB, sessão CETESB, chave de sessão do canal) é resolvida NO
+      // SERVIDOR a partir do token SICAT — ver backend `conversation-principal.ts`. Enviá-la daqui
+      // não teria efeito e daria a falsa impressão de que o cliente a controla.
       context: {
-        integrationAccountId: integrationAccountId.value,
-        sessionContextId: sessionContextId.value,
         accountId: accountId.value,
-        requestedBy,
-        userId,
         manifestId: toNullableString(focusedManifestId.value),
         jobId: toNullableString(focusedJobId.value),
-        currentScreen: 'native_chat_app_simplified',
-        channelSessionKey: buildChannelSessionKey(userId, integrationAccountId.value)
+        currentScreen: 'native_chat_app_simplified'
       },
       metadata,
       ...(options.toolRequest ? { toolRequest: options.toolRequest } : {}),

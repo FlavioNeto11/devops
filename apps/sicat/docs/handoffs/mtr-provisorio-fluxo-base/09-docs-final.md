@@ -97,12 +97,12 @@ foram registradas no CHANGELOG §5 sem alteração de semântica.
 
 - **AUD-09** — flake `audit.spec.ts:267 (09-Vuetify Components
   Render)` sob full-suite paralela. Documentado em
-  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade)
+  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados)
   e em [08-qa-validation.md §6](08-qa-validation.md#6-incidentes-abertos-sem-corre%C3%A7%C3%A3o-nesta-fase).
   Owner sugerido: `frontend-vue-ux-mtr` se reaparecer em CI
   consecutivo. Não bloqueia a cadeia.
 - **F4** — flake única `test:integration` (1/124). Documentado em
-  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade)
+  [docs/10-estado-atual/estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados)
   e em [08-qa-validation.md §4](08-qa-validation.md#4-status-baseline-f2--f3--f4).
   Owner sugerido: `postgres-queue-mtr` se reaparecer com sinal
   estável. Não bloqueia a cadeia.
