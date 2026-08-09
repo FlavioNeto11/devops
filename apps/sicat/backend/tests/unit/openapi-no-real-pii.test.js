@@ -10,9 +10,15 @@
  * `tests/api/v1-auth-coverage.test.js`.
  *
  * POR QUE OS VALORES REAIS ESTÃO AQUI COMO SHA-256, E NÃO EM TEXTO:
- * um teste que guardasse `'31913781000139'` em claro para procurá-lo no YAML apenas MOVERIA o
- * vazamento de arquivo — o CNPJ continuaria versionado, e o `grep` de quem auditasse o repositório
- * continuaria achando. O digest detecta a reintrodução sem republicar o dado.
+ * um teste que guardasse o CNPJ em claro para procurá-lo no YAML apenas MOVERIA o vazamento de
+ * arquivo — o número continuaria versionado, e o `grep` de quem auditasse o repositório continuaria
+ * achando. O digest detecta a reintrodução sem republicar o dado.
+ *
+ * ⚠️ A REGRA VALE PARA ESTE ARQUIVO TAMBÉM, E ELE JÁ A QUEBROU. Auditoria de 2026-08-09 encontrou
+ * 3 ocorrências de 2 valores reais nos COMENTÁRIOS explicativos daqui — citados como "exemplo do que
+ * não fazer" e para justificar o tokenizador. Um deles escapava da própria Regra A porque estava
+ * entre crases, e `normalizeToken` não as removia (corrigido junto). Ao explicar o mecanismo, use
+ * descrição ("nome de pessoa física", "razão social") ou a SENTINELA — nunca o valor.
  *
  * TRÊS REGRAS, propositalmente redundantes:
  *  A (denylist por digest) — pega a volta EXATA dos valores conhecidos, inclusive os que nenhuma
@@ -115,15 +121,18 @@ const sha256 = (value) => crypto.createHash('sha256').update(value, 'utf8').dige
 
 /** Remove aspas YAML e pontuação de borda que não faz parte do valor. */
 function normalizeToken(token) {
-  return token.replace(/^['"([]+/, '').replace(/['")\],]+$/, '');
+  // A crase entra aqui porque, sem ela, um valor citado em `inline-code` de Markdown escapava da
+  // Regra A inteira — inclusive nos comentários deste próprio arquivo (auditoria de 2026-08-09).
+  return token.replace(/^['"([`]+/, '').replace(/['")\],`]+$/, '');
 }
 
 /**
  * REGRA A — procura os valores conhecidos por digest.
  *
  * Tokeniza cada LINHA (todo valor perseguido cabe numa linha) e monta n-gramas de 1 a 8 palavras,
- * porque `Flavio Padilha Neto` e `CASAMAX COMERCIAL LTDA.` só existem como sequência. Os números
- * entram também como sequências puras de dígitos, para achá-los dentro de `mtr-<numero>.pdf`.
+ * porque um nome de pessoa física e uma razão social só existem como SEQUÊNCIA de palavras — buscar
+ * palavra a palavra não os acharia. Os números entram também como sequências puras de dígitos, para
+ * achá-los dentro de `mtr-<numero>.pdf`.
  */
 export function findKnownRealPii(text) {
   const achados = [];
