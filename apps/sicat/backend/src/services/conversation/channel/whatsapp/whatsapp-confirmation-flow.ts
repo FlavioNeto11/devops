@@ -238,22 +238,43 @@ function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): s
  * │        N2 estaria liberado num canal onde o desfecho é invisível. Um portão que não PODE ser mal│
  * │        configurado vale mais que um que depende de alguém configurar certo.                     │
  * │                                                                                                │
- * │ LISTA FECHADA que abre o portão (fase 7 ou 6.1) — faltando QUALQUER item, fica fechado:         │
- * │  E1 execução real ponta a ponta em sandbox, com transcrição, em sucesso E em falha;             │
- * │  E2 `WORKER_LANE=channel` no ar, com a raia `default` separada;                                 │
- * │  E3 `dispatchStatus` carimbado no desfecho, verificado numa linha real (já implementado aqui,   │
- * │     falta a evidência);                                                                         │
- * │  E4 decisão explícita sobre a cauda fora da janela (templates UTILITY APPROVED, ou a aceitação  │
- * │     registrada de que emissão que termina fora da janela não é empurrada);                      │
- * │  E5 um mecanismo que responda "o MTR nasceu na CETESB?" depois de uma falha de `manifest.submit`│
- * │     — e a decisão de produto sobre o que dizer quando a resposta é "não sei". E1–E4 são trabalho│
- * │     conhecido; E5 é escopo próprio, e não cabe na fase 6 nem na 7.                              │
+ * │ ══════════ PORTÃO ABERTO EM 2026-08-09, POR DECISÃO EXPLÍCITA DO OPERADOR ══════════            │
  * │                                                                                                │
- * │ O PORTÃO TRANCA TRÊS AÇÕES — `submit_manifest`, `manifest.batch_submit_selected` e              │
+ * │ Estado REAL de cada evidência no momento da abertura — escrito como está, não como convém:      │
+ * │                                                                                                │
+ * │  E1 execução real ponta a ponta em sandbox, em sucesso E em falha                               │
+ * │     ✅ PARCIAL. Sucesso PROVADO contra o sandbox Twilio real: webhook assinado do número        │
+ * │        vinculado → `enqueued=1` → job `whatsapp.inbound_message` succeeded em 24,5 s → resposta │
+ * │        com 50 manifestos reais da CETESB entregue no aparelho (status `read`).                  │
+ * │     ❌ NÃO provado: o caminho de AÇÃO (só o de consulta rodou) nem o caminho de FALHA.          │
+ * │                                                                                                │
+ * │  E2 `WORKER_LANE=channel` no ar, com a raia `default` separada                                  │
+ * │     ❌ NÃO SATISFEITA — a raia não existe em manifesto nenhum (item O1b do runbook).            │
+ * │        Consequência que o operador assume: `WORKER_LANE` ausente ⇒ o worker reivindica TODAS as │
+ * │        raias, então o aviso É consumido (não há silêncio); o risco é de CONTENÇÃO — o worker é  │
+ * │        consumidor serial único, e um turno de LLM de ~25 s atrasa um `manifest.submit` na fila. │
+ * │                                                                                                │
+ * │  E3 `dispatchStatus` carimbado, verificado numa linha real                                      │
+ * │     ❌ pendente — o mecanismo existe (`recordDispatchOutcome`), falta a evidência numa linha.   │
+ * │                                                                                                │
+ * │  E4 decisão sobre a cauda fora da janela de 24 h                                                │
+ * │     ❌ pendente — sem template UTILITY aprovado, emissão que termine fora da janela NÃO é       │
+ * │        empurrada ao usuário. Ele verá o desfecho pelo navegador, não pelo canal.                │
+ * │                                                                                                │
+ * │  E5 "o MTR nasceu na CETESB?" depois de uma falha de `manifest.submit`                          │
+ * │     ✅ SATISFEITA — Track C integrado: marcador de correlação gravado no `manObservacao` antes  │
+ * │        do PUT, reconciliador que consulta a CETESB, estado `submit_unconfirmed` para o "não     │
+ * │        sei", costura da linha órfã e job de varredura.                                          │
+ * │                                                                                                │
+ * │ O PORTÃO TRANCAVA TRÊS AÇÕES — `submit_manifest`, `manifest.batch_submit_selected` e            │
  * │ `manifest.receive_with_receipt`. As três criam registro na CETESB sem inverso, que é o critério │
- * │ inteiro de N2. O operador decidiu construir tudo e deixar travado: a E1 (execução real ponta a  │
- * │ ponta contra provedor WhatsApp) não tem como ser produzida — não existem credenciais            │
- * │ Twilio/Meta. Mudar este literal SEM as cinco evidências é a regressão que a suíte tem de matar. │
+ * │ inteiro de N2. Elas continuam exigindo: janela de ação aberta na sessão web autenticada,        │
+ * │ prévia de conferência que RECUSA quando não consegue montar a lista, ticket e código de 6       │
+ * │ dígitos. O que mudou é só que o desfecho passa a ser avisado pelo canal.                        │
+ * │                                                                                                │
+ * │ ROLLBACK, em ordem de rapidez: (1) revogar `allowChannels` no AI Control Center — segundos,     │
+ * │ sem deploy; (2) `WHATSAPP_ACTION_NOTICE_ENABLED=false` — minutos, via git; (3) este literal de  │
+ * │ volta a `false` — exige build. A (1) é a alavanca de incidente.                                 │
  * │                                                                                                 │
  * │ ⚠️ ERAM QUATRO. `manifest.create_from_payload` foi trancada aqui por engano: a unidade que a     │
  * │ promoveu afirmou que ela "cria registro real na CETESB sem inverso", e não cria — é `insert`    │
@@ -263,7 +284,7 @@ function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): s
  * │ irreversível continua sendo o `submit`, que é N2 e segue aqui.                                  │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
-const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;
+const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = true;
 
 /** Teto de itens resolvidos por prévia. Acima disso a lista já é "e mais N" e o custo é de banco. */
 const MAX_RESOLVED_IDENTITY_ITEMS = 10;
@@ -364,10 +385,19 @@ export async function tryIssueWhatsAppActionTicket(input: {
   let stepUpWindowId: string | null = null;
   let windowLine: string | null = null;
   if (eligible.tier === 'N2') {
-    // PORTÃO DO N2, DE CÓDIGO: sem o aviso de conclusão, nenhuma ação N2 sai — e nenhuma env o abre.
-    // Ver `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` acima. Isto tranca os dois `submit` e o
-    // recebimento: a conferência dos três está construída e testada, e o que falta é a MESMA lista
-    // E1–E5. O texto varia por ação — o verbo de `submit` mentiria no recebimento.
+    // PORTÃO DO N2 — DUAS TRANCAS, E SÓ UMA ABRIU.
+    //
+    // ⚠️ ESTE COMENTÁRIO FOI CORRIGIDO EM 2026-08-09. Ele dizia "sem o aviso de conclusão, nenhuma
+    // ação N2 sai — e nenhuma env o abre", e as duas metades deixaram de ser verdade no mesmo
+    // commit: `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` foi para `true` (o registro da decisão, com o
+    // estado real de E1–E5, está no bloco daquela constante), então os dois `submit` e o recebimento
+    // PASSAM por aqui e emitem ticket.
+    //
+    // O que continua trancando, e é o que os testes prendem:
+    //  (i)  `resolveWhatsAppOutboundNoticeEnabled()` — a env `WHATSAPP_ACTION_NOTICE_ENABLED`, que
+    //       segue valendo e é a alavanca de rollback nº 2 (git, sem build);
+    //  (ii) a JANELA DE AÇÃO, logo abaixo — que passou a ser a guarda que sustenta o N2 sozinha.
+    // O texto da recusa varia por ação: o verbo de `submit` mentiria no recebimento.
     //
     // A CRIAÇÃO NÃO CHEGA MAIS AQUI: ela é N1 (rascunho local, gateway nenhum) e segue pelo caminho
     // de baixo, emitindo ticket. A conferência FAIL-CLOSED dela continua valendo — é a guarda de

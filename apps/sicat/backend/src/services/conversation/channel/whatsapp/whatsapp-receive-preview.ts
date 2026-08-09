@@ -13,9 +13,13 @@
  * │ A promocao continua NAO sendo deste arquivo (ele nao toca a lista), mas afirmar inercia com o  │
  * │ chamador no lugar seria comentario mentindo sobre o codigo.                                    │
  * │                                                                                                │
- * │ O que ainda NAO acontece, e por outro motivo: o portao do N2                                   │
- * │ (`WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED`, em `whatsapp-confirmation-flow.ts`) esta fechado,     │
- * │ entao a baixa por WhatsApp responde "aviso indisponivel" em vez de emitir ticket.              │
+ * │ ⚠️ E FOI CORRIGIDO DE NOVO EM 2026-08-09. Ele dizia que "o portao do N2 esta fechado, entao a  │
+ * │ baixa responde 'aviso indisponivel' em vez de emitir ticket" — deixou de ser verdade:          │
+ * │ `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` foi para `true` por decisao do operador (o registro     │
+ * │ inteiro, com o estado real de E1–E5, esta no bloco daquela constante). A baixa por WhatsApp    │
+ * │ EMITE ticket. O que continua exigido em N2: JANELA DE ACAO viva na conta certa, esta prévia    │
+ * │ fechando, e o codigo de 6 digitos. A segunda tranca — `WHATSAPP_ACTION_NOTICE_ENABLED` — segue │
+ * │ valendo e continua recusando quando desligada.                                                 │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ FAIL-CLOSED, SEM EXCECAO ────────────────────────────────────────────────────────────────────┐
