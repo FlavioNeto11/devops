@@ -1,5 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Âncoras derivadas do ARQUIVO, nunca de `process.cwd()`. As duas árvores validadas
+// aqui vivem em níveis diferentes: o gateway em `apps/sicat/backend/src/gateways/`
+// e as evidências em `apps/sicat/docs/cetesb/`. Um `rootDir` único vindo do cwd não
+// resolve as duas — antes, `docs/cetesb` era procurado em `backend/docs/cetesb`.
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url)); // backend/scripts
+const BACKEND_ROOT = path.resolve(scriptsDir, '..'); // backend
+const APP_ROOT = path.resolve(BACKEND_ROOT, '..'); // apps/sicat
+
+export const CETESB_EVIDENCE_DIR = path.resolve(APP_ROOT, 'docs/cetesb');
 
 const REQUIRED_HAR_FILES = {
   login: 'mtr.cetesb.sp.gov.br_login.har',
@@ -104,8 +115,8 @@ function readJson(absPath) {
   return JSON.parse(fs.readFileSync(absPath, 'utf8'));
 }
 
-function resolveHarPath(rootDir, harFile) {
-  return path.resolve(rootDir, 'docs/cetesb', harFile);
+function resolveHarPath(evidenceDir, harFile) {
+  return path.resolve(evidenceDir, harFile);
 }
 
 function findHarEntry(entries, profile) {
@@ -161,11 +172,13 @@ export function validateHarEntryShape(entry, profile, operationName) {
   }
 }
 
-export function validateHarEvidenceStructure(rootDir = process.cwd()) {
+// `evidenceDir` aponta direto para a pasta de HARs (default: `apps/sicat/docs/cetesb`).
+// Requer captura LOCAL não versionada — ver `docs/cetesb/README.md`.
+export function validateHarEvidenceStructure(evidenceDir = CETESB_EVIDENCE_DIR) {
   const validatedOperations = [];
 
   for (const [operationName, profile] of Object.entries(HAR_OPERATION_PROFILES)) {
-    const harPath = resolveHarPath(rootDir, profile.harFile);
+    const harPath = resolveHarPath(evidenceDir, profile.harFile);
     const harJson = readJson(harPath);
     const entries = harJson?.log?.entries || [];
     const entry = findHarEntry(entries, profile);
@@ -184,8 +197,9 @@ export function validateHarEvidenceStructure(rootDir = process.cwd()) {
   };
 }
 
-export function validateGatewayStructure(rootDir = process.cwd()) {
-  const gatewayPath = path.resolve(rootDir, 'src/gateways/cetesb-gateway.js');
+// `backendDir` é a raiz do backend (onde vive `src/`); default = raiz derivada deste arquivo.
+export function validateGatewayStructure(backendDir = BACKEND_ROOT) {
+  const gatewayPath = path.resolve(backendDir, 'src/gateways/cetesb-gateway.js');
   ensure(fs.existsSync(gatewayPath), `Gateway não encontrado: ${gatewayPath}`);
   const gatewayContent = fs.readFileSync(gatewayPath, 'utf8');
 
@@ -207,9 +221,9 @@ export function validateGatewayStructure(rootDir = process.cwd()) {
   };
 }
 
-export function validateHarGatewayStructure(rootDir = process.cwd()) {
-  const har = validateHarEvidenceStructure(rootDir);
-  const gateway = validateGatewayStructure(rootDir);
+export function validateHarGatewayStructure(backendDir = BACKEND_ROOT, evidenceDir = CETESB_EVIDENCE_DIR) {
+  const har = validateHarEvidenceStructure(evidenceDir);
+  const gateway = validateGatewayStructure(backendDir);
   return {
     har,
     gateway,

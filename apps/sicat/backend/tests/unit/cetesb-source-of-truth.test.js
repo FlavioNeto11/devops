@@ -1,3 +1,22 @@
+// ⚠️ DEPENDÊNCIA DE CAPTURA LOCAL NÃO VERSIONADA
+//
+// Os 4 testes deste arquivo que leem `.har` — 'docs/cetesb contém todos HARs
+// obrigatórios', 'HAR gerar_mtr expõe endpoint dedicado de listagem de MTR
+// provisório', 'HAR imprimir_mtr fixa campos provisórios no payload de manifesto'
+// e 'HAR gerar_mtr fixa discriminador tipoManifesto no body de criação' — só
+// passam em máquina que tenha as capturas em `apps/sicat/docs/cetesb/`.
+//
+// Esses `.har` estão no `.gitignore` (`apps/sicat/.gitignore`, regra `*.har`) porque
+// são sessões CETESB autenticadas reais: contêm JWT e CPF/CNPJ. Este repositório é
+// público — versioná-los seria vazamento de PII/credencial. Logo, em clone limpo
+// (e no CI) estes casos FALHAM por arquivo ausente, e isso é intencional.
+//
+// Não marcamos `skip` nem geramos HAR sintético: os asserts congelam evidência REAL
+// da API da CETESB; um fixture inventado transformaria a guarda em teatro.
+//
+// Como regenerar: navegador autenticado na CETESB → DevTools → Network → "Export HAR"
+// do fluxo, salvando com o nome esperado em `apps/sicat/docs/cetesb/`. Lista de
+// arquivos, motivo e procedimento em `apps/sicat/docs/cetesb/README.md`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
