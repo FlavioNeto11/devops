@@ -61,6 +61,43 @@ export function isManifestSubmitUnconfirmedStatus(status: unknown): boolean {
 }
 
 /**
+ * Fragmentos que denunciam falha no par (`status`, `external_status`).
+ *
+ * Casam por SUBSTRING porque `external_status` é texto livre — em parte vindo da
+ * CETESB ('Falha na validação'), em parte escrito por nós. É essa mesma
+ * permissividade que exige o guard de `isManifestFailureState` abaixo.
+ */
+const FAILURE_STATUS_FRAGMENTS = ['fail', 'error', 'falha', 'erro', 'dlq'] as const;
+
+/**
+ * "Este manifesto está em estado de FALHA?" — a pergunta que autoriza REMOVER a
+ * linha local (`removeManifest`) e, no frontend, oferecer "Reenviar".
+ *
+ * O guard de `submit_unconfirmed` vem PRIMEIRO e não é redundante: a mensagem
+ * que ESTE MESMO módulo grava em `external_status` quando o submit morre em DLQ
+ * sem confirmação — "Envio sem confirmação: job finalizado em DLQ e a pesquisa
+ * na CETESB não confirmou se o MTR foi criado..." — contém a palavra "DLQ". A
+ * classificação por substring lia o TEXTO EXPLICATIVO como sinal de estado e
+ * concluía falha, reabrindo justamente as duas ações que `submit_unconfirmed`
+ * existe para fechar. Remover a linha de um MTR que PODE ter nascido apaga o
+ * único fio para achar o órfão na CETESB.
+ *
+ * `failed` continua sendo falha, com ou sem esse texto: só quem sabe que o MTR
+ * NÃO nasceu autoriza reenviar.
+ */
+export function isManifestFailureState(manifest: {
+  status?: unknown;
+  externalStatus?: unknown;
+} | null | undefined): boolean {
+  if (isManifestSubmitUnconfirmedStatus(manifest?.status)) {
+    return false;
+  }
+
+  const combined = `${normalizeStatus(manifest?.status)} ${normalizeStatus(manifest?.externalStatus)}`;
+  return FAILURE_STATUS_FRAGMENTS.some((fragment) => combined.includes(fragment));
+}
+
+/**
  * Certeza sobre o desfecho de um submit que não completou.
  *
  * - `confirmed-absent`: o sistema PERGUNTOU à CETESB (pesquisa pelo marcador de

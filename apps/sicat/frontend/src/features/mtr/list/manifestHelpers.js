@@ -282,14 +282,26 @@ export function isCancelledStatus(manifest) {
 }
 
 /**
- * ATENÇÃO — `submit_unconfirmed` NÃO entra aqui, e isso é uma decisão, não um
- * esquecimento. `isErrorManifest` é a chave que abre "Reenviar"
- * (`canRecoverManifest`) e "Remover" (`canRemoveManifest`): classificar como
- * erro um envio de desfecho desconhecido faria a tela oferecer justamente as
- * duas ações que produzem MTR duplicado / perda de rastro do órfão. Os testes
- * de `manifest-submit-unconfirmed.test.js` travam essas três respostas juntas.
+ * ATENÇÃO — `submit_unconfirmed` NUNCA é erro. `isErrorManifest` é a chave que
+ * abre "Reenviar" (`canRecoverManifest`) e "Remover" (`canRemoveManifest`):
+ * classificar como erro um envio de desfecho desconhecido faz a tela oferecer
+ * justamente as duas ações que produzem MTR duplicado / perda de rastro do
+ * órfão. Os testes de `manifest-submit-unconfirmed.test.js` travam essas três
+ * respostas juntas.
+ *
+ * O guard explícito no topo NÃO é redundante, e o comentário anterior aqui
+ * errava ao dizer que bastava o estado não casar os fragmentos. A mensagem que o
+ * backend grava em `externalStatus` quando o submit morre em DLQ sem
+ * confirmação ("Envio sem confirmação: job finalizado em DLQ e a pesquisa na
+ * CETESB não confirmou se o MTR foi criado...") contém a palavra **DLQ**: o
+ * `includes('dlq')` abaixo lia o TEXTO EXPLICATIVO como sinal de estado e
+ * devolvia `true`, reabrindo as duas ações. É o par exato do guard em
+ * `isManifestFailureState` (backend), que autoriza a remoção da linha.
  */
 export function isErrorManifest(manifest) {
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return false;
+  }
   const status = String(manifest?.status || '').toLowerCase();
   const externalStatus = String(manifest?.externalStatus || '').toLowerCase();
   const combinedStatus = `${status} ${externalStatus}`;

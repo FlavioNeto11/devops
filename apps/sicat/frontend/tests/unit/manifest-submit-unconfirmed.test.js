@@ -141,6 +141,58 @@ test('NÃO é falha — e por isso Reenviar e Remover seguem fechados', () => {
   assert.equal(canRemoveManifest(reallyFailed), true);
 });
 
+/**
+ * O buraco que o fixture de `externalStatus: ''` não enxergava.
+ *
+ * Na vida real o `externalStatus` de um envio sem confirmação NÃO é vazio: o
+ * backend grava ali a explicação. Quando o job morre em DLQ, essa explicação
+ * contém a palavra "DLQ" — e `isErrorManifest` casa por substring no par
+ * (status + externalStatus). O TEXTO virava sinal de estado, o manifesto era
+ * classificado como falha e as duas ações proibidas reabriam.
+ */
+const UNCONFIRMED_DLQ_EXTERNAL_STATUS = 'Envio sem confirmação: job finalizado em DLQ e a pesquisa na CETESB não '
+  + 'confirmou se o MTR foi criado. NÃO reenvie: um novo envio pode gerar um segundo MTR real. Use a ação '
+  + '"Atualizar da CETESB" para reconciliar.';
+
+test('a explicação gravada pelo backend não promove o envio sem confirmação a falha', () => {
+  // Âncora: o texto REALMENTE contém o fragmento procurado pela classificação.
+  // Sem ela o teste passaria vaziamente se a mensagem deixasse de citar DLQ.
+  assert.ok(UNCONFIRMED_DLQ_EXTERNAL_STATUS.toLowerCase().includes('dlq'));
+
+  const target = manifest({
+    status: UNCONFIRMED,
+    externalStatus: UNCONFIRMED_DLQ_EXTERNAL_STATUS,
+    manifestNumber: '',
+    externalCode: '',
+    externalHashCode: ''
+  });
+
+  assert.equal(isErrorManifest(target), false, 'a palavra "DLQ" no texto não é um estado');
+  assert.equal(canRecoverManifest(target), false, '"Reenviar" reabria pelo texto da própria mensagem que diz NÃO reenviar');
+  assert.equal(canRemoveManifest(target), false, 'apagar a linha elimina o único fio para achar o MTR órfão');
+});
+
+test('CONTROLE NEGATIVO: uma falha DLQ de verdade continua removível e reenviável', () => {
+  // Prova que o guard não foi escrito como um `return false` que desliga a
+  // classificação inteira: o mesmo fragmento 'dlq', em quem NÃO está no estado
+  // de dúvida, segue valendo.
+  const dlqReal = manifest({ status: 'dlq', externalStatus: '', manifestNumber: '', externalCode: '' });
+  assert.equal(isErrorManifest(dlqReal), true);
+  assert.equal(canRecoverManifest(dlqReal), true);
+  assert.equal(canRemoveManifest(dlqReal), true);
+
+  // E o token só vale como status INTERNO: texto livre da CETESB não blinda
+  // um manifesto falho contra a remoção.
+  const failedComTextoEnganoso = manifest({
+    status: 'failed',
+    externalStatus: 'submit_unconfirmed',
+    manifestNumber: '',
+    externalCode: ''
+  });
+  assert.equal(isErrorManifest(failedComTextoEnganoso), true);
+  assert.equal(canRemoveManifest(failedComTextoEnganoso), true);
+});
+
 test('Replicar fica BLOQUEADO — é assim que nasce o MTR duplicado', () => {
   assert.equal(canReplicateManifest(unconfirmed()), false);
   assert.equal(canReplicateManifest(manifest()), true, 'controle: envio confirmado segue replicável');
