@@ -38,6 +38,7 @@ import {
   prepareConversationBundleStorage
 } from '../services/conversation/conversation-persistence-service.js';
 import { createPrefixedId } from '../lib/ids.js';
+import { buildManifestCorrelationMarker } from '../lib/manifest-correlation.js';
 import { calculateJobPriority, extractJobTags, getRetryConfig } from '../lib/retry.js';
 import { patchJobPayload } from './job-payload-patch.js';
 import { findConversationChannelLinkForChannel } from '../repositories/conversation-channel-link-repo.js';
@@ -638,6 +639,23 @@ function toGatewayExchange(value: unknown): GatewayExchange {
   };
 }
 
+// C1: intenção de submit persistida ANTES do PUT na CETESB — fecha a janela
+// cega entre `status: 'submitting'` e o commit da resposta. O marcador é
+// determinístico (derivado do id local, via lib/manifest-correlation) e é o
+// MESMO que o gateway grava em `manObservacao`; se o processo morrer com a
+// resposta perdida, a linha local sabe qual marcador procurar depois no
+// resultado de `searchManifests`. Sem migration: vive no payload (jsonb).
+function buildPayloadWithSubmitIntent(existingPayload: unknown, marker: string, jobId: string): LooseRecord {
+  return {
+    ...toRecord(existingPayload),
+    submitCorrelation: {
+      marker,
+      jobId,
+      dispatchedAt: nowIso()
+    }
+  };
+}
+
 function mergeEntityJobResult(existingPayload: unknown, operation: string, result: LooseRecord) {
   const basePayload = isObject(existingPayload) ? existingPayload : {};
   const previousResults = isObject(basePayload.jobResults) ? basePayload.jobResults : {};
@@ -1045,7 +1063,14 @@ async function handleManifestSubmit(job: JobEntity, gateway: {
   const manifest = await findManifestById(job.entityId);
   if (!manifest) throw new Error(`Manifest ${job.entityId} not found`);
 
-  await updateManifest(manifest.id, { status: 'submitting' });
+  // C1: grava a intenção (marcador de correlação) na linha local ANTES da
+  // chamada ao gateway — ver buildPayloadWithSubmitIntent. O objeto em memória
+  // é alinhado ao gravado para os merges pós-resposta preservarem a intenção.
+  const correlationMarker = buildManifestCorrelationMarker(manifest.id);
+  const payloadWithIntent = buildPayloadWithSubmitIntent(manifest.payload, correlationMarker, job.jobId);
+  await updateManifest(manifest.id, { status: 'submitting', payload: payloadWithIntent });
+  manifest.payload = payloadWithIntent;
+
   const exchange = toGatewayExchange(await gateway.submitManifest(manifest, job.payload));
   const responseData = exchange.response.data ?? {};
   await logExchange(job, exchange);
@@ -1229,9 +1254,16 @@ async function handleMtrProvisorioSubmit(job: JobEntity, gateway: {
   const record = await findMtrProvisorioById(job.entityId);
   if (!record) throw new Error(`Manifesto provisório ${job.entityId} não encontrado.`);
 
+  // C1: mesma intenção pré-PUT do caminho comum — o gateway delega
+  // `submitMtrProvisorio` → `submitManifest`, então o marcador também vai
+  // no `manObservacao` do provisório.
+  const provisorioCorrelationMarker = buildManifestCorrelationMarker(record.id);
   const submitting = await updateMtrProvisorioStatus(
     record.id,
-    { status: 'submitting' },
+    {
+      status: 'submitting',
+      payload: buildPayloadWithSubmitIntent(record.payload, provisorioCorrelationMarker, job.jobId)
+    },
     record.version
   );
 
