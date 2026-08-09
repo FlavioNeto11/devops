@@ -17,12 +17,17 @@
  * externo:
  *
  *  N1 — nada muda de estado na CETESB: 2ª via de documento que já existe (`print`) e rascunhos
- *       locais (`replicate_segmented`, `jobId: null`). O código de 6 dígitos aqui é desambiguador e
- *       anti-replay, **não** segundo fator: ele chega pelo mesmo fio que a pergunta.
- *  N2 — muda o registro externo sem inverso (`submit`, `receive_with_receipt`) ou foi posto aqui por
- *       decisão explícita do operador para herdar a janela (`create_from_payload`, que só grava
- *       rascunho local — a exceção está dita por extenso na tabela abaixo). Exige, além do ticket,
- *       uma JANELA DE AÇÃO aberta na sessão web autenticada.
+ *       LOCAIS (`replicate_segmented` e `create_from_payload`, os dois com `jobId: null`). O código
+ *       de 6 dígitos aqui é desambiguador e anti-replay, **não** segundo fator: ele chega pelo mesmo
+ *       fio que a pergunta.
+ *  N2 — nasce registro real e IRREVERSÍVEL na CETESB (`submit`, `receive_with_receipt`). Exige, além
+ *       do ticket, uma JANELA DE AÇÃO aberta na sessão web autenticada.
+ *
+ * ⚠️ O critério NÃO admite exceção por conveniência, e já admitiu uma: `create_from_payload` esteve
+ * em N2 "por decisão explícita do operador, para herdar a janela", sob a afirmação de que ela criava
+ * registro na CETESB. Isso era FALSO — ver a nota na tabela abaixo, com a cadeia de chamada. Herdar
+ * a janela não é razão para mentir sobre o efeito: um tier que não segue o critério escrito aqui
+ * torna o critério decorativo, e a próxima chave entra em N2 pelo mesmo atalho.
  *
  * ⚠️ N2 NÃO É LIBERADO NESTA FASE. O desenho condiciona `submit` ao aviso de conclusão
  * (`whatsapp.outbound_notice`): hoje quem age pelo canal não recebe o desfecho — `buildBatchActionFamily`
@@ -73,20 +78,28 @@ export const WHATSAPP_ELIGIBLE_ACTIONS: Readonly<Record<string, WhatsAppEligible
   // │ SOBRE O TIER — dito sem maquiagem, porque o critério desta casa é o EFEITO IRREVERSÍVEL e as  │
   // │ duas NÃO são iguais sob esse critério:                                                        │
   // │  · `manifest.receive_with_receipt` É N2 por mérito próprio: `handleManifestReceiveWithReceipt`│
-  // │    enfileira `manifest.receive`, e o handler chama `gateway.receiveManifest` — recibo REAL na │
-  // │    CETESB, sem inverso no gateway nem no contrato capturado.                                  │
-  // │  · `manifest.create_from_payload` NÃO cria nada na CETESB. Verificado no código, não no       │
-  // │    comentário: `handleManifestCreateFromPayload` → `createManifest` → `createManifestDraftRecord`,│
-  // │    que faz UM insert local com `status:'draft'`, `externalStatus:'pending_submission'` e      │
-  // │    `externalReference: null`. Nenhuma chamada ao gateway. Pelo critério estrito da            │
-  // │    irreversibilidade externa ela seria N1, como `manifest.replicate_segmented` (que também só │
-  // │    gera rascunho local). Está em N2 por DECISÃO EXPLÍCITA do operador, e a razão é outra: o   │
-  // │    que se confere aqui são 6 entidades montadas pelo LLM sobre texto livre, e N2 é o único    │
-  // │    nível que soma a JANELA DE AÇÃO aberta na sessão web autenticada. O efeito colateral       │
-  // │    aceito é que ela herda o portão fechado do aviso de conclusão junto com a janela.          │
+  // │    enfileira `manifest.receive`, e o handler chama `gateway.receiveManifest`                  │
+  // │    (`workers/operation-handlers.ts`) — recibo REAL na CETESB, sem inverso no gateway nem no   │
+  // │    contrato capturado. Ela FICA em N2, e o portão fechado do aviso continua trancando-a.      │
+  // │  · `manifest.create_from_payload` É N1, e esta linha foi CORRIGIDA: ela esteve em N2 sob a    │
+  // │    afirmação de que "cria registro real na CETESB sem inverso". A afirmação era falsa.        │
+  // │    Verificado no código, não no comentário — `handleManifestCreateFromPayload`                │
+  // │    (`conversation-tool-dispatcher.ts`) → `createManifest` (`manifest-service.ts`) →           │
+  // │    `createManifestDraftRecord` → `insertManifest`, UM `insert into manifests` com             │
+  // │    `status:'draft'`, `externalStatus:'pending_submission'` e `externalReference: null`.       │
+  // │    NENHUMA chamada ao gateway, NENHUM job enfileirado (o handler devolve `jobId: null`).      │
+  // │    Pelo critério do cabeçalho — "nada muda de estado na CETESB" — isso é N1, exatamente como  │
+  // │    `manifest.replicate_segmented`, que também só gera rascunho local.                         │
+  // │                                                                                               │
+  // │    O QUE A TORNA CONSEQUENTE NÃO É A CRIAÇÃO, É O `submit` POSTERIOR — e esse é N2, continua  │
+  // │    trancado pelo portão do aviso de conclusão. Um rascunho criado por engano custa um clique  │
+  // │    de descarte no SICAT; um MTR emitido por engano só se desfaz cancelando, e cancelar não    │
+  // │    tem volta. A conferência das 6 entidades montadas pelo LLM continua sendo exigida: ela é   │
+  // │    FAIL-CLOSED em `whatsapp-create-preview.ts` e `tryIssueWhatsAppActionTicket` recusa o      │
+  // │    ticket quando a prévia não fecha — só não é mais a JANELA DE AÇÃO que a sustenta.          │
   // └───────────────────────────────────────────────────────────────────────────────────────────────┘
   'manifest.receive_with_receipt': { tier: 'N2', maxItems: 1 },
-  'manifest.create_from_payload': { tier: 'N2', maxItems: 1 }
+  'manifest.create_from_payload': { tier: 'N1', maxItems: 1 }
 });
 
 /**

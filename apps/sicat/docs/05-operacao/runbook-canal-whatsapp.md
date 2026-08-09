@@ -342,10 +342,18 @@ Authorization: Bearer <sessao admin do SICAT>
 `confirmed: true` é **obrigatório** ao ADICIONAR canal externo. **Revogar nunca exige nada** — botão
 de pânico não pede senha. Requer `AI_CONTROL_READONLY=false`.
 
-Só faz efeito em **3 chaves N1**, e o teto é de código (`WHATSAPP_ELIGIBLE_ACTIONS`, congelada):
+Só faz efeito em **4 chaves N1**, e o teto é de código (`WHATSAPP_ELIGIBLE_ACTIONS`, congelada):
 `print_manifest` (1 item), `manifest.batch_print_selected` (≤ 5),
-`manifest.replicate_segmented` (≤ 2). Um PATCH numa tool fora dessa tabela **não adiciona canal
-nenhum**.
+`manifest.replicate_segmented` (≤ 2) e `manifest.create_from_payload` (1 item). Um PATCH numa tool
+fora dessa tabela **não adiciona canal nenhum**.
+
+> **`manifest.create_from_payload` é N1** — ela grava **rascunho local** (`createManifestDraftRecord`:
+> `status: 'draft'`, `externalStatus: 'pending_submission'`, sem gateway e sem job), então nada muda
+> de estado na CETESB e ela não exige janela de ação. Esteve classificada como N2 sob a afirmação de
+> que criava registro na CETESB; a afirmação era falsa e foi corrigida. O passo irreversível é o
+> **`submit` posterior**, que continua N2 e continua trancado (§7). Ligá-la aqui libera **criar
+> rascunho** pelo WhatsApp, com prévia de conferência das 6 entidades e código de 6 dígitos — a
+> prévia é **fail-closed**: entidade que não resolve para nome **recusa o ticket**.
 
 **Verificar:** `GET /v1/ai-control/runtime/tools/print_manifest` traz `whatsapp` em `allowChannels`.
 Depois, uma 2ª via confirmada por código de 6 dígitos ponta a ponta, com o aviso de conclusão
@@ -515,9 +523,15 @@ invariante é verificada **no import** (o processo não sobe se alguém relaxar)
 > prévias dedicadas montam a conferência item a item e **recusam o ticket** quando não conseguem
 > montá-la. As duas foram para a lista de elegíveis, logo continuam dependendo do portão acima.
 >
-> Cada uma das quatro chaves N2 recusa com **texto próprio**, com o verbo certo — "emitir", "dar
-> baixa", "criar" —, e não com uma mensagem genérica. Reusar o texto de `submit` para a criação
-> afirmaria efeito na CETESB que ela não tem (ver §7.5).
+> **São TRÊS as chaves N2** — `submit_manifest`, `manifest.batch_submit_selected` e
+> `manifest.receive_with_receipt` —, e cada uma recusa com **texto próprio**, com o verbo certo
+> ("emitir", "dar baixa"), não com uma mensagem genérica. `manifest.receive_with_receipt` é N2 por
+> mérito: ela enfileira `manifest.receive`, cujo handler chama `gateway.receiveManifest` — recibo
+> real na CETESB, sem inverso.
+>
+> **`manifest.create_from_payload` NÃO é N2** (foi por um tempo, por engano): ela grava rascunho
+> local e não toca a CETESB, então é **N1** e sai pelo passo 8 acima, sem janela de ação e sem passar
+> por este portão. Ver a nota no passo 8.
 
 > ✅ **A armadilha do `manifest.create_draft` foi fechada** — ela era a única ação de default de
 > código com `requiresConfirmation: false`, contida **apenas** por estar nesta lista. Passou a
@@ -527,11 +541,12 @@ invariante é verificada **no import** (o processo não sobe se alguém relaxar)
 > **Procedência:** branch `sicat/wa-u3-policy-confirm` (`ba404b9d`, **PR #296**), **ainda não
 > mesclada** em `sicat/whatsapp-channel` quando este runbook foi escrito.
 
-> ℹ️ **Conferido em 2026-08-08 na árvore consolidada:** `manifest.receive_with_receipt` e
-> `manifest.create_from_payload` **continuam em `CHANNEL_HARD_DENY`** e **não** aparecem em
-> `WHATSAPP_ELIGIBLE_ACTIONS`. Recebimento e criação por WhatsApp **não** são ações elegíveis, nem
-> como N2. Se algum documento ou comentário disser o contrário, ele está adiantado em relação ao
-> código — confira `whatsapp-action-eligibility.ts:54–94` antes de acreditar.
+> ℹ️ **Reconferido no código (não no comentário):** `CHANNEL_HARD_DENY` tem **8 chaves**, e
+> `manifest.receive_with_receipt` e `manifest.create_from_payload` **não estão** entre elas — as duas
+> vivem em `WHATSAPP_ELIGIBLE_ACTIONS`, com `maxItems: 1`, o **recebimento em N2** e a **criação em
+> N1**. Uma revisão anterior deste runbook afirmava que as duas continuavam na recusa permanente
+> "nem como N2"; estava desatualizada. Confira `whatsapp-action-eligibility.ts` antes de acreditar em
+> qualquer das duas versões.
 
 ---
 

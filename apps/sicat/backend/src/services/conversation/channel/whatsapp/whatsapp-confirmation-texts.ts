@@ -473,14 +473,17 @@ export const WHATSAPP_N2_NOTICE_MISSING_TEXT = [
 /**
  * O MESMO portão, com o VERBO CERTO por ação.
  *
- * Enquanto o N2 era só `submit`, "Emitir MTR por aqui ainda nao esta no ar" servia para tudo. Com
- * recebimento e criação em N2 (unidade D4), reusar o texto de emissão diria à pessoa que ela pediu
- * uma coisa que não pediu — e mensagem de recusa que descreve a ação errada é como se perde
- * confiança no canal.
+ * Enquanto o N2 era só `submit`, "Emitir MTR por aqui ainda nao esta no ar" servia para tudo. Com o
+ * recebimento em N2, reusar o texto de emissão diria à pessoa que ela pediu uma coisa que não pediu
+ * — e mensagem de recusa que descreve a ação errada é como se perde confiança no canal.
  *
- * O texto da CRIAÇÃO não fala em resposta da CETESB de propósito: `manifest.create_from_payload`
- * grava rascunho LOCAL (`createManifestDraftRecord`), a CETESB não entra. Repetir ali a frase do
- * `submit` seria afirmar um efeito externo que o código não tem.
+ * ⚠️ NÃO HÁ ENTRADA PARA `manifest.create_from_payload`, E A AUSÊNCIA É DELIBERADA. Havia uma, dizendo
+ * "Criar MTR por aqui ainda nao esta liberado" — texto que virou ao mesmo tempo INALCANÇÁVEL e FALSO
+ * quando a criação foi reclassificada para N1: só o ramo `tier === 'N2'` de
+ * `tryIssueWhatsAppActionTicket` chama esta função, e a criação não passa mais por ele. Recusa que o
+ * código nunca emite, afirmando um bloqueio que o código não tem, é exatamente o defeito que esta
+ * cadeia já cometeu cinco vezes. Se um dia a criação voltar a N2, ela cai no texto de `submit` pelo
+ * fallback abaixo — recusar de forma imprecisa é seguro; prometer bloqueio inexistente não é.
  */
 const N2_NOTICE_MISSING_TEXTS: Readonly<Record<string, string>> = Object.freeze({
   submit_manifest: WHATSAPP_N2_NOTICE_MISSING_TEXT,
@@ -489,11 +492,6 @@ const N2_NOTICE_MISSING_TEXTS: Readonly<Record<string, string>> = Object.freeze(
     'Dar baixa por aqui ainda nao esta no ar: por enquanto eu nao consigo te avisar quando a CETESB responde, e registrar recibo sem saber o desfecho nao da.',
     '',
     'Faca a baixa no SICAT pelo navegador. Por aqui eu ja imprimo 2a via e consulto o que voce precisar.'
-  ].join('\n'),
-  'manifest.create_from_payload': [
-    'Criar MTR por aqui ainda nao esta liberado: a criacao pelo canal entra junto com o aviso de desfecho, que ainda nao esta no ar.',
-    '',
-    'Crie no SICAT pelo navegador. Por aqui eu ja imprimo 2a via e consulto o que voce precisar.'
   ].join('\n')
 });
 
