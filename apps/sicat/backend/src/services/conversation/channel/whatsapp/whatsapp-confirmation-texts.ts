@@ -44,8 +44,18 @@ export type ConfirmationPreviewInput = {
   supersededSummary?: string | null;
   /** Aviso do N2: "Liberação ativa até 15:40 - esta seria a 2ª de 10 ações." */
   windowLine?: string | null;
-  /** Só no N2: o parágrafo que diz que a emissão é irreversível. */
+  /** Só no N2: o parágrafo que diz o que a confirmação provoca de fato (e se dá para desfazer). */
   irreversibleWarning?: string | null;
+  /**
+   * BLOCO DE CONFERÊNCIA PRONTO, das prévias dedicadas (`whatsapp-receive-preview`,
+   * `whatsapp-create-preview`). Quando presente, ele SUBSTITUI a manchete + a lista de itens: o bloco
+   * já traz a manchete em negrito e a conferência linha a linha, e repetir a manchete acima dele
+   * produziria dois títulos para a mesma coisa.
+   *
+   * `items` continua obrigatório mesmo com bloco — é ele que alimenta `itemLabels` do ticket e a
+   * guarda de "nenhum rótulo conferível ⇒ `null`", que não pode depender do texto já formatado.
+   */
+  conferenceBlock?: string | null;
 };
 
 export function isConferibleItemLabel(value: unknown): boolean {
@@ -184,14 +194,24 @@ export function buildWhatsAppConfirmationPreview(input: ConfirmationPreviewInput
     lines.push(`Descartei o pedido anterior (${input.supersededSummary}) - *nada foi executado*.`, '');
   }
 
-  lines.push('Confere antes de eu executar:', '');
-  lines.push(`*${input.headline}*`);
+  const conferenceBlock = typeof input.conferenceBlock === 'string' && input.conferenceBlock.trim()
+    ? input.conferenceBlock.trim()
+    : null;
 
-  for (const label of conferible.slice(0, MAX_LISTED_ITEMS)) {
-    lines.push(`- ${label}`);
+  if (conferenceBlock) {
+    // O bloco dedicado JÁ é a conferência (manchete em negrito + linhas). Aqui só se acrescenta a
+    // cauda que é do TICKET: conta, janela, aviso de efeito e o bloco atômico do código.
+    lines.push(conferenceBlock);
+  } else {
+    lines.push('Confere antes de eu executar:', '');
+    lines.push(`*${input.headline}*`);
+
+    for (const label of conferible.slice(0, MAX_LISTED_ITEMS)) {
+      lines.push(`- ${label}`);
+    }
+    const hidden = conferible.length - MAX_LISTED_ITEMS;
+    if (hidden > 0) lines.push(`- e mais ${hidden}`);
   }
-  const hidden = conferible.length - MAX_LISTED_ITEMS;
-  if (hidden > 0) lines.push(`- e mais ${hidden}`);
 
   if (input.accountLabel) lines.push(`Conta CETESB: ${input.accountLabel}`);
   if (input.windowLine) lines.push(input.windowLine);
@@ -449,6 +469,40 @@ export const WHATSAPP_N2_NOTICE_MISSING_TEXT = [
   '',
   'Emita no SICAT pelo navegador. Por aqui eu ja imprimo 2a via e consulto o que voce precisar.'
 ].join('\n');
+
+/**
+ * O MESMO portão, com o VERBO CERTO por ação.
+ *
+ * Enquanto o N2 era só `submit`, "Emitir MTR por aqui ainda nao esta no ar" servia para tudo. Com
+ * recebimento e criação em N2 (unidade D4), reusar o texto de emissão diria à pessoa que ela pediu
+ * uma coisa que não pediu — e mensagem de recusa que descreve a ação errada é como se perde
+ * confiança no canal.
+ *
+ * O texto da CRIAÇÃO não fala em resposta da CETESB de propósito: `manifest.create_from_payload`
+ * grava rascunho LOCAL (`createManifestDraftRecord`), a CETESB não entra. Repetir ali a frase do
+ * `submit` seria afirmar um efeito externo que o código não tem.
+ */
+const N2_NOTICE_MISSING_TEXTS: Readonly<Record<string, string>> = Object.freeze({
+  submit_manifest: WHATSAPP_N2_NOTICE_MISSING_TEXT,
+  'manifest.batch_submit_selected': WHATSAPP_N2_NOTICE_MISSING_TEXT,
+  'manifest.receive_with_receipt': [
+    'Dar baixa por aqui ainda nao esta no ar: por enquanto eu nao consigo te avisar quando a CETESB responde, e registrar recibo sem saber o desfecho nao da.',
+    '',
+    'Faca a baixa no SICAT pelo navegador. Por aqui eu ja imprimo 2a via e consulto o que voce precisar.'
+  ].join('\n'),
+  'manifest.create_from_payload': [
+    'Criar MTR por aqui ainda nao esta liberado: a criacao pelo canal entra junto com o aviso de desfecho, que ainda nao esta no ar.',
+    '',
+    'Crie no SICAT pelo navegador. Por aqui eu ja imprimo 2a via e consulto o que voce precisar.'
+  ].join('\n')
+});
+
+/** Sem entrada própria, o texto de emissão é o padrão — recusar é sempre o desfecho seguro. */
+export function buildWhatsAppN2NoticeMissingText(key: string): string {
+  return Object.prototype.hasOwnProperty.call(N2_NOTICE_MISSING_TEXTS, key)
+    ? (N2_NOTICE_MISSING_TEXTS[key] ?? WHATSAPP_N2_NOTICE_MISSING_TEXT)
+    : WHATSAPP_N2_NOTICE_MISSING_TEXT;
+}
 
 function formatHourMinute(iso: string): string | null {
   const parsed = Date.parse(iso);

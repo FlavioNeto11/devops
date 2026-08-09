@@ -1,15 +1,21 @@
 /**
- * PREVIA DE CONFERENCIA DA BAIXA (recebimento com recibo) POR WHATSAPP — unidade D2, MODULO INERTE.
+ * PREVIA DE CONFERENCIA DA BAIXA (recebimento com recibo) POR WHATSAPP — unidade D2, LIGADA NA D4.
  *
  * ┌─ O QUE ISTO E, E O QUE ISTO NAO E ────────────────────────────────────────────────────────────┐
- * │ `manifest.receive_with_receipt` esta em `CHANNEL_HARD_DENY` porque registra recibo na CETESB  │
+ * │ `manifest.receive_with_receipt` ESTAVA em `CHANNEL_HARD_DENY` porque registra recibo na CETESB│
  * │ sem inverso e o desenho dizia que "nao ha conferencia visual" no canal. Este modulo constroi  │
  * │ exatamente a conferencia que faltava: dado o payload de um recebimento, produz o texto que a  │
  * │ pessoa LE antes de confirmar — numero do MTR, gerador, residuo(s) e quantidade a receber.     │
  * │                                                                                                │
- * │ Ele NAO promove a acao: a lista de elegibilidade e do COORDENADOR e este arquivo nao a toca.  │
- * │ Enquanto o coordenador nao ligar `buildWhatsAppReceiveConference` ao fluxo de emissao de      │
- * │ ticket, nada aqui e alcancavel em producao — so os testes exercitam.                          │
+ * │ ⚠️ ESTE CABECALHO FOI CORRIGIDO NA UNIDADE D4. Ele dizia "MODULO INERTE" e "nada aqui e       │
+ * │ alcancavel em producao" — deixou de ser verdade: `tryIssueWhatsAppActionTicket` chama          │
+ * │ `buildWhatsAppReceiveConference` e a chave foi promovida a `WHATSAPP_ELIGIBLE_ACTIONS` em N2.  │
+ * │ A promocao continua NAO sendo deste arquivo (ele nao toca a lista), mas afirmar inercia com o  │
+ * │ chamador no lugar seria comentario mentindo sobre o codigo.                                    │
+ * │                                                                                                │
+ * │ O que ainda NAO acontece, e por outro motivo: o portao do N2                                   │
+ * │ (`WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED`, em `whatsapp-confirmation-flow.ts`) esta fechado,     │
+ * │ entao a baixa por WhatsApp responde "aviso indisponivel" em vez de emitir ticket.              │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * ┌─ FAIL-CLOSED, SEM EXCECAO ────────────────────────────────────────────────────────────────────┐

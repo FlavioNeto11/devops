@@ -383,10 +383,14 @@ vínculo, `WHATSAPP_INBOUND_PER_LINK=12` por 5 min).
 **Emitir MTR pelo WhatsApp não é ligável por configuração nesta entrega.**
 
 `whatsapp-confirmation-flow.ts:207` declara `const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;` —
-**literal de código**. O gate na linha 293 é
+**literal de código**. O gate (em `tryIssueWhatsAppActionTicket`, no ramo `tier === 'N2'`) é
 `if (!WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED || !resolveWhatsAppOutboundNoticeEnabled())`. Nenhum
 `WHATSAPP_ACTION_NOTICE_ENABLED=true` o contradiz: a env abre **uma** das duas condições.
-`submit_manifest` e `manifest.batch_submit_selected` recusam com texto próprio.
+`submit_manifest`, `manifest.batch_submit_selected`, `manifest.receive_with_receipt` e
+`manifest.create_from_payload` recusam com texto próprio — **um por ação**, com o verbo certo
+("emitir", "dar baixa", "criar"). As duas últimas entraram em N2 na unidade D4: a conferência item a
+item delas existe e está testada, e mesmo assim **nenhum ticket sai** enquanto este literal for
+`false`.
 
 **A razão não é falta de tempo:** o aviso de conclusão **não distingue "o MTR não foi criado" de "o
 MTR foi criado e eu perdi a resposta"** — e para emissão irreversível essa é exatamente a única
@@ -396,10 +400,15 @@ Destravar exige, além do código, **execução real em sandbox com transcriçã
 A lista fechada de critérios está em `whatsapp-confirmation-flow.ts` (a partir da linha ~198).
 
 Independentemente disso, o **N3** é recusado por lista de elegibilidade de código
-(`CHANNEL_HARD_DENY`, 10 chaves): todos os cancelamentos, os três CDF, `manifest.receive_with_receipt`,
-`manifest.create_from_payload`, `manifest.create_draft` e `replicate_manifest` direto. Um `PATCH` do
-AI Control Center **não fura** essa lista — as duas listas são disjuntas e a invariante é verificada
-**no import** (o processo não sobe se alguém relaxar).
+(`CHANNEL_HARD_DENY`, **8 chaves**): todos os cancelamentos, os três CDF, `manifest.create_draft` e
+`replicate_manifest` direto. Um `PATCH` do AI Control Center **não fura** essa lista — as duas listas
+são disjuntas e a invariante é verificada **no import** (o processo não sobe se alguém relaxar).
+
+> Eram dez até a unidade D4. `manifest.receive_with_receipt` e `manifest.create_from_payload` saíram
+> da recusa porque o motivo delas ("não há conferência visual no canal") deixou de valer: as prévias
+> dedicadas montam a conferência item a item e **recusam o ticket** quando não conseguem montá-la.
+> Elas foram para **N2**, ou seja, seguem trancadas pelo portão do aviso acima. `manifest.create_draft`
+> **não** saiu: ela é `requiresConfirmation:false`, então nunca chega a pedir conferência nenhuma.
 
 ---
 

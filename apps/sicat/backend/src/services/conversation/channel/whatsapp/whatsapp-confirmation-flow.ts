@@ -48,12 +48,14 @@ import {
   buildWhatsAppExpiredTicketText,
   buildWhatsAppOtherPhoneTicketText,
   buildWhatsAppStepUpRequiredText,
+  buildWhatsAppN2NoticeMissingText,
   buildWhatsAppVagueYesText,
   buildWhatsAppWrongCodeText,
   collectActionManifestIds,
-  extractConferibleItemLabels,
-  WHATSAPP_N2_NOTICE_MISSING_TEXT
+  extractConferibleItemLabels
 } from './whatsapp-confirmation-texts.js';
+import { buildWhatsAppCreatePreview } from './whatsapp-create-preview.js';
+import { buildWhatsAppReceiveConference, WHATSAPP_RECEIVE_ACTION_KEY } from './whatsapp-receive-preview.js';
 import { enqueueWhatsAppOutboundNotice } from './whatsapp-outbound-notice-service.js';
 import {
   closeWhatsAppActionTicket,
@@ -136,15 +138,30 @@ export type ConfirmationFlowDependencies = {
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Chave da criação na matriz do canal. `whatsapp-create-preview` não exporta constante equivalente à
+ * `WHATSAPP_RECEIVE_ACTION_KEY` (ele serve os dois modos e não se amarra a uma chave), então ela vive
+ * aqui — e um teste prende que ela existe em `WHATSAPP_ELIGIBLE_ACTIONS`, para o literal não derivar.
+ */
+export const WHATSAPP_CREATE_ACTION_KEY = 'manifest.create_from_payload';
+
+/**
  * Manchete em português de operação. É o que a pessoa lê em negrito antes do código, e o que volta
  * em toda mensagem de erro do ticket — por isso vive numa tabela, não numa interpolação de intent.
+ *
+ * ⚠️ FALTAR AQUI É FALHA SILENCIOSA. `buildActionHeadline` devolve `null` para chave sem entrada, e
+ * `tryIssueWhatsAppActionTicket` trata `null` como "não é caso de ticket": a ação some do canal sem
+ * erro, sem log e sem teste vermelho. Toda chave de `WHATSAPP_ELIGIBLE_ACTIONS` PRECISA de manchete —
+ * é o que o teste "toda chave elegível tem manchete" prende.
  */
 const ACTION_HEADLINES: Readonly<Record<string, (count: number) => string>> = Object.freeze({
   print_manifest: () => '2a via de 1 MTR',
   'manifest.batch_print_selected': (count) => `2a via de ${count} MTR${count === 1 ? '' : 's'}`,
   'manifest.replicate_segmented': (count) => `Replicar em ${count} rascunho${count === 1 ? '' : 's'}`,
   submit_manifest: () => 'Emitir 1 MTR na CETESB',
-  'manifest.batch_submit_selected': (count) => `Emitir ${count} MTR${count === 1 ? '' : 's'} na CETESB`
+  'manifest.batch_submit_selected': (count) => `Emitir ${count} MTR${count === 1 ? '' : 's'} na CETESB`,
+  // As duas promovidas na unidade D4. Sem `count`: `maxItems: 1` nas duas.
+  [WHATSAPP_RECEIVE_ACTION_KEY]: () => 'Dar baixa (receber) em 1 MTR',
+  [WHATSAPP_CREATE_ACTION_KEY]: () => 'Criar 1 MTR no SICAT'
 });
 
 export function buildActionHeadline(key: string, count: number): string | null {
@@ -154,6 +171,28 @@ export function buildActionHeadline(key: string, count: number): string | null {
 
 const IRREVERSIBLE_WARNING =
   'Emitir cria o MTR de verdade. O unico jeito de desfazer e cancelar - e cancelar nao tem volta e nao da para fazer por aqui.';
+
+/**
+ * O PARÁGRAFO QUE DIZ O QUE A CONFIRMAÇÃO PROVOCA — um por ação, porque as três N2 provocam coisas
+ * DIFERENTES e o texto de `submit` mente sobre as outras duas:
+ *
+ *  · `submit_*` — nasce MTR na CETESB; desfazer só cancelando, e cancelar não tem volta.
+ *  · `manifest.receive_with_receipt` — `null` de propósito: o bloco de conferência da prévia de baixa
+ *    JÁ termina em "Registrar a baixa gera o recibo do MTR na CETESB e nao da para desfazer por aqui."
+ *    Repetir aqui daria dois avisos para o mesmo efeito.
+ *  · `manifest.create_from_payload` — o efeito REAL é rascunho LOCAL (`createManifestDraftRecord`:
+ *    `status:'draft'`, `externalStatus:'pending_submission'`, `externalReference: null`). Dizer aqui
+ *    "cria o MTR de verdade" seria falso, e falso para MAIS grave — a pessoa acharia que já emitiu.
+ */
+const CREATE_EFFECT_NOTE =
+  'Isso cria o MTR como rascunho no SICAT, com estes dados. Ele so vira MTR de verdade na CETESB quando voce mandar emitir.';
+
+function resolveEffectNote(key: string, tier: WhatsAppEligibleAction['tier']): string | null {
+  if (tier !== 'N2') return null;
+  if (key === WHATSAPP_RECEIVE_ACTION_KEY) return null;
+  if (key === WHATSAPP_CREATE_ACTION_KEY) return CREATE_EFFECT_NOTE;
+  return IRREVERSIBLE_WARNING;
+}
 
 /**
  * ┌─ A FASE 6 ENTREGOU O AVISO. N2 CONTINUA FECHADO, E A RAZÃO MUDOU ─────────────────────────────┐
@@ -202,6 +241,13 @@ const IRREVERSIBLE_WARNING =
  * │  E5 um mecanismo que responda "o MTR nasceu na CETESB?" depois de uma falha de `manifest.submit`│
  * │     — e a decisão de produto sobre o que dizer quando a resposta é "não sei". E1–E4 são trabalho│
  * │     conhecido; E5 é escopo próprio, e não cabe na fase 6 nem na 7.                              │
+ * │                                                                                                │
+ * │ UNIDADE D4 — O PORTÃO PASSOU A TRANCAR TRÊS AÇÕES, E ISSO FOI DELIBERADO. `receive_with_receipt`│
+ * │ e `create_from_payload` foram promovidas a `WHATSAPP_ELIGIBLE_ACTIONS` em N2 e ganharam         │
+ * │ conferência dedicada; o portão continua `false` e as duas respondem "aviso indisponível" em vez │
+ * │ de emitir ticket. O operador decidiu construir tudo e deixar travado: a E1 (execução real ponta │
+ * │ a ponta contra provedor WhatsApp) não tem como ser produzida — não existem credenciais          │
+ * │ Twilio/Meta. Mudar este literal SEM as cinco evidências é a regressão que a suíte tem de matar. │
  * └────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;
@@ -245,12 +291,29 @@ export async function tryIssueWhatsAppActionTicket(input: {
 
   const rawArgs = (toolCall.arguments || {}) as LooseRecord;
 
+  // ── CONFERÊNCIA DEDICADA (recebimento / criação), ANTES DE QUALQUER ESCRITA ────────────────────
+  // As duas chaves promovidas na unidade D4 não têm identidade conferível pela via genérica: a baixa
+  // precisa mostrar resíduo e quantidade (que não estão nos argumentos) e a criação não tem
+  // manifesto nenhum para resolver — `resolveActionIdentity` devolveria zero rótulo e o canal
+  // recusaria tudo em silêncio. Quem monta a conferência delas são os módulos dedicados, e a recusa
+  // deles é FINAL: `canIssueTicket:false` / `ok:false` ⇒ NENHUM ticket, exatamente como identidade
+  // incompleta.
+  const conference = await resolveActionConference(key, rawArgs);
+  if (conference && !conference.ok) {
+    console.warn(
+      `[whatsapp-confirm] conferencia dedicada RECUSADA para "${key}" (${conference.reason}) — nenhum ticket criado.`
+    );
+    return null;
+  }
+
   // ── IDENTIDADE CONFERÍVEL, ANTES DE QUALQUER ESCRITA ──────────────────────────────────────────
   // Toda decisão que pode terminar em "não emite" acontece AQUI, antes de o banco ser tocado. A
   // versão anterior inseria a linha, montava a prévia, descobria que não havia rótulo e fechava o
   // ticket recém-criado como `cancelled`: duas linhas de lixo por tentativa e — muito pior — o
   // `superseded` do início já tinha DESTRUÍDO em silêncio o ticket legítimo que estava pendente.
-  const identity = await resolveActionIdentity(rawArgs);
+  const identity = conference
+    ? { labels: conference.labels, requestedCount: conference.labels.length, effectCount: 1 }
+    : await resolveActionIdentity(rawArgs);
   const headline = buildActionHeadline(key, identity.effectCount || 1);
   if (!headline) return null;
 
@@ -288,10 +351,16 @@ export async function tryIssueWhatsAppActionTicket(input: {
   let stepUpWindowId: string | null = null;
   let windowLine: string | null = null;
   if (eligible.tier === 'N2') {
-    // PORTÃO DO N2, DE CÓDIGO: sem o aviso de conclusão, `submit` não sai — e nenhuma env o abre.
-    // Ver `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` acima.
+    // PORTÃO DO N2, DE CÓDIGO: sem o aviso de conclusão, nenhuma ação N2 sai — e nenhuma env o abre.
+    // Ver `WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED` acima. Desde a unidade D4 isto também tranca
+    // recebimento e criação, que entraram em N2: a conferência delas está construída e testada, e o
+    // que falta é a MESMA lista E1–E5. O texto varia por ação — o verbo de `submit` mentiria nas
+    // outras duas.
     if (!WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED || !resolveWhatsAppOutboundNoticeEnabled()) {
-      return { text: WHATSAPP_N2_NOTICE_MISSING_TEXT, outcome: 'whatsapp_inbound_action_notice_missing' };
+      return {
+        text: buildWhatsAppN2NoticeMissingText(key),
+        outcome: 'whatsapp_inbound_action_notice_missing'
+      };
     }
 
     const window = await findLiveWhatsAppActionWindow(input.link);
@@ -335,7 +404,11 @@ export async function tryIssueWhatsAppActionTicket(input: {
       snapshotSessionContextId: input.principal.sessionContextId,
       conversationSessionId: input.output.conversationSessionId ?? null,
       riskTier: eligible.tier,
-      itemCount: labels.length,
+      // OPERAÇÕES, não linhas de conferência. `itemCount` vira "Coloquei as N operações na fila" em
+      // `buildWhatsAppConfirmedText`: nas chaves com conferência dedicada os rótulos são as LINHAS do
+      // bloco (resíduos, entidades) e são várias para UMA operação — usar `labels.length` ali diria
+      // "as 6 operações" para uma única criação.
+      itemCount: conference ? identity.effectCount : labels.length,
       previewCorrelationId: input.correlationId,
       stepUpWindowId
     }
@@ -344,12 +417,14 @@ export async function tryIssueWhatsAppActionTicket(input: {
 
   const preview = renderTicketPreview({
     issued,
+    key,
     headline,
     labels,
     principal: input.principal,
     supersededSummary: previous?.humanSummary ?? null,
     windowLine,
-    tier: eligible.tier
+    tier: eligible.tier,
+    conferenceBlock: conference?.block ?? null
   });
 
   if (!preview) {
@@ -375,12 +450,15 @@ export async function tryIssueWhatsAppActionTicket(input: {
 /** Ponto único de renderização da prévia — usado na emissão e na REEMISSÃO por falha de despacho. */
 function renderTicketPreview(input: {
   issued: IssuedWhatsAppActionTicket;
+  key: string;
   headline: string;
   labels: string[];
   principal: ConversationPrincipal;
   supersededSummary: string | null;
   windowLine: string | null;
   tier: WhatsAppEligibleAction['tier'];
+  /** Bloco pronto das prévias dedicadas. `null` = lista genérica de rótulos (o caminho de sempre). */
+  conferenceBlock?: string | null;
 }): string | null {
   return buildWhatsAppConfirmationPreview({
     headline: input.headline,
@@ -391,8 +469,70 @@ function renderTicketPreview(input: {
     ticketId: input.issued.ticket.id,
     supersededSummary: input.supersededSummary,
     windowLine: input.windowLine,
-    irreversibleWarning: input.tier === 'N2' ? IRREVERSIBLE_WARNING : null
+    irreversibleWarning: resolveEffectNote(input.key, input.tier),
+    conferenceBlock: input.conferenceBlock ?? null
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Conferência dedicada (unidade D4) — recebimento e criação
+// ---------------------------------------------------------------------------------------------
+
+type ActionConference =
+  | { ok: true; block: string; labels: string[] }
+  | { ok: false; reason: string };
+
+/**
+ * LIGA AS PRÉVIAS DEDICADAS AO FLUXO. `null` = a chave não tem conferência própria (siga a via
+ * genérica). Nenhuma decisão de política mora aqui: o módulo de prévia decide se dá para conferir, e
+ * esta função só traduz o veredito para o formato que a emissão consome.
+ */
+async function resolveActionConference(key: string, args: LooseRecord): Promise<ActionConference | null> {
+  if (key === WHATSAPP_RECEIVE_ACTION_KEY) {
+    const conference = await buildWhatsAppReceiveConference(args);
+    if (!conference.canIssueTicket) return { ok: false, reason: conference.reason };
+    return {
+      ok: true,
+      block: conference.text,
+      // O rótulo do manifesto PRIMEIRO: é ele que a reemissão e o aviso de conclusão mostram quando o
+      // bloco já não existe. As linhas de resíduo vão junto para que a identidade congelada seja a
+      // mesma que a pessoa conferiu.
+      labels: [conference.manifestLabel, ...conference.residueLines]
+    };
+  }
+
+  if (key === WHATSAPP_CREATE_ACTION_KEY) {
+    // `handleManifestCreateFromPayload` executa `{...snapshotPayload, ...args.payload}` — o snapshot
+    // é um blob base64url que só ELE decodifica. Com snapshot presente, a prévia veria menos do que
+    // a execução faria, e mostrar menos do que se executa é o defeito de "listar 3 e executar 5".
+    // Recusa, sem tentar decodificar aqui: duplicar o parser seria uma segunda verdade a divergir.
+    if (hasEncodedCreationSnapshot(args)) return { ok: false, reason: 'creation_snapshot_not_conferible' };
+
+    const preview = await buildWhatsAppCreatePreview({
+      mode: 'complete',
+      payload: asRecord(args.payload),
+      // A conta CETESB sai UMA vez, na cauda do ticket (`resolveAccountLabel`) — passar aqui também
+      // renderizaria a linha duas vezes.
+      accountLabel: null
+    });
+    if (!preview.ok) return { ok: false, reason: preview.blocker };
+    return { ok: true, block: preview.text, labels: preview.itemLabels };
+  }
+
+  return null;
+}
+
+/**
+ * `true` quando os argumentos trazem snapshot de criação NA FORMA QUE O DISPATCHER DECODIFICA
+ * (`toNullableString`: string/number/boolean não vazios). Objeto solto em `selectionSnapshot` não
+ * decodifica lá e não muda o payload executado, então também não recusa aqui.
+ */
+function hasEncodedCreationSnapshot(args: LooseRecord): boolean {
+  for (const value of [args.creationSnapshot, args.selectionSnapshot]) {
+    if (typeof value === 'string' && value.trim()) return true;
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return true;
+  }
+  return false;
 }
 
 type ActionIdentity = {
@@ -931,11 +1071,15 @@ async function reissueAfterFailedDispatch(
 
   const preview = renderTicketPreview({
     issued,
+    key: resolveWhatsAppActionKey(ticket.toolName, ticket.intent),
     headline: ticket.humanSummary,
     labels: ticket.itemLabels,
     principal: input.principal,
     supersededSummary: null,
     windowLine: null,
+    // Sem `conferenceBlock`: o bloco não é congelado no ticket, e remontá-lo aqui resolveria o banco
+    // de novo — a reemissão existe justamente para NÃO reconferir nada. Só N1 chega aqui (guarda
+    // acima) e nenhuma chave N1 tem conferência dedicada, então a lista genérica é a mesma de sempre.
     tier: 'N1'
   });
   if (!preview) {
