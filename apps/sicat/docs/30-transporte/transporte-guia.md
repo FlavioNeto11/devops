@@ -56,8 +56,8 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 
 | # | Recomendação do relatório | Estado | Onde / observação |
 |---|---|---|---|
-| 1 | Bounded context **Transporte** separado do ambiental (MTR ambiental ≠ MDF-e; não reutilizar `manifest`) | ⚠️ | DL-103 + migrations `021..023` (PR-A1..A3) — em construção: cadastros entregues (PR-A3); agregado TransportOperation no PR-A4 |
-| 2 | Agregado central **TransportOperation** com máquina de estados explícita; transição só via gate | 📋 | `transport-state-machine.ts` (PR-A4) |
+| 1 | Bounded context **Transporte** separado do ambiental (MTR ambiental ≠ MDF-e; não reutilizar `manifest`) | ⚠️ | DL-103 + migrations `021..024` (PR-A1..A4) — em construção: catálogo, cadastros e agregado `TransportOperation` entregues; motor de compliance no PR-A5 |
+| 2 | Agregado central **TransportOperation** com máquina de estados explícita; transição só via gate | ✅ | PR-A4: migration `024_transport_operations.sql` + `transport-state-machine.ts` (grafo completo, 13 estados/23 transições) — gates plugados no PR-A5 |
 | 3 | **Catálogo regulatório temporal** (fontes, regras TR-*, versões com vigência) — nunca if/else espalhado | ✅ | PR-A1: `021_transporte_regulatory_catalog.sql` + seed (`regulatory-rules-seed.ts`) + repo (`regulatory-repo.ts`) |
 | 4 | **TransportComplianceService**: gateway traz fatos, motor decide; resposta com ruleCode/base legal/versão/evidência | 📋 | PR-A5 |
 | 5 | Nenhuma regra nasce bloqueante; promoção a `blocking=true` exige revisão humana | ✅ | Check constraint + seed (PR-A1: `chk_regrulev_blocking_reviewed`, seed 100% `blocking=false`); clamp BLOCK→WARN no motor fica no PR-A5 |

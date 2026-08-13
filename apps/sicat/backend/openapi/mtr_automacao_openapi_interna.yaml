@@ -95,6 +95,15 @@ tags:
     tenancy por `integrationAccountId`, CRUD síncrono e locking otimista (`version`). Os campos
     `rntrc*` guardam o estado DECLARADO pelo operador; a verificação de regularidade via ANTT é
     Fase C (rotas `/regularidade`/`/verificar` não existem neste contrato).
+- name: Transporte - Operações
+  description: Agregado central `TransportOperation` — máquina de estados explícita (13 estados)
+    com transições guardadas. Este contrato só expõe as transições SEM gate de compliance
+    (`submeter-validacao`, `cancelar`); as demais (`aprovar`, `contratar`, CIOT, fiscal, liberação,
+    viagem, conclusão) estão declaradas no grafo de `transport-state-machine.ts` mas SEM rota até o
+    motor de compliance (fase futura). Frete sempre DECOMPOSTO (`offeredAmount`/`contractedAmount`/
+    `floorAmount`/`tollAmount`/`vpoAmount`/`otherComponentsAmount`/`totalContractValue` — VPO nunca
+    somado ao frete). Tenancy por `integrationAccountId`, síncrono (sem 202/job), locking otimista
+    (`version`).
 security:
 - bearerAuth: []
 paths:
@@ -7062,6 +7071,280 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/transporte/operacoes:
+    post:
+      operationId: transporteOperacoesCreate
+      summary: Criar operação de transporte
+      description: Cria o agregado `TransportOperation` em `draft`. Draft MÍNIMO exige apenas
+        `route` (origem e destino — município + UF) e `cargoRegime` — partes/veículos/carga são
+        opcionais neste PR (a completude, como contratante presente ou transportador com RNTRC
+        ativo, é assunto dos gates de compliance de uma fase futura). Partes/veículos informados
+        devem existir NA MESMA CONTA. Aceita `Idempotency-Key` opcional.
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoCreateRequest'
+      responses:
+        '201':
+          description: Operação criada em draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: Já existe uma operação com este `referenceCode` nesta conta
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      operationId: transporteOperacoesList
+      summary: Listar operações de transporte
+      description: Lista operações da conta informada, com filtro por status e paginação.
+        Tenancy obrigatória — `integrationAccountId` é query param obrigatório. Itens vêm no
+        formato RESUMO (sem `parties`/`vehicles`/`cargo`/`route`) — use o `GET` de detalhe para o
+        agregado completo.
+      tags:
+      - Transporte - Operações
+      responses:
+        '200':
+          description: Página de operações da conta (resumo)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: status
+        description: Filtra pelo status atual da operação.
+        schema:
+          type: string
+          enum:
+          - draft
+          - validating
+          - blocked
+          - ready_for_contract
+          - contracted
+          - ciot_pending
+          - ciot_registered
+          - fiscal_pending
+          - ready_for_release
+          - in_transit
+          - completion_pending
+          - completed
+          - cancelled
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/operacoes/{operationId}:
+    get:
+      operationId: transporteOperacaoGet
+      summary: Consultar operação de transporte (agregado completo)
+      description: Retorna o agregado completo — cabeçalho, `parties[]`, `vehicles[]`, `cargo[]`,
+        `route` e `availableCommands[]` (comandos que a máquina de estados permite a partir do
+        status atual, restritos às transições COM rota neste PR).
+      tags:
+      - Transporte - Operações
+      responses:
+        '200':
+          description: Operação encontrada (agregado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+    patch:
+      operationId: transporteOperacaoUpdate
+      summary: Atualizar dados da operação
+      description: Atualização parcial dos DADOS do cabeçalho — NUNCA de `status` (campo
+        `status` no corpo responde 422 `TRANSPORT_STATUS_IS_COMMAND_DRIVEN`; use os endpoints de
+        transição). Permitido só com a operação em `draft`/`blocked` — caso contrário, 409.
+        Locking otimista — `version` é obrigatório no corpo e deve casar com o `version` atual.
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoUpdateRequest'
+      responses:
+        '200':
+          description: Operação atualizada (agregado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Conflito de locking otimista (version defasada), `referenceCode`
+            duplicado, ou operação fora de `draft`/`blocked` (`TRANSPORT_OPERATION_NOT_EDITABLE`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Corpo tentou alterar `status` diretamente (`TRANSPORT_STATUS_IS_COMMAND_DRIVEN`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/submeter-validacao:
+    post:
+      operationId: transporteOperacaoSubmeterValidacao
+      summary: Submeter operação para validação (draft → validating)
+      description: Única transição de saída de `draft` exposta neste PR — SEM gate e SEM
+        auto-aprovação (o motor de compliance que decide `approve_validation`/`reject_validation`
+        chega em uma fase futura). Compare-and-swap por `version`; comando fora do grafo a partir
+        do status atual responde 409 `TRANSPORT_INVALID_TRANSITION`.
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoTransicaoRequest'
+      responses:
+        '200':
+          description: Operação em `validating` (agregado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Transição inválida a partir do status atual, ou version defasada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/cancelar:
+    post:
+      operationId: transporteOperacaoCancelar
+      summary: Cancelar operação de transporte
+      description: Transição `cancel`, disponível de qualquer status não-terminal do grafo (a
+        migration trava em DDL que `cancelled` sempre tem `cancelledReason`). `reason` é
+        obrigatório (400 `TRANSPORT_CANCEL_REASON_REQUIRED` se ausente).
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoCancelarRequest'
+      responses:
+        '200':
+          description: Operação em `cancelled` (agregado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Transição inválida a partir do status atual (ex. já terminal), ou version
+            defasada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -12634,3 +12917,641 @@ components:
         totalItems:
           type: integer
           minimum: 0
+    TransporteOperacaoFrete:
+      type: object
+      description: Frete DECOMPOSTO — cada componente é independente; VPO NUNCA é somado ao frete.
+      required:
+      - offeredAmount
+      - contractedAmount
+      - floorAmount
+      - tollAmount
+      - vpoAmount
+      - otherComponentsAmount
+      - totalContractValue
+      properties:
+        offeredAmount:
+          type:
+          - number
+          - 'null'
+        contractedAmount:
+          type:
+          - number
+          - 'null'
+        floorAmount:
+          type:
+          - number
+          - 'null'
+        tollAmount:
+          type:
+          - number
+          - 'null'
+        vpoAmount:
+          type:
+          - number
+          - 'null'
+        otherComponentsAmount:
+          type:
+          - number
+          - 'null'
+        totalContractValue:
+          type:
+          - number
+          - 'null'
+    TransporteOperacaoParteResource:
+      type: object
+      required:
+      - id
+      - partyId
+      - role
+      - partySnapshot
+      - createdAt
+      properties:
+        id:
+          type: string
+        partyId:
+          type: string
+        role:
+          type: string
+          enum:
+          - contractor
+          - shipper
+          - carrier
+          - subcontractor
+          - consignee
+          - driver
+        partySnapshot:
+          type: object
+          additionalProperties: true
+          description: Congelado no momento do vínculo (documentType/documentNumber/legalName/rntrc*).
+        createdAt:
+          type: string
+          format: date-time
+    TransporteOperacaoVeiculoResource:
+      type: object
+      required:
+      - id
+      - vehicleId
+      - position
+      - vehicleSnapshot
+      - createdAt
+      properties:
+        id:
+          type: string
+        vehicleId:
+          type: string
+        position:
+          type: string
+          enum:
+          - traction
+          - towed_1
+          - towed_2
+        vehicleSnapshot:
+          type: object
+          additionalProperties: true
+          description: Congelado no momento do vínculo (plate/vehicleType/renavam/axlesCount).
+        createdAt:
+          type: string
+          format: date-time
+    TransporteOperacaoCargaResource:
+      type: object
+      required:
+      - id
+      - cargoType
+      - description
+      - dangerousGoods
+      - createdAt
+      properties:
+        id:
+          type: string
+        cargoType:
+          type: string
+        cargoCode:
+          type:
+          - string
+          - 'null'
+        description:
+          type: string
+        weightKg:
+          type:
+          - number
+          - 'null'
+        volumeM3:
+          type:
+          - number
+          - 'null'
+        declaredValue:
+          type:
+          - number
+          - 'null'
+        dangerousGoods:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    TransporteOperacaoRotaResource:
+      type: object
+      required:
+      - id
+      - originMunicipality
+      - originUf
+      - destinationMunicipality
+      - destinationUf
+      - routeSource
+      - createdAt
+      properties:
+        id:
+          type: string
+        originMunicipality:
+          type: string
+        originUf:
+          type: string
+        originIbgeCode:
+          type:
+          - string
+          - 'null'
+        destinationMunicipality:
+          type: string
+        destinationUf:
+          type: string
+        destinationIbgeCode:
+          type:
+          - string
+          - 'null'
+        distanceKm:
+          type:
+          - number
+          - 'null'
+        routeSource:
+          type: string
+          enum:
+          - manual
+          - estimated
+        tollExpected:
+          type:
+          - boolean
+          - 'null'
+        waypoints:
+          type: array
+          items: {}
+        createdAt:
+          type: string
+          format: date-time
+    TransporteOperacaoResource:
+      type: object
+      description: Agregado `TransportOperation` completo — cabeçalho + parties[] + vehicles[] +
+        cargo[] + route + availableCommands[] (comandos que a máquina de estados permite a partir
+        do status atual, restritos às transições COM rota neste PR).
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - status
+      - cargoRegime
+      - freight
+      - currency
+      - parties
+      - vehicles
+      - cargo
+      - availableCommands
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Usado no `PATCH` e nas transições para locking otimista.
+        integrationAccountId:
+          type: string
+        sessionContextId:
+          type:
+          - string
+          - 'null'
+        referenceCode:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+          enum:
+          - draft
+          - validating
+          - blocked
+          - ready_for_contract
+          - contracted
+          - ciot_pending
+          - ciot_registered
+          - fiscal_pending
+          - ready_for_release
+          - in_transit
+          - completion_pending
+          - completed
+          - cancelled
+        cargoRegime:
+          type: string
+          enum:
+          - lotacao
+          - fracionada
+          - unknown
+        operationClassification:
+          type:
+          - string
+          - 'null'
+        freight:
+          $ref: '#/components/schemas/TransporteOperacaoFrete'
+        currency:
+          type: string
+        paymentMethod:
+          type:
+          - string
+          - 'null'
+        paymentTermDays:
+          type:
+          - integer
+          - 'null'
+        blockedReasonCode:
+          type:
+          - string
+          - 'null'
+        cancelledReason:
+          type:
+          - string
+          - 'null'
+        parties:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoParteResource'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoVeiculoResource'
+        cargo:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoCargaResource'
+        route:
+          oneOf:
+          - $ref: '#/components/schemas/TransporteOperacaoRotaResource'
+          - type: 'null'
+        availableCommands:
+          type: array
+          description: Comandos que `transport-state-machine.ts` permite a partir do status
+            atual, restritos às transições COM rota neste PR (fase A).
+          items:
+            type: string
+            enum:
+            - submit_validation
+            - approve_validation
+            - reject_validation
+            - reopen
+            - contract
+            - cancel
+            - request_ciot
+            - confirm_ciot
+            - confirm_fiscal
+            - release
+            - start_transit
+            - request_completion
+            - complete
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteOperacaoResumo:
+      type: object
+      description: Formato leve usado pela listagem — sem parties/vehicles/cargo/route (evita
+        N+1 na paginação). Use o `GET` de detalhe para o agregado completo.
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - status
+      - cargoRegime
+      - freight
+      - currency
+      - availableCommands
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        integrationAccountId:
+          type: string
+        referenceCode:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+          enum:
+          - draft
+          - validating
+          - blocked
+          - ready_for_contract
+          - contracted
+          - ciot_pending
+          - ciot_registered
+          - fiscal_pending
+          - ready_for_release
+          - in_transit
+          - completion_pending
+          - completed
+          - cancelled
+        cargoRegime:
+          type: string
+          enum:
+          - lotacao
+          - fracionada
+          - unknown
+        freight:
+          $ref: '#/components/schemas/TransporteOperacaoFrete'
+        currency:
+          type: string
+        availableCommands:
+          type: array
+          items:
+            type: string
+            enum:
+            - submit_validation
+            - approve_validation
+            - reject_validation
+            - reopen
+            - contract
+            - cancel
+            - request_ciot
+            - confirm_ciot
+            - confirm_fiscal
+            - release
+            - start_transit
+            - request_completion
+            - complete
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteOperacaoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoResumo'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteOperacaoRotaCreateRequest:
+      type: object
+      required:
+      - originMunicipality
+      - originUf
+      - destinationMunicipality
+      - destinationUf
+      properties:
+        originMunicipality:
+          type: string
+        originUf:
+          type: string
+          description: Uma das 27 unidades federativas.
+        originIbgeCode:
+          type: string
+        destinationMunicipality:
+          type: string
+        destinationUf:
+          type: string
+          description: Uma das 27 unidades federativas.
+        destinationIbgeCode:
+          type: string
+        distanceKm:
+          type: number
+          description: Deve ser > 0 quando informado.
+        routeSource:
+          type: string
+          enum:
+          - manual
+          - estimated
+          default: manual
+        tollExpected:
+          type: boolean
+        waypoints:
+          type: array
+          items: {}
+    TransporteOperacaoParteCreateRequest:
+      type: object
+      required:
+      - partyId
+      - role
+      properties:
+        partyId:
+          type: string
+          description: 'Id de um `TransporteTransportadorResource` existente NA MESMA conta.'
+        role:
+          type: string
+          enum:
+          - contractor
+          - shipper
+          - carrier
+          - subcontractor
+          - consignee
+          - driver
+    TransporteOperacaoVeiculoVinculoCreateRequest:
+      type: object
+      required:
+      - vehicleId
+      properties:
+        vehicleId:
+          type: string
+          description: 'Id de um `TransporteVeiculoResource` existente NA MESMA conta.'
+        position:
+          type: string
+          enum:
+          - traction
+          - towed_1
+          - towed_2
+          default: traction
+    TransporteOperacaoCargaCreateRequest:
+      type: object
+      required:
+      - cargoType
+      properties:
+        cargoType:
+          type: string
+        cargoCode:
+          type: string
+        description:
+          type: string
+        weightKg:
+          type: number
+          description: Deve ser > 0 quando informado.
+        volumeM3:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        declaredValue:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        dangerousGoods:
+          type: boolean
+          default: false
+        metadata:
+          type: object
+          additionalProperties: true
+    TransporteOperacaoCreateRequest:
+      type: object
+      description: Draft MÍNIMO — só `integrationAccountId` e `route` são obrigatórios;
+        parties/vehicles/cargo são opcionais nesta fase.
+      required:
+      - integrationAccountId
+      - route
+      properties:
+        integrationAccountId:
+          type: string
+        sessionContextId:
+          type: string
+        referenceCode:
+          type: string
+        cargoRegime:
+          type: string
+          enum:
+          - lotacao
+          - fracionada
+          - unknown
+          default: unknown
+        operationClassification:
+          type: string
+        freightOfferedAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        freightContractedAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        freightFloorAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        tollAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        vpoAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        otherComponentsAmount:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        totalContractValue:
+          type: number
+          description: Deve ser >= 0 quando informado.
+        currency:
+          type: string
+          default: BRL
+        paymentMethod:
+          type: string
+        paymentTermDays:
+          type: integer
+          description: Deve ser >= 0 quando informado.
+        route:
+          $ref: '#/components/schemas/TransporteOperacaoRotaCreateRequest'
+        parties:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoParteCreateRequest'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoVeiculoVinculoCreateRequest'
+        cargo:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteOperacaoCargaCreateRequest'
+    TransporteOperacaoUpdateRequest:
+      type: object
+      description: Atualização parcial dos DADOS do cabeçalho — NUNCA `status` (rejeitado com
+        422 `TRANSPORT_STATUS_IS_COMMAND_DRIVEN`). Permitida só com a operação em `draft`/`blocked`.
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        referenceCode:
+          type: string
+        cargoRegime:
+          type: string
+          enum:
+          - lotacao
+          - fracionada
+          - unknown
+        operationClassification:
+          type: string
+        freightOfferedAmount:
+          type: number
+        freightContractedAmount:
+          type: number
+        freightFloorAmount:
+          type: number
+        tollAmount:
+          type: number
+        vpoAmount:
+          type: number
+        otherComponentsAmount:
+          type: number
+        totalContractValue:
+          type: number
+        currency:
+          type: string
+        paymentMethod:
+          type: string
+        paymentTermDays:
+          type: integer
+    TransporteOperacaoTransicaoRequest:
+      type: object
+      description: Corpo comum das transições sem gate (`submeter-validacao`).
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+    TransporteOperacaoCancelarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      - reason
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        reason:
+          type: string
+          description: Obrigatório — motivo do cancelamento (vira `cancelledReason` no banco).

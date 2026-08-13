@@ -1123,5 +1123,59 @@ export const operations = [
     "summary": "Atualizar veículo",
     "tag": "Transporte - Cadastros",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes",
+    "expressPath": "/v1/transporte/operacoes",
+    "summary": "Criar operação de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_operacoes",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes",
+    "expressPath": "/v1/transporte/operacoes",
+    "summary": "Listar operações de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}",
+    "expressPath": "/v1/transporte/operacoes/:operationId",
+    "summary": "Consultar operação de transporte (agregado completo)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_operacoes_operationId",
+    "method": "patch",
+    "specPath": "/v1/transporte/operacoes/{operationId}",
+    "expressPath": "/v1/transporte/operacoes/:operationId",
+    "summary": "Atualizar dados da operação",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_submeter_validacao",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/submeter-validacao",
+    "expressPath": "/v1/transporte/operacoes/:operationId/submeter-validacao",
+    "summary": "Submeter operação para validação (draft → validating)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/cancelar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/cancelar",
+    "summary": "Cancelar operação de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
   }
 ];

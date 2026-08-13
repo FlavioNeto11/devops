@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1, PR-A2 e PR-A3 entregues)
+### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1..PR-A4 entregues)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -473,7 +473,31 @@ completo) e placa (formato antigo e Mercosul) em
 **SEM verificação externa**: os campos `rntrc*` guardam o estado DECLARADO pelo operador — a
 regularidade via ANTT (`/regularidade`/`/verificar`) é Fase C. Cobertura em
 `tests/unit/transport-party-validator.test.js` e `tests/api/transporte-cadastros.test.js`
-(inclui teste de isolamento entre contas).
+(inclui teste de isolamento entre contas). O PR-A4 entregou o **agregado central**
+`TransportOperation` (migration
+[`024`](../../backend/src/sql/024_transport_operations.sql):
+`transport_operations`/`transport_operation_parties`/`transport_operation_vehicles`/
+`transport_operation_cargo`/`transport_operation_routes`) e a **máquina de estados explícita**
+(13 estados, 23 transições — [`transport-state-machine.ts`](../../backend/src/lib/transport/transport-state-machine.ts),
+módulo puro, zero I/O). Os GATES de compliance chegam no PR-A5; até lá, só as transições SEM gate
+ganham rota — `submit_validation` (draft → validating) e `cancel` (de qualquer estado
+não-terminal) —, tag `Transporte - Operações` no contrato:
+`POST`/`GET`/`PATCH /v1/transporte/operacoes{,/{operationId}}` e
+`POST /v1/transporte/operacoes/{operationId}/{submeter-validacao,cancelar}`. `approve_validation`/
+`reject_validation`/`reopen`/`contract`/CIOT/fiscal/liberação/viagem/conclusão estão declaradas no
+grafo (com `requiredGate`/`phase`) mas SEM rota. Draft mínimo exige só `route` (origem/destino:
+município + UF) e `cargoRegime` — partes/veículos/carga são opcionais nesta fase. Frete sempre
+**DECOMPOSTO** (`offeredAmount`/`contractedAmount`/`floorAmount`/`tollAmount`/`vpoAmount`/
+`otherComponentsAmount`/`totalContractValue` — VPO nunca somado ao frete). `party_snapshot`/
+`vehicle_snapshot` congelam parte/veículo no momento do vínculo
+([`transport-operation-repo.ts`](../../backend/src/repositories/transport-operation-repo.ts)).
+`PATCH` nunca muta `status` diretamente (422 `TRANSPORT_STATUS_IS_COMMAND_DRIVEN`) e só é
+permitido em `draft`/`blocked` (409 `TRANSPORT_OPERATION_NOT_EDITABLE`); as transições fazem
+compare-and-swap por `status`+`version` no repositório. Centro Operacional estendido
+(`TRANSPORT_OPERATION_OPERATIONAL_STATUS_REGISTRY` em
+[`operational-status.ts`](../../backend/src/lib/operational-status.ts)). Cobertura em
+`tests/unit/transport-state-machine.test.js` (matriz exaustiva 13×13),
+`tests/unit/transport-operation-validator.test.js` e `tests/api/transporte-operacoes.test.js`.
 
 ## 4. Riscos e limites conhecidos
 
