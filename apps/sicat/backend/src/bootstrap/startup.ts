@@ -2,6 +2,7 @@ import { config } from '../lib/config.js';
 import { ensureStorageDirs } from '../lib/files.js';
 import { runMigrations } from '../db/migrate.js';
 import { ensureBaseData } from './base-data.js';
+import { ensureRegulatoryCatalogSeeded } from './regulatory-rules-seed.js';
 import { seedAiRuntimeDefaults } from '../services/ai-control/ai-control-bootstrap.js';
 import {
   refreshConversationPermissionCatalogSnapshot,
@@ -25,6 +26,22 @@ export async function ensureStartup() {
   }
   if (config.autoSeed) {
     await ensureBaseData();
+
+    // Catálogo regulatório da vertical Transporte (PR-A1, DL-103) — depois do seed de acesso,
+    // sob o mesmo gate AUTO_SEED. Falha NÃO derruba o boot: a vertical ainda não tem superfície
+    // HTTP, e derrubar api+worker (MTR/DMR/CETESB, que é o produto) por causa dela seria
+    // desproporcional — mesmo racional do seed RBAC em `base-data.ts`. Mas NUNCA silenciosa:
+    // erro alto no log, autocura no próximo boot (seed idempotente).
+    try {
+      const regulatorySeedResult = await ensureRegulatoryCatalogSeeded();
+      console.log(`[regulatory-catalog-seed] catalogo reconciliado ${JSON.stringify(regulatorySeedResult)}`);
+    } catch (error: unknown) {
+      console.error(
+        '[regulatory-catalog-seed] FALHA ao reconciliar o catalogo regulatorio Transporte. A vertical '
+          + 'segue sem catalogo ate o proximo boot bem-sucedido; o restante do SICAT nao e afetado: '
+          + `${error instanceof Error ? error.stack || error.message : String(error)}`
+      );
+    }
   }
   // Semeia os textos de IA (prompts + agentes) no banco e aquece o runtime (best-effort).
   await seedAiRuntimeDefaults();

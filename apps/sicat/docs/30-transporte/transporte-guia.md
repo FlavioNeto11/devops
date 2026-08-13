@@ -58,9 +58,9 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 |---|---|---|---|
 | 1 | Bounded context **Transporte** separado do ambiental (MTR ambiental ≠ MDF-e; não reutilizar `manifest`) | 📋 | DL-103 + migrations `021+` (PR-A1..A5) |
 | 2 | Agregado central **TransportOperation** com máquina de estados explícita; transição só via gate | 📋 | `transport-state-machine.ts` (PR-A4) |
-| 3 | **Catálogo regulatório temporal** (fontes, regras TR-*, versões com vigência) — nunca if/else espalhado | 📋 | `021_transporte_regulatory_catalog.sql` (PR-A1) |
+| 3 | **Catálogo regulatório temporal** (fontes, regras TR-*, versões com vigência) — nunca if/else espalhado | ✅ | PR-A1: `021_transporte_regulatory_catalog.sql` + seed (`regulatory-rules-seed.ts`) + repo (`regulatory-repo.ts`) |
 | 4 | **TransportComplianceService**: gateway traz fatos, motor decide; resposta com ruleCode/base legal/versão/evidência | 📋 | PR-A5 |
-| 5 | Nenhuma regra nasce bloqueante; promoção a `blocking=true` exige revisão humana | 📋 | Check constraint + clamp BLOCK→WARN (PR-A1/A5) |
+| 5 | Nenhuma regra nasce bloqueante; promoção a `blocking=true` exige revisão humana | ✅ | Check constraint + seed (PR-A1: `chk_regrulev_blocking_reviewed`, seed 100% `blocking=false`); clamp BLOCK→WARN no motor fica no PR-A5 |
 | 6 | `FreightFloorEngine` versionado, coeficiente **jamais** hardcoded; validação em GATE_PROPOSAL (antes da oferta) | 🕓 | Fase B — bloqueado por [LEGAL REVIEW REQUIRED] das tabelas vigentes |
 | 7 | **Não** implementar antecipação fixa de 70% do frete (dispositivo vetado — Veto 43/2026) | ✅ | Recusa registrada; monitorar veto (pendência P1) |
 | 8 | CIOT: ciclo completo com provedor abstraído; `REGISTERED ≠ COMPLIANT` | 🕓 | Fase C — bloqueado por [EXTERNAL DEPENDENCY] |
@@ -68,7 +68,7 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 | 10 | Fiscal: começar por **importação + validação** de XML; emissão só em fase posterior com go/no-go | ✅ | Decisão de roadmap adotada (Fases E e G) |
 | 11 | Seguros RCTR-C/RC-DC/RC-V + PGR com verificação multiestrategia (`InsuranceVerificationProvider`) | 📋 | Fase F |
 | 12 | Regulatory Watch com aprovação humana obrigatória (IA sugere, humano ativa) | 📋 | Fase H |
-| 13 | Testes regulatórios como categoria própria + fixtures de fronteira temporal (24/05/2026, 06/08/2026) | 📋 | `tests/regulatory/` (nasce no PR-A1, consolida no PR-A6) |
+| 13 | Testes regulatórios como categoria própria + fixtures de fronteira temporal (24/05/2026, 06/08/2026) | ⚠️ | `tests/regulatory/effective-dates.test.js` nasceu no PR-A1 (fronteira 24/05/2026 coberta); consolida no PR-A6 |
 | 14 | Regra de engenharia: mudança de `RegulatoryRuleVersion` exige fixture antes/depois da vigência | 📋 | Meta-guarda no PR-A6 |
 | 15 | Reutilizar fila/jobs/DLQ, auditoria por correlationId, idempotência, RBAC, Centro Operacional, design system `Sicat*` | ✅ | Padrão da casa confirmado na exploração; sem segundo framework |
 | 16 | Compliance da Fase A **síncrono** (sem chamada externa; job types só quando houver integração) | ⚠️ | Adaptação ao relatório: 202/job fica para a Fase C (decisão D1 do plano) |
@@ -91,7 +91,7 @@ será preenchida conforme os testes nascerem (`tests/regulatory/`).
 | TR-PMF-002 | Não permitir oferta/publicação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_PROPOSAL | B | REQ-SICAT-0023 | a criar | 📋 |
 | TR-PMF-003 | Não permitir contratação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_CONTRACT | B | REQ-SICAT-0023 | a criar | 📋 |
 | TR-PMF-004 | Usar versão do piso vigente na data | Res. ANTT 5.867/2020 (tabelas vigentes) | GATE_PROPOSAL | B | REQ-SICAT-0022 | a criar | 📋 |
-| TR-CIOT-001 | Obrigatoriedade do CIOT | Res. 5.862/2019 + Res. 6.078/2026 + Lei 15.485/2026 | GATE_CIOT | A (catálogo) / C (ciclo) | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-001 | Obrigatoriedade do CIOT | Res. 5.862/2019 + Res. 6.078/2026 + Lei 15.485/2026 | GATE_CIOT | A (catálogo) / C (ciclo) | REQ-SICAT-0025 | `tests/regulatory/effective-dates.test.js` | 📋 |
 | TR-CIOT-002 | CIOT antes do início da operação | Res. ANTT 6.078/2026 | GATE_RELEASE | C | REQ-SICAT-0025 | a criar | 📋 |
 | TR-CIOT-003 | Responsável pelo CIOT conforme enquadramento | Lei 15.485/2026 | GATE_CIOT | C | REQ-SICAT-0025 | a criar | 📋 |
 | TR-CIOT-004 | Dados obrigatórios do CIOT completos | Lei 15.485/2026 | GATE_CIOT | A (completude local) | REQ-SICAT-0025 | a criar | 📋 |

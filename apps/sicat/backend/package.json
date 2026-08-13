@@ -36,6 +36,7 @@
     "test": "tsx --test tests/**/*.test.js",
     "test:api": "tsx --test tests/api/*.test.js",
     "test:integration": "tsx --test tests/integration/*.test.js",
+    "test:regulatory": "tsx --test tests/regulatory/*.test.js",
     "test:worker": "tsx --test tests/worker/*.test.js",
     "test:auth": "tsx --test tests/contract/auth-contract.test.js tests/integration/auth-flow.test.js",
     "test:manifest:submit": "tsx --test tests/api/manifest-submit.test.js tests/integration/manifest-submit-service.test.js tests/worker/manifest-submit-handler.test.js",
