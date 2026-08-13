@@ -1,0 +1,45 @@
+id: REQ-SICAT-0030
+slug: req-sicat-0030
+title: "Transporte: Regulatory Watch com aprovação humana obrigatória"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve acompanhar a evolução normativa do domínio de transporte por um fluxo
+  DETECTED → INGESTED → AI_ANALYZED → HUMAN_REVIEW → APPROVED → TESTED → SCHEDULED → ACTIVE, em
+  que fontes recebem hash e data, cada regra ativa aponta para sua fonte, a IA pode sugerir
+  mudanças mas nunca ativar sozinha uma regra bloqueante, e a ativação respeita effective_from
+  controlado com fixtures de comportamento antes/depois.
+business_rationale: >-
+  Tanto ANTT quanto documentos fiscais receberam mudanças relevantes em 2026 e a Lei 15.485/2026
+  prevê regulamentação complementar; atualização regulatória automática sem aprovação humana é
+  recusa explícita do programa (baseline deep-research 2026-08-13, "Fontes regulatórias com
+  aprovação humana"). Fase H do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: medium
+criticality: medium
+architectural_significance: false
+verification_method: [test-integration, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0018
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase H)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

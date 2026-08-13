@@ -1,0 +1,54 @@
+id: REQ-SICAT-0022
+slug: req-sicat-0022
+title: "Transporte: FreightFloorEngine — cálculo de piso mínimo versionado com snapshot reproduzível"
+type: functional
+status: proposed
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve calcular o piso mínimo de frete (Política Nacional de Pisos Mínimos — Lei
+  13.703/2018, Res. ANTT 5.867/2020 e atualizações) usando exclusivamente tabelas/coeficientes
+  versionados no catálogo (freight_floor_versions/coefficients) com vigência temporal, registrando
+  para cada cálculo um snapshot completo (versão normativa, coeficientes, rota, distância, tipo de
+  carga, configuração de eixos, valores e trace) que permaneça reproduzível mesmo após novas
+  tabelas entrarem em vigor; um Applicability Engine determina se a operação está juridicamente
+  sujeita ao piso antes de qualquer cálculo.
+business_rationale: >-
+  Coeficiente de piso jamais pode ser constante compilada; operação de agosto não muda de
+  resultado porque tabela de novembro substituiu coeficientes (baseline deep-research 2026-08-13,
+  "Piso mínimo de frete"). Fase B do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks:
+  - migrations-versionadas
+acceptance_criteria:
+  - "Nenhum coeficiente hardcoded; tabela entra no catálogo apenas com review_status=reviewed (revisão humana) — pendência P3 do guia [LEGAL REVIEW REQUIRED]."
+  - "Cálculo persiste freight_floor_calculations com rule_version, inputs_snapshot, minimum_amount, offered_amount, compliant e calculation_trace."
+  - "Testes cobrem: data histórica usa a tabela vigente na data; oferta exatamente no piso; abaixo do piso; enquadramento e não-enquadramento (carga lotação vs demais); mudança normativa com fixtures antes/depois."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0018
+  - type: depends_on
+    target: REQ-SICAT-0019
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase B)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

@@ -2,109 +2,151 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "5d5527532cab",
-    "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00"
-  },
-  "to": {
     "commit": "5add5c42db6c",
     "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a"
   },
+  "to": {
+    "commit": "working-tree",
+    "baseline_hash": "623d97c1ebfcd71e312b558e1ca200abd8e7d27a2cc8e592c6c35d64646f6d47"
+  },
   "counts": {
-    "added": 13,
+    "added": 19,
     "removed": 0,
     "changed": 0
   },
   "added": [
     {
-      "id": "REQ-ZAPBRIDGE-0001",
-      "title": "Contas e autenticação do app (registro + login JWT local)",
-      "product": "zapbridge",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ZAPBRIDGE-0002",
-      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0017",
+      "title": "Transporte: bounded context e agregado TransportOperation com máquina de estados",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0003",
-      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0018",
+      "title": "Transporte: catálogo regulatório temporal (fontes, regras TR-*, versões) com aprovação humana",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0004",
-      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0019",
+      "title": "Transporte: motor de compliance com gates e decisões evidenciadas",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0005",
-      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0020",
+      "title": "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0006",
-      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0021",
+      "title": "Transporte: experiência operacional mínima (navegação, operações, painel de conformidade, regras)",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0007",
-      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0022",
+      "title": "Transporte: FreightFloorEngine — cálculo de piso mínimo versionado com snapshot reproduzível",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0023",
+      "title": "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável",
+      "product": "sicat",
+      "type": "business-rule",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0024",
+      "title": "Transporte: elegibilidade RNTRC de transportador e veículo com verificação evidenciada",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0008",
-      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0025",
+      "title": "Transporte: ciclo completo do CIOT com provedor abstraído",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0026",
+      "title": "Transporte: Vale-Pedágio Obrigatório — applicability engine, antecipação e evidência",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0009",
-      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0027",
+      "title": "Transporte: importação e validação de NF-e/CT-e/MDF-e com schema registry e vínculos",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0028",
+      "title": "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-0010",
-      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0029",
+      "title": "Transporte: emissão fiscal DF-e (condicional a go/no-go comercial)",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0030",
+      "title": "Transporte: Regulatory Watch com aprovação humana obrigatória",
+      "product": "sicat",
       "type": "functional",
       "impact_band": "low"
     },
     {
-      "id": "REQ-ZAPBRIDGE-NFR-0001",
-      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-0031",
+      "title": "Transporte: Centro Operacional com buckets e métricas da vertical",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0009",
+      "title": "Reprodutibilidade temporal das decisões regulatórias (time-travel)",
+      "product": "sicat",
       "type": "non-functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ZAPBRIDGE-NFR-0002",
-      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-NFR-0010",
+      "title": "Evidência e auditabilidade de toda decisão de compliance de transporte",
+      "product": "sicat",
       "type": "non-functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ZAPBRIDGE-NFR-0003",
-      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
-      "product": "zapbridge",
+      "id": "REQ-SICAT-NFR-0011",
+      "title": "LGPD e minimização de dados no domínio Transporte",
+      "product": "sicat",
       "type": "non-functional",
-      "impact_band": "medium"
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0012",
+      "title": "Resiliência e saúde das integrações do domínio Transporte",
+      "product": "sicat",
+      "type": "non-functional",
+      "impact_band": "low"
     }
   ],
   "removed": [],
