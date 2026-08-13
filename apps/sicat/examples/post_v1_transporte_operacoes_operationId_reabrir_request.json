@@ -1,0 +1,12 @@
+{
+  "params": {
+    "operationId": "trop_9f8e7d6c5b4a3f2e1d0c9b8a7f6e"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "version": 3
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_operacao_reabrir"
+  }
+}

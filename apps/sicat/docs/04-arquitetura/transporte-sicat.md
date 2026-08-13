@@ -106,11 +106,17 @@ POST/GET /v1/transporte/transportadores        GET/PATCH /v1/transporte/transpor
 POST/GET /v1/transporte/veiculos               GET/PATCH /v1/transporte/veiculos/{id}
 POST/GET /v1/transporte/operacoes              GET/PATCH /v1/transporte/operacoes/{id}
 POST /v1/transporte/operacoes/{id}/submeter-validacao   (GATE_PROPOSAL → ready_for_contract|blocked)
-POST /v1/transporte/operacoes/{id}/validar-conformidade (200 — avaliação por gate)
-GET  /v1/transporte/operacoes/{id}/conformidade
+POST /v1/transporte/operacoes/{id}/validar-conformidade (200 — avaliação ad-hoc por gate, sem transição)
+GET  /v1/transporte/operacoes/{id}/conformidade         (overview: última avaliação por gate)
 POST /v1/transporte/operacoes/{id}/contratar             (GATE_CONTRACT)
+POST /v1/transporte/operacoes/{id}/reabrir               (blocked → draft, sem gate)
 POST /v1/transporte/operacoes/{id}/cancelar
 ```
+
+Entregue no PR-A5 exatamente como declarado acima (tags `Transporte - Operações` +
+`Transporte - Conformidade`, esta última nova). `submeter-validacao` e `contratar` respondem
+`{ operation, evaluation }` (`TransporteOperacaoComAvaliacaoResponse`) — a operação já refletindo
+a transição aplicada (ou não, em bloqueio de `contratar`) + a avaliação que decidiu.
 
 Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` → `gen:operations` **+
 `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de

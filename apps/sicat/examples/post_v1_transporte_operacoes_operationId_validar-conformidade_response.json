@@ -1,0 +1,55 @@
+{
+  "evaluationId": "cmpeval_2c3d4e5f6a7b8c9d0e1f2a3b4c5d",
+  "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+  "gate": "GATE_CIOT",
+  "overallStatus": "WARN",
+  "referenceDate": "2026-08-13",
+  "evaluatedAt": "2026-08-13T12:35:10Z",
+  "checks": [
+    {
+      "ruleCode": "TR-CIOT-001",
+      "ruleVersionLabel": "v2026-05-universal",
+      "status": "NOT_APPLICABLE",
+      "rawStatus": null,
+      "reasonCode": "EVALUATOR_NOT_IMPLEMENTED",
+      "humanMessage": "Avaliação automática de TR-CIOT-001 chega na Fase C do programa — sem evaluator ainda (não é erro).",
+      "legalBasis": [
+        { "reference": "Res. ANTT 5.862/2019" },
+        { "reference": "Res. ANTT 6.078/2026" },
+        { "reference": "Lei 15.485/2026" },
+        { "reference": "Portaria SUROC 6/2026" }
+      ],
+      "evidenceRefs": ["cmpevd_3d4e5f6a7b8c9d0e1f2a3b4c5d6e"]
+    },
+    {
+      "ruleCode": "TR-CIOT-003",
+      "ruleVersionLabel": "v2026-08-baseline",
+      "status": "NOT_APPLICABLE",
+      "rawStatus": null,
+      "reasonCode": "EVALUATOR_NOT_IMPLEMENTED",
+      "humanMessage": "Avaliação automática de TR-CIOT-003 chega na Fase C do programa — sem evaluator ainda (não é erro).",
+      "legalBasis": [
+        { "reference": "Res. ANTT 5.862/2019" },
+        { "reference": "Res. ANTT 6.078/2026" },
+        { "reference": "Lei 15.485/2026" },
+        { "reference": "Portaria SUROC 6/2026" }
+      ],
+      "evidenceRefs": ["cmpevd_4e5f6a7b8c9d0e1f2a3b4c5d6e7f"]
+    },
+    {
+      "ruleCode": "TR-CIOT-004",
+      "ruleVersionLabel": "v2026-08-baseline",
+      "status": "WARN",
+      "rawStatus": "BLOCK",
+      "reasonCode": "RULE_NOT_ENFORCEABLE",
+      "humanMessage": "Dados mínimos para o CIOT incompletos: contractor, cargo.",
+      "legalBasis": [
+        { "reference": "Res. ANTT 5.862/2019" },
+        { "reference": "Res. ANTT 6.078/2026" },
+        { "reference": "Lei 15.485/2026" },
+        { "reference": "Portaria SUROC 6/2026" }
+      ],
+      "evidenceRefs": ["cmpevd_5f6a7b8c9d0e1f2a3b4c5d6e7f8a"]
+    }
+  ]
+}

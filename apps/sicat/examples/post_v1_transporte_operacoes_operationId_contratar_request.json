@@ -1,0 +1,13 @@
+{
+  "params": {
+    "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "version": 4,
+    "contractedAmount": 3800.00
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_operacao_contratar"
+  }
+}

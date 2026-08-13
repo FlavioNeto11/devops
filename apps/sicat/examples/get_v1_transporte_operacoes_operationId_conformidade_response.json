@@ -1,0 +1,188 @@
+{
+  "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+  "gates": [
+    {
+      "gate": "GATE_PROPOSAL",
+      "latestEvaluation": {
+        "evaluationId": "cmpeval_3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+        "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+        "gate": "GATE_PROPOSAL",
+        "overallStatus": "WARN",
+        "referenceDate": "2026-08-13",
+        "evaluatedAt": "2026-08-13T12:25:30Z",
+        "checks": [
+          {
+            "ruleCode": "TR-PMF-001",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "PASS",
+            "rawStatus": null,
+            "reasonCode": null,
+            "humanMessage": "Regime de carga \"lotacao\" — piso mínimo de frete aplicável.",
+            "legalBasis": [
+              { "reference": "Lei 13.703/2018" },
+              { "reference": "Res. ANTT 5.867/2020" },
+              { "reference": "Lei 15.485/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_4b5c6d7e8f9a0b1c2d3e4f5a6b7c"]
+          },
+          {
+            "ruleCode": "TR-PMF-002",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "WARN",
+            "rawStatus": null,
+            "reasonCode": "FLOOR_NOT_CALCULATED",
+            "humanMessage": "Piso aplicável, mas ainda não calculado (o motor de cálculo chega na Fase B).",
+            "legalBasis": [
+              { "reference": "Lei 13.703/2018" },
+              { "reference": "Res. ANTT 5.867/2020" },
+              { "reference": "Lei 15.485/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_5c6d7e8f9a0b1c2d3e4f5a6b7c8d"]
+          },
+          {
+            "ruleCode": "TR-PMF-004",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "WARN",
+            "rawStatus": null,
+            "reasonCode": "FLOOR_VERSION_UNAVAILABLE",
+            "humanMessage": "Piso aplicável, mas nenhuma tabela de coeficientes está disponível ainda (pendência P3 do guia).",
+            "legalBasis": [
+              { "reference": "Lei 13.703/2018" },
+              { "reference": "Res. ANTT 5.867/2020" },
+              { "reference": "Lei 15.485/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_6d7e8f9a0b1c2d3e4f5a6b7c8d9e"]
+          }
+        ]
+      }
+    },
+    {
+      "gate": "GATE_CONTRACT",
+      "latestEvaluation": {
+        "evaluationId": "cmpeval_7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
+        "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+        "gate": "GATE_CONTRACT",
+        "overallStatus": "WARN",
+        "referenceDate": "2026-08-13",
+        "evaluatedAt": "2026-08-13T12:29:45Z",
+        "checks": [
+          {
+            "ruleCode": "TR-RNTRC-001",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "PASS",
+            "rawStatus": null,
+            "reasonCode": null,
+            "humanMessage": "RNTRC do transportador regular (\"active\").",
+            "legalBasis": [
+              { "reference": "Lei 11.442/2007" },
+              { "reference": "Res. ANTT 5.982/2022" }
+            ],
+            "evidenceRefs": ["cmpevd_8d9e0f1a2b3c4d5e6f7a8b9c0d1e"]
+          },
+          {
+            "ruleCode": "TR-PMF-003",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "WARN",
+            "rawStatus": null,
+            "reasonCode": "FLOOR_NOT_CALCULATED",
+            "humanMessage": "Piso aplicável, mas ainda não calculado (o motor de cálculo chega na Fase B).",
+            "legalBasis": [
+              { "reference": "Lei 13.703/2018" },
+              { "reference": "Res. ANTT 5.867/2020" },
+              { "reference": "Lei 15.485/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_9e0f1a2b3c4d5e6f7a8b9c0d1e2f"]
+          },
+          {
+            "ruleCode": "TR-PAY-001",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "PASS",
+            "rawStatus": null,
+            "reasonCode": null,
+            "humanMessage": "Prazo de pagamento declarado (30 dias) dentro do limite legal.",
+            "legalBasis": [
+              { "reference": "Lei 15.485/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_0f1a2b3c4d5e6f7a8b9c0d1e2f3a"]
+          },
+          {
+            "ruleCode": "TR-VPO-003",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "NOT_APPLICABLE",
+            "rawStatus": null,
+            "reasonCode": "VPO_NOT_DECLARED",
+            "humanMessage": "VPO não declarado para esta operação.",
+            "legalBasis": [
+              { "reference": "Lei 10.209/2001" },
+              { "reference": "Res. ANTT 6.024/2023" }
+            ],
+            "evidenceRefs": ["cmpevd_1a2b3c4d5e6f7a8b9c0d1e2f3a4c"]
+          }
+        ]
+      }
+    },
+    {
+      "gate": "GATE_CIOT",
+      "latestEvaluation": {
+        "evaluationId": "cmpeval_2c3d4e5f6a7b8c9d0e1f2a3b4c5d",
+        "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+        "gate": "GATE_CIOT",
+        "overallStatus": "WARN",
+        "referenceDate": "2026-08-13",
+        "evaluatedAt": "2026-08-13T12:35:10Z",
+        "checks": [
+          {
+            "ruleCode": "TR-CIOT-001",
+            "ruleVersionLabel": "v2026-05-universal",
+            "status": "NOT_APPLICABLE",
+            "rawStatus": null,
+            "reasonCode": "EVALUATOR_NOT_IMPLEMENTED",
+            "humanMessage": "Avaliação automática de TR-CIOT-001 chega na Fase C do programa — sem evaluator ainda (não é erro).",
+            "legalBasis": [
+              { "reference": "Res. ANTT 5.862/2019" },
+              { "reference": "Res. ANTT 6.078/2026" },
+              { "reference": "Lei 15.485/2026" },
+              { "reference": "Portaria SUROC 6/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_3d4e5f6a7b8c9d0e1f2a3b4c5d6e"]
+          },
+          {
+            "ruleCode": "TR-CIOT-003",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "NOT_APPLICABLE",
+            "rawStatus": null,
+            "reasonCode": "EVALUATOR_NOT_IMPLEMENTED",
+            "humanMessage": "Avaliação automática de TR-CIOT-003 chega na Fase C do programa — sem evaluator ainda (não é erro).",
+            "legalBasis": [
+              { "reference": "Res. ANTT 5.862/2019" },
+              { "reference": "Res. ANTT 6.078/2026" },
+              { "reference": "Lei 15.485/2026" },
+              { "reference": "Portaria SUROC 6/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_4e5f6a7b8c9d0e1f2a3b4c5d6e7f"]
+          },
+          {
+            "ruleCode": "TR-CIOT-004",
+            "ruleVersionLabel": "v2026-08-baseline",
+            "status": "WARN",
+            "rawStatus": "BLOCK",
+            "reasonCode": "RULE_NOT_ENFORCEABLE",
+            "humanMessage": "Dados mínimos para o CIOT incompletos: contractor, cargo.",
+            "legalBasis": [
+              { "reference": "Res. ANTT 5.862/2019" },
+              { "reference": "Res. ANTT 6.078/2026" },
+              { "reference": "Lei 15.485/2026" },
+              { "reference": "Portaria SUROC 6/2026" }
+            ],
+            "evidenceRefs": ["cmpevd_5f6a7b8c9d0e1f2a3b4c5d6e7f8a"]
+          }
+        ]
+      }
+    },
+    { "gate": "GATE_FISCAL", "latestEvaluation": null },
+    { "gate": "GATE_PRE_BOARDING", "latestEvaluation": null },
+    { "gate": "GATE_RELEASE", "latestEvaluation": null },
+    { "gate": "GATE_IN_TRANSIT", "latestEvaluation": null },
+    { "gate": "GATE_COMPLETION", "latestEvaluation": null }
+  ]
+}

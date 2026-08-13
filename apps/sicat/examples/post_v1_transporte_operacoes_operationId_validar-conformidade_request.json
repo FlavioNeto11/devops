@@ -1,0 +1,13 @@
+{
+  "params": {
+    "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "gate": "GATE_CIOT",
+    "referenceDate": "2026-08-13"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_operacao_validar_conformidade"
+  }
+}

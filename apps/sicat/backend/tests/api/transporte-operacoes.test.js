@@ -18,6 +18,7 @@ import { randomBytes } from 'node:crypto';
 
 import { pool, query } from '../../src/db/pool.js';
 import { runMigrations } from '../../src/db/migrate.js';
+import { ensureRegulatoryCatalogSeeded } from '../../src/bootstrap/regulatory-rules-seed.js';
 import { createApp } from '../../src/app.js';
 import { authHeaders } from '../helpers/sicat-token.js';
 
@@ -68,6 +69,9 @@ before(async () => {
   }
 
   await runMigrations();
+  // Idempotente: garante o catálogo TR-* independente da ordem de execução dos arquivos de teste —
+  // `submeter-validacao`/`contratar` (PR-A5) avaliam gates de verdade contra ele.
+  await ensureRegulatoryCatalogSeeded();
 
   await query(
     `insert into integration_accounts (id, account_name)
@@ -105,6 +109,14 @@ before(async () => {
 after(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
   if (dbAvailable) {
+    // compliance_evaluations (PR-A5) NÃO cascade-deleta com transport_operations (FK sem ON
+    // DELETE CASCADE, de propósito — ver header da migration 025); apaga PRIMEIRO.
+    await query(
+      `delete from compliance_evaluations where operation_id in (
+         select id from transport_operations where integration_account_id = any($1)
+       )`,
+      [[ACCOUNT_A, ACCOUNT_B]]
+    );
     // Cascade (operation_parties/vehicles/cargo/routes) cuida do resto.
     await query('delete from transport_operations where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
     await query('delete from transport_vehicles where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
@@ -217,7 +229,7 @@ describe('Operações — POST/GET/PATCH + transições sem gate', { concurrency
     assert.equal(body.code, 'TRANSPORT_STATUS_IS_COMMAND_DRIVEN');
   });
 
-  it('submeter-validacao → 200, status validating', async (t) => {
+  it('submeter-validacao → 200, ORQUESTRA até ready_for_contract (GATE_PROPOSAL sem block efetivo no seed real)', async (t) => {
     if (skipIfNoDb(t)) return;
 
     const { response, body } = await callApi(
@@ -226,13 +238,19 @@ describe('Operações — POST/GET/PATCH + transições sem gate', { concurrency
       { body: { integrationAccountId: ACCOUNT_A, version } }
     );
     assert.equal(response.status, 200, JSON.stringify(body));
-    assert.equal(body.status, 'validating');
-    assert.equal(body.version, version + 1);
+    // Resposta agora é { operation, evaluation } (PR-A5) — não mais o agregado solto.
+    assert.equal(body.operation.status, 'ready_for_contract');
+    assert.equal(body.operation.version, version + 2, 'duas CAS: submit_validation + approve_validation');
+    assert.deepEqual([...body.operation.availableCommands].sort(), ['cancel', 'contract']);
+    assert.equal(body.evaluation.gate, 'GATE_PROPOSAL');
+    assert.equal(body.evaluation.operationId, operationId);
+    assert.ok(['PASS', 'WARN'].includes(body.evaluation.overallStatus), 'seed 100% blocking=false — nunca BLOCK aqui');
+    assert.ok(Array.isArray(body.evaluation.checks) && body.evaluation.checks.length > 0);
 
-    version = body.version;
+    version = body.operation.version;
   });
 
-  it('PATCH em validating → 409 TRANSPORT_OPERATION_NOT_EDITABLE', async (t) => {
+  it('PATCH em ready_for_contract → 409 TRANSPORT_OPERATION_NOT_EDITABLE', async (t) => {
     if (skipIfNoDb(t)) return;
 
     const { response, body } = await callApi('PATCH', `/v1/transporte/operacoes/${operationId}`, {
