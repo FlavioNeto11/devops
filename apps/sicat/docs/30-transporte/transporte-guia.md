@@ -78,36 +78,38 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 ## Matriz de rastreabilidade
 
 LEGAL SOURCE → REQ → regra TR-* → entidade/DB → API → gate → UI → teste → evidência.
-As colunas REQ/teste serão preenchidas nos PRs seguintes (REQs `REQ-SICAT-0017+` em criação).
+Todas as regras vivem no catálogo (REQ-SICAT-0018) e são avaliadas pelo motor de compliance
+(REQ-SICAT-0019); a coluna REQ aponta o requisito que implementa a regra em si. A coluna Teste
+será preenchida conforme os testes nascerem (`tests/regulatory/`).
 
 | Regra | Título curto | Base legal principal | Gate default | Fase | REQ | Teste | Estado |
 |---|---|---|---|---|---|---|---|
-| TR-RNTRC-001 | RNTRC regular para a operação | Lei 11.442/2007 + Res. ANTT 5.982/2022 | GATE_CONTRACT | A (evaluator local) / C (verificação) | a criar | a criar | 📋 |
-| TR-RNTRC-002 | Veículo compatível com transportador/operação | Res. ANTT 5.982/2022 | GATE_PRE_BOARDING | C | a criar | a criar | 📋 |
-| TR-RNTRC-003 | Revalidação anual quando exigível | Lei 15.485/2026 (dep. regulamentação ANTT) | GATE_CONTRACT | C | a criar | a criar | 🕓 AWAITING_REGULATION |
-| TR-PMF-001 | Determinar aplicabilidade do piso | Lei 13.703/2018 + Res. ANTT 5.867/2020 | GATE_PROPOSAL | A/B | a criar | a criar | 📋 |
-| TR-PMF-002 | Não permitir oferta/publicação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_PROPOSAL | B | a criar | a criar | 📋 |
-| TR-PMF-003 | Não permitir contratação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_CONTRACT | B | a criar | a criar | 📋 |
-| TR-PMF-004 | Usar versão do piso vigente na data | Res. ANTT 5.867/2020 (tabelas vigentes) | GATE_PROPOSAL | B | a criar | a criar | 📋 |
-| TR-CIOT-001 | Obrigatoriedade do CIOT | Res. 5.862/2019 + Res. 6.078/2026 + Lei 15.485/2026 | GATE_CIOT | A (catálogo) / C (ciclo) | a criar | a criar | 📋 |
-| TR-CIOT-002 | CIOT antes do início da operação | Res. ANTT 6.078/2026 | GATE_RELEASE | C | a criar | a criar | 📋 |
-| TR-CIOT-003 | Responsável pelo CIOT conforme enquadramento | Lei 15.485/2026 | GATE_CIOT | C | a criar | a criar | 📋 |
-| TR-CIOT-004 | Dados obrigatórios do CIOT completos | Lei 15.485/2026 | GATE_CIOT | A (completude local) | a criar | a criar | 📋 |
-| TR-CIOT-005 | CIOT vinculado ao MDF-e quando aplicável | Lei 15.485/2026 + NT MDF-e 2026.001 | GATE_FISCAL | E | a criar | a criar | 🕓 UNDER_REVIEW |
-| TR-PAY-001 | Prazo/forma de pagamento conforme norma vigente | Lei 15.485/2026 (30 dias úteis) | GATE_CONTRACT | A (declarativo) | a criar | a criar | 📋 |
-| TR-VPO-001 | Determinar aplicabilidade do VPO | Lei 10.209/2001 + Res. ANTT 6.024/2023 | GATE_PRE_BOARDING | A (declarativo) / D (engine) | a criar | a criar | 📋 |
-| TR-VPO-002 | VPO antecipado antes do embarque | Lei 10.209/2001 | GATE_PRE_BOARDING | D | a criar | a criar | 📋 |
-| TR-VPO-003 | VPO separado do valor do frete | Lei 10.209/2001 | GATE_CONTRACT | A (modelagem) | a criar | a criar | 📋 |
-| TR-VPO-004 | Referência do VPO no MDF-e quando exigida | Res. ANTT 6.024/2023 + regras MDF-e | GATE_FISCAL | E | a criar | a criar | 🕓 UNDER_REVIEW |
-| TR-NFE-001 | NF-e autorizada e compatível | Ajustes SINIEF/MOC NF-e | GATE_FISCAL | E | a criar | a criar | 📋 |
-| TR-CTE-001 | CT-e autorizado e compatível | Ajustes SINIEF/MOC CT-e | GATE_FISCAL | E | a criar | a criar | 📋 |
-| TR-MDFE-001 | MDF-e autorizado e compatível | Ajustes SINIEF/MOC MDF-e | GATE_FISCAL | E | a criar | a criar | 📋 |
-| TR-MDFE-002 | CIOT presente no MDF-e quando obrigatório | NT MDF-e 2026.001 | GATE_FISCAL | E | a criar | a criar | 🕓 UNDER_REVIEW |
-| TR-SEG-001 | RCTR-C vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | a criar | a criar | 📋 |
-| TR-SEG-002 | RC-DC vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | a criar | a criar | 📋 |
-| TR-SEG-003 | RC-V vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | a criar | a criar | 📋 |
-| TR-PGR-001 | PGR vigente quando requerido | Lei 14.599/2023 + regulamentação securitária | GATE_PRE_BOARDING | F | a criar | a criar | 📋 |
-| TR-COMP-001 | Conjunto mínimo para liberação aprovado | Conjunto regulatório | GATE_RELEASE | A (estrutura) / C+ (efetivo) | a criar | a criar | 📋 |
+| TR-RNTRC-001 | RNTRC regular para a operação | Lei 11.442/2007 + Res. ANTT 5.982/2022 | GATE_CONTRACT | A (evaluator local) / C (verificação) | REQ-SICAT-0024 | a criar | 📋 |
+| TR-RNTRC-002 | Veículo compatível com transportador/operação | Res. ANTT 5.982/2022 | GATE_PRE_BOARDING | C | REQ-SICAT-0024 | a criar | 📋 |
+| TR-RNTRC-003 | Revalidação anual quando exigível | Lei 15.485/2026 (dep. regulamentação ANTT) | GATE_CONTRACT | C | REQ-SICAT-0024 | a criar | 🕓 AWAITING_REGULATION |
+| TR-PMF-001 | Determinar aplicabilidade do piso | Lei 13.703/2018 + Res. ANTT 5.867/2020 | GATE_PROPOSAL | A/B | REQ-SICAT-0022 | a criar | 📋 |
+| TR-PMF-002 | Não permitir oferta/publicação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_PROPOSAL | B | REQ-SICAT-0023 | a criar | 📋 |
+| TR-PMF-003 | Não permitir contratação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_CONTRACT | B | REQ-SICAT-0023 | a criar | 📋 |
+| TR-PMF-004 | Usar versão do piso vigente na data | Res. ANTT 5.867/2020 (tabelas vigentes) | GATE_PROPOSAL | B | REQ-SICAT-0022 | a criar | 📋 |
+| TR-CIOT-001 | Obrigatoriedade do CIOT | Res. 5.862/2019 + Res. 6.078/2026 + Lei 15.485/2026 | GATE_CIOT | A (catálogo) / C (ciclo) | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-002 | CIOT antes do início da operação | Res. ANTT 6.078/2026 | GATE_RELEASE | C | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-003 | Responsável pelo CIOT conforme enquadramento | Lei 15.485/2026 | GATE_CIOT | C | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-004 | Dados obrigatórios do CIOT completos | Lei 15.485/2026 | GATE_CIOT | A (completude local) | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-005 | CIOT vinculado ao MDF-e quando aplicável | Lei 15.485/2026 + NT MDF-e 2026.001 | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 🕓 UNDER_REVIEW |
+| TR-PAY-001 | Prazo/forma de pagamento conforme norma vigente | Lei 15.485/2026 (30 dias úteis) | GATE_CONTRACT | A (declarativo) | REQ-SICAT-0025 | a criar | 📋 |
+| TR-VPO-001 | Determinar aplicabilidade do VPO | Lei 10.209/2001 + Res. ANTT 6.024/2023 | GATE_PRE_BOARDING | A (declarativo) / D (engine) | REQ-SICAT-0026 | a criar | 📋 |
+| TR-VPO-002 | VPO antecipado antes do embarque | Lei 10.209/2001 | GATE_PRE_BOARDING | D | REQ-SICAT-0026 | a criar | 📋 |
+| TR-VPO-003 | VPO separado do valor do frete | Lei 10.209/2001 | GATE_CONTRACT | A (modelagem) | REQ-SICAT-0026 | a criar | 📋 |
+| TR-VPO-004 | Referência do VPO no MDF-e quando exigida | Res. ANTT 6.024/2023 + regras MDF-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 🕓 UNDER_REVIEW |
+| TR-NFE-001 | NF-e autorizada e compatível | Ajustes SINIEF/MOC NF-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 📋 |
+| TR-CTE-001 | CT-e autorizado e compatível | Ajustes SINIEF/MOC CT-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 📋 |
+| TR-MDFE-001 | MDF-e autorizado e compatível | Ajustes SINIEF/MOC MDF-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 📋 |
+| TR-MDFE-002 | CIOT presente no MDF-e quando obrigatório | NT MDF-e 2026.001 | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 🕓 UNDER_REVIEW |
+| TR-SEG-001 | RCTR-C vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
+| TR-SEG-002 | RC-DC vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
+| TR-SEG-003 | RC-V vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
+| TR-PGR-001 | PGR vigente quando requerido | Lei 14.599/2023 + regulamentação securitária | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
+| TR-COMP-001 | Conjunto mínimo para liberação aprovado | Conjunto regulatório | GATE_RELEASE | A (estrutura) / C+ (efetivo) | REQ-SICAT-0019 | a criar | 📋 |
 
 ## Pendências [LEGAL REVIEW REQUIRED] e [EXTERNAL DEPENDENCY]
 
