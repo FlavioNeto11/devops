@@ -184,12 +184,31 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 
 ## 12. Critérios de pronto da Fase A
 
-1. Operação navega `draft → validating → ready_for_contract → contracted` (e `blocked/reopen`,
-   `cancelled`) exclusivamente por comandos com gate; matriz estados×comandos coberta por teste.
-2. Catálogo com 26 regras TR-* consultável por API com resolução temporal (`vigenteEm`), zero
-   regras bloqueantes, testes de fronteira 23/24/25-05-2026 e 05/06/07-08-2026 verdes.
-3. Toda avaliação de conformidade responde com ruleCode, status, base legal, versão, reasonCode,
-   mensagem humana e evidências — e é reproduzível (append-only + snapshot).
-4. Suíte ambiental intacta (asserção negativa: `openapi-queue-contract.test.js` inalterado);
-   validação obrigatória (§6 do `AGENTS.md`) verde em todos os PRs.
-5. Guia (`30-transporte/transporte-guia.md`) com tabela de adoção e matriz atualizadas.
+Backend 100% entregue (PR-A1..A6); frontend é a Onda 1.5 (PR-F1), ainda não iniciado.
+
+1. ✅ Operação navega `draft → validating → ready_for_contract → contracted` (e `blocked/reopen`,
+   `cancelled`) exclusivamente por comandos com gate; matriz estados×comandos coberta por teste. —
+   `transport-state-machine.ts` (grafo 13 estados × 23 transições) +
+   `tests/unit/transport-state-machine.test.js` + `tests/api/transporte-operacoes.test.js`/
+   `transporte-conformidade.test.js` (ciclo `submeter-validacao`/`contratar`/`reabrir`).
+2. ✅ Catálogo com 26 regras TR-* consultável por API com resolução temporal (`vigenteEm`), zero
+   regras bloqueantes, testes de fronteira 23/24/25-05-2026 e 05/06/07-08-2026 verdes. —
+   `tests/regulatory/effective-dates.test.js` (as duas fronteiras, mais fixtures de regra futura/
+   revogada/superseded) + `tests/regulatory/rule-catalog-invariants.test.js` (meta-guarda 1: zero
+   versão bloqueante sem revisão humana no catálogo real).
+3. ✅ Toda avaliação de conformidade responde com ruleCode, status, base legal, versão, reasonCode,
+   mensagem humana e evidências — e é reproduzível (append-only + snapshot). —
+   `transport-compliance-service.ts` + `tests/regulatory/compliance-gates.test.js` (matriz gate×
+   regra×resultado, e o clamp fim-a-fim provando que nada bloqueia com o seed real) +
+   `tests/api/transporte-conformidade.test.js` (append-only contra o banco).
+4. ✅ Suíte ambiental intacta (asserção negativa: `openapi-queue-contract.test.js` inalterado);
+   validação obrigatória (§6 do `AGENTS.md`) verde em todos os PRs. — confirmado a cada PR (A1..A6);
+   `openapi-queue-contract.test.js` segue sem diffs desde a fundação da vertical.
+5. ✅ Guia (`30-transporte/transporte-guia.md`) com tabela de adoção e matriz atualizadas. —
+   itens 13/14 da tabela de adoção fechados ✅ no PR-A6; matriz de rastreabilidade com coluna Teste
+   preenchida para as 10 regras com evaluator.
+6. ⚠️ Frontend (navegação Transporte + lista/detalhe de operações + painel de conformidade + regras
+   read-only) — **pendente**: é a Onda 1.5 (PR-F1), fora do escopo backend da Fase A.
+
+**Fase A backend: ✅ completa (PR-A1..A6).** Próximo PR do programa: PR-F1 (frontend mínimo,
+Onda 1.5).
