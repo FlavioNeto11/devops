@@ -90,6 +90,11 @@ tags:
   description: Consulta read-only do catálogo regulatório da vertical Transporte (regras TR-*
     com resolução temporal por data de referência). Fonte local (`regulatory_rules` +
     `regulatory_rule_versions`), sem chamada à CETESB.
+- name: Transporte - Cadastros
+  description: Cadastro-base da vertical Transporte — transportadores (partes) e veículos, com
+    tenancy por `integrationAccountId`, CRUD síncrono e locking otimista (`version`). Os campos
+    `rntrc*` guardam o estado DECLARADO pelo operador; a verificação de regularidade via ANTT é
+    Fase C (rotas `/regularidade`/`/verificar` não existem neste contrato).
 security:
 - bearerAuth: []
 paths:
@@ -6646,6 +6651,417 @@ paths:
         required: true
         description: 'Código estável da regra (ex.: TR-CIOT-001).'
         schema: { type: string }
+  /v1/transporte/transportadores:
+    post:
+      operationId: transporteTransportadoresCreate
+      summary: Cadastrar transportador
+      description: Cria um transportador (parte) no cadastro-base da vertical Transporte.
+        `documentNumber` passa por validação de dígito verificador (CNPJ/CPF); os campos
+        `rntrc*` são DECLARADOS pelo operador — não há verificação externa via ANTT neste PR.
+      tags:
+      - Transporte - Cadastros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteTransportadorCreateRequest'
+      responses:
+        '201':
+          description: Transportador criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteTransportadorResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: Documento (ou número RNTRC) já cadastrado nesta conta
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      operationId: transporteTransportadoresList
+      summary: Listar transportadores
+      description: Lista transportadores da conta informada, com busca e filtros. Tenancy
+        obrigatória — `integrationAccountId` é query param obrigatório.
+      tags:
+      - Transporte - Cadastros
+      responses:
+        '200':
+          description: Página de transportadores da conta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteTransportadorListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: search
+        description: Busca por razão social, nome fantasia ou número de documento.
+        schema:
+          type: string
+          maxLength: 120
+      - in: query
+        name: rntrcStatus
+        description: Filtra pelo status RNTRC DECLARADO.
+        schema:
+          type: string
+          enum:
+          - unknown
+          - active
+          - suspended
+          - cancelled
+          - expired
+      - in: query
+        name: role
+        description: Filtra transportadores que exercem este papel.
+        schema:
+          type: string
+          enum:
+          - contractor
+          - shipper
+          - carrier
+          - subcontractor
+          - consignee
+          - driver
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/transportadores/{partyId}:
+    get:
+      operationId: transporteTransportadorGet
+      summary: Consultar transportador
+      tags:
+      - Transporte - Cadastros
+      responses:
+        '200':
+          description: Transportador encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteTransportadorResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+    patch:
+      operationId: transporteTransportadorUpdate
+      summary: Atualizar transportador
+      description: Atualização parcial com locking otimista — `version` é obrigatório no corpo
+        e deve casar com o `version` atual do registro; caso contrário, 409.
+      tags:
+      - Transporte - Cadastros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteTransportadorUpdateRequest'
+      responses:
+        '200':
+          description: Transportador atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteTransportadorResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Conflito de locking otimista (version defasada)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/veiculos:
+    post:
+      operationId: transporteTransportadorVinculoVeiculoCreate
+      summary: Vincular veículo a um transportador
+      description: Cria um vínculo (`transport_vehicle_links`) entre um veículo já cadastrado
+        e o transportador — não cadastra o veículo (use `POST /v1/transporte/veiculos` antes).
+      tags:
+      - Transporte - Cadastros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVinculoVeiculoCreateRequest'
+      responses:
+        '201':
+          description: Vínculo criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVinculoVeiculoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Vínculo (veículo, transportador, tipo) já existe
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteTransportadorVinculoVeiculoList
+      summary: Listar veículos vinculados a um transportador
+      tags:
+      - Transporte - Cadastros
+      responses:
+        '200':
+          description: Vínculos veículo↔transportador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVinculoVeiculoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/veiculos:
+    post:
+      operationId: transporteVeiculosCreate
+      summary: Cadastrar veículo
+      description: Cria um veículo no cadastro-base da vertical Transporte.
+      tags:
+      - Transporte - Cadastros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVeiculoCreateRequest'
+      responses:
+        '201':
+          description: Veículo criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVeiculoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '409':
+          description: Placa já cadastrada nesta conta
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      operationId: transporteVeiculosList
+      summary: Listar veículos
+      description: Lista veículos da conta informada, com busca e filtros. Tenancy obrigatória
+        — `integrationAccountId` é query param obrigatório.
+      tags:
+      - Transporte - Cadastros
+      responses:
+        '200':
+          description: Página de veículos da conta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVeiculoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: search
+        description: Busca por placa ou RENAVAM.
+        schema:
+          type: string
+          maxLength: 60
+      - in: query
+        name: vehicleType
+        schema:
+          type: string
+          enum:
+          - tractor
+          - truck
+          - semi_trailer
+          - trailer
+          - other
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/veiculos/{vehicleId}:
+    get:
+      operationId: transporteVeiculoGet
+      summary: Consultar veículo
+      tags:
+      - Transporte - Cadastros
+      responses:
+        '200':
+          description: Veículo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVeiculoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: vehicleId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+    patch:
+      operationId: transporteVeiculoUpdate
+      summary: Atualizar veículo
+      description: Atualização parcial com locking otimista — `version` é obrigatório no corpo
+        e deve casar com o `version` atual do registro; caso contrário, 409.
+      tags:
+      - Transporte - Cadastros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVeiculoUpdateRequest'
+      responses:
+        '200':
+          description: Veículo atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVeiculoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Conflito de locking otimista (version defasada)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: vehicleId
+        in: path
+        required: true
+        schema: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -6672,6 +7088,17 @@ components:
         type: string
         maxLength: 128
       example: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+    TransporteIntegrationAccountId:
+      name: integrationAccountId
+      in: query
+      required: true
+      description: Conta CETESB dona do cadastro — tenancy obrigatória de toda leitura da
+        vertical Transporte. Não existe conta "ativa da sessão" nesta API; o chamador informa
+        explicitamente.
+      schema:
+        type: string
+        maxLength: 128
+      example: acc_exemplo_prod
   responses:
     AcceptedCommand:
       description: Comando aceito para execução assíncrona.
@@ -11699,3 +12126,511 @@ components:
           description: Ordenadas por `effectiveFrom` crescente.
           items:
             $ref: '#/components/schemas/TransporteRegraVersaoResource'
+    TransporteTransportadorResource:
+      type: object
+      description: Transportador (parte) do cadastro-base — os campos `rntrc*` são o estado
+        DECLARADO pelo operador (sem verificação externa via ANTT nesta fase).
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - documentType
+      - documentNumber
+      - legalName
+      - rntrcStatus
+      - rntrcVerificationSource
+      - isActive
+      - roles
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Usado no `PATCH` para locking otimista.
+        integrationAccountId:
+          type: string
+        documentType:
+          type: string
+          enum:
+          - CNPJ
+          - CPF
+        documentNumber:
+          type: string
+          description: Só dígitos (normalizado no cadastro).
+        legalName:
+          type: string
+        tradeName:
+          type:
+          - string
+          - 'null'
+        rntrcNumber:
+          type:
+          - string
+          - 'null'
+        rntrcCategory:
+          oneOf:
+          - type: string
+            enum:
+            - TAC
+            - ETC
+            - CTC
+          - type: 'null'
+        rntrcStatus:
+          type: string
+          enum:
+          - unknown
+          - active
+          - suspended
+          - cancelled
+          - expired
+        rntrcVerifiedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        rntrcVerificationSource:
+          type: string
+          enum:
+          - manual
+          - open_data
+          - antt
+        municipality:
+          type:
+          - string
+          - 'null'
+        uf:
+          type:
+          - string
+          - 'null'
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - contractor
+            - shipper
+            - carrier
+            - subcontractor
+            - consignee
+            - driver
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteTransportadorCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - documentType
+      - documentNumber
+      - legalName
+      properties:
+        integrationAccountId:
+          type: string
+        documentType:
+          type: string
+          enum:
+          - CNPJ
+          - CPF
+        documentNumber:
+          type: string
+          description: 'Aceita máscara — a API normaliza para só dígitos e valida o dígito
+            verificador.'
+        legalName:
+          type: string
+        tradeName:
+          type: string
+        rntrcNumber:
+          type: string
+        rntrcCategory:
+          type: string
+          enum:
+          - TAC
+          - ETC
+          - CTC
+        rntrcStatus:
+          type: string
+          enum:
+          - unknown
+          - active
+          - suspended
+          - cancelled
+          - expired
+          default: unknown
+        rntrcVerifiedAt:
+          type: string
+          format: date-time
+        rntrcVerificationSource:
+          type: string
+          enum:
+          - manual
+          - open_data
+          - antt
+          default: manual
+        municipality:
+          type: string
+        uf:
+          type: string
+          description: Uma das 27 unidades federativas.
+        isActive:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+          additionalProperties: true
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - contractor
+            - shipper
+            - carrier
+            - subcontractor
+            - consignee
+            - driver
+    TransporteTransportadorUpdateRequest:
+      type: object
+      description: Atualização parcial — todo campo além de `version` é opcional. `documentType`/
+        `documentNumber` não são atualizáveis por este endpoint (identidade do cadastro).
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        legalName:
+          type: string
+        tradeName:
+          type: string
+        rntrcNumber:
+          type: string
+        rntrcCategory:
+          type: string
+          enum:
+          - TAC
+          - ETC
+          - CTC
+        rntrcStatus:
+          type: string
+          enum:
+          - unknown
+          - active
+          - suspended
+          - cancelled
+          - expired
+        rntrcVerifiedAt:
+          type: string
+          format: date-time
+        rntrcVerificationSource:
+          type: string
+          enum:
+          - manual
+          - open_data
+          - antt
+        municipality:
+          type: string
+        uf:
+          type: string
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        roles:
+          type: array
+          description: Quando presente, SUBSTITUI integralmente o conjunto de papéis atual.
+          items:
+            type: string
+            enum:
+            - contractor
+            - shipper
+            - carrier
+            - subcontractor
+            - consignee
+            - driver
+    TransporteTransportadorListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteTransportadorResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteVeiculoResource:
+      type: object
+      description: Veículo do cadastro-base.
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - plate
+      - vehicleType
+      - isActive
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Usado no `PATCH` para locking otimista.
+        integrationAccountId:
+          type: string
+        plate:
+          type: string
+          description: Normalizada em maiúsculas, sem hífen (formato antigo AAA9999 ou
+            Mercosul AAA9A99).
+        renavam:
+          type:
+          - string
+          - 'null'
+        vehicleType:
+          type: string
+          enum:
+          - tractor
+          - truck
+          - semi_trailer
+          - trailer
+          - other
+        axlesCount:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          maximum: 12
+        cargoBodyType:
+          type:
+          - string
+          - 'null'
+        ownerPartyId:
+          type:
+          - string
+          - 'null'
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteVeiculoCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - plate
+      - vehicleType
+      properties:
+        integrationAccountId:
+          type: string
+        plate:
+          type: string
+        renavam:
+          type: string
+        vehicleType:
+          type: string
+          enum:
+          - tractor
+          - truck
+          - semi_trailer
+          - trailer
+          - other
+        axlesCount:
+          type: integer
+          minimum: 1
+          maximum: 12
+        cargoBodyType:
+          type: string
+        ownerPartyId:
+          type: string
+          description: 'Id de um `TransporteTransportadorResource` existente NA MESMA conta.'
+        isActive:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+          additionalProperties: true
+    TransporteVeiculoUpdateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        plate:
+          type: string
+        renavam:
+          type: string
+        vehicleType:
+          type: string
+          enum:
+          - tractor
+          - truck
+          - semi_trailer
+          - trailer
+          - other
+        axlesCount:
+          type: integer
+          minimum: 1
+          maximum: 12
+        cargoBodyType:
+          type: string
+        ownerPartyId:
+          type: string
+        isActive:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+    TransporteVeiculoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteVeiculoResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteVinculoVeiculoResource:
+      type: object
+      description: Vínculo entre um veículo e um transportador (propriedade, locação, agregação
+        ou frota RNTRC declarada).
+      required:
+      - id
+      - vehicleId
+      - partyId
+      - vehiclePlate
+      - vehicleType
+      - linkType
+      - createdAt
+      properties:
+        id:
+          type: string
+        vehicleId:
+          type: string
+        partyId:
+          type: string
+        vehiclePlate:
+          type: string
+          description: Resumo do veículo vinculado — evita um round-trip extra no consumidor.
+        vehicleType:
+          type: string
+          enum:
+          - tractor
+          - truck
+          - semi_trailer
+          - trailer
+          - other
+        linkType:
+          type: string
+          enum:
+          - owned
+          - leased
+          - aggregated
+          - rntrc_fleet
+        validFrom:
+          type:
+          - string
+          - 'null'
+          format: date
+        validUntil:
+          type:
+          - string
+          - 'null'
+          format: date
+        evidenceRef:
+          type:
+          - string
+          - 'null'
+        createdAt:
+          type: string
+          format: date-time
+    TransporteVinculoVeiculoCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - vehicleId
+      - linkType
+      properties:
+        integrationAccountId:
+          type: string
+        vehicleId:
+          type: string
+          description: 'Id de um `TransporteVeiculoResource` existente NA MESMA conta.'
+        linkType:
+          type: string
+          enum:
+          - owned
+          - leased
+          - aggregated
+          - rntrc_fleet
+        validFrom:
+          type: string
+          format: date
+        validUntil:
+          type: string
+          format: date
+        evidenceRef:
+          type: string
+    TransporteVinculoVeiculoListResponse:
+      type: object
+      required:
+      - items
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteVinculoVeiculoResource'
+        totalItems:
+          type: integer
+          minimum: 0

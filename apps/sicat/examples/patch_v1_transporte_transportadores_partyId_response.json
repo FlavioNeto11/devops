@@ -1,0 +1,23 @@
+{
+  "id": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f",
+  "version": 2,
+  "integrationAccountId": "acc_exemplo_prod",
+  "documentType": "CNPJ",
+  "documentNumber": "11222333000181",
+  "legalName": "Transportes Exemplo LTDA",
+  "tradeName": "Transportes Exemplo",
+  "rntrcNumber": "12345678",
+  "rntrcCategory": "TAC",
+  "rntrcStatus": "active",
+  "rntrcVerifiedAt": "2026-08-10T00:00:00Z",
+  "rntrcVerificationSource": "manual",
+  "municipality": "São Paulo",
+  "uf": "SP",
+  "isActive": true,
+  "metadata": {},
+  "roles": [
+    "carrier"
+  ],
+  "createdAt": "2026-08-13T12:00:00Z",
+  "updatedAt": "2026-08-13T12:05:00Z"
+}

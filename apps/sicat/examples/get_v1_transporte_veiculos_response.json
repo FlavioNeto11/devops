@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b",
+      "version": 1,
+      "integrationAccountId": "acc_exemplo_prod",
+      "plate": "ABC1D23",
+      "renavam": "12345678901",
+      "vehicleType": "truck",
+      "axlesCount": 3,
+      "cargoBodyType": "baú",
+      "ownerPartyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f",
+      "isActive": true,
+      "metadata": {},
+      "createdAt": "2026-08-13T12:08:00Z",
+      "updatedAt": "2026-08-13T12:08:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 20
+}

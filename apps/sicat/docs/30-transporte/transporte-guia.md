@@ -56,7 +56,7 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 
 | # | Recomendação do relatório | Estado | Onde / observação |
 |---|---|---|---|
-| 1 | Bounded context **Transporte** separado do ambiental (MTR ambiental ≠ MDF-e; não reutilizar `manifest`) | 📋 | DL-103 + migrations `021+` (PR-A1..A5) |
+| 1 | Bounded context **Transporte** separado do ambiental (MTR ambiental ≠ MDF-e; não reutilizar `manifest`) | ⚠️ | DL-103 + migrations `021..023` (PR-A1..A3) — em construção: cadastros entregues (PR-A3); agregado TransportOperation no PR-A4 |
 | 2 | Agregado central **TransportOperation** com máquina de estados explícita; transição só via gate | 📋 | `transport-state-machine.ts` (PR-A4) |
 | 3 | **Catálogo regulatório temporal** (fontes, regras TR-*, versões com vigência) — nunca if/else espalhado | ✅ | PR-A1: `021_transporte_regulatory_catalog.sql` + seed (`regulatory-rules-seed.ts`) + repo (`regulatory-repo.ts`) |
 | 4 | **TransportComplianceService**: gateway traz fatos, motor decide; resposta com ruleCode/base legal/versão/evidência | 📋 | PR-A5 |

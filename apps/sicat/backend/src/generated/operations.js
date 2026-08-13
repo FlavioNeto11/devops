@@ -1033,5 +1033,95 @@ export const operations = [
     "summary": "Histórico de versões de uma regra do catálogo",
     "tag": "Transporte - Regras",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores",
+    "expressPath": "/v1/transporte/transportadores",
+    "summary": "Cadastrar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores",
+    "expressPath": "/v1/transporte/transportadores",
+    "summary": "Listar transportadores",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId",
+    "summary": "Consultar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_transportadores_partyId",
+    "method": "patch",
+    "specPath": "/v1/transporte/transportadores/{partyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId",
+    "summary": "Atualizar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_veiculos",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/veiculos",
+    "expressPath": "/v1/transporte/transportadores/:partyId/veiculos",
+    "summary": "Vincular veículo a um transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_veiculos",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/veiculos",
+    "expressPath": "/v1/transporte/transportadores/:partyId/veiculos",
+    "summary": "Listar veículos vinculados a um transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_veiculos",
+    "method": "post",
+    "specPath": "/v1/transporte/veiculos",
+    "expressPath": "/v1/transporte/veiculos",
+    "summary": "Cadastrar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_veiculos",
+    "method": "get",
+    "specPath": "/v1/transporte/veiculos",
+    "expressPath": "/v1/transporte/veiculos",
+    "summary": "Listar veículos",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_veiculos_vehicleId",
+    "method": "get",
+    "specPath": "/v1/transporte/veiculos/{vehicleId}",
+    "expressPath": "/v1/transporte/veiculos/:vehicleId",
+    "summary": "Consultar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_veiculos_vehicleId",
+    "method": "patch",
+    "specPath": "/v1/transporte/veiculos/{vehicleId}",
+    "expressPath": "/v1/transporte/veiculos/:vehicleId",
+    "summary": "Atualizar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
   }
 ];

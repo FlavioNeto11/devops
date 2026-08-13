@@ -1,0 +1,17 @@
+{
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "documentType": "CNPJ",
+    "documentNumber": "11.222.333/0001-81",
+    "legalName": "Transportes Exemplo LTDA",
+    "tradeName": "Transportes Exemplo",
+    "municipality": "São Paulo",
+    "uf": "SP",
+    "roles": [
+      "carrier"
+    ]
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_transportadores_create"
+  }
+}
