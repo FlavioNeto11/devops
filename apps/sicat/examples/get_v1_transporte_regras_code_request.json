@@ -1,0 +1,11 @@
+{
+  "params": {
+    "code": "TR-CIOT-001"
+  },
+  "query": {
+    "vigenteEm": "2026-08-13"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_regras_get"
+  }
+}

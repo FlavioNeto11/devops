@@ -2,153 +2,33 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "5add5c42db6c",
-    "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a"
-  },
-  "to": {
     "commit": "5abeceb305ff",
     "baseline_hash": "623d97c1ebfcd71e312b558e1ca200abd8e7d27a2cc8e592c6c35d64646f6d47"
   },
-  "counts": {
-    "added": 19,
-    "removed": 0,
-    "changed": 0
+  "to": {
+    "commit": "working-tree",
+    "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f"
   },
-  "added": [
-    {
-      "id": "REQ-SICAT-0017",
-      "title": "Transporte: bounded context e agregado TransportOperation com máquina de estados",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0018",
-      "title": "Transporte: catálogo regulatório temporal (fontes, regras TR-*, versões) com aprovação humana",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0019",
-      "title": "Transporte: motor de compliance com gates e decisões evidenciadas",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
+  "counts": {
+    "added": 0,
+    "removed": 0,
+    "changed": 1
+  },
+  "added": [],
+  "removed": [],
+  "changed": [
     {
       "id": "REQ-SICAT-0020",
       "title": "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)",
       "product": "sicat",
       "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0021",
-      "title": "Transporte: experiência operacional mínima (navegação, operações, painel de conformidade, regras)",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0022",
-      "title": "Transporte: FreightFloorEngine — cálculo de piso mínimo versionado com snapshot reproduzível",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0023",
-      "title": "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável",
-      "product": "sicat",
-      "type": "business-rule",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0024",
-      "title": "Transporte: elegibilidade RNTRC de transportador e veículo com verificação evidenciada",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0025",
-      "title": "Transporte: ciclo completo do CIOT com provedor abstraído",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0026",
-      "title": "Transporte: Vale-Pedágio Obrigatório — applicability engine, antecipação e evidência",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0027",
-      "title": "Transporte: importação e validação de NF-e/CT-e/MDF-e com schema registry e vínculos",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0028",
-      "title": "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0029",
-      "title": "Transporte: emissão fiscal DF-e (condicional a go/no-go comercial)",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-0030",
-      "title": "Transporte: Regulatory Watch com aprovação humana obrigatória",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-0031",
-      "title": "Transporte: Centro Operacional com buckets e métricas da vertical",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-NFR-0009",
-      "title": "Reprodutibilidade temporal das decisões regulatórias (time-travel)",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-NFR-0010",
-      "title": "Evidência e auditabilidade de toda decisão de compliance de transporte",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-SICAT-NFR-0011",
-      "title": "LGPD e minimização de dados no domínio Transporte",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-SICAT-NFR-0012",
-      "title": "Resiliência e saúde das integrações do domínio Transporte",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "low"
+      "impact_band": "low",
+      "semantic_change": "patch",
+      "change_reason": "alinhamento do critério de RBAC ao padrão da casa (PR-A2 — enforcement por chave só existe no gate conversacional; meta-teste do catálogo rejeita chave sem consumidor)",
+      "fields": [
+        "acceptance_criteria"
+      ],
+      "impact_delta": 0
     }
-  ],
-  "removed": [],
-  "changed": []
+  ]
 }

@@ -86,6 +86,7 @@ import { config } from '../lib/config.js';
 import { registerDmrRoutes } from './dmr-routes.js';
 import { registerMtrProvisorioRoutes } from './mtr-provisorio-routes.js';
 import { registerChannelLinkRoutes } from './channel-link-routes.js';
+import { registerTransporteRoutes } from './transporte-routes.js';
 import { waiveChannelLinkVictimShieldService } from '../services/conversation-channel-link-service.js';
 
 const { Client } = pg;
@@ -1095,6 +1096,9 @@ export function createApiRouter() {
 
   // Vínculo telefone <-> usuário por OTP (cadeia whatsapp-channel-sicat, fase 02)
   registerChannelLinkRoutes(router);
+
+  // Vertical Transporte — catálogo regulatório read-only (PR-A2, DL-103)
+  registerTransporteRoutes(router);
 
   return router;
 }

@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1 entregue)
+### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1 e PR-A2 entregues)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -448,8 +448,17 @@ fundação: catálogo regulatório temporal (migrations
 regras TR-* ([`regulatory-rules-seed.ts`](../../backend/src/bootstrap/regulatory-rules-seed.ts),
 todas `blocking=false` — promoção exige revisão humana, travada em DDL), repositório de consulta
 temporal ([`regulatory-repo.ts`](../../backend/src/repositories/regulatory-repo.ts)) e a categoria
-`tests/regulatory/`. **🕓 Sem superfície HTTP ainda** (rotas read-only vêm no PR-A2); 📋 tabelas de
-piso criadas **vazias** por desenho (coeficiente real só com revisão humana — pendência P3 do guia).
+`tests/regulatory/`. O PR-A2 entregou a **primeira superfície HTTP** da vertical, read-only e
+síncrona (tag `Transporte - Regras` no contrato): `GET /v1/transporte/regras` (filtros `domain`/
+`gate`/`implementationState` + resolução temporal por `vigenteEm`, default hoje),
+`GET /v1/transporte/regras/{code}` e `GET /v1/transporte/regras/{code}/historico` — contract-first
+em lockstep (OpenAPI → `examples/` → `gen:operations` + `sync-operations-ts.mjs` → rotas → testes),
+rotas atrás de `sicatAuthMiddleware` ([`transporte-routes.ts`](../../backend/src/routes/transporte-routes.ts)
+→ [`transporte-regras-service.ts`](../../backend/src/services/transporte-regras-service.ts), sem
+ids internos no DTO; chaves RBAC adiadas — ver nota no §6 de
+[`transporte-sicat.md`](../04-arquitetura/transporte-sicat.md)), cobertas por
+`tests/api/transporte-regras.test.js`. 📋 Tabelas de piso criadas **vazias** por desenho
+(coeficiente real só com revisão humana — pendência P3 do guia).
 
 ## 4. Riscos e limites conhecidos
 

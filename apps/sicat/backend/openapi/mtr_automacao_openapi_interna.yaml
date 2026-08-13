@@ -86,6 +86,10 @@ tags:
 - name: WhatsApp Channel
   description: Webhook público do canal WhatsApp (verificação e recepção). Autenticidade por
     assinatura HMAC do provedor, não por Bearer.
+- name: Transporte - Regras
+  description: Consulta read-only do catálogo regulatório da vertical Transporte (regras TR-*
+    com resolução temporal por data de referência). Fonte local (`regulatory_rules` +
+    `regulatory_rule_versions`), sem chamada à CETESB.
 security:
 - bearerAuth: []
 paths:
@@ -6493,6 +6497,155 @@ paths:
         required: false
         description: Assinatura HMAC-SHA256 do Meta (`sha256=<hex>`). Obrigatória quando `WHATSAPP_PROVIDER=meta`.
         schema: { type: string }
+  /v1/transporte/regras:
+    get:
+      operationId: transporteRegrasList
+      summary: Listar regras do catálogo regulatório de transporte
+      description: |-
+        Lista as regras TR-* do catálogo regulatório da vertical Transporte com a versão vigente
+        na data de referência (`vigenteEm`, default = hoje). Regra sem versão vigente na data vem
+        com `currentVersion: null` — a menos que o filtro `implementationState` esteja presente,
+        caso em que só entram regras cuja versão resolvida está no estado pedido. Consulta local
+        síncrona (não chama a CETESB); ids internos do catálogo não são expostos.
+      tags:
+      - Transporte - Regras
+      responses:
+        '200':
+          description: Regras do catálogo com a versão resolvida na data de referência
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRegraListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - in: query
+        name: domain
+        description: Filtra pelo domínio regulatório da regra.
+        schema:
+          type: string
+          enum:
+          - RNTRC
+          - PMF
+          - CIOT
+          - PAY
+          - VPO
+          - NFE
+          - CTE
+          - MDFE
+          - SEG
+          - PGR
+          - COMP
+      - in: query
+        name: gate
+        description: Filtra pelo compliance gate default da regra.
+        schema:
+          type: string
+          enum:
+          - GATE_PROPOSAL
+          - GATE_CONTRACT
+          - GATE_CIOT
+          - GATE_FISCAL
+          - GATE_PRE_BOARDING
+          - GATE_RELEASE
+          - GATE_IN_TRANSIT
+          - GATE_COMPLETION
+      - in: query
+        name: implementationState
+        description: Filtra pelo estado de implementação da VERSÃO RESOLVIDA na data de referência
+          (não de qualquer versão da regra).
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - UNDER_REVIEW
+          - ACTIVE
+          - FUTURE
+          - SUPERSEDED
+          - REVOKED
+          - AWAITING_REGULATION
+      - in: query
+        name: vigenteEm
+        description: Data de referência (YYYY-MM-DD) para resolver a versão vigente. Default = hoje.
+        schema:
+          type: string
+          format: date
+  /v1/transporte/regras/{code}:
+    get:
+      operationId: transporteRegrasGet
+      summary: Detalhar regra do catálogo regulatório
+      description: Retorna a regra TR-* com a versão vigente na data de referência (`vigenteEm`,
+        default = hoje). `currentVersion` vem `null` quando nenhuma janela de vigência contém a
+        data (regra futura ou revogada).
+      tags:
+      - Transporte - Regras
+      responses:
+        '200':
+          description: Regra do catálogo com a versão resolvida na data de referência
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRegraResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: code
+        in: path
+        required: true
+        description: 'Código estável da regra (ex.: TR-CIOT-001).'
+        schema: { type: string }
+      - in: query
+        name: vigenteEm
+        description: Data de referência (YYYY-MM-DD) para resolver a versão vigente. Default = hoje.
+        schema:
+          type: string
+          format: date
+  /v1/transporte/regras/{code}/historico:
+    get:
+      operationId: transporteRegrasHistorico
+      summary: Histórico de versões de uma regra do catálogo
+      description: Retorna TODAS as versões da regra TR-* (passadas, vigentes e futuras),
+        ordenadas por `effectiveFrom` crescente — a trilha temporal completa da regra.
+      tags:
+      - Transporte - Regras
+      responses:
+        '200':
+          description: Versões da regra em ordem cronológica de vigência
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRegraHistoricoResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: code
+        in: path
+        required: true
+        description: 'Código estável da regra (ex.: TR-CIOT-001).'
+        schema: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -11393,3 +11546,156 @@ components:
           oneOf:
           - $ref: '#/components/schemas/WhatsAppActionWindow'
           - type: 'null'
+    TransporteRegraVersaoResource:
+      type: object
+      description: Versão de uma regra TR-* numa janela de vigência. Ids internos do catálogo
+        (`regrule_`/`regrulev_`) e `source_hash` NUNCA saem neste DTO — a identidade pública é
+        `code` + `versionLabel`.
+      required:
+      - versionLabel
+      - legalBasis
+      - summary
+      - effectiveFrom
+      - effectiveUntil
+      - implementationState
+      - blocking
+      - severity
+      - reviewedBy
+      - reviewedAt
+      properties:
+        versionLabel:
+          type: string
+        legalBasis:
+          type: array
+          items:
+            type: object
+            required:
+            - reference
+            properties:
+              reference:
+                type: string
+              article:
+                type:
+                - string
+                - 'null'
+        summary:
+          type: string
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveUntil:
+          type:
+          - string
+          - 'null'
+          format: date
+        implementationState:
+          type: string
+          enum:
+          - DRAFT
+          - UNDER_REVIEW
+          - ACTIVE
+          - FUTURE
+          - SUPERSEDED
+          - REVOKED
+          - AWAITING_REGULATION
+        blocking:
+          type: boolean
+        severity:
+          type: string
+          enum:
+          - info
+          - warning
+          - critical
+        reviewedBy:
+          type:
+          - string
+          - 'null'
+        reviewedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    TransporteRegraResource:
+      type: object
+      description: Regra do catálogo regulatório de transporte com a versão resolvida na data de
+        referência da consulta (`currentVersion` é `null` quando nenhuma janela contém a data).
+      required:
+      - code
+      - domain
+      - title
+      - description
+      - defaultGate
+      - displayOrder
+      - currentVersion
+      properties:
+        code:
+          type: string
+          description: 'Código estável da regra (ex.: TR-CIOT-001) — a chave pública do catálogo.'
+        domain:
+          type: string
+          enum:
+          - RNTRC
+          - PMF
+          - CIOT
+          - PAY
+          - VPO
+          - NFE
+          - CTE
+          - MDFE
+          - SEG
+          - PGR
+          - COMP
+        title:
+          type: string
+        description:
+          type: string
+        defaultGate:
+          type: string
+          enum:
+          - GATE_PROPOSAL
+          - GATE_CONTRACT
+          - GATE_CIOT
+          - GATE_FISCAL
+          - GATE_PRE_BOARDING
+          - GATE_RELEASE
+          - GATE_IN_TRANSIT
+          - GATE_COMPLETION
+        displayOrder:
+          type: integer
+          minimum: 0
+        currentVersion:
+          oneOf:
+          - $ref: '#/components/schemas/TransporteRegraVersaoResource'
+          - type: 'null'
+    TransporteRegraListResponse:
+      type: object
+      required:
+      - items
+      - referenceDate
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteRegraResource'
+        referenceDate:
+          type: string
+          format: date
+          description: Data de referência efetivamente usada na resolução (o `vigenteEm` da
+            consulta, ou hoje quando omitido).
+        totalItems:
+          type: integer
+          minimum: 0
+    TransporteRegraHistoricoResponse:
+      type: object
+      required:
+      - code
+      - versions
+      properties:
+        code:
+          type: string
+        versions:
+          type: array
+          description: Ordenadas por `effectiveFrom` crescente.
+          items:
+            $ref: '#/components/schemas/TransporteRegraVersaoResource'
