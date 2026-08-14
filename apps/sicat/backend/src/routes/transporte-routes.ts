@@ -55,6 +55,11 @@ import {
   getTransportOperationComplianceOverviewService,
   validateTransportOperationComplianceService
 } from '../services/transport-compliance-service.js';
+import {
+  calculateFreightFloorHttpService,
+  listFreightFloorCalculationsHttpService,
+  listFreightFloorTablesService
+} from '../services/freight-floor-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -275,6 +280,35 @@ export function registerTransporteRoutes(router: express.Router): void {
       String(req.params.operationId || ''),
       (req.query || {}) as LooseRecord
     );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Piso mínimo — FreightFloorEngine (PR-B1, modo SHADOW)
+  // ===========================================================================================
+
+  // Calcula e PERSISTE o piso (append-only); atualiza freight.floorAmount quando outcome=calculated.
+  router.post('/v1/transporte/operacoes/:operationId/calcular-piso', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await calculateFreightFloorHttpService(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // Histórico paginado dos cálculos já persistidos (prova o append-only).
+  router.get('/v1/transporte/operacoes/:operationId/calculos-piso', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listFreightFloorCalculationsHttpService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Admin read-only: tabelas de piso carregadas (review_status, contagem de coeficientes, hash).
+  router.get('/v1/transporte/piso/tabelas', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
+    const response = await listFreightFloorTablesService();
     res.json(response);
   }));
 }

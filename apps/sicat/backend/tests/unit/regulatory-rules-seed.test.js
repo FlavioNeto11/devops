@@ -106,12 +106,14 @@ describe('regulatory-rules-seed — estrutura declarativa', () => {
 describe('regulatory-rules-seed — SQL gerado', () => {
   const statements = buildRegulatoryCatalogSeedStatements();
 
-  it('gera 13 fontes + 26 regras + 27 versões, todas insert com on conflict, nenhum delete', () => {
+  it('gera 15 fontes + 26 regras + 27 versões, todas insert com on conflict, nenhum delete', () => {
     const sources = statements.filter((statement) => statement.name.startsWith('source:'));
     const rules = statements.filter((statement) => statement.name.startsWith('rule:'));
     const versions = statements.filter((statement) => statement.name.startsWith('rule-version:'));
 
-    assert.equal(sources.length, 13);
+    // 13 da baseline (PR-A1) + Res. ANTT 6.076/2026 + Res. ANTT 6.084/2026 (PR-B1, metodologia +
+    // tabelas do piso mínimo efetivamente calculado).
+    assert.equal(sources.length, 15);
     assert.equal(rules.length, 26);
     assert.equal(versions.length, 27, '26 baselines + a segunda versão de TR-CIOT-001');
     assert.equal(statements.length, sources.length + rules.length + versions.length);

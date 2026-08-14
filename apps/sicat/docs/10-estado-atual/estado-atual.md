@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -597,6 +597,61 @@ build:frontend` verde (com a flag ligada e desligada). Smoke `tests/ui/transport
 escrito (lista → detalhe → painel de conformidade visível) mas NÃO EXECUTADO neste ambiente — sem
 browsers do Playwright instalados (`ms-playwright` ausente; instalar exigiria baixar binário grande,
 fora do escopo autorizado desta sessão).
+
+O PR-B1 (Fase B, Onda 2) entregou o **`FreightFloorEngine`** em MODO SHADOW — cálculo real do piso
+mínimo, mas nada aqui torna TR-PMF-002/003 bloqueantes por si só (o seed segue 100%
+`blocking=false`). Migration [`026`](../../backend/src/sql/026_transport_freight_floor_calculations.sql)
+cria `freight_floor_calculations` (append-only, mesmo racional de `compliance_evaluations`): UM
+registro por tentativa de cálculo, com `outcome`
+(`calculated|not_applicable|missing_coefficients|missing_inputs`), snapshot dos insumos e trace
+completo da fórmula. Motor PURO em
+[`freight-floor-engine.ts`](../../backend/src/lib/transport/freight-floor-engine.ts)
+(`calculateFreightFloor`: `minimum = CCD*km + CC`, arredondamento HALF-UP robusto a erro de ponto
+flutuante; `decideFreightFloorOutcome`: árvore de decisão pura que resolve os 4 outcomes a partir
+de dados JÁ RESOLVIDOS pelo chamador — testável sem banco) + `mapCargoTypeToFloorSlug` (cargoType
+livre do operador → 1 dos 11 slugs canônicos da Tabela A, ou `null`) +
+`resolveFloorTableCodeForCargoRegime` (só `lotacao` resolve tabela nesta fase) +
+`sumAxlesFromVehicles` (soma `axlesCount` dos veículos vinculados). Coeficientes REAIS da
+**Tabela A da Res. ANTT 6.084/2026** (carga lotação), transcritos da fonte oficial em
+[`reference-data/freight-floor/res-6084-2026-tabela-a.json`](../../backend/reference-data/freight-floor/res-6084-2026-tabela-a.json)
+(11 cargoTypes × eixos = 75 linhas, 150 coeficientes) — carregados por um script **MANUAL** do
+operador, `npm run load:freight-floor`
+([`scripts/load-freight-floor-tables.js`](../../backend/scripts/load-freight-floor-tables.js)):
+valida shape, calcula `source_hash` (SHA-256), faz upsert por `(normative_reference, table_code)`
+SEMPRE como `review_status='pending_review'` (ABORTA sem rebaixar se a versão já está `reviewed`),
+substitui os coeficientes na mesma transação — idempotente (rodar 2x = mesmo estado). **NUNCA**
+roda no boot: a meta-guarda 4 de `tests/regulatory/rule-catalog-invariants.test.js` (PR-A6) segue
+verde, provando que o seed regulatório continua sem tocar `freight_floor_versions`/
+`_coefficients`. `freight-floor-service.ts` orquestra: carrega o agregado → resolve `tableCode`
+pelo `cargoRegime` → resolve a versão de tabela VIGENTE na `referenceDate`
+(`freight-floor-repo.ts`, reaproveitando `resolveVersionFromList` do catálogo regulatório) →
+resolve o par de coeficientes → decide/calcula (puro) → persiste (append-only) → quando
+`outcome=calculated`, atualiza `freight.floorAmount` do cabeçalho (locking otimista). Três rotas
+NOVAS na tag `Transporte - Piso Mínimo`: `POST .../operacoes/{id}/calcular-piso` (síncrono, corpo
+`{integrationAccountId, version, referenceDate?}`), `GET .../operacoes/{id}/calculos-piso`
+(histórico paginado, prova o append-only) e `GET /v1/transporte/piso/tabelas` (admin read-only,
+catálogo GLOBAL sem tenancy — `reviewStatus`, contagem de coeficientes, `sourceHash`, SEM id
+interno). Evaluators TR-PMF-002/003/004 (`rule-evaluators.ts`) EVOLUÍRAM: `RuleEvaluatorContext`
+ganhou `floorCalculation` (o cálculo mais recente da operação, carregado UMA vez por avaliação em
+`transport-compliance-service.ts` via `findLatestFreightFloorCalculationForOperation`) —
+TR-PMF-002/003 agora, quando `offered/contracted >= floor`, checam o `reviewStatus` da tabela usada:
+`pending_review` rebaixa o que seria `pass` "limpo" para `warn FLOOR_TABLE_PENDING_REVIEW` (dado
+ainda não conferido contra o DOU); TR-PMF-004 passou de "sempre warn" (Fase A, tabela
+estruturalmente vazia) para verificar de verdade se o cálculo mais recente usou a versão vigente na
+`referenceDate` (`pass`/`warn FLOOR_TABLE_PENDING_REVIEW`/`warn FLOOR_VERSION_UNAVAILABLE`). O
+clamp de enforcement (`applyEnforcementClamp`, inalterado) continua rebaixando qualquer `block`
+bruto de TR-PMF-002/003 para `warn` — confirmado por teste de integração: oferta abaixo do piso
+calculado produz `overallStatus` no máximo `WARN`, nunca `BLOCK`, no `GATE_PROPOSAL`. Seed aditivo
+(`regulatory-rules-seed.ts`): duas fontes normativas novas (`Res. ANTT 6.076/2026`, metodologia;
+`Res. ANTT 6.084/2026`, tabelas) e `legal_basis` de TR-PMF-002/003/004 (v2026-08-baseline)
+ampliado para citá-las — meta-guardas do catálogo seguem verdes. Cobertura: aritmética exata com os
+coeficientes reais e a árvore de decisão pura em `tests/unit/freight-floor-engine.test.js` (29
+casos, sem banco); `tests/regulatory/freight-floor-engine.test.js` (skip-if-no-DB): loader real
+contra o banco de teste (idempotência inclusive), cálculo end-to-end (`carga_geral`/6 eixos/850km
+→ `6923.43`, `displacementCoefficient=7.3547`, `loadUnloadCoefficient=671.93`), efeito shadow nos
+evaluators e time-travel (`referenceDate` antes da vigência de 17/07/2026 →
+`FLOOR_VERSION_UNAVAILABLE`); `tests/regulatory/freight-floor-applicability.test.js` estendido com
+os novos ramos `floorCalculation`.
 
 ## 4. Riscos e limites conhecidos
 

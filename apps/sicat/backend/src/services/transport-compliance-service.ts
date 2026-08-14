@@ -33,9 +33,12 @@ import {
   RULE_EVALUATORS,
   RULES_WITHOUT_EVALUATOR_YET,
   applyEnforcementClamp,
-  type ComplianceCheckStatus
+  type ComplianceCheckStatus,
+  type FreightFloorCalculationContext
 } from '../lib/transport/rule-evaluators.js';
 import type { TransportOperationAggregate } from '../lib/transport/transport-operation-types.js';
+import { findLatestFreightFloorCalculationForOperation } from './freight-floor-service.js';
+import type { FreightFloorCalculationRecord } from '../repositories/freight-floor-repo.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -148,10 +151,22 @@ type CheckBuild = {
   resultSnapshot: Record<string, unknown>;
 };
 
+/** `FreightFloorCalculationRecord` (repo) → recorte que `rule-evaluators.ts` conhece (PR-B1). */
+function toFloorCalculationContext(record: FreightFloorCalculationRecord | null): FreightFloorCalculationContext | null {
+  if (!record) return null;
+  return {
+    outcome: record.outcome,
+    referenceDate: record.referenceDate,
+    minimumAmount: record.minimumAmount,
+    floorVersion: record.floorVersionRef
+  };
+}
+
 async function buildCheckForRule(
   rule: RegulatoryRuleWithVersion,
   aggregate: TransportOperationAggregate,
-  referenceDate: string
+  referenceDate: string,
+  floorCalculation: FreightFloorCalculationContext | null
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -195,7 +210,7 @@ async function buildCheckForRule(
     };
   }
 
-  const rawOutcome = evaluator({ operation: aggregate, ruleVersion: version, referenceDate });
+  const rawOutcome = evaluator({ operation: aggregate, ruleVersion: version, referenceDate, floorCalculation });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
   return {
@@ -262,9 +277,17 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
   const referenceDate = input.referenceDate ? normalizeReferenceDate(input.referenceDate) : todayIsoDate();
   const rulesWithVersion = await listRulesWithVersionAt(referenceDate, { gate: input.gate });
 
+  // Carregado UMA vez por avaliação (não por regra) — só TR-PMF-002/003/004 consomem, mas a
+  // consulta é barata (uma linha, índice por operation_id) e evita reabrir o pipeline por regra.
+  const floorCalculationRecord = await findLatestFreightFloorCalculationForOperation(
+    input.operationId,
+    input.integrationAccountId
+  );
+  const floorCalculation = toFloorCalculationContext(floorCalculationRecord);
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
-    checkBuilds.push(await buildCheckForRule(rule, aggregate, referenceDate));
+    checkBuilds.push(await buildCheckForRule(rule, aggregate, referenceDate, floorCalculation));
   }
 
   let overallStatus: ComplianceOverallStatus = 'pass';

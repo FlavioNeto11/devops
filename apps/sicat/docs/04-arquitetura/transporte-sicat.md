@@ -89,7 +89,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `023_transport_parties_vehicles.sql` | `transport_parties`, `transport_party_roles`, `transport_vehicles`, `transport_vehicle_links` | A3 |
 | `024_transport_operations.sql` | `transport_operations` + `_parties`, `_vehicles`, `_cargo`, `_routes` | A4 |
 | `025_transport_compliance.sql` | `compliance_evaluations` (append-only), `compliance_checks`, `compliance_evidence` | A5 |
-| Fase B | `freight_floor_calculations` | B |
+| `026_transport_freight_floor_calculations.sql` | `freight_floor_calculations` (append-only) — ✅ entregue (PR-B1, modo shadow) | B1 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
