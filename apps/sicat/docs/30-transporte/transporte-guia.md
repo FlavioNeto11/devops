@@ -2,7 +2,7 @@
 title: "SICAT Transporte — Guia do programa (camada viva sobre a baseline regulatória)"
 status: reference
 applies_to: [sicat]
-updated: 2026-08-13
+updated: 2026-08-14
 language: pt-BR
 ---
 
@@ -72,7 +72,7 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 | 14 | Regra de engenharia: mudança de `RegulatoryRuleVersion` exige fixture antes/depois da vigência | ✅ | PR-A6: meta-guarda 3 (`tests/regulatory/rule-catalog-invariants.test.js`) valida `fixtures-manifest.json` contra o seed — toda `(code, version_label)` com fixture `{before, on, after}` |
 | 15 | Reutilizar fila/jobs/DLQ, auditoria por correlationId, idempotência, RBAC, Centro Operacional, design system `Sicat*` | ✅ | Padrão da casa confirmado na exploração; sem segundo framework |
 | 16 | Compliance da Fase A **síncrono** (sem chamada externa; job types só quando houver integração) | ⚠️ | Adaptação ao relatório: 202/job fica para a Fase C (decisão D1 do plano) |
-| 17 | UX: painel "CONFORMIDADE DA OPERAÇÃO" (PASS/WARN/BLOCK por requisito) na ficha da operação | 📋 | Onda 1.5 (PR-F1), componível com `Sicat*` existentes |
+| 17 | UX: painel "CONFORMIDADE DA OPERAÇÃO" (PASS/WARN/BLOCK por requisito) na ficha da operação | ✅ | Onda 1.5 (PR-F1) — `TransporteOperacaoDetailView.vue`, 100% `Sicat*` existentes (nenhum componente novo); atrás de `VITE_FEATURE_TRANSPORTE` (default desligada) |
 | 18 | LGPD: minimização de dados de risco; reason code + evidência, nunca cópia integral de retorno externo | 📋 | NFR + Fases C/F |
 
 ## Matriz de rastreabilidade
@@ -138,7 +138,7 @@ aprovado do programa). REQs: `REQ-SICAT-0017+` (criação na Onda 0).
 |---|---|---|---|
 | 0 | Fundação | Baseline em docs (este PR) + REQs em `specs/` + DL-103/ADRs | — |
 | 1 | A | Catálogo regulatório + transportadores/veículos + TransportOperation + motor de compliance (sem integração externa) | Onda 0 |
-| 1.5 | A (UI) | Navegação Transporte + operações lista/detalhe + painel de conformidade + regras read-only | Onda 1 |
+| 1.5 | A (UI) | ✅ Navegação Transporte + operações lista/detalhe + painel de conformidade + regras read-only (PR-F1, atrás de `VITE_FEATURE_TRANSPORTE`) | Onda 1 |
 | 2 | B | FreightFloorEngine + gates de oferta/contratação (shadow WARN → canário → BLOCK) | P3 |
 | 3 | C | RNTRC + CIOT (gateways dedicados, jobs, reconciliação) | P4, P5 |
 | 4 | D | VPO applicability + antecipação + evidência | P6 |

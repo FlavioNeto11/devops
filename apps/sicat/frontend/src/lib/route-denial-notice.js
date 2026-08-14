@@ -32,7 +32,11 @@ export const ROUTE_DENIAL_REASONS = Object.freeze({
   // Admin/SRE pedindo tela de OPERADOR: o guard mandava para a visão de Sistema
   // sem enfileirar nada — era um redirect 100% mudo, e ele nem passava pelas
   // duas razões acima (o `return` acontece antes). Ver `router.js`.
-  AUDIENCE: 'audience'
+  AUDIENCE: 'audience',
+  // Vertical atrás de feature flag desligada (ex.: Transporte — DL-103/PR-F1).
+  // Mesmo tratamento das outras razões: sem isso, digitar a URL direto com a
+  // flag off caía num redirect mudo — o operador não entende por que sumiu.
+  FEATURE_FLAG: 'feature_flag'
 });
 
 /** Tempo máximo que um aviso enfileirado continua válido (ms). */
@@ -60,6 +64,11 @@ const AUDIENCE_NOTICE = Object.freeze({
   detail: 'Sua conta é de administração (SRE) e trabalha sem conta CETESB ativa — levamos você para a visão de Sistema.'
 });
 
+const FEATURE_FLAG_NOTICE = Object.freeze({
+  message: 'Esta área ainda não está disponível.',
+  detail: 'Ela está em liberação controlada — fale com o administrador do SICAT se precisar de acesso antecipado.'
+});
+
 function personaDetail(requiredPersonas) {
   const required = String(requiredPersonas || '').trim();
   return required
@@ -73,7 +82,8 @@ const NOTICE_TEXT_BY_REASON = Object.freeze({
     message: PERSONA_NOTICE_MESSAGE,
     detail: personaDetail(requiredPersonas)
   }),
-  [ROUTE_DENIAL_REASONS.AUDIENCE]: () => AUDIENCE_NOTICE
+  [ROUTE_DENIAL_REASONS.AUDIENCE]: () => AUDIENCE_NOTICE,
+  [ROUTE_DENIAL_REASONS.FEATURE_FLAG]: () => FEATURE_FLAG_NOTICE
 });
 
 /**

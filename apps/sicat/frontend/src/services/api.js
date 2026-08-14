@@ -1455,6 +1455,107 @@ export function printMtrProvisorio(id, payload = {}, { idempotencyKey } = {}) {
 }
 
 // =============================================================================
+// Transporte — vertical de transporte rodoviário de resíduos (DL-103,
+// programa "SICAT Transporte", Onda 1.5/PR-F1 — frontend mínimo). Bounded
+// context SEPARADO do MTR ambiental (DL-103) — NÃO reaproveita `manifest-*`.
+// Contrato em openapi/mtr_automacao_openapi_interna.yaml (`/v1/transporte/*`,
+// tags "Transporte - Regras" / "Transporte - Operações" / "Transporte -
+// Conformidade"). Cadastros/operações/conformidade são SEMPRE síncronos na
+// Fase A (sem 202/job) — o motor de compliance roda inline no mesmo request.
+//
+// Tenancy OBRIGATÓRIA: toda leitura passa `integrationAccountId` explícito em
+// query — sem "conta ativa da sessão" implícita (molde `listManifests`, que
+// filtra client-side; aqui o backend exige o param). As transições
+// (submeter-validacao/contratar/reabrir/cancelar) exigem `version` no corpo
+// para locking otimista — 409 quando defasada (`TRANSPORT_*` problem codes).
+//
+// Idempotency-Key: só `POST /v1/transporte/operacoes` (criação — fora do
+// escopo deste PR, que é list+detalhe+transições+regras read-only) declara o
+// parâmetro no contrato. Nenhuma das rotas usadas abaixo (transições,
+// validar-conformidade, regras) o declara — por isso NÃO mandamos o header
+// aqui: um Idempotency-Key que o servidor não lê sugere uma garantia que não
+// existe (mesmo raciocínio da seção de vínculos de canal, logo abaixo).
+// =============================================================================
+
+export function listTransportOperations(params = {}) {
+  return request(`/v1/transporte/operacoes${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportOperationById(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function getTransportOperationCompliance(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/conformidade${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Avalia UM gate ad-hoc (`triggeredBy=user`), sem aplicar transição alguma. */
+export function validateTransportOperationCompliance(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/validar-conformidade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/**
+ * Orquestra a saída de `draft`: avalia GATE_PROPOSAL e aplica
+ * approve_validation (→ ready_for_contract) ou reject_validation (→ blocked)
+ * no mesmo request. Resposta: `{ operation, evaluation }`.
+ */
+export function submitTransportOperationValidation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/submeter-validacao`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Ativa GATE_CONTRACT (ready_for_contract → contracted). Resposta: `{ operation, evaluation }`. */
+export function contractTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/contratar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Transição sem gate (blocked → draft) — limpa `blockedReasonCode`. */
+export function reopenTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/reabrir`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Cancela a partir de qualquer status não-terminal. `reason` é obrigatório no corpo. */
+export function cancelTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/cancelar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportRules(params = {}) {
+  return request(`/v1/transporte/regras${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function getTransportRuleByCode(code, params = {}) {
+  return request(
+    `/v1/transporte/regras/${encodeURIComponent(code)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// =============================================================================
 // Vínculos de canal (WhatsApp) — cadeia whatsapp-channel-sicat (fase 02).
 //
 // Vinculação de telefone ↔ usuário SICAT por OTP SEMPRE iniciado no app: o

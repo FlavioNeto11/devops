@@ -9,7 +9,8 @@ const props = defineProps({
   domain: {
     type: String,
     default: 'manifest',
-    validator: (value) => ['manifest', 'job', 'cdf', 'dmr', 'account-health'].includes(value)
+    validator: (value) =>
+      ['manifest', 'job', 'cdf', 'dmr', 'account-health', 'transport-operation', 'compliance', 'ciot'].includes(value)
   },
   /** Label customizado. Se informado, ignora o mapa de labels. */
   label: { type: String, default: null },

@@ -199,6 +199,89 @@ const DMR_STATUS_LABELS = Object.freeze({
   cancelled: 'Cancelada'
 });
 
+// -----------------------------------------------------------------------------
+// Transporte (DL-103, programa Onda 1.5/PR-F1) — bounded context separado do
+// ambiental. Três domínios novos: a máquina de estados de `TransportOperation`
+// (13 estados — transport-state-machine.ts), o resultado PÓS-CLAMP de cada
+// check do motor de compliance (PASS/WARN/BLOCK/NOT_APPLICABLE, sempre em
+// MAIÚSCULO no contrato — normalizeKey já faz o lowercase na leitura) e o
+// ciclo de vida do CIOT (Fase C — sem UI ainda nesta onda, mas o vocabulário
+// nasce aqui para não duplicar quando a tela chegar).
+// -----------------------------------------------------------------------------
+
+const TRANSPORT_OPERATION_STATUS_TONES = Object.freeze({
+  draft: 'neutral',
+  validating: 'running',
+  blocked: 'error',
+  ready_for_contract: 'neutral',
+  contracted: 'success',
+  ciot_pending: 'running',
+  ciot_registered: 'neutral',
+  fiscal_pending: 'running',
+  ready_for_release: 'neutral',
+  in_transit: 'running',
+  completion_pending: 'running',
+  completed: 'success',
+  cancelled: 'error'
+});
+
+const TRANSPORT_OPERATION_STATUS_LABELS = Object.freeze({
+  draft: 'Rascunho',
+  validating: 'Validando',
+  blocked: 'Bloqueada',
+  ready_for_contract: 'Pronta para contratar',
+  contracted: 'Contratada',
+  ciot_pending: 'CIOT pendente',
+  ciot_registered: 'CIOT registrado',
+  fiscal_pending: 'Fiscal pendente',
+  ready_for_release: 'Pronta para liberação',
+  in_transit: 'Em trânsito',
+  completion_pending: 'Conclusão pendente',
+  completed: 'Concluída',
+  cancelled: 'Cancelada'
+});
+
+// Status PÓS-CLAMP de UM check de compliance (`TransporteConformidadeCheckResource.status`
+// e `overallStatus` da avaliação de gate) — o contrato devolve sempre em
+// MAIÚSCULO (PASS/WARN/BLOCK/NOT_APPLICABLE); `normalizeKey` faz o lowercase.
+const COMPLIANCE_STATUS_TONES = Object.freeze({
+  pass: 'success',
+  warn: 'warning',
+  block: 'error',
+  not_applicable: 'neutral'
+});
+
+const COMPLIANCE_STATUS_LABELS = Object.freeze({
+  pass: 'Conforme',
+  warn: 'Atenção',
+  block: 'Bloqueado',
+  not_applicable: 'Não aplicável'
+});
+
+// Ciclo de vida do CIOT — Fase C do programa (sem tela nesta onda). Vocabulário
+// mínimo registrado agora para a UI futura não inventar um segundo léxico.
+const CIOT_STATUS_TONES = Object.freeze({
+  pre_validation: 'neutral',
+  requested: 'running',
+  registered: 'success',
+  rectified: 'warning',
+  closed: 'success',
+  cancelled: 'neutral',
+  rejected: 'error',
+  blocked: 'error'
+});
+
+const CIOT_STATUS_LABELS = Object.freeze({
+  pre_validation: 'Pré-validação',
+  requested: 'Solicitado',
+  registered: 'Registrado',
+  rectified: 'Retificado',
+  closed: 'Encerrado',
+  cancelled: 'Cancelado',
+  rejected: 'Rejeitado',
+  blocked: 'Bloqueado'
+});
+
 const ACCOUNT_HEALTH_TONES = Object.freeze({
   authenticated: 'success',
   ok: 'success',
@@ -238,7 +321,10 @@ const DOMAIN_TONES = Object.freeze({
   manifest: MANIFEST_STATUS_TONES,
   cdf: CDF_STATUS_TONES,
   dmr: DMR_STATUS_TONES,
-  'account-health': ACCOUNT_HEALTH_TONES
+  'account-health': ACCOUNT_HEALTH_TONES,
+  'transport-operation': TRANSPORT_OPERATION_STATUS_TONES,
+  compliance: COMPLIANCE_STATUS_TONES,
+  ciot: CIOT_STATUS_TONES
 });
 
 const DOMAIN_LABELS = Object.freeze({
@@ -246,7 +332,10 @@ const DOMAIN_LABELS = Object.freeze({
   manifest: MANIFEST_STATUS_LABELS,
   cdf: CDF_STATUS_LABELS,
   dmr: DMR_STATUS_LABELS,
-  'account-health': ACCOUNT_HEALTH_LABELS
+  'account-health': ACCOUNT_HEALTH_LABELS,
+  'transport-operation': TRANSPORT_OPERATION_STATUS_LABELS,
+  compliance: COMPLIANCE_STATUS_LABELS,
+  ciot: CIOT_STATUS_LABELS
 });
 
 function normalizeKey(value) {
@@ -333,5 +422,11 @@ export {
   DMR_STATUS_TONES,
   DMR_STATUS_LABELS,
   ACCOUNT_HEALTH_TONES,
-  ACCOUNT_HEALTH_LABELS
+  ACCOUNT_HEALTH_LABELS,
+  TRANSPORT_OPERATION_STATUS_TONES,
+  TRANSPORT_OPERATION_STATUS_LABELS,
+  COMPLIANCE_STATUS_TONES,
+  COMPLIANCE_STATUS_LABELS,
+  CIOT_STATUS_TONES,
+  CIOT_STATUS_LABELS
 };

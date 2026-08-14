@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A BACKEND CONCLUÍDA (PR-A1..A6); frontend (Onda 1.5, PR-F1) NÃO iniciado
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -562,8 +562,41 @@ skip-if-no-DB): a MESMA operação avaliada via `evaluateGateService` em `refere
 vs. 2026-08-07 muda `TR-CIOT-004` de `NOT_APPLICABLE`/`RULE_NOT_YET_EFFECTIVE` para avaliação de
 verdade (`pass`), provando a fronteira ponta a ponta contra o Postgres, não só na resolução pura.
 Nenhuma inconsistência real encontrada pelos meta-guardas no seed/evaluators existentes — os cinco
-passaram de primeira contra o catálogo real. **Fase A backend: completa.** Falta só a Onda 1.5
-(PR-F1, frontend).
+passaram de primeira contra o catálogo real. **Fase A backend: completa.**
+
+O PR-F1 (Onda 1.5, frontend mínimo) entregou a validação VISUAL do motor de compliance —
+**backend intocado neste PR**. Bounded context novo em `frontend/src/views/transporte/` (par
+lista+detalhe + regras, molde `mtr-provisorio`): `TransporteOperacaoListView.vue` (lista paginada
+server-side, filtro por status), `TransporteOperacaoDetailView.vue` (resumo + frete DECOMPOSTO em
+grid + **painel de conformidade**: um `SicatCard` por gate dos 8, badge do `overallStatus`
+(domínio novo `compliance` em `lib/status-map.js`) e cada check como `SicatInlineAlert`
+mostrando `ruleCode`/`humanMessage`/`reasonCode`/base legal e o `rawStatus` quando o clamp mudou o
+resultado; botões de comando só para os 4 com rota HTTP na Fase A — Submeter validação/Contratar/
+Reabrir/Cancelar (cancelar exige motivo, capturado antes do `useConfirmDialog`); botão "Revalidar
+conformidade" por gate chama `validar-conformidade` ad-hoc) e `TransporteRegrasView.vue` (read-only,
+filtros domínio/gate/`vigenteEm`, `SicatHelpHint` no termo CIOT). Store única `transporteStore.js`
+(molde `mtrProvisorioStore`) — filtros persistidos, `integrationAccountId` resolvido de
+`useAuthStore` (mesma tenancy do resto do app; NENHUMA tela nova de "conta de transporte"). Service
+fino `transporteService.js` reexportando de `api.js` (seção nova, sem `Idempotency-Key`: nenhuma
+rota de transição/conformidade usada aqui declara o header no contrato). Três domínios novos em
+`lib/status-map.js`: `transport-operation` (13 estados), `compliance` (PASS/WARN/BLOCK/
+NOT_APPLICABLE — contrato em MAIÚSCULO, `normalizeKey` faz o lowercase) e `ciot` (vocabulário
+mínimo da Fase C, sem tela ainda). Grupo de menu "Transporte" (`config/navigation.js`, antes do
+grupo "Assistente") e as 3 rotas `/transporte/*` (`router.js`, ANTES do catch-all) **NÃO declaram
+`personas`** — a vertical é de operador, sem o mapeamento generator/carrier/receiver do MTR
+ambiental. Tudo atrás da PRIMEIRA feature flag do frontend, `VITE_FEATURE_TRANSPORTE`
+(`lib/feature-flags.js`, default DESLIGADA): grupo de menu oculto (`hidden` a nível de GRUPO,
+suporte novo em `filterNavigationGroups`) e guard de rota dedicado (`meta.featureFlag: 'transporte'`
+no `router.beforeEach`, com aviso via `queueRouteDenialNotice`/novo
+`ROUTE_DENIAL_REASONS.FEATURE_FLAG` — bloqueia também por URL direta). Cobertura:
+`status-map.test.js` estendido, `transporte-ui-helpers.test.js`, `feature-flags.test.js`,
+`route-denial-notice.test.js` estendido — `297` testes de `tests/unit` verdes; `router-persona-
+routes.test.js`/`delivery-and-routes-contract.test.js` seguem verdes sem alteração de asserção
+(rotas de Transporte não entram nas listas fechadas desses testes, por desenho). `npm run
+build:frontend` verde (com a flag ligada e desligada). Smoke `tests/ui/transporte-smoke.spec.ts`
+escrito (lista → detalhe → painel de conformidade visível) mas NÃO EXECUTADO neste ambiente — sem
+browsers do Playwright instalados (`ms-playwright` ausente; instalar exigiria baixar binário grande,
+fora do escopo autorizado desta sessão).
 
 ## 4. Riscos e limites conhecidos
 

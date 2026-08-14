@@ -133,6 +133,59 @@ export const GLOSSARY = {
     term: 'SICAT',
     simple: 'Este sistema',
     explain: 'O sistema que você está usando agora. Ele facilita criar e enviar os documentos da CETESB por você.'
+  },
+
+  // ---- Transporte (DL-103, programa "SICAT Transporte") ----
+  ciot: {
+    term: 'CIOT — Conhecimento de Informações de Transporte Rodoviário',
+    simple: 'Registro do frete no órgão',
+    explain: 'Um número emitido antes da viagem, provando que o frete e a forma de pagamento do transportador autônomo foram registrados corretamente.',
+    example: 'Vinculado ao motorista e à placa antes de sair para a estrada.'
+  },
+  mdfe: {
+    term: 'MDF-e — Manifesto Eletrônico de Documentos Fiscais',
+    simple: 'Manifesto de carga (documento fiscal)',
+    explain: 'Reúne as notas fiscais e os conhecimentos de transporte de uma viagem em um único documento eletrônico.'
+  },
+  cte: {
+    term: 'CT-e — Conhecimento de Transporte Eletrônico',
+    simple: 'Nota fiscal do frete',
+    explain: 'O documento fiscal que comprova a prestação do serviço de transporte da carga.'
+  },
+  rntrc: {
+    term: 'RNTRC — Registro Nacional de Transportadores Rodoviários de Cargas',
+    simple: 'Registro do transportador na ANTT',
+    explain: 'Cadastro obrigatório na ANTT para transportar carga de terceiros por rodovia.'
+  },
+  vpo: {
+    term: 'VPO — Vale-Pedágio Obrigatório',
+    simple: 'Pedágio pago à parte do frete',
+    explain: 'O valor do pedágio da viagem, pago separado do frete — nunca somado a ele.'
+  },
+  piso_minimo_frete: {
+    term: 'Piso mínimo de frete',
+    simple: 'Valor mínimo que pode ser pago pelo frete',
+    explain: 'O valor abaixo do qual a lei não permite contratar o transporte, para proteger o transportador autônomo.'
+  },
+  pgr: {
+    term: 'PGR — Programa de Gerenciamento de Risco',
+    simple: 'Plano de segurança para cargas perigosas',
+    explain: 'Documento que descreve como prevenir e responder a acidentes no transporte de produtos perigosos.'
+  },
+  rctr_c: {
+    term: 'RCTR-C — Seguro de Responsabilidade do Transportador Rodoviário de Carga',
+    simple: 'Seguro da carga transportada',
+    explain: 'Cobre danos à carga durante o transporte rodoviário.'
+  },
+  rc_dc: {
+    term: 'RC-DC — Seguro de Responsabilidade Civil do Destinatário da Carga',
+    simple: 'Seguro de carga perigosa',
+    explain: 'Cobre danos causados por acidentes com produtos perigosos durante o transporte.'
+  },
+  rc_v: {
+    term: 'RC-V — Seguro de Responsabilidade Civil do Transportador (Veículo)',
+    simple: 'Seguro de danos a terceiros',
+    explain: 'Cobre danos causados a terceiros pelo veículo durante o transporte da carga.'
   }
 };
 

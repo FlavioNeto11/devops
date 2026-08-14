@@ -158,6 +158,19 @@ test('admin/SRE mandado para a visão de Sistema também é avisado', () => {
   assert.equal(notice.timeout, 0);
 });
 
+test('aviso de feature flag é genérico e não menciona qual vertical está desligada', () => {
+  const notice = buildRouteDenialNotice({
+    reason: ROUTE_DENIAL_REASONS.FEATURE_FLAG,
+    deniedPath: '/transporte/operacoes',
+    redirectTo: '/dashboard'
+  });
+
+  assert.equal(notice.message, 'Esta área ainda não está disponível.');
+  assert.match(notice.detail, /liberação controlada/);
+  assert.doesNotMatch(`${notice.message} ${notice.detail}`, /transporte/i);
+  assert.equal(notice.timeout, 0);
+});
+
 test('a rota negada NUNCA aparece na mensagem (só serve para a fila)', () => {
   for (const reason of Object.values(ROUTE_DENIAL_REASONS)) {
     const notice = buildRouteDenialNotice({
