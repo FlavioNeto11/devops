@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -921,6 +921,60 @@ antes da virada e `invalid`/`MDFE_CIOT_MISSING` na virada, contra `importarDocum
 verdade). Fixtures sintéticas em `tests/fixtures/regulatory/dfe/` (chaves de acesso de 44 dígitos
 com DV mod-11 calculado corretamente, CNPJs fictícios) — XMLs reais de design partner seguem
 pendentes para calibração fina do parser (pendência P7 do guia).
+
+O PR-F2 (Fase F, Onda 6) entregou os **seguros obrigatórios do transportador** (RCTR-C/RC-DC/RC-V,
+Lei 14.599/2023) e o **PGR** (Plano de Gerenciamento de Riscos) — TUDO síncrono (201/200, sem job:
+o `InsuranceVerificationProvider` hoje só tem `mode: mock`, rápido o bastante para não justificar
+fila). Migration `031_transport_insurance.sql` cria `insurance_policies`/`risk_management_plans`
+(`version`+trigger, locking otimista) e `insurance_verifications` (append-only, mesmo racional de
+`rntrc_verifications`). Duas rotas de escrita por apólice: `POST .../apolices` registra evidência
+MANUAL declarada por um usuário (grava `insurance_verifications` `strategy: manual`,
+`verifiedBy`=usuário autenticado, NUMA transação com a apólice); `POST .../apolices/verificar` roda
+o provider abstraído (`gateways/insurance-verification-provider.ts`, molde de
+`ciot-provider-gateway.ts`/`vpo-gateway.ts` mas SEM ESTADO — é consulta pura, não mutação a lembrar
+entre chamadas) e cria/atualiza as apólices encontradas com `evidenceSource: mock` +
+`insurance_verifications` por apólice tocada; `INSURANCE_PROVIDER_MODE=antt` ou `real` recusa com
+`501 INSURANCE_PROVIDER_NOT_CONFIGURED` — nenhuma integração técnica com seguradora/ANTT
+credenciada ainda (pendência P8 do guia: a ANTT tem cronograma de verificação automática de
+seguros, mas ele exige credenciamento). `PATCH .../apolices/{policyId}` (locking otimista) NUNCA
+edita `validFrom`/`validUntil` silenciosamente: qualquer alteração de vigência grava uma
+`insurance_verifications` NOVA com o resultado da mudança (`previousValidFrom`/`previousValidUntil`
+vs. os novos valores), mesmo a apólice em si sendo atualizada in-place (é um cadastro
+administrativo, não um histórico por tentativa). `GET .../seguros/vencimentos` alimenta o Centro
+Operacional com dois tipos de alerta: `expiring_soon` (apólices `active` vencendo em `windowDays`
+dias, default 30) e `expired_with_open_operation` (apólices `active` JÁ VENCIDAS com pelo menos uma
+`TransportOperation` NÃO-TERMINAL — status fora de `completed`/`cancelled` — vinculada ao mesmo
+transportador como `carrier`; apólice vencida sem operação em aberto não gera alerta, não é ruído
+acionável).
+
+VIGÊNCIA NA DATA DA OPERAÇÃO, não "cadastrada" — mesma distinção central de RNTRC (pendência P4):
+os 4 evaluators novos (`TR-SEG-001`/`TR-SEG-002`/`TR-SEG-003`/`TR-PGR-001`, saíram de
+`RULES_WITHOUT_EVALUATOR_YET` — que agora só tem `TR-RNTRC-003`, aguardando regulamentação ANTT)
+comparam `validFrom`/`validUntil` contra a `referenceDate` do GATE_PRE_BOARDING, nunca contra "hoje"
+isoladamente: uma apólice válida hoje mas vencida na `referenceDate` pedida é tratada como vencida.
+`TR-SEG-001`/`002` (RCTR-C/RC-DC): apólice ausente OU sem cobertura na data → `block` bruto
+`INSURANCE_<TYPE>_MISSING_OR_EXPIRED`; cobertura confirmada mas a ≤ 15 dias do vencimento → `warn
+INSURANCE_EXPIRING_SOON`; cobertura folgada → `pass`. `TR-SEG-003` (RC-V) só é aplicável quando a
+operação tem veículo vinculado — sem veículo → `not_applicable
+INSURANCE_RC_V_NOT_APPLICABLE_NO_VEHICLE`. `TR-PGR-001` exige PGR quando o carrier tem apólice
+RCTR-C OU RC-DC REGISTRADA (vínculo legal, independente da vigência daquelas — assunto dos
+evaluators de SEG); RC-V isolado não aciona a exigência; PGR ausente/sem cobertura na data → `block`
+bruto `PGR_MISSING_OR_EXPIRED`. `ctx.carrierInsurance` (`{policies, pgr}`) é carregado por
+`transport-compliance-service.ts` a partir de
+`transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` (uma consulta por tipo — a
+apólice `active` que MELHOR cobre a `referenceDate`, com fallback para a mais recente por
+`validUntil` quando nenhuma cobre) e `findApplicablePlanForParty` (mesmo racional para o PGR).
+Contrato: tag nova `Transporte - Seguros`, 7 endpoints, todos síncronos — NENHUM em
+`commandEndpoints` (sem 202 nesta camada; `apolices/verificar` responde 200 ou 501, nunca 202).
+Cobertura: `tests/unit/insurance-verification-provider.test.js` (mock determinístico por paridade
+de dígito do documento/policyNumber; `mockOverrides`; `mode: antt`/`real` →
+`INSURANCE_PROVIDER_NOT_CONFIGURED`), `tests/unit/rule-evaluators.test.js` e
+`tests/regulatory/compliance-gates.test.js` (os 4 evaluators isolados e contra o catálogo real,
+incluindo o cenário "válida hoje mas vencida na `referenceDate` pedida"), `tests/api/
+transporte-seguros.test.js` (skip-if-no-DB: CRUD de apólices/PGR, verificar populando via mock,
+PATCH de vigência gerando `insurance_verifications` nova, locking otimista 409, vencimentos com
+janela configurável + controle negativo — apólice vencida sem operação em aberto não gera alerta,
+tenancy, 401).
 
 ## 4. Riscos e limites conhecidos
 

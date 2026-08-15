@@ -912,6 +912,78 @@ para endpoints `202`/`CommandAccepted`; esta camada não tem nenhum).
 primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
 processos).
 
+## Migration 031 — Seguros e PGR Transporte (PR-F2, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). Mesmo racional
+do PR-E1 (030): este PR NÃO adiciona fila — `apolices` (criar/listar/atualizar/verificar) e `pgr`
+(criar/listar) são TODOS síncronos, zero job type novo, zero touch em
+`operation-handlers.ts`/`lib/retry.ts`/`command-response.ts`. É o QUARTO gateway externo da
+vertical (depois de `antt-rntrc-gateway.ts` no PR-C1, `ciot-provider-gateway.ts` no PR-C2 e
+`vpo-gateway.ts` no PR-D1), mas o PRIMEIRO sem estado — `insurance-verification-provider.ts` não
+tem Map por processo porque `verifyCarrier`/`verifyPolicy` são CONSULTA, não mutação (não existe
+"resposta perdida" DL-102 a reconciliar para uma leitura pura).
+
+- **`031_transport_insurance.sql`** — `insurance_policies` (PK `text` via `createPrefixedId`
+  (`inspol_`), `version` + trigger `increment_version()`), `risk_management_plans`/PGR (`pgr_`,
+  `version` + trigger) e `insurance_verifications` (`insver_`, APPEND-ONLY, sem `version` — mesmo
+  racional de `rntrc_verifications` da migration 027). Chave natural de `insurance_policies`:
+  `unique (integration_account_id, party_id, policy_type, policy_number)` — é o que
+  `POST .../apolices/verificar` usa para decidir criar vs. atualizar (upsert manual via
+  `findPolicyByNaturalKey` + `insertPolicy`/`updatePolicyById`, não um `ON CONFLICT` de banco,
+  porque o `id` é gerado ANTES de saber se a linha já existe). `insurance_policies.status`/
+  `risk_management_plans.status` são ADMINISTRATIVOS (`active|cancelled|expired_marked` e
+  `active|superseded|cancelled`, respectivamente) — a vigência REAL é sempre derivada de
+  `valid_from`/`valid_until` contra a data que importa (nunca contra `status` sozinho, e nunca
+  contra "hoje" quando o consumidor é o motor de compliance). `risk_management_plans.
+  related_policy_types` (jsonb, default `["RCTR_C","RC_DC"]`) é declarativo — quem de fato decide
+  se o PGR é EXIGIDO é o evaluator `TR-PGR-001` (`rule-evaluators.ts`), olhando se o carrier tem
+  apólice RCTR-C/RC-DC registrada, não este campo.
+
+`insurance-verification-provider.ts` (`gateways/`) declara a interface abstrata
+`InsuranceVerificationProvider` (`verifyCarrier`/`verifyPolicy`) e entrega hoje só `mode: mock` —
+sandbox determinístico por paridade de dígito do documento/`policyNumber` (par → encontrado; ímpar
+→ não encontrado; `mockOverrides` sobrepõe). `INSURANCE_PROVIDER_MODE=antt` ou `real` recusa criar
+a instância com `501 INSURANCE_PROVIDER_NOT_CONFIGURED` — nenhuma integração técnica com
+seguradora/ANTT credenciada ainda ([EXTERNAL DEPENDENCY] P8 do guia do programa: a ANTT tem
+cronograma de verificação automática de seguros, mas ele exige credenciamento que o operador ainda
+não tem).
+
+`transport-insurance-service.ts` orquestra dois caminhos de escrita por apólice: `POST .../apolices`
+(evidência MANUAL declarada por um usuário — grava a apólice + uma `insurance_verifications`
+`strategy: manual`/`verifiedBy`=usuário NUMA transação) e `POST .../apolices/verificar` (roda o
+provider; para cada apólice encontrada, upsert por chave natural + `insurance_verifications` por
+apólice tocada, `evidenceSource`/`strategy` = a origem do provider). `PATCH .../apolices/{policyId}`
+usa locking otimista (`version`, 409 em divergência) e trata `validFrom`/`validUntil` como um caso
+especial: qualquer alteração desses dois campos grava uma `insurance_verifications` NOVA com o
+resultado da mudança (`previousValidFrom`/`previousValidUntil` vs. os novos valores) — nunca edita
+vigência silenciosamente, mesmo a apólice em si sendo `UPDATE ... SET` in-place (é um cadastro
+administrativo com `version`, não um histórico por tentativa como `rntrc_verifications`).
+`GET .../seguros/vencimentos` roda duas queries (`listPoliciesExpiringSoon`/
+`listExpiredPoliciesWithOpenOperations`, ambas com `JOIN transport_parties` para o nome do
+transportador no alerta) e junta os dois tipos de resultado — a segunda faz `JOIN
+transport_operation_parties`/`transport_operations` para só alertar sobre apólice vencida quando
+existe pelo menos uma operação `NOT IN ('completed', 'cancelled')` dependendo dela (evita ruído de
+apólice vencida de operação já encerrada).
+
+4 evaluators novos em `rule-evaluators.ts` (`TR-SEG-001`, `TR-SEG-002`, `TR-SEG-003`, `TR-PGR-001`)
+saíram de `RULES_WITHOUT_EVALUATOR_YET` — que agora só tem `TR-RNTRC-003` (aguardando
+regulamentação ANTT). `ctx.carrierInsurance` (`{policies: {RCTR_C, RC_DC, RC_V}, pgr}`, recorte
+MÍNIMO — `policyNumber`/`planReference` + `validFrom`/`validUntil`, nunca condições comerciais) é
+montado por `transport-compliance-service.ts` via
+`transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` (uma consulta por tipo — a
+apólice `active` que MELHOR cobre a `referenceDate` do gate, com fallback para a mais recente por
+`valid_until` quando nenhuma cobre) e `findApplicablePlanForParty` (mesmo racional para o PGR),
+mesmo molde de `ctx.fiscalDocuments`/`ctx.vpoAllocation`.
+
+Contrato: tag nova `Transporte - Seguros`, 7 endpoints — TODOS síncronos (201 apolices/pgr, 200 os
+demais, incluindo `apolices/verificar` que responde 200 OU 501, nunca 202). NENHUM entrou em
+`commandEndpoints` de `scripts/validate-openapi.js` (essa lista é só para endpoints
+`202`/`CommandAccepted`; esta camada não tem nenhum).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
+processos).
+
 ---
 
 **Referências**:

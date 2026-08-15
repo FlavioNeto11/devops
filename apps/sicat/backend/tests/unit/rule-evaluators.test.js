@@ -195,14 +195,15 @@ describe('rule-evaluators — registro', () => {
 
     assert.strictEqual(
       withEvaluator.size,
-      21,
+      25,
       'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) + TR-VPO-002 (PR-D1) '
-        + '+ TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002/TR-CIOT-005/TR-VPO-004 (PR-E1) = 21 evaluators implementados'
+        + '+ TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002/TR-CIOT-005/TR-VPO-004 (PR-E1) '
+        + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) = 25 evaluators implementados'
     );
     assert.strictEqual(
       withoutEvaluator.size,
-      5,
-      '5 codes aguardam evaluator de fase futura (TR-RNTRC-003 aguarda regulamentação; TR-SEG-001/002/003 e TR-PGR-001 são Fase F)'
+      1,
+      'só TR-RNTRC-003 continua sem evaluator — aguarda regulamentação ANTT complementar (pendência P2 do guia)'
     );
   });
 
@@ -655,5 +656,171 @@ describe('TR-COMP-001 — conjunto mínimo para liberação aprovado', () => {
     const outcome = evaluate('TR-COMP-001', buildCompleteTacAggregate());
     assert.strictEqual(outcome.status, 'warn');
     assert.strictEqual(outcome.reasonCode, 'RELEASE_PREREQUISITES_PENDING');
+  });
+});
+
+// ===================================================================================================
+// TR-SEG-001/002/003 + TR-PGR-001 — seguros obrigatórios do transportador e PGR (PR-F2, Lei
+// 14.599/2023, NOVOS evaluators). `ctx.carrierInsurance` é montado por
+// `transport-compliance-service.ts` — aqui construído diretamente como fixture.
+// ===================================================================================================
+
+/** Fixture de `ctx.carrierInsurance.policies[type]` — apólice APLICÁVEL de um tipo. */
+function buildInsurancePolicyFixture(overrides = {}) {
+  return {
+    policyNumber: 'RCTRC-2026-000123',
+    validFrom: '2026-01-01',
+    validUntil: '2026-12-31',
+    ...overrides
+  };
+}
+
+/** Fixture de `ctx.carrierInsurance.pgr` — PGR APLICÁVEL. */
+function buildPgrFixture(overrides = {}) {
+  return {
+    planReference: 'PGR-2026-001',
+    validFrom: '2026-01-01',
+    validUntil: '2026-12-31',
+    ...overrides
+  };
+}
+
+const REFERENCE_DATE = '2026-08-13';
+
+describe('TR-SEG-001 — RCTR-C vigente', () => {
+  it('sem carrierInsurance (ctx nunca montado) → block bruto INSURANCE_RCTR_C_MISSING_OR_EXPIRED', () => {
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance: null });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RCTR_C_MISSING_OR_EXPIRED');
+  });
+
+  it('policies.RCTR_C ausente (null) → block bruto INSURANCE_RCTR_C_MISSING_OR_EXPIRED', () => {
+    const carrierInsurance = { policies: { RCTR_C: null }, pgr: null };
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RCTR_C_MISSING_OR_EXPIRED');
+  });
+
+  it('apólice vigente e folgada (não perto do vencimento) → pass', () => {
+    const carrierInsurance = { policies: { RCTR_C: buildInsurancePolicyFixture({ validUntil: '2026-12-31' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.policyNumber, 'RCTRC-2026-000123');
+  });
+
+  it('apólice vigente mas vence em <= 15 dias → warn INSURANCE_EXPIRING_SOON', () => {
+    const carrierInsurance = { policies: { RCTR_C: buildInsurancePolicyFixture({ validFrom: '2026-01-01', validUntil: '2026-08-20' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_EXPIRING_SOON');
+    assert.strictEqual(outcome.result.daysToExpiry, 7);
+  });
+
+  it('apólice VENCIDA na data de referência (válida hoje, mas não na referenceDate) → block bruto', () => {
+    const carrierInsurance = { policies: { RCTR_C: buildInsurancePolicyFixture({ validFrom: '2026-01-01', validUntil: '2026-08-01' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RCTR_C_MISSING_OR_EXPIRED');
+  });
+
+  it('apólice que só entra em vigor DEPOIS da referenceDate (ainda não vigente) → block bruto', () => {
+    const carrierInsurance = { policies: { RCTR_C: buildInsurancePolicyFixture({ validFrom: '2026-09-01', validUntil: '2027-08-31' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RCTR_C_MISSING_OR_EXPIRED');
+  });
+});
+
+describe('TR-SEG-002 — RC-DC vigente (mesmo molde de TR-SEG-001)', () => {
+  it('apólice RC_DC ausente → block bruto INSURANCE_RC_DC_MISSING_OR_EXPIRED', () => {
+    const carrierInsurance = { policies: { RC_DC: null }, pgr: null };
+    const outcome = evaluate('TR-SEG-002', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RC_DC_MISSING_OR_EXPIRED');
+  });
+
+  it('apólice RC_DC vigente e folgada → pass', () => {
+    const carrierInsurance = { policies: { RC_DC: buildInsurancePolicyFixture({ policyNumber: 'RCDC-2026-000456' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-002', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+});
+
+describe('TR-SEG-003 — RC-V vigente (aplicável só quando a operação tem veículo)', () => {
+  it('operação SEM veículo vinculado → not_applicable INSURANCE_RC_V_NOT_APPLICABLE_NO_VEHICLE', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [] });
+    const carrierInsurance = { policies: { RC_V: buildInsurancePolicyFixture({ policyNumber: 'RCV-2026-000789' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-003', aggregate, {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RC_V_NOT_APPLICABLE_NO_VEHICLE');
+  });
+
+  it('operação COM veículo e apólice RC_V vigente → pass', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [buildVehicle('traction')] });
+    const carrierInsurance = { policies: { RC_V: buildInsurancePolicyFixture({ policyNumber: 'RCV-2026-000789' }) }, pgr: null };
+    const outcome = evaluate('TR-SEG-003', aggregate, {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('operação COM veículo e SEM apólice RC_V → block bruto INSURANCE_RC_V_MISSING_OR_EXPIRED', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [buildVehicle('traction')] });
+    const carrierInsurance = { policies: { RC_V: null }, pgr: null };
+    const outcome = evaluate('TR-SEG-003', aggregate, {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_RC_V_MISSING_OR_EXPIRED');
+  });
+});
+
+describe('TR-PGR-001 — PGR vigente quando requerido (vínculo legal com RCTR-C/RC-DC)', () => {
+  it('carrier SEM RCTR-C/RC-DC registrada → not_applicable PGR_NOT_APPLICABLE_NO_LINKED_POLICY', () => {
+    const carrierInsurance = { policies: { RCTR_C: null, RC_DC: null, RC_V: buildInsurancePolicyFixture() }, pgr: null };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'PGR_NOT_APPLICABLE_NO_LINKED_POLICY');
+  });
+
+  it('RC-V isolado (sem RCTR-C/RC-DC) NÃO aciona a exigência → not_applicable', () => {
+    const carrierInsurance = { policies: { RC_V: buildInsurancePolicyFixture() }, pgr: null };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'not_applicable');
+  });
+
+  it('RCTR-C registrada (mesmo vencida) + SEM PGR → block bruto PGR_MISSING_OR_EXPIRED', () => {
+    const carrierInsurance = {
+      policies: { RCTR_C: buildInsurancePolicyFixture({ validFrom: '2020-01-01', validUntil: '2020-12-31' }) },
+      pgr: null
+    };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'PGR_MISSING_OR_EXPIRED');
+  });
+
+  it('RC-DC registrada + PGR vigente na referenceDate → pass', () => {
+    const carrierInsurance = {
+      policies: { RC_DC: buildInsurancePolicyFixture({ policyNumber: 'RCDC-2026-000456' }) },
+      pgr: buildPgrFixture()
+    };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.planReference, 'PGR-2026-001');
+  });
+
+  it('PGR com validUntil nulo (vigência indeterminada) e validFrom no passado → pass', () => {
+    const carrierInsurance = {
+      policies: { RCTR_C: buildInsurancePolicyFixture() },
+      pgr: buildPgrFixture({ validUntil: null })
+    };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('PGR JÁ VENCIDO na referenceDate → block bruto PGR_MISSING_OR_EXPIRED', () => {
+    const carrierInsurance = {
+      policies: { RCTR_C: buildInsurancePolicyFixture() },
+      pgr: buildPgrFixture({ validFrom: '2020-01-01', validUntil: '2020-12-31' })
+    };
+    const outcome = evaluate('TR-PGR-001', buildCompleteTacAggregate(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'PGR_MISSING_OR_EXPIRED');
   });
 });

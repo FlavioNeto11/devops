@@ -121,7 +121,8 @@ type ConfigKey =
   | 'rntrcGatewayCsvDownloadTimeoutMs'
   | 'rntrcGatewayCsvMaxBytes'
   | 'ciotProviderMode'
-  | 'vpoProviderMode';
+  | 'vpoProviderMode'
+  | 'insuranceProviderMode';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -210,6 +211,22 @@ function resolveVpoProviderMode(): VpoProviderMode {
   const raw = String(process.env.VPO_PROVIDER_MODE || 'mock').trim().toLowerCase();
   if (raw === 'mock' || raw === 'real') return raw;
   throw new Error(`VPO_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, real.`);
+}
+
+export type InsuranceProviderMode = 'mock' | 'antt' | 'real';
+
+/**
+ * Modo do provedor de verificação de seguros (PR-F2). `mock` (default) é o único modo com
+ * implementação — sandbox determinístico e sem estado (`gateways/insurance-verification-provider.ts`),
+ * mesma postura "aceita o valor, falha no uso" de `resolveCiotProviderMode`/`resolveVpoProviderMode`.
+ * `antt`/`real` são aceitos aqui (não lançam no boot) mas o gateway recusa criar a instância com
+ * `INSURANCE_PROVIDER_NOT_CONFIGURED` — nenhuma integração técnica com seguradora/ANTT credenciada
+ * ainda ([EXTERNAL DEPENDENCY] P8).
+ */
+function resolveInsuranceProviderMode(): InsuranceProviderMode {
+  const raw = String(process.env.INSURANCE_PROVIDER_MODE || 'mock').trim().toLowerCase();
+  if (raw === 'mock' || raw === 'antt' || raw === 'real') return raw;
+  throw new Error(`INSURANCE_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, antt, real.`);
 }
 
 export const config = {
@@ -488,5 +505,13 @@ export const config = {
    * [EXTERNAL DEPENDENCY] P6). Ver `gateways/vpo-gateway.ts`. */
   get vpoProviderMode(): VpoProviderMode {
     return getConfigValue<VpoProviderMode>('vpoProviderMode', resolveVpoProviderMode());
+  },
+
+  /* ── Provedor de verificação de seguros (PR-F2) ───────────────────────────────────────────────
+   * `mock` é o único modo implementado — nenhuma integração técnica com seguradora/ANTT
+   * credenciada ainda (pendência [EXTERNAL DEPENDENCY] P8). Ver
+   * `gateways/insurance-verification-provider.ts`. */
+  get insuranceProviderMode(): InsuranceProviderMode {
+    return getConfigValue<InsuranceProviderMode>('insuranceProviderMode', resolveInsuranceProviderMode());
   }
 };

@@ -33,11 +33,14 @@ import {
   RULE_EVALUATORS,
   RULES_WITHOUT_EVALUATOR_YET,
   applyEnforcementClamp,
+  type CarrierInsuranceEvaluationContext,
   type CarrierRntrcVerificationContext,
   type CiotOperationEvaluationContext,
   type ComplianceCheckStatus,
   type FiscalDocumentEvaluationContext,
   type FreightFloorCalculationContext,
+  type InsurancePolicyEvaluationContext,
+  type RiskManagementPlanEvaluationContext,
   type VpoAllocationEvaluationContext
 } from '../lib/transport/rule-evaluators.js';
 import type { TransportOperationAggregate } from '../lib/transport/transport-operation-types.js';
@@ -52,6 +55,11 @@ import { findVpoAllocationByOperationId } from '../repositories/vpo-repo.js';
 import type { VpoAllocation } from '../lib/transport/vpo-types.js';
 import { listFiscalDocumentsForOperation } from '../repositories/transport-fiscal-repo.js';
 import type { FiscalDocument } from '../lib/transport/dfe-types.js';
+import {
+  findApplicablePlanForParty,
+  findApplicablePolicyForPartyAndType
+} from '../repositories/transport-insurance-repo.js';
+import { INSURANCE_POLICY_TYPES } from '../lib/transport/transport-insurance-types.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -218,6 +226,33 @@ function toVpoAllocationEvaluationContext(record: VpoAllocation | null): VpoAllo
   };
 }
 
+/**
+ * Recorte de seguros/PGR do carrier vinculado à operação (PR-F2, TR-SEG-001/002/003/TR-PGR-001) —
+ * montado a partir de `transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` (uma
+ * consulta por tipo) e `findApplicablePlanForParty`. Carregado UMA vez por avaliação (não por
+ * regra), mesmo racional de `floorCalculation`/`carrierRntrcVerification` acima.
+ */
+async function buildCarrierInsuranceContext(
+  partyId: string,
+  integrationAccountId: string,
+  referenceDate: string
+): Promise<CarrierInsuranceEvaluationContext> {
+  const policies: Partial<Record<(typeof INSURANCE_POLICY_TYPES)[number], InsurancePolicyEvaluationContext | null>> = {};
+  for (const policyType of INSURANCE_POLICY_TYPES) {
+    const record = await findApplicablePolicyForPartyAndType(partyId, integrationAccountId, policyType, referenceDate);
+    policies[policyType] = record
+      ? { policyNumber: record.policyNumber, validFrom: record.validFrom, validUntil: record.validUntil }
+      : null;
+  }
+
+  const planRecord = await findApplicablePlanForParty(partyId, integrationAccountId, referenceDate);
+  const pgr: RiskManagementPlanEvaluationContext | null = planRecord
+    ? { planReference: planRecord.planReference, validFrom: planRecord.validFrom, validUntil: planRecord.validUntil }
+    : null;
+
+  return { policies, pgr };
+}
+
 /** `FiscalDocument` (repo) → recorte que `rule-evaluators.ts` conhece (PR-E1, TR-NFE-001/CTE-001/MDFE-001/002). `hasValePedagio` deriva de `vpoReferences` não-vazio (mesma extração de `dfe-parser.ts`), e `validationIssueCodes` é só a lista de `code` — nunca o objeto `DfeValidationIssue` inteiro (o evaluator não precisa da mensagem humana). */
 function toFiscalDocumentEvaluationContext(record: FiscalDocument): FiscalDocumentEvaluationContext {
   return {
@@ -240,7 +275,8 @@ async function buildCheckForRule(
   carrierTractionVehicleLinkType: string | null,
   ciotOperation: CiotOperationEvaluationContext | null,
   vpoAllocation: VpoAllocationEvaluationContext | null,
-  fiscalDocuments: FiscalDocumentEvaluationContext[]
+  fiscalDocuments: FiscalDocumentEvaluationContext[],
+  carrierInsurance: CarrierInsuranceEvaluationContext | null
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -293,7 +329,8 @@ async function buildCheckForRule(
     carrierTractionVehicleLinkType,
     ciotOperation,
     vpoAllocation,
-    fiscalDocuments
+    fiscalDocuments,
+    carrierInsurance
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -399,6 +436,13 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
   const fiscalDocumentRecords = await listFiscalDocumentsForOperation(input.operationId, input.integrationAccountId);
   const fiscalDocuments = fiscalDocumentRecords.map(toFiscalDocumentEvaluationContext);
 
+  // Carregado UMA vez por avaliação (não por regra) — só TR-SEG-001/002/003/TR-PGR-001 consomem,
+  // mesmo racional de `carrierRntrcVerification` acima (PR-F2). `undefined` (sem carrier vinculado)
+  // vira `null` — os evaluators tratam ausência de contexto igual a ausência de apólice/PGR.
+  const carrierInsurance = carrierParty
+    ? await buildCarrierInsuranceContext(carrierParty.partyId, input.integrationAccountId, referenceDate)
+    : null;
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
     checkBuilds.push(await buildCheckForRule(
@@ -410,7 +454,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       carrierTractionVehicleLinkType,
       ciotOperation,
       vpoAllocation,
-      fiscalDocuments
+      fiscalDocuments,
+      carrierInsurance
     ));
   }
 

@@ -87,6 +87,15 @@ import {
   revalidarDocumentoFiscal,
   vincularDocumentoFiscal
 } from '../services/transport-fiscal-service.js';
+import {
+  createInsurancePolicyService,
+  createRiskManagementPlanService,
+  listInsuranceExpirationAlertsService,
+  listInsurancePoliciesService,
+  listRiskManagementPlansService,
+  updateInsurancePolicyService,
+  verifyCarrierInsuranceService
+} from '../services/transport-insurance-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -540,6 +549,72 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Admin read-only: tabelas de piso carregadas (review_status, contagem de coeficientes, hash).
   router.get('/v1/transporte/piso/tabelas', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
     const response = await listFreightFloorTablesService();
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Seguros do transportador (RCTR-C/RC-DC/RC-V) e PGR (PR-F2, Lei 14.599/2023). TUDO síncrono —
+  // sem job/fila nesta fase (só `mode: 'mock'` implementado no provider, [EXTERNAL DEPENDENCY] P8).
+  // ===========================================================================================
+
+  router.post('/v1/transporte/transportadores/:partyId/apolices', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createInsurancePolicyService(
+      String(req.params.partyId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/transportadores/:partyId/apolices', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listInsurancePoliciesService(
+      String(req.params.partyId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Roda o provider (mock por ora) e cria/atualiza apólices + verificações — antes das rotas com
+  // `:policyId` para "verificar" não ser interpretado como um id de apólice.
+  router.post('/v1/transporte/transportadores/:partyId/apolices/verificar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await verifyCarrierInsuranceService(
+      String(req.params.partyId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  router.patch('/v1/transporte/transportadores/:partyId/apolices/:policyId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await updateInsurancePolicyService(
+      String(req.params.partyId || ''),
+      String(req.params.policyId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/transportadores/:partyId/pgr', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createRiskManagementPlanService(
+      String(req.params.partyId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/transportadores/:partyId/pgr', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listRiskManagementPlansService(
+      String(req.params.partyId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Alertas de vencimento para o Centro Operacional/frontend — rota fixa, não sob /transportadores.
+  router.get('/v1/transporte/seguros/vencimentos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listInsuranceExpirationAlertsService((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 }

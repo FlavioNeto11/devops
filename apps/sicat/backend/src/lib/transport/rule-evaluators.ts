@@ -19,6 +19,7 @@ import type {
 } from './transport-operation-types.js';
 import type { RegulatoryRuleVersion } from './regulatory-types.js';
 import type { RuleCode } from './regulatory-types.js';
+import type { InsurancePolicyType } from './transport-insurance-types.js';
 
 export type ComplianceCheckStatus = 'pass' | 'warn' | 'block' | 'not_applicable';
 
@@ -117,6 +118,46 @@ export type FiscalDocumentEvaluationContext = {
   hasValePedagio: boolean;
 };
 
+/**
+ * Recorte da apólice APLICÁVEL de um tipo (RCTR_C/RC_DC/RC_V) do carrier vinculado à operação
+ * (PR-F2, `insurance_policies`), montado por `transport-compliance-service.ts` a partir de
+ * `transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` — "aplicável" é a apólice que
+ * MELHOR cobre `ctx.referenceDate` (ou, na ausência de cobertura, a mais recente por `validUntil`).
+ * `null` = nenhuma apólice `active` (administrativo) registrada deste tipo para o carrier.
+ */
+export type InsurancePolicyEvaluationContext = {
+  policyNumber: string;
+  validFrom: string;
+  validUntil: string;
+};
+
+/**
+ * Recorte do PGR APLICÁVEL do carrier vinculado à operação (PR-F2, `risk_management_plans`),
+ * montado por `transport-compliance-service.ts` a partir de
+ * `transport-insurance-repo.ts#findApplicablePlanForParty`. `null` = nenhum PGR `active`
+ * (administrativo) registrado para o carrier.
+ */
+export type RiskManagementPlanEvaluationContext = {
+  planReference: string;
+  validFrom: string;
+  validUntil: string | null;
+};
+
+/**
+ * Seguros obrigatórios (Lei 14.599/2023) e PGR do carrier vinculado à operação (PR-F2). `policies`
+ * traz o recorte por tipo (`RCTR_C`/`RC_DC`/`RC_V`) — chave AUSENTE ou `null` = nenhuma apólice
+ * `active` desse tipo para o carrier (diferente de "vencida": vencida é uma apólice PRESENTE cuja
+ * janela não cobre `ctx.referenceDate` — `evaluateSeg00x` distingue os dois casos na mensagem, mas
+ * ambos resultam em `block` bruto `INSURANCE_<TYPE>_MISSING_OR_EXPIRED`). `undefined`/`null` no
+ * campo `carrierInsurance` inteiro (não só `policies`/`pgr`) = motor de compliance não carregou o
+ * contexto (não deveria acontecer em uso normal — `transport-compliance-service.ts` carrega sempre
+ * que há um carrier vinculado).
+ */
+export type CarrierInsuranceEvaluationContext = {
+  policies: Partial<Record<InsurancePolicyType, InsurancePolicyEvaluationContext | null>>;
+  pgr: RiskManagementPlanEvaluationContext | null;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
@@ -137,6 +178,8 @@ export type RuleEvaluatorContext = {
   vpoAllocation?: VpoAllocationEvaluationContext | null;
   /** Documentos fiscais (NF-e/CT-e/MDF-e) vinculados à operação (PR-E1) — lista vazia/`undefined` = nenhum documento importado ou vinculado ainda. */
   fiscalDocuments?: FiscalDocumentEvaluationContext[];
+  /** Seguros obrigatórios + PGR do carrier vinculado à operação (PR-F2) — `undefined`/`null` = sem carrier vinculado. */
+  carrierInsurance?: CarrierInsuranceEvaluationContext | null;
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -1143,6 +1186,162 @@ function evaluateVpo004(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
+// TR-SEG-001/002/003 — seguros obrigatórios do transportador (GATE_PRE_BOARDING, Lei 14.599/2023).
+// PR-F2: sai de `RULES_WITHOUT_EVALUATOR_YET` — `ctx.carrierInsurance` montado por
+// `transport-compliance-service.ts` a partir de
+// `transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` (uma consulta por tipo, a
+// apólice `active` que melhor cobre `ctx.referenceDate`). VIGÊNCIA NA DATA DA OPERAÇÃO, não "hoje":
+// uma apólice válida HOJE mas vencida na `referenceDate` (ex.: avaliação retroativa/futura) é
+// tratada como vencida — nunca como "cadastrada, logo ok" (mesmo racional de TR-RNTRC-001/pendência
+// P4 do guia do programa).
+// =================================================================================================
+
+const INSURANCE_EXPIRING_SOON_DAYS = 15;
+
+/** Dias entre duas datas `YYYY-MM-DD` (`toDate - fromDate`) — puro, sem `new Date()` do relógio real. */
+function daysBetweenDates(fromDate: string, toDate: string): number {
+  const fromMs = new Date(`${fromDate}T00:00:00Z`).getTime();
+  const toMs = new Date(`${toDate}T00:00:00Z`).getTime();
+  return Math.floor((toMs - fromMs) / 86400000);
+}
+
+/**
+ * Molde comum de TR-SEG-001/002/003: apólice ausente OU presente sem cobertura na `referenceDate`
+ * (vencida ou ainda não vigente) → `block` bruto `INSURANCE_<TYPE>_MISSING_OR_EXPIRED` (o clamp de
+ * enforcement decide se isso vira `warn` na prática — mesmo racional de todo `block` bruto desta
+ * vertical); cobertura confirmada mas a ≤15 dias do vencimento → `warn` `INSURANCE_EXPIRING_SOON`
+ * (alerta cedo, sem bloquear); cobertura folgada → `pass`.
+ */
+function evaluateInsurancePolicyRule(
+  ctx: RuleEvaluatorContext,
+  policyType: InsurancePolicyType,
+  policyLabel: string
+): RuleOutcome {
+  const policy = ctx.carrierInsurance?.policies?.[policyType] ?? null;
+  const inputs = { policyType, referenceDate: ctx.referenceDate, hasPolicy: Boolean(policy) };
+
+  if (!policy) {
+    return outcome('block', `Nenhuma apólice ${policyLabel} (${policyType}) registrada para o transportador vinculado.`, {
+      reasonCode: `INSURANCE_${policyType}_MISSING_OR_EXPIRED`,
+      inputs,
+      result: {}
+    });
+  }
+
+  const checkInputs = { ...inputs, policyNumber: policy.policyNumber, validFrom: policy.validFrom, validUntil: policy.validUntil };
+  const covers = policy.validFrom <= ctx.referenceDate && policy.validUntil >= ctx.referenceDate;
+
+  if (!covers) {
+    const label = policy.validUntil < ctx.referenceDate
+      ? `vencida em ${policy.validUntil}`
+      : `só entra em vigor em ${policy.validFrom}`;
+    return outcome(
+      'block',
+      `Apólice ${policyLabel} (${policyType}, ${policy.policyNumber}) ${label} — sem cobertura vigente na `
+        + `data de referência (${ctx.referenceDate}).`,
+      {
+        reasonCode: `INSURANCE_${policyType}_MISSING_OR_EXPIRED`,
+        inputs: checkInputs,
+        result: { policyNumber: policy.policyNumber, validUntil: policy.validUntil }
+      }
+    );
+  }
+
+  const daysToExpiry = daysBetweenDates(ctx.referenceDate, policy.validUntil);
+
+  if (daysToExpiry <= INSURANCE_EXPIRING_SOON_DAYS) {
+    return outcome(
+      'warn',
+      `Apólice ${policyLabel} (${policyType}, ${policy.policyNumber}) vigente, mas vence em ${daysToExpiry} `
+        + `dia(s) (${policy.validUntil}) — providencie a renovação.`,
+      {
+        reasonCode: 'INSURANCE_EXPIRING_SOON',
+        inputs: checkInputs,
+        result: { policyNumber: policy.policyNumber, validUntil: policy.validUntil, daysToExpiry }
+      }
+    );
+  }
+
+  return outcome(
+    'pass',
+    `Apólice ${policyLabel} (${policyType}, ${policy.policyNumber}) vigente na data de referência `
+      + `(${daysToExpiry} dia(s) para o vencimento).`,
+    {
+      inputs: checkInputs,
+      result: { policyNumber: policy.policyNumber, validUntil: policy.validUntil, daysToExpiry }
+    }
+  );
+}
+
+function evaluateSeg001(ctx: RuleEvaluatorContext): RuleOutcome {
+  return evaluateInsurancePolicyRule(ctx, 'RCTR_C', 'RCTR-C (responsabilidade civil do transportador — carga)');
+}
+
+function evaluateSeg002(ctx: RuleEvaluatorContext): RuleOutcome {
+  return evaluateInsurancePolicyRule(ctx, 'RC_DC', 'RC-DC (desaparecimento de carga)');
+}
+
+/** TR-SEG-003 (RC-V) só se aplica quando a operação tem veículo vinculado — sem veículo, nada a segurar. */
+function evaluateSeg003(ctx: RuleEvaluatorContext): RuleOutcome {
+  const hasVehicle = ctx.operation.vehicles.length > 0;
+  if (!hasVehicle) {
+    return outcome('not_applicable', 'Operação sem veículo vinculado — seguro RC-V não se aplica.', {
+      reasonCode: 'INSURANCE_RC_V_NOT_APPLICABLE_NO_VEHICLE',
+      inputs: { hasVehicle: false }
+    });
+  }
+  return evaluateInsurancePolicyRule(ctx, 'RC_V', 'RC-V (responsabilidade civil do veículo)');
+}
+
+// =================================================================================================
+// TR-PGR-001 — PGR vigente quando requerido (GATE_PRE_BOARDING, Lei 14.599/2023). PR-F2: sai de
+// `RULES_WITHOUT_EVALUATOR_YET`. Vínculo legal: PGR é exigido quando o carrier tem APÓLICE
+// REGISTRADA (independente de vigência — isso é assunto de TR-SEG-001/002, avaliados à parte) do
+// tipo RCTR-C OU RC-DC; RC-V sozinho NÃO aciona a exigência (Lei 14.599/2023 vincula PGR a essas
+// duas, não a RC-V).
+// =================================================================================================
+
+function evaluatePgr001(ctx: RuleEvaluatorContext): RuleOutcome {
+  const policies = ctx.carrierInsurance?.policies ?? {};
+  const linkedPolicyTypes: InsurancePolicyType[] = (['RCTR_C', 'RC_DC'] as const).filter((type) => Boolean(policies[type]));
+  const inputs = { linkedPolicyTypes };
+
+  if (linkedPolicyTypes.length === 0) {
+    return outcome(
+      'not_applicable',
+      'Transportador sem apólice RCTR-C/RC-DC registrada — PGR não é exigido por vínculo legal ainda.',
+      { reasonCode: 'PGR_NOT_APPLICABLE_NO_LINKED_POLICY', inputs }
+    );
+  }
+
+  const plan = ctx.carrierInsurance?.pgr ?? null;
+  if (!plan) {
+    return outcome(
+      'block',
+      `PGR exigido (transportador com ${linkedPolicyTypes.join('/')} registrada), mas nenhum PGR foi registrado.`,
+      { reasonCode: 'PGR_MISSING_OR_EXPIRED', inputs, result: {} }
+    );
+  }
+
+  const checkInputs = { ...inputs, planReference: plan.planReference, validFrom: plan.validFrom, validUntil: plan.validUntil };
+  const covers = plan.validFrom <= ctx.referenceDate && (plan.validUntil == null || plan.validUntil >= ctx.referenceDate);
+
+  if (!covers) {
+    return outcome(
+      'block',
+      `PGR (${plan.planReference}) exigido, mas sem vigência na data de referência (${ctx.referenceDate}) — `
+        + `janela declarada: ${plan.validFrom} a ${plan.validUntil ?? 'indeterminado'}.`,
+      { reasonCode: 'PGR_MISSING_OR_EXPIRED', inputs: checkInputs, result: { planReference: plan.planReference } }
+    );
+  }
+
+  return outcome('pass', `PGR (${plan.planReference}) vigente na data de referência.`, {
+    inputs: checkInputs,
+    result: { planReference: plan.planReference }
+  });
+}
+
+// =================================================================================================
 // TR-COMP-001 — conjunto mínimo para liberação aprovado (GATE_RELEASE)
 // =================================================================================================
 
@@ -1181,6 +1380,10 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-MDFE-001': evaluateMdfe001,
   'TR-MDFE-002': evaluateMdfe002,
   'TR-VPO-004': evaluateVpo004,
+  'TR-SEG-001': evaluateSeg001,
+  'TR-SEG-002': evaluateSeg002,
+  'TR-SEG-003': evaluateSeg003,
+  'TR-PGR-001': evaluatePgr001,
   'TR-COMP-001': evaluateComp001
 };
 
@@ -1209,6 +1412,10 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002 SAÍRAM deste mapa no PR-E1 (importação/validação de
  * DF-e, `ctx.fiscalDocuments` montado por `transport-compliance-service.ts` a partir de
  * `transport-fiscal-repo.ts#listFiscalDocumentsForOperation`).
+ * TR-SEG-001/002/003/TR-PGR-001 SAÍRAM deste mapa no PR-F2 (seguros obrigatórios do transportador +
+ * PGR, Lei 14.599/2023, `ctx.carrierInsurance` montado por `transport-compliance-service.ts` a
+ * partir de `transport-insurance-repo.ts#findApplicablePolicyForPartyAndType`/
+ * `findApplicablePlanForParty`).
  *
  * Único código que CONTINUA aqui: TR-RNTRC-003 — regra de revalidação anual da Lei 15.485/2026,
  * ainda sem regulamentação ANTT complementar (pendência P2 do guia; a versão do seed já nasce
@@ -1216,11 +1423,7 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * deve ser checada, não há o que um evaluator avaliaria.
  */
 export const RULES_WITHOUT_EVALUATOR_YET: Partial<Record<RuleCode, { targetPhase: string }>> = {
-  'TR-RNTRC-003': { targetPhase: 'C' },
-  'TR-SEG-001': { targetPhase: 'F' },
-  'TR-SEG-002': { targetPhase: 'F' },
-  'TR-SEG-003': { targetPhase: 'F' },
-  'TR-PGR-001': { targetPhase: 'F' }
+  'TR-RNTRC-003': { targetPhase: 'C' }
 };
 
 // =================================================================================================
