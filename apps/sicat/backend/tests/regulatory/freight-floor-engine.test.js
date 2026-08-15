@@ -136,6 +136,14 @@ after(async () => {
     await query('delete from transport_vehicles where integration_account_id = $1', [ACCOUNT]);
     await query('delete from transport_parties where integration_account_id = $1', [ACCOUNT]);
     await query('delete from integration_accounts where id = $1', [ACCOUNT]);
+
+    // Esta suíte roda o loader REAL (loadAllFreightFloorTables) e é a única dona dos dados de
+    // piso no banco de teste compartilhado — sem esta limpeza, os 150 coeficientes persistem
+    // entre execuções e poluem qualquer teste que dependa do estado das tabelas de piso
+    // (bug de ordem de execução reproduzido no PR-C1). Ordem: cálculos que referenciam versão
+    // (FK) → versões (coeficientes caem por on delete cascade).
+    await query('delete from freight_floor_calculations where floor_version_id is not null');
+    await query('delete from freight_floor_versions');
   }
   await pool.end();
 });

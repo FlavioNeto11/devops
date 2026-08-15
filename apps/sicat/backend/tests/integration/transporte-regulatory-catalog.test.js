@@ -69,13 +69,24 @@ describe('Transporte — catálogo regulatório (integração)', () => {
     const extension = await query("select 1 from pg_extension where extname = 'btree_gist'");
     assert.equal(extension.rowCount, 1, 'extensão btree_gist ausente — exclusion constraint não sustenta');
 
-    // Estrutura do piso nasce VAZIA por desenho (pendência P3: coeficiente só com revisão humana).
-    const coefficients = await query('select count(*)::int as count from freight_floor_coefficients');
-    assert.equal(coefficients.rows[0].count, 0, 'nenhum coeficiente de piso pode ser semeado no PR-A1');
+    // O invariante "piso nasce VAZIO" (pendência P3: coeficiente só com revisão humana) é sobre o
+    // SEED, não sobre o estado global da tabela: num banco de teste persistente, outra suíte pode
+    // ter rodado o loader MANUAL legitimamente (tests/regulatory/freight-floor-engine.test.js).
+    // Cobertura do invariante: meta-guarda 4 em tests/regulatory/rule-catalog-invariants.test.js
+    // (statements do seed) + o delta em torno do seed no teste de idempotência abaixo.
   });
 
   it('seed roda 2x e é idempotente (contagens iguais, nenhuma duplicata, 26 códigos)', async (t) => {
     if (skipIfNoDb(t)) return;
+
+    // Delta do piso em torno do seed: o seed não pode criar NEM remover linhas de piso,
+    // independentemente de quantas existam no banco compartilhado (forma estado-independente
+    // do antigo assert `count = 0`, que quebrava por ordem de execução dos arquivos de teste).
+    const floorBefore = await query(
+      `select
+         (select count(*)::int from freight_floor_versions) as versions,
+         (select count(*)::int from freight_floor_coefficients) as coefficients`
+    );
 
     await ensureRegulatoryCatalogSeeded();
     const first = await query(
@@ -94,6 +105,17 @@ describe('Transporte — catálogo regulatório (integração)', () => {
     );
 
     assert.deepEqual(second.rows[0], first.rows[0], 'segunda execução do seed alterou contagens');
+
+    const floorAfter = await query(
+      `select
+         (select count(*)::int from freight_floor_versions) as versions,
+         (select count(*)::int from freight_floor_coefficients) as coefficients`
+    );
+    assert.deepEqual(
+      floorAfter.rows[0],
+      floorBefore.rows[0],
+      'o seed regulatório tocou tabelas de piso — coeficiente só entra com revisão humana (P3), nunca via seed'
+    );
 
     const duplicates = await query(
       `select 'source' as kind, reference as key from regulatory_sources group by reference having count(*) > 1
