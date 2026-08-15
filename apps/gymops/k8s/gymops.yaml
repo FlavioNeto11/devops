@@ -250,6 +250,14 @@ spec:
           command: ['node', 'apps/api/dist/worker-process.js']
           envFrom:
             - secretRef: { name: gymops-config }
+          env:
+            # Paridade com a gymops-api: sem estas envs o worker de resumo de IA caia no
+            # default do codigo (OpenAI) enquanto a api conversa em Claude — provider
+            # dividido em silencio. As chaves ja estao no secret gymops-config.
+            - name: AI_PROVIDER
+              value: anthropic
+            - name: ANTHROPIC_MODEL
+              value: claude-sonnet-4-6
           resources:
             requests: { cpu: '10m', memory: '128Mi' }
             limits: { cpu: '400m', memory: '384Mi' }
