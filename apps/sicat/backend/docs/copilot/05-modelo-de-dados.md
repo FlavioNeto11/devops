@@ -144,6 +144,20 @@ Fila transacional:
 	- job longo com worker saudável (lease renovado).
 - nova migration: `src/sql/005_worker_claim_lease.sql`.
 
+**Correção (2026-08-15): o lease é do LOTE, não do job da vez**
+- `claimJobs` reivindica `WORKER_BATCH_SIZE` jobs num único update (todos `running`, todos com
+	`claim_heartbeat_at = now()`), mas o consumo é serial. Enquanto o job 1 rodava, os jobs 2..N ficavam
+	com o carimbo congelado no claim e `requeueStaleRunningJobs` — que varre a tabela inteira,
+	independentemente de dono — os devolvia para `retry_wait` passado `WORKER_CLAIM_STALE_TIMEOUT_MS`.
+	O job era reivindicado de novo e **executado duas vezes**; `manifest.submit`, `manifest.cancel` e
+	`cdf.generate` não são idempotentes na CETESB.
+- `job-runner.ts` passa a abrir **um** heartbeat para todos os jobs do lote no instante do claim
+	(`startBatchClaimHeartbeat`), soltando cada job quando ele termina.
+- o que **não** protegia: `ux_jobs_active_entity_operation` impede job ativo DUPLICADO, não a
+	reexecução da mesma linha; e `updateJobIfOwned` protege o **desfecho** (o update exige `claimed_by`
+	+ `status`), não o **efeito** — a chamada à CETESB já saiu quando o worker descobre que perdeu o
+	ownership. Cobertura em `tests/unit/job-runner-batch-claim.test.js`.
+
 ### job_dead_letter_queue
 Armazena jobs irrecuperáveis após `max_attempts`:
 - contexto completo do job
