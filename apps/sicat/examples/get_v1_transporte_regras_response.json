@@ -9,11 +9,20 @@
       "displayOrder": 80,
       "currentVersion": {
         "versionLabel": "v2026-05-universal",
+        "version": 1,
         "legalBasis": [
-          { "reference": "Res. ANTT 5.862/2019" },
-          { "reference": "Res. ANTT 6.078/2026" },
-          { "reference": "Lei 15.485/2026" },
-          { "reference": "Portaria SUROC 6/2026" }
+          {
+            "reference": "Res. ANTT 5.862/2019"
+          },
+          {
+            "reference": "Res. ANTT 6.078/2026"
+          },
+          {
+            "reference": "Lei 15.485/2026"
+          },
+          {
+            "reference": "Portaria SUROC 6/2026"
+          }
         ],
         "summary": "CIOT universal para toda operação remunerada (Res. 6.078/2026).",
         "effectiveFrom": "2026-05-24",
@@ -34,11 +43,20 @@
       "displayOrder": 90,
       "currentVersion": {
         "versionLabel": "v2026-08-baseline",
+        "version": 1,
         "legalBasis": [
-          { "reference": "Res. ANTT 5.862/2019" },
-          { "reference": "Res. ANTT 6.078/2026" },
-          { "reference": "Lei 15.485/2026" },
-          { "reference": "Portaria SUROC 6/2026" }
+          {
+            "reference": "Res. ANTT 5.862/2019"
+          },
+          {
+            "reference": "Res. ANTT 6.078/2026"
+          },
+          {
+            "reference": "Lei 15.485/2026"
+          },
+          {
+            "reference": "Portaria SUROC 6/2026"
+          }
         ],
         "summary": "CIOT registrado ANTES da liberação/início da operação.",
         "effectiveFrom": "2026-05-24",
@@ -59,11 +77,20 @@
       "displayOrder": 100,
       "currentVersion": {
         "versionLabel": "v2026-08-baseline",
+        "version": 1,
         "legalBasis": [
-          { "reference": "Res. ANTT 5.862/2019" },
-          { "reference": "Res. ANTT 6.078/2026" },
-          { "reference": "Lei 15.485/2026" },
-          { "reference": "Portaria SUROC 6/2026" }
+          {
+            "reference": "Res. ANTT 5.862/2019"
+          },
+          {
+            "reference": "Res. ANTT 6.078/2026"
+          },
+          {
+            "reference": "Lei 15.485/2026"
+          },
+          {
+            "reference": "Portaria SUROC 6/2026"
+          }
         ],
         "summary": "A responsabilidade pela declaração do CIOT segue o enquadramento da operação (Lei 15.485/2026).",
         "effectiveFrom": "2026-08-06",
@@ -84,11 +111,20 @@
       "displayOrder": 110,
       "currentVersion": {
         "versionLabel": "v2026-08-baseline",
+        "version": 1,
         "legalBasis": [
-          { "reference": "Res. ANTT 5.862/2019" },
-          { "reference": "Res. ANTT 6.078/2026" },
-          { "reference": "Lei 15.485/2026" },
-          { "reference": "Portaria SUROC 6/2026" }
+          {
+            "reference": "Res. ANTT 5.862/2019"
+          },
+          {
+            "reference": "Res. ANTT 6.078/2026"
+          },
+          {
+            "reference": "Lei 15.485/2026"
+          },
+          {
+            "reference": "Portaria SUROC 6/2026"
+          }
         ],
         "summary": "Conjunto mínimo de dados do CIOT completo e consistente (validação local de completude).",
         "effectiveFrom": "2026-08-06",
@@ -109,9 +145,14 @@
       "displayOrder": 120,
       "currentVersion": {
         "versionLabel": "v2026-08-baseline",
+        "version": 1,
         "legalBasis": [
-          { "reference": "Lei 15.485/2026" },
-          { "reference": "NT MDF-e 2026.001" }
+          {
+            "reference": "Lei 15.485/2026"
+          },
+          {
+            "reference": "NT MDF-e 2026.001"
+          }
         ],
         "summary": "CIOT referenciado no MDF-e quando exigido — cronograma da NT MDF-e 2026.001 em revisão (pendência P7 do guia).",
         "effectiveFrom": "2026-08-06",

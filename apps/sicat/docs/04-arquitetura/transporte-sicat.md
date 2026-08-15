@@ -454,10 +454,9 @@ system em nenhum dos dois PRs**:
   `TransporteRegrasView` ganha histórico de versões + promoção administrativa a bloqueante).
 - Glossário ganha DF-e, emissão sandbox e Regulatory Watch (CIOT/MDF-e/CT-e/RNTRC/VPO/piso/PGR/
   RCTR-C/RC-DC/RC-V já vinham do PR-F1).
-- **Desvio de contrato conhecido** (não deste PR — backend congelado): `TransportRuleVersionResource`
-  (histórico de regra) não expõe o `version` de locking otimista que `POST .../promover` exige; a
-  UI usa `1` (valor real de toda versão nunca promovida) e memoriza em sessão o `version` devolvido
-  por uma promoção bem-sucedida.
+- Desvio de contrato do `version` no histórico de regra: **resolvido** — `TransporteRegraVersaoResource`
+  expõe `version` (locking otimista, insumo do `POST .../promover`) em lockstep contract-first; a
+  UI consome o valor direto da linha (workaround removido).
 
 Molde geral: par MTR-Provisório (lista/detalhe + store composable + service fino).
 

@@ -147,28 +147,6 @@ const promoteReviewNotes = ref('');
 const promoteLoading = ref(false);
 const promoteError = ref('');
 
-/**
- * DESVIO CONHECIDO (contrato, não deste PR): `TransporteRegraVersaoResource`
- * (histórico) NÃO expõe o `version` interno de `regulatory_rule_versions` —
- * só o corpo de `promover` o exige, para locking otimista
- * (`src/services/transporte-regras-service.ts#toVersionResource`, backend
- * congelado nesta PR). `1` é o valor real de toda versão nunca promovida
- * (mesmo default do exemplo `promover` do OpenAPI); depois de UMA promoção
- * bem-sucedida NESTA sessão, o `version` novo devolvido na resposta é
- * lembrado aqui para a promoção/reversão seguinte da MESMA versão — sem
- * isso, um segundo clique sempre bateria em 409 `REGULATORY_RULE_VERSION_CONFLICT`.
- * Reload de página perde a memória (mesma limitação do contrato).
- */
-const casVersionCache = reactive({});
-
-function casCacheKey(code, versionLabel) {
-  return `${code}::${versionLabel}`;
-}
-
-function resolveCasVersionGuess(code, versionLabel) {
-  return casVersionCache[casCacheKey(code, versionLabel)] || 1;
-}
-
 function openPromote(version) {
   promoteTarget.value = version;
   promoteReviewNotes.value = '';
@@ -197,14 +175,13 @@ async function submitPromote() {
   promoteLoading.value = true;
   try {
     const versionLabel = promoteTarget.value.versionLabel;
-    const response = await promoteTransportRuleVersion(historyCode.value, versionLabel, {
+    // O histórico expõe `version` (locking otimista) desde a correção do contrato —
+    // o valor vem direto da linha aberta; um 409 significa alteração concorrente real.
+    await promoteTransportRuleVersion(historyCode.value, versionLabel, {
       blocking: nextBlocking,
       reviewNotes: promoteReviewNotes.value.trim(),
-      version: resolveCasVersionGuess(historyCode.value, versionLabel)
+      version: promoteTarget.value.version
     });
-    if (Number.isFinite(response?.version)) {
-      casVersionCache[casCacheKey(historyCode.value, versionLabel)] = response.version;
-    }
     notify.success(nextBlocking ? 'Versão promovida a bloqueante.' : 'Promoção revertida.');
     promoteDialog.value = false;
     await openHistory(historyCode.value);

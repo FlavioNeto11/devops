@@ -43,6 +43,8 @@ type LooseRecord = Record<string, unknown>;
 /** Shape do contrato `TransporteRegraVersaoResource` — sem ids internos nem source_hash. */
 export type TransportRuleVersionResource = {
   versionLabel: string;
+  /** Locking otimista da linha — consumido pelo body de `POST .../versoes/{versionLabel}/promover`. */
+  version: number;
   legalBasis: LegalBasisEntry[];
   summary: string;
   effectiveFrom: string;
@@ -127,6 +129,7 @@ function parseReferenceDate(value: unknown): string {
 function toVersionResource(version: RegulatoryRuleVersion): TransportRuleVersionResource {
   return {
     versionLabel: version.versionLabel,
+    version: version.version,
     legalBasis: version.legalBasis,
     summary: version.summary,
     effectiveFrom: version.effectiveFrom,
