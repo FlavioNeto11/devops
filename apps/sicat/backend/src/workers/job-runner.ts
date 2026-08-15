@@ -26,6 +26,7 @@ import {
 import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/ciot-repo.js';
 import { listUnconfirmedVpoAllocationsForReconciliation } from '../repositories/vpo-repo.js';
 import { listUnconfirmedDfeIssuancesForReconciliation } from '../repositories/dfe-issuance-repo.js';
+import { enqueueRegulatoryWatchSweep } from '../services/transport-regulatory-watch-service.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
 
@@ -600,6 +601,56 @@ async function enqueueTransporteDfeIssuanceReconcileSweepIfNeeded() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Varredura periódica do Regulatory Watch (PR-H1) — mesmo molde estrutural das sweeps acima (relógio
+// próprio, `0`/negativo desliga, falha nunca derruba o loop do worker), com UMA diferença
+// deliberada: só enfileira quando `config.regulatoryWatchMode === 'live'` — em `off` (default) nem
+// chega a criar o job, porque não há verificação real a fazer (o job SERIA um no-op limpo se
+// rodasse, mas nem vale gastar um slot de fila com isso). Default de 24h (bem mais espaçado que as
+// sweeps de reconciliação de 5min): fontes normativas não mudam de hora em hora, e o disparo manual
+// (`POST /v1/transporte/watch/verificar-agora`) cobre a urgência pontual.
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_REGULATORY_WATCH_SWEEP_DEFAULT_MS = 24 * 60 * 60 * 1000;
+
+function resolveTransporteRegulatoryWatchSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_REGULATORY_WATCH_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_REGULATORY_WATCH_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteRegulatoryWatchSweepAt = 0;
+
+export function resetTransporteRegulatoryWatchSweepClockForTests() {
+  lastTransporteRegulatoryWatchSweepAt = 0;
+}
+
+async function enqueueTransporteRegulatoryWatchSweepIfNeeded() {
+  if (config.regulatoryWatchMode !== 'live') {
+    return;
+  }
+
+  const intervalMs = resolveTransporteRegulatoryWatchSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteRegulatoryWatchSweepAt && (now - lastTransporteRegulatoryWatchSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteRegulatoryWatchSweepAt = now;
+
+  try {
+    await enqueueRegulatoryWatchSweep();
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker — mesma postura das demais varreduras.
+    console.warn(`[worker] varredura do Regulatory Watch não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
 function startClaimHeartbeat(jobId: string, workerName: string) {
   if (config.workerClaimHeartbeatMs <= 0) {
     return null;
@@ -759,6 +810,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   await enqueueTransporteCiotReconcileSweepIfNeeded();
   await enqueueTransporteVpoReconcileSweepIfNeeded();
   await enqueueTransporteDfeIssuanceReconcileSweepIfNeeded();
+  await enqueueTransporteRegulatoryWatchSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {

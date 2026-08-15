@@ -40,6 +40,14 @@ describe('rule-catalog-invariants — meta-guarda 1: ACTIVE+blocking=true exige 
     // seed (bypass do tipo via cast) sem revisão — mesmo que o SQL gerado ainda force
     // `blocking=false` (garantia de baixo nível já coberta por
     // `tests/unit/regulatory-rules-seed.test.js`), este teste é quem barra a intenção declarativa.
+    //
+    // PR-H1 (Regulatory Watch): esta guarda continua verde de propósito — ela afirma sobre o SEED,
+    // que segue 100% `blocking=false`. O ÚNICO caminho para `blocking=true` em produção passou a ser
+    // a promoção administrativa (`POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`,
+    // `promoteTransportRuleVersionService`), NUNCA o seed nem o worker do Watch (`aplicar` também
+    // força `blocking=false` na criação). A prova de que a promoção produz `block` REAL no motor de
+    // compliance — e de que ela SEMPRE exige `reviewNotes` humano — vive em
+    // `tests/regulatory/regulatory-watch-promotion-integration.test.js`, não aqui.
     for (const rule of seed.rules) {
       for (const version of rule.versions) {
         const declaredBlocking = version.blocking === true;

@@ -25,7 +25,8 @@ import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 import {
   getTransportRuleHistoryService,
   getTransportRuleService,
-  listTransportRulesService
+  listTransportRulesService,
+  promoteTransportRuleVersionService
 } from '../services/transporte-regras-service.js';
 import {
   createPartyVehicleLinkService,
@@ -101,6 +102,14 @@ import {
   listDfeIssuancesForOperationService,
   requestDfeIssuance
 } from '../services/transport-dfe-issuance-service.js';
+import {
+  applyRegulatoryWatchItemService,
+  getRegulatoryWatchItemService,
+  listRegulatoryWatchItemsService,
+  reviewRegulatoryWatchItemService,
+  triggerRegulatoryWatchCheckNowService
+} from '../services/transport-regulatory-watch-service.js';
+import { getTransportOperationsOverviewService } from '../services/transport-operations-overview-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -658,5 +667,76 @@ export function registerTransporteRoutes(router: express.Router): void {
       getOperationCommandContext(req)
     );
     res.status(202).json(response);
+  }));
+
+  // ===========================================================================================
+  // Regulatory Watch (PR-H1) — acompanhamento de fontes normativas. Fluxo DETECTED → INGESTED →
+  // AI_ANALYZED/AI_SKIPPED → HUMAN_REVIEW (tudo pelo worker, `REGULATORY_WATCH_MODE=live`) →
+  // APPROVED/REJECTED (`revisar`) → ACTIVE_APPLIED (`aplicar`, cria NOVA regulatory_rule_version
+  // SEMPRE blocking=false). `verificar-agora` dispara a MESMA varredura do worker sob demanda.
+  // ===========================================================================================
+
+  router.get('/v1/transporte/watch', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listRegulatoryWatchItemsService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  router.get('/v1/transporte/watch/:itemId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getRegulatoryWatchItemService(String(req.params.itemId || ''));
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/watch/:itemId/revisar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await reviewRegulatoryWatchItemService(
+      String(req.params.itemId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/watch/:itemId/aplicar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await applyRegulatoryWatchItemService(
+      String(req.params.itemId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // ASSÍNCRONO (202) — dispara a varredura sob demanda; dedupe por (entityType, entityId, operation)
+  // via insertJobDeduplicated — no máximo UMA varredura ativa por vez, mesmo com o worker também
+  // enfileirando periodicamente (`REGULATORY_WATCH_MODE=live`).
+  router.post('/v1/transporte/watch/verificar-agora', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await triggerRegulatoryWatchCheckNowService(
+      toHeaderMap(req.headers || {}),
+      getCorrelationId(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // ===========================================================================================
+  // Promoção administrativa de regra (PR-H1) — o ÚNICO caminho para blocking=true no catálogo.
+  // ===========================================================================================
+
+  router.post('/v1/transporte/regras/:code/versoes/:versionLabel/promover', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await promoteTransportRuleVersionService(
+      String(req.params.code || ''),
+      String(req.params.versionLabel || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Centro Operacional da vertical Transporte (PR-H1) — agregados de compliance/integrações.
+  // NÃO confundir com /v1/operations/overview (genérico, jobs/manifestos ambiental) nem com
+  // /v1/dashboard/overview (ambiental) — nenhum dos dois é tocado por esta rota.
+  // ===========================================================================================
+
+  router.get('/v1/transporte/operations/overview', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getTransportOperationsOverviewService((req.query || {}) as LooseRecord);
+    res.json(response);
   }));
 }

@@ -53,7 +53,8 @@ test('Contrato OpenAPI - CommandAccepted mantém padrão assíncrono', () => {
     '/v1/transporte/operacoes/{operationId}/ciot/encerrar',
     '/v1/transporte/operacoes/{operationId}/vpo/adquirir',
     '/v1/transporte/operacoes/{operationId}/emissoes',
-    '/v1/transporte/emissoes/{issuanceId}/cancelar'
+    '/v1/transporte/emissoes/{issuanceId}/cancelar',
+    '/v1/transporte/watch/verificar-agora'
   ];
 
   for (const endpoint of commandEndpoints) {

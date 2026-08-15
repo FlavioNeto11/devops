@@ -106,6 +106,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `030_transport_fiscal_documents.sql` | `dfe_schema_registry` (`version`+trigger, SEM tenancy), `fiscal_documents` (`version`+trigger), `fiscal_document_links` (append-only), `fiscal_document_events` (append-only) — ✅ entregue (PR-E1) | E1 |
 | `031_transport_insurance.sql` | `insurance_policies` (`version`+trigger), `risk_management_plans`/PGR (`version`+trigger), `insurance_verifications` (append-only) — ✅ entregue (PR-F2, provider `mock`) | F2 |
 | `032_transport_dfe_issuance.sql` | `dfe_issuances` (`version`+trigger), `dfe_issuance_events` (append-only) — ⚠️ entregue SANDBOX-READY (PR-G, atrás de `DFE_ISSUANCE_MODE=off`) | G |
+| `033_transport_regulatory_watch.sql` | `regulatory_watch_items` (`version`+trigger), `regulatory_watch_events` (append-only, `watch_item_id` nulo só em `check_run_no_change`) — ✅ entregue (PR-H1, backend; atrás de `REGULATORY_WATCH_MODE=off`) | H1 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -367,6 +368,53 @@ TENTATIVA — molde `ciot_operations`, não `vpo_allocations`) + `dfe_issuances_
 periódico). Lockstep: OpenAPI (tag `Transporte - Emissao Fiscal`) → `gen:operations` +
 `sync-operations-ts.mjs` → rotas → `tests/unit/dfe-issuance-gateway.test.js` +
 `tests/worker/transporte-dfe-issuance.test.js` + `tests/api/transporte-emissoes.test.js`.
+
+**PR-H1 (Fase H, Regulatory Watch + Centro Operacional):**
+
+```text
+GET  /v1/transporte/watch[?status=…]                                  (lista itens)
+GET  /v1/transporte/watch/{itemId}                                    (item + trilha de eventos)
+POST /v1/transporte/watch/{itemId}/revisar                            (human_review → approved|rejected)
+POST /v1/transporte/watch/{itemId}/aplicar                            (approved → active_applied; cria versão SEMPRE blocking=false)
+POST /v1/transporte/watch/verificar-agora                             (202 CommandAccepted — dispara a varredura sob demanda)
+POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover     (200 — ÚNICO caminho para blocking=true)
+GET  /v1/transporte/operations/overview?integrationAccountId=…        (Centro Operacional da vertical)
+```
+
+Tag `Transporte - Regulatory Watch` (+ `promover` na tag `Transporte - Regras`; `overview` na tag
+`Transporte - Operações`, sem tocar `/v1/operations/overview` nem `/v1/dashboard/overview`).
+
+Fluxo DETECTED → INGESTED → AI_ANALYZED/AI_SKIPPED → HUMAN_REVIEW → APPROVED/REJECTED →
+ACTIVE_APPLIED, produzido pelo worker (`transporte.regulatory.watch_check`, 1 job type — varredura
+periódica default 24h só quando `REGULATORY_WATCH_MODE=live`, molde das sweeps de reconciliação de
+`workers/job-runner.ts` mas dedupe em ENTIDADE GLOBAL `regulatory_watch_sweep:global`, já que a
+varredura processa TODAS as fontes monitoradas dentro do MESMO job — não uma linha por fonte).
+`regulatory-watch-gateway.ts` faz o fetch REAL da `source_url` (sha256 do corpo, etag/last-modified,
+timeout curto, User-Agent identificado); em `mode: off` devolve `{ skipped: true }` sem tocar rede
+nem lançar — NO-OP LIMPO, ao contrário do fail-closed dos demais gateways da vertical. Detecção de
+mudança compara com `source_hash` conhecido; hash igual gera só o evento `check_run_no_change` (sem
+item novo); hash diferente cria `regulatory_watch_items` (guarda o `newHash` — `source_hash` só
+muda em `aplicar`, senão uma rejeição perderia a capacidade de redetectar a MESMA mudança). Uma
+mudança já com item NÃO-TERMINAL pendente não duplica (retry do job não cria um segundo item).
+
+Passo de IA OPCIONAL: com `OPENAI_API_KEY`/`AI_CONTROL_ENABLED`, um resumo minimalista do conteúdo
+baixado (prompt fixo, NUNCA decisão) marca `ai_analyzed`; sem chave, ou em qualquer falha da
+chamada, `ai_skipped` — o job NUNCA falha por causa da IA. Ambos avançam para `human_review`.
+
+`revisar`/`aplicar` são os ÚNICOS pontos de decisão humana no ciclo do item; `aplicar` cria uma
+`regulatory_rule_version` NOVA (via `insertRuleVersion`, `regulatory-repo.ts`) SEM o campo
+`blocking` no request — nasce sempre `false`. `promover`
+(`promoteRuleVersionBlocking`/`promoteTransportRuleVersionService`) é o ÚNICO caminho para
+`blocking=true`: exige `reviewNotes` (400 sem ele) e `implementation_state='ACTIVE'` (409 caso
+contrário), grava `reviewedBy`/`reviewedAt`/`blocking` na MESMA linha — a trava de banco
+`chk_regrulev_blocking_reviewed` (migration 021) sustenta isso independentemente do código.
+
+`GET .../operations/overview` REÚSA a infraestrutura do Centro Operacional (fase 04,
+`operations-repo.ts`/`lib/operational-status.ts`) — agregados por conta (operações por status, top
+regras que mais bloqueiam na avaliação mais recente, ofertas abaixo do piso, CIOT/VPO/fiscal/seguro/
+RNTRC/jobs `transporte.*`), exceto `watch.pendingHumanReviewGlobal` (GLOBAL — o catálogo/Watch não
+tem tenancy). Passo a passo de promoção documentado em
+[`transporte-guia.md`](../30-transporte/transporte-guia.md#como-promover-uma-regra-a-bloqueante).
 
 ## 7. Motor de compliance
 

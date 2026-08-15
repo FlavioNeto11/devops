@@ -69,4 +69,5 @@ diagnostics/
 apps/sicat/backend/storage/documents/
 apps/sicat/backend/storage/transporte-dfe/
 apps/sicat/backend/storage/transporte-dfe-issuance/
+apps/sicat/backend/storage/regulatory-watch/
 apps/sicat/backend/docs/copilot/auditoria-links-quebrados.md

@@ -226,7 +226,9 @@ const IRREGULAR_RNTRC_RESULT_STATUSES = new Set(['suspended', 'cancelled', 'expi
  * tenha sido `active` — o mundo pode ter mudado desde então, e nem `open_data` nem `manual` provam
  * o contrário retroativamente.
  */
-const RNTRC_VERIFICATION_FRESHNESS_DAYS = 90;
+// Exportado (PR-H1): reaproveitado por `transport-operations-overview-repo.ts` para o sinal "RNTRC
+// stale" do Centro Operacional — MESMO limite do motor de compliance, não uma constante duplicada.
+export const RNTRC_VERIFICATION_FRESHNESS_DAYS = 90;
 
 /** Dias entre `referenceDate` (YYYY-MM-DD) e um timestamp ISO qualquer — puro, sem `new Date()` do relógio real. */
 function daysBetween(referenceDate: string, isoTimestamp: string): number {

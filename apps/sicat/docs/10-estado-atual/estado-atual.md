@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2); Fase G (emissão de DF-e) entregue SANDBOX-READY atrás de `DFE_ISSUANCE_MODE=off` (PR-G)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2); Fase G (emissão de DF-e) entregue SANDBOX-READY atrás de `DFE_ISSUANCE_MODE=off` (PR-G); Fase H parte 1 (Regulatory Watch + Centro Operacional da vertical) entregue no BACKEND, atrás de `REGULATORY_WATCH_MODE=off` (PR-H1) — frontend do fluxo humano fica para o PR-H2
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -1022,6 +1022,50 @@ idempotência de retry, falha local → `failed_validation`, resposta perdida �
 reconcile encontra → autoriza+importa, reconcile not-found, cancelar), `tests/api/
 transporte-emissoes.test.js` (skip-if-no-DB: 202/flag off 409/operação cancelada 409/documentType
 ausente 400/listagem+eventos/idempotência/tenancy/401).
+
+O PR-H1 entregou a **primeira parte da Fase H** (Regulatory Watch + Centro Operacional da vertical),
+só backend — o frontend do fluxo de aprovação humana e das telas de analytics ficam para o PR-H2.
+Migration [`033`](../../backend/src/sql/033_transport_regulatory_watch.sql) cria
+`regulatory_watch_items` (`version`+trigger, uma linha por MUDANÇA DETECTADA) e
+`regulatory_watch_events` (append-only; `watch_item_id` nulo só no evento
+`check_run_no_change`, que carrega `source_id` direto — a varredura sem mudança não cria item).
+Fluxo DETECTED → INGESTED → AI_ANALYZED/AI_SKIPPED → HUMAN_REVIEW → APPROVED/REJECTED →
+ACTIVE_APPLIED (`tested`/`scheduled` reservados, sem rota nesta fase — mesmo desenho de
+`RULES_WITHOUT_EVALUATOR_YET`). [`regulatory-watch-gateway.ts`](../../backend/src/gateways/regulatory-watch-gateway.ts)
+é o ÚNICO ponto autorizado a baixar uma `source_url`: sha256 do corpo + etag/last-modified,
+`REGULATORY_WATCH_MODE` `off` (default — devolve `{ skipped: true }` SEM tocar rede nem lançar, ao
+contrário do fail-closed dos demais gateways da vertical) `|` `live` (HTTP real, timeout curto,
+User-Agent identificado). 1 job type (`transporte.regulatory.watch_check`) processa TODAS as
+fontes monitoradas num único job (dedupe por entidade GLOBAL `regulatory_watch_sweep:global` via
+`insertJobDeduplicated` — nunca duas varreduras em voo ao mesmo tempo), enfileirado pela varredura
+periódica de `workers/job-runner.ts` (default 24h, só quando `mode=live`) e pelo comando manual
+`POST /v1/transporte/watch/verificar-agora` (202). Cada fonte é isolada em `try/catch` dentro do
+job — uma fonte fora do ar nunca derruba a varredura das demais nem o job inteiro. Passo de IA
+OPCIONAL: sem `OPENAI_API_KEY`/`AI_CONTROL_ENABLED`, ou em qualquer falha da chamada, o item pula
+para `ai_skipped` — o job NUNCA falha por causa da IA; o prompt é fixo e minimalista (resume o
+conteúdo baixado, NUNCA decide). `revisar` (`human_review` → `approved`/`rejected`) e `aplicar`
+(`approved` → `active_applied`, cria uma `regulatory_rule_version` NOVA SEMPRE `blocking=false` — o
+campo nem existe no request) são os únicos pontos de decisão humana no ciclo do item. **O ÚNICO
+caminho para `blocking=true` no catálogo inteiro** é a promoção administrativa
+(`POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`,
+[`promoteTransportRuleVersionService`](../../backend/src/services/transporte-regras-service.ts)) —
+exige `reviewNotes` (400 sem ele) e versão `ACTIVE` (409 caso contrário), grava
+`reviewedBy`/`reviewedAt`/`blocking` na mesma linha de `regulatory_rule_versions`, sustentado pela
+trava de banco `chk_regrulev_blocking_reviewed` (migration 021) independentemente do código. Prova
+de ponta a ponta em `tests/regulatory/regulatory-watch-promotion-integration.test.js`: promove
+`TR-PMF-002` via o service real, confirma que o motor de compliance passa a produzir `block` REAL
+(sem clamp) para uma oferta abaixo do piso, e restaura o catálogo global no `finally`.
+`GET /v1/transporte/operations/overview` (tag `Transporte - Operações`, NÃO tocando
+`/v1/operations/overview` nem `/v1/dashboard/overview`) reúsa a infraestrutura do Centro
+Operacional (fase 04) para agregados por conta (operações por status, top regras que mais
+bloqueiam, ofertas abaixo do piso, CIOT/VPO/fiscal/seguro/RNTRC/jobs `transporte.*`), com
+`watch.pendingHumanReviewGlobal` como a única métrica GLOBAL (o catálogo/Watch não tem tenancy).
+Cobertura: `tests/unit/regulatory-watch-gateway.test.js` (hash/etag/off no-op),
+`tests/worker/transporte-regulatory-watch.test.js` (skip-if-no-DB: detecção, sem mudança, dedupe
+de retry, `mode=off`, múltiplas fontes com uma fora do ar), `tests/api/transporte-watch.test.js`
+(skip-if-no-DB: CRUD do fluxo + promoção 400/404/409/200 + `verificar-agora` 202/idempotência),
+`tests/api/transporte-operations-overview.test.js` (skip-if-no-DB: agregados por conta + conta
+vazia).
 
 ## 4. Riscos e limites conhecidos
 
