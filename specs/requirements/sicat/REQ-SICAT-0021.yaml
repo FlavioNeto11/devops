@@ -1,0 +1,51 @@
+id: REQ-SICAT-0021
+slug: req-sicat-0021
+title: "Transporte: experiência operacional mínima (navegação, operações, painel de conformidade, regras)"
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve oferecer, no frontend do SICAT, a vertical Transporte mínima: grupo de navegação
+  próprio (atrás de feature flag), listagem e ficha de operações de transporte com painel de
+  conformidade que responde imediatamente "pode avançar?" exibindo PASS/WARN/BLOCK/NOT_APPLICABLE
+  por requisito (com regra, base normativa, motivo e ação corretiva), e tela read-only do catálogo
+  de regras regulatórias — tudo com o design system Sicat* existente.
+business_rationale: >-
+  O painel de conformidade é a validação visual do motor de gates (coração do produto) e o
+  primeiro asset de demonstração comercial da vertical (baseline deep-research 2026-08-13, "UX
+  proposta").
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: medium
+architectural_significance: false
+capability_blocks:
+  - design-system
+acceptance_criteria:
+  - "Status exibidos exclusivamente via SicatStatusBadge com domínios novos em lib/status-map.js (transport-operation, compliance: pass→success, warn→warning, block→error, not_applicable→neutral)."
+  - "Painel de conformidade componível com componentes Sicat* existentes (SicatCard, SicatInlineAlert, SicatStatusBadge, SicatStatusTimeline) — sem componente novo de design system nesta onda."
+  - "Cada bloqueio exibido informa o que ocorreu, qual regra, qual base normativa, qual ação corrige e quando foi validado."
+  - "Navegação e rotas espelhadas (config/navigation.js + router meta), com PREFIX_MATCH_PATHS cobrindo /transporte/*; glossário ganha CIOT, MDF-e, CT-e, RNTRC, VPO, piso mínimo, PGR, RCTR-C/RC-DC/RC-V."
+  - "Smoke Playwright cobre lista → ficha → painel de conformidade."
+verification_method: [test-unit, test-e2e, demo]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0019
+  - type: depends_on
+    target: REQ-SICAT-0020
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-frontend

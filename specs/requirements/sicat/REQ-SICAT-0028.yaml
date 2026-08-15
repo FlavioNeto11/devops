@@ -1,0 +1,53 @@
+id: REQ-SICAT-0028
+slug: req-sicat-0028
+title: "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve registrar e verificar, conforme aplicabilidade, os seguros obrigatórios do
+  transportador (RCTR-C, RC-DC e RC-V — Lei 14.599/2023) e o Plano de Gerenciamento de Riscos
+  (PGR) vinculado às coberturas pertinentes, checando vigência na data da operação (não apenas
+  "seguro cadastrado") por meio de uma interface InsuranceVerificationProvider com estratégias
+  intercambiáveis (integração ANTT quando disponível, seguradora/parceiro, evidência manual,
+  override administrativo autorizado), alimentando o gate de pré-liberação e alertas de expiração.
+business_rationale: >-
+  Verificação automática de seguros no contexto do RNTRC tem cronograma ANTT em 2026, mas nenhum
+  endpoint oficial deve ser presumido publicamente acessível sem credenciamento; minimizar dados
+  pessoais de análise de risco (LGPD) (baseline deep-research 2026-08-13, "Seguros e PGR"). Fase F
+  do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+risk_tags: [external-dependency]
+capability_blocks:
+  - gateway-externo
+acceptance_criteria:
+  - "Integração ANTT-seguros ou parceiro segurador é pendência P8 do guia [EXTERNAL DEPENDENCY]; fallback de evidência manual sempre disponível com fonte explícita."
+verification_method: [test-integration, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0019
+  - type: depends_on
+    target: REQ-SICAT-0024
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase F)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

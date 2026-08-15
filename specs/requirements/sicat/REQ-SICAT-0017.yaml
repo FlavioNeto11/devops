@@ -1,0 +1,60 @@
+id: REQ-SICAT-0017
+slug: req-sicat-0017
+title: "Transporte: bounded context e agregado TransportOperation com máquina de estados"
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve introduzir o bounded context Transporte com o agregado TransportOperation e
+  máquina de estados explícita (draft → validating → blocked/ready_for_contract → contracted →
+  ciot_pending → ciot_registered → fiscal_pending → ready_for_release → in_transit →
+  completion_pending → completed, com cancelamento a partir de estados não terminais), separado do
+  domínio ambiental MTR/CDF/DMR, sem reutilizar as entidades de manifesto ambiental e sem alterar o
+  gateway CETESB; toda transição de estado ocorre exclusivamente via comando explícito que passa
+  pelo gate de compliance aplicável.
+business_rationale: >-
+  O MTR do SICAT ambiental é Manifesto de Transporte de Resíduos (CETESB); o domínio de transporte
+  rodoviário remunerado de cargas (CIOT, MDF-e, CT-e, RNTRC) tem semântica distinta — misturar os
+  dois produziria dívida arquitetural grave (baseline deep-research 2026-08-13, seção "O principal
+  cuidado de domínio").
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks:
+  - camadas-rigidas
+  - migrations-versionadas
+acceptance_criteria:
+  - "Novo conjunto de tabelas transport_* (operations, parties, vehicles, cargo, routes) sem FK ou reuso de entidades ambientais (manifests, dmr_declarations); roles do domínio em inglês (carrier, contractor, shipper, subcontractor)."
+  - "Máquina de estados declarada em módulo puro (lib), com grafo completo documentado; apenas transições da Fase A expostas por API; estados a partir de ciot_pending inalcançáveis até as fases C+."
+  - "Impossível transicionar status arbitrariamente: PATCH rejeita campo status (422); escrita de status só via compare-and-swap (from-status + version) com 409 em conflito; comando exige gate quando declarado."
+  - "Toda tabela nova segue o padrão de persistência do SICAT: PK text prefixada, coluna version com trigger increment_version(), correlation_id, FKs para integration_accounts/session_contexts quando aplicável."
+  - "Isolamento por integration_account_id em todas as consultas do domínio Transporte."
+verification_method: [test-unit, test-integration, architecture-review]
+links:
+  - type: relates_to
+    target: REQ-SICAT-0002
+    note: "Contraste deliberado: MTR ambiental (CETESB) não é MDF-e; nenhuma entidade é compartilhada."
+  - type: depends_on
+    target: REQ-SICAT-0018
+    note: "Transições guardadas dependem do catálogo regulatório temporal."
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

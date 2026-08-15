@@ -1,0 +1,51 @@
+id: REQ-SICAT-NFR-0009
+slug: req-sicat-nfr-0009
+title: Reprodutibilidade temporal das decisões regulatórias (time-travel)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve atender ao atributo de qualidade "reprodutibilidade temporal": toda decisão de
+  compliance e todo cálculo regulatório da vertical Transporte referenciam a versão da regra
+  vigente na data de referência e permanecem reproduzíveis bit a bit depois que novas versões,
+  tabelas ou coeficientes entrarem em vigor; nenhuma operação histórica é reprocessada
+  silenciosamente com regra nova.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+quality_scenarios:
+  - source: Operador da ANTT publica atualização de tabela de piso / nova resolução
+    stimulus: Nova regulatory_rule_version (ou freight_floor_version) entra em vigor com effective_from posterior a operações já avaliadas
+    environment: Produção, com avaliações de compliance e cálculos de piso persistidos com snapshot
+    artifact: compliance_evaluations/compliance_checks e freight_floor_calculations com rule_version e inputs_snapshot congelados
+    response: Reavaliar/reconsultar uma operação histórica com a mesma reference_date resolve a MESMA versão de regra e produz o MESMO resultado; a versão nova só afeta operações com reference_date dentro da sua vigência
+    response_measure: 100% das decisões referenciam rule_version explícita; testes de fronteira temporal (23/24/25-05-2026 e 05/06/07-08-2026) verdes; zero reprocessamento retroativo silencioso detectado em auditoria
+verification_method: [test-unit, test-integration]
+links:
+  - type: constrains
+    target: REQ-SICAT-0018
+  - type: constrains
+    target: REQ-SICAT-0019
+  - type: constrains
+    target: REQ-SICAT-0022
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

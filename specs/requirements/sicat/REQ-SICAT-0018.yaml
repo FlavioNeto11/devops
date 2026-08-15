@@ -1,0 +1,51 @@
+id: REQ-SICAT-0018
+slug: req-sicat-0018
+title: "Transporte: catálogo regulatório temporal (fontes, regras TR-*, versões) com aprovação humana"
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve manter um catálogo regulatório temporal — regulatory_sources, regulatory_rules
+  (códigos estáveis TR-*) e regulatory_rule_versions com effective_from/effective_until e estados
+  DRAFT/UNDER_REVIEW/ACTIVE/FUTURE/SUPERSEDED/REVOKED/AWAITING_REGULATION — capaz de responder
+  "qual regra valia nesta data?", em que nenhuma regra se torna bloqueante sem aprovação humana
+  registrada (reviewed_by/reviewed_at) e base legal citada.
+business_rationale: >-
+  As normas de 2026 (Lei 15.485/2026, Res. ANTT 6.078/2026, Portaria SUROC 6/2026) estão em
+  transição regulatória com disposições transitórias e veto parcial (Veto 43/2026); regras legais
+  não podem virar if/else espalhado nem constante compilada (baseline deep-research 2026-08-13,
+  seções "Catálogo de regras regulatórias" e "Mapa regulatório").
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks:
+  - migrations-versionadas
+acceptance_criteria:
+  - "Seed idempotente e aditivo contém as 26 regras do catálogo inicial (TR-RNTRC-001..003, TR-PMF-001..004, TR-CIOT-001..005, TR-PAY-001, TR-VPO-001..004, TR-NFE-001, TR-CTE-001, TR-MDFE-001..002, TR-SEG-001..003, TR-PGR-001, TR-COMP-001), todas nascendo com blocking=false; implementation_state/blocking/reviewed_by ficam fora de todo do update do seed."
+  - "Constraint de banco impede regra ACTIVE com blocking=true sem reviewed_by/reviewed_at preenchidos."
+  - "Versões de uma mesma regra não se sobrepõem no tempo (constraint de exclusão temporal ou validação equivalente com teste)."
+  - "Consulta temporal resolveRuleVersionAt(code, date) devolve a versão vigente na data — coberta por testes nas fronteiras 23/24/25-05-2026 (universalização do CIOT) e 05/06/07-08-2026 (Lei 15.485/2026)."
+  - "Nenhuma mudança de regulatory_rule_version entra sem fixture de teste demonstrando o comportamento anterior e o posterior à vigência."
+  - "Coeficiente de piso mínimo jamais é constante em código nem entra por seed sem revisão humana."
+verification_method: [test-unit, test-integration, manual-review]
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

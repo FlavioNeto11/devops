@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "623d97c1ebfcd71e312b558e1ca200abd8e7d27a2cc8e592c6c35d64646f6d47",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 381,
+    "total": 400,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -23,17 +23,20 @@
       "portal": 21,
       "portal-recorder": 19,
       "reqhub": 20,
-      "sicat": 24,
+      "sicat": 43,
       "specs": 18,
       "traefik": 16,
       "zapbridge": 13
     },
     "by_status": {
-      "approved": 381
+      "approved": 388,
+      "proposed": 3,
+      "draft": 9
     },
     "by_type": {
-      "functional": 270,
-      "non-functional": 111
+      "functional": 284,
+      "non-functional": 115,
+      "business-rule": 1
     },
     "refinements": {
       "total": 63,
@@ -12566,6 +12569,1001 @@
       "file": "requirements/sicat/REQ-SICAT-0016.yaml"
     },
     {
+      "id": "REQ-SICAT-0017",
+      "slug": "req-sicat-0017",
+      "title": "Transporte: bounded context e agregado TransportOperation com máquina de estados",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve introduzir o bounded context Transporte com o agregado TransportOperation e máquina de estados explícita (draft → validating → blocked/ready_for_contract → contracted → ciot_pending → ciot_registered → fiscal_pending → ready_for_release → in_transit → completion_pending → completed, com cancelamento a partir de estados não terminais), separado do domínio ambiental MTR/CDF/DMR, sem reutilizar as entidades de manifesto ambiental e sem alterar o gateway CETESB; toda transição de estado ocorre exclusivamente via comando explícito que passa pelo gate de compliance aplicável.",
+      "business_rationale": "O MTR do SICAT ambiental é Manifesto de Transporte de Resíduos (CETESB); o domínio de transporte rodoviário remunerado de cargas (CIOT, MDF-e, CT-e, RNTRC) tem semântica distinta — misturar os dois produziria dívida arquitetural grave (baseline deep-research 2026-08-13, seção \"O principal cuidado de domínio\").",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Novo conjunto de tabelas transport_* (operations, parties, vehicles, cargo, routes) sem FK ou reuso de entidades ambientais (manifests, dmr_declarations); roles do domínio em inglês (carrier, contractor, shipper, subcontractor).",
+        "Máquina de estados declarada em módulo puro (lib), com grafo completo documentado; apenas transições da Fase A expostas por API; estados a partir de ciot_pending inalcançáveis até as fases C+.",
+        "Impossível transicionar status arbitrariamente: PATCH rejeita campo status (422); escrita de status só via compare-and-swap (from-status + version) com 409 em conflito; comando exige gate quando declarado.",
+        "Toda tabela nova segue o padrão de persistência do SICAT: PK text prefixada, coluna version com trigger increment_version(), correlation_id, FKs para integration_accounts/session_contexts quando aplicável.",
+        "Isolamento por integration_account_id em todas as consultas do domínio Transporte."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration",
+        "architecture-review"
+      ],
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0002",
+          "note": "Contraste deliberado: MTR ambiental (CETESB) não é MDF-e; nenhuma entidade é compartilhada."
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0018",
+          "note": "Transições guardadas dependem do catálogo regulatório temporal."
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0017.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0018",
+      "slug": "req-sicat-0018",
+      "title": "Transporte: catálogo regulatório temporal (fontes, regras TR-*, versões) com aprovação humana",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve manter um catálogo regulatório temporal — regulatory_sources, regulatory_rules (códigos estáveis TR-*) e regulatory_rule_versions com effective_from/effective_until e estados DRAFT/UNDER_REVIEW/ACTIVE/FUTURE/SUPERSEDED/REVOKED/AWAITING_REGULATION — capaz de responder \"qual regra valia nesta data?\", em que nenhuma regra se torna bloqueante sem aprovação humana registrada (reviewed_by/reviewed_at) e base legal citada.",
+      "business_rationale": "As normas de 2026 (Lei 15.485/2026, Res. ANTT 6.078/2026, Portaria SUROC 6/2026) estão em transição regulatória com disposições transitórias e veto parcial (Veto 43/2026); regras legais não podem virar if/else espalhado nem constante compilada (baseline deep-research 2026-08-13, seções \"Catálogo de regras regulatórias\" e \"Mapa regulatório\").",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Seed idempotente e aditivo contém as 26 regras do catálogo inicial (TR-RNTRC-001..003, TR-PMF-001..004, TR-CIOT-001..005, TR-PAY-001, TR-VPO-001..004, TR-NFE-001, TR-CTE-001, TR-MDFE-001..002, TR-SEG-001..003, TR-PGR-001, TR-COMP-001), todas nascendo com blocking=false; implementation_state/blocking/reviewed_by ficam fora de todo do update do seed.",
+        "Constraint de banco impede regra ACTIVE com blocking=true sem reviewed_by/reviewed_at preenchidos.",
+        "Versões de uma mesma regra não se sobrepõem no tempo (constraint de exclusão temporal ou validação equivalente com teste).",
+        "Consulta temporal resolveRuleVersionAt(code, date) devolve a versão vigente na data — coberta por testes nas fronteiras 23/24/25-05-2026 (universalização do CIOT) e 05/06/07-08-2026 (Lei 15.485/2026).",
+        "Nenhuma mudança de regulatory_rule_version entra sem fixture de teste demonstrando o comportamento anterior e o posterior à vigência.",
+        "Coeficiente de piso mínimo jamais é constante em código nem entra por seed sem revisão humana."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration",
+        "manual-review"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0018.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0019",
+      "slug": "req-sicat-0019",
+      "title": "Transporte: motor de compliance com gates e decisões evidenciadas",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve avaliar a conformidade de uma TransportOperation por gates nomeados (GATE_PROPOSAL, GATE_CONTRACT, GATE_CIOT, GATE_FISCAL, GATE_PRE_BOARDING, GATE_RELEASE, GATE_IN_TRANSIT, GATE_COMPLETION) que retornam, por regra aplicável, PASS/WARN/BLOCK/ NOT_APPLICABLE com ruleCode, versão da regra, base legal, reasonCode, mensagem humana e evidências persistidas; integrações externas trazem fatos e somente o motor de compliance decide se uma transição é permitida.",
+      "business_rationale": "A direção regulatória de 2026 é preventiva (CIOT universalizado, bloqueio sistêmico de operações abaixo do piso, responsabilização de plataformas que intermedeiam ofertas irregulares): o diferencial do produto é impedir que a operação avance sem saber, demonstrar e registrar por que está conforme (baseline deep-research 2026-08-13, \"Um Compliance Gate separado das integrações\").",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Avaliação persiste compliance_evaluations (append-only) com reference_date distinta de evaluated_at, snapshot do agregado, engine_version e correlation_id; checks individuais congelam legal_basis, inputs e resultado.",
+        "Regra sem versão vigente na reference_date resulta NOT_APPLICABLE com reasonCode RULE_NOT_YET_EFFECTIVE ou RULE_NO_LONGER_EFFECTIVE — nunca erro nem bloqueio.",
+        "Clamp de enforcement: regra com implementation_state != ACTIVE ou blocking=false nunca produz BLOCK efetivo; o resultado bruto é preservado em raw_status para auditoria com reasonCode RULE_NOT_ENFORCEABLE.",
+        "Transição de estado com gate exigido só ocorre com avaliação fresh sem BLOCK; bloqueio responde 409 application/problem+json com os checks bloqueantes.",
+        "Avaliações são reprodutíveis: reavaliar com a mesma reference_date e mesmo snapshot produz o mesmo resultado mesmo após novas versões de regra entrarem em vigor."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0017"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0018"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0014",
+          "note": "Reutiliza a trilha de auditoria técnica correlacionada por correlationId."
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0019.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0020",
+      "slug": "req-sicat-0020",
+      "title": "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve expor a vertical Transporte sob /v1/transporte/* seguindo o contract-first do SICAT (OpenAPI, exemplos e operações geradas em lockstep no mesmo PR): CRUD de operações de transporte, consulta e disparo de avaliação de conformidade, catálogo de regras regulatórias (com filtro de vigência por data) e cadastros de transportadores/veículos; comandos honram Idempotency-Key, preservam correlationId e retornam erro em application/problem+json.",
+      "business_rationale": "Manter o padrão de contrato auditável do SICAT para a vertical nova, em vez de controladores especiais fora da arquitetura (baseline deep-research 2026-08-13, \"APIs propostas\").",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "contract-openapi",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Toda rota nova de /v1/transporte/* nasce atrás de sicatAuthMiddleware e com chave RBAC própria (transporte.read para leitura, transporte.write para mutação), sem alargar o papel-piso sicat.reader.",
+        "GET /v1/transporte/regras aceita filtro vigenteEm e devolve a versão da regra resolvida na data.",
+        "Alterações de superfície HTTP evoluem OpenAPI, exemplos, operações geradas (os dois geradores), rotas e testes de contrato no mesmo PR; npm run validate:openapi permanece verde.",
+        "Na Fase A não há job type novo: avaliação de conformidade é síncrona (200); o padrão 202/command-accepted entra quando houver integração externa (Fase C)."
+      ],
+      "verification_method": [
+        "test-integration",
+        "test-unit"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0017"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0020.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0021",
+      "slug": "req-sicat-0021",
+      "title": "Transporte: experiência operacional mínima (navegação, operações, painel de conformidade, regras)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve oferecer, no frontend do SICAT, a vertical Transporte mínima: grupo de navegação próprio (atrás de feature flag), listagem e ficha de operações de transporte com painel de conformidade que responde imediatamente \"pode avançar?\" exibindo PASS/WARN/BLOCK/NOT_APPLICABLE por requisito (com regra, base normativa, motivo e ação corretiva), e tela read-only do catálogo de regras regulatórias — tudo com o design system Sicat* existente.",
+      "business_rationale": "O painel de conformidade é a validação visual do motor de gates (coração do produto) e o primeiro asset de demonstração comercial da vertical (baseline deep-research 2026-08-13, \"UX proposta\").",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Status exibidos exclusivamente via SicatStatusBadge com domínios novos em lib/status-map.js (transport-operation, compliance: pass→success, warn→warning, block→error, not_applicable→neutral).",
+        "Painel de conformidade componível com componentes Sicat* existentes (SicatCard, SicatInlineAlert, SicatStatusBadge, SicatStatusTimeline) — sem componente novo de design system nesta onda.",
+        "Cada bloqueio exibido informa o que ocorreu, qual regra, qual base normativa, qual ação corrige e quando foi validado.",
+        "Navegação e rotas espelhadas (config/navigation.js + router meta), com PREFIX_MATCH_PATHS cobrindo /transporte/*; glossário ganha CIOT, MDF-e, CT-e, RNTRC, VPO, piso mínimo, PGR, RCTR-C/RC-DC/RC-V.",
+        "Smoke Playwright cobre lista → ficha → painel de conformidade."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "demo"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0020"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-frontend"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0021.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0022",
+      "slug": "req-sicat-0022",
+      "title": "Transporte: FreightFloorEngine — cálculo de piso mínimo versionado com snapshot reproduzível",
+      "type": "functional",
+      "status": "proposed",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve calcular o piso mínimo de frete (Política Nacional de Pisos Mínimos — Lei 13.703/2018, Res. ANTT 5.867/2020 e atualizações) usando exclusivamente tabelas/coeficientes versionados no catálogo (freight_floor_versions/coefficients) com vigência temporal, registrando para cada cálculo um snapshot completo (versão normativa, coeficientes, rota, distância, tipo de carga, configuração de eixos, valores e trace) que permaneça reproduzível mesmo após novas tabelas entrarem em vigor; um Applicability Engine determina se a operação está juridicamente sujeita ao piso antes de qualquer cálculo.",
+      "business_rationale": "Coeficiente de piso jamais pode ser constante compilada; operação de agosto não muda de resultado porque tabela de novembro substituiu coeficientes (baseline deep-research 2026-08-13, \"Piso mínimo de frete\"). Fase B do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Nenhum coeficiente hardcoded; tabela entra no catálogo apenas com review_status=reviewed (revisão humana) — pendência P3 do guia [LEGAL REVIEW REQUIRED].",
+        "Cálculo persiste freight_floor_calculations com rule_version, inputs_snapshot, minimum_amount, offered_amount, compliant e calculation_trace.",
+        "Testes cobrem: data histórica usa a tabela vigente na data; oferta exatamente no piso; abaixo do piso; enquadramento e não-enquadramento (carga lotação vs demais); mudança normativa com fixtures antes/depois."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0018"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase B)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0022.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0023",
+      "slug": "req-sicat-0023",
+      "title": "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável",
+      "type": "business-rule",
+      "status": "proposed",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "Quando a operação estiver juridicamente sujeita ao piso mínimo, o sistema deve impedir a publicação/oferta (GATE_PROPOSAL — regra TR-PMF-002) e a contratação (GATE_CONTRACT — regra TR-PMF-003) com valor inferior ao piso vigente na data, registrando a decisão com base legal, versão da regra e evidência de cálculo; a validação ocorre antes da oferta, não apenas na liberação do transporte.",
+      "business_rationale": "A Lei 15.485/2026 sujeita às sanções do piso também quem anuncia, oferta, publica ou intermedeia frete abaixo do mínimo — incluindo plataformas digitais; o gate precisa agir antes da publicação (baseline deep-research 2026-08-13, \"Conclusão executiva\"). Promoção a bloqueante segue o rito: legal review resolvido + fixtures antes/depois + canário em WARN em produção.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "risk_tags": [
+        "legal-review-required"
+      ],
+      "acceptance_criteria": [
+        "TR-PMF-002/003 só passam a blocking=true após pendência P3 do guia resolvida (revisão jurídica das tabelas vigentes) e período de canário em WARN.",
+        "Bloqueio responde com reasonCode, valor mínimo calculado, valor ofertado e referência do snapshot de cálculo.",
+        "Operações não sujeitas ao piso registram NOT_APPLICABLE com justificativa de aplicabilidade evidenciada."
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0022"
+        },
+        {
+          "type": "refines",
+          "target": "REQ-SICAT-0019"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase B)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0023.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0024",
+      "slug": "req-sicat-0024",
+      "title": "Transporte: elegibilidade RNTRC de transportador e veículo com verificação evidenciada",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve verificar e evidenciar a regularidade RNTRC do transportador (categorias TAC/ETC/CTC) e a compatibilidade dos veículos nos momentos de risco (contratação e liberação), distinguindo cache informativo (dados abertos) de consulta operacional de regularidade, e registrando status, fonte, data de verificação e versão da regra aplicada; a revalidação anual introduzida pela Lei 15.485/2026 só se torna bloqueante quando a regulamentação ANTT correspondente confirmar exigibilidade (regra TR-RNTRC-003 em AWAITING_REGULATION).",
+      "business_rationale": "Dados abertos periódicos não bastam como evidência para liberar viagem sensível (baseline deep-research 2026-08-13, \"Transporte rodoviário e RNTRC\"). Fase C do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Verificação via gateway dedicado (nunca de routes/services); dependência de credenciamento ANTT registrada como pendência P4 do guia [EXTERNAL DEPENDENCY]; enquanto indisponível, estratégia de evidência manual com fonte explícita."
+      ],
+      "verification_method": [
+        "test-integration",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0017"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0018"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase C)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0024.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0025",
+      "slug": "req-sicat-0025",
+      "title": "Transporte: ciclo completo do CIOT com provedor abstraído",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve suportar o ciclo completo do CIOT (pré-validação → solicitação → registro → retificação → cancelamento → encerramento, incluindo rejeição e bloqueio) por meio de adapters de provedor (nunca dependência direta de fornecedor único), registrando participantes, carga, origem/destino, frete, forma e prazo de pagamento, requests/responses auditáveis, idempotência e vínculo com MDF-e; CIOT registrado nunca é tratado como sinônimo de operação regular (REGISTERED ≠ COMPLIANT).",
+      "business_rationale": "CIOT universalizado desde 24/05/2026 (Res. ANTT 6.078/2026) e reforçado pela Lei 15.485/2026 (registro prévio, responsabilidade pela geração, vínculo ao MDF-e, multa por ausência). A identidade remota nasce na resposta do provedor: aplicar o padrão marcador de correlação + estado *_unconfirmed + reconciliador (DL-102) desde o dia 1 (baseline deep-research 2026-08-13, \"CIOT e pagamento do frete\"). Fase C do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "gateway-externo",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Operações CIOT são jobs assíncronos (202 + command-accepted) com retry/DLQ; contratação de provedor CIOT/PEF é pendência P5 do guia [EXTERNAL DEPENDENCY]; gateway nasce em modo mock/homologação."
+      ],
+      "verification_method": [
+        "test-integration",
+        "test-unit",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0017"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0011",
+          "note": "Reutiliza fila transacional, retry e DLQ existentes."
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase C)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0025.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0026",
+      "slug": "req-sicat-0026",
+      "title": "Transporte: Vale-Pedágio Obrigatório — applicability engine, antecipação e evidência",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve determinar a aplicabilidade do Vale-Pedágio Obrigatório por operação (VPO não é checkbox universal — Lei 10.209/2001 e Res. ANTT 6.024/2023 têm hipóteses e exceções), exigir antecipação separada do frete quando aplicável (provedor habilitado, referência, valor, evidência e vínculo com MDF-e quando tecnicamente exigido) e registrar justificativa auditável também quando NOT_APPLICABLE; o valor do VPO permanece sempre separado do valor do frete.",
+      "business_rationale": "Erro clássico de produto é somar pedágio ao frete e perder a distinção; até a regra NOT_APPLICABLE precisa deixar evidência do motivo (baseline deep-research 2026-08-13, \"Vale-Pedágio Obrigatório\"). Fornecedoras habilitadas são cadastro configurável, nunca hardcoded. Fase D do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Fornecedoras VPO habilitadas em cadastro sincronizável/configurável (pendência P6 do guia [EXTERNAL DEPENDENCY])."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase D)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0026.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0027",
+      "slug": "req-sicat-0027",
+      "title": "Transporte: importação e validação de NF-e/CT-e/MDF-e com schema registry e vínculos",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve importar, validar e relacionar documentos fiscais eletrônicos (NF-e, CT-e, MDF-e) a operações de transporte — chave de acesso, XML com hash e referência de storage, versão de schema e de Nota Técnica, status de autorização, protocolo, vínculos CIOT↔MDF-e e VPO↔MDF-e — usando um schema registry versionado (nenhuma regra XML depende de schema \"eterno\"); emissão fiscal fica explicitamente fora deste requisito (ver REQ-SICAT-0029).",
+      "business_rationale": "Começar por importação+validação reduz drasticamente o risco da primeira entrega fiscal e antecipa em teste as rejeições da NT MDF-e 2026.001 (CIOT no MDF-e) antes de o ambiente de produção recusá-las (baseline deep-research 2026-08-13, \"NF-e, CT-e e MDF-e\"). Fase E do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": true,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "XMLs reais de clientes/design partner e cronograma da NT MDF-e 2026.001 são pendência P7 do guia [EXTERNAL DEPENDENCY]."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0017"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0025"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0026"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase E)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 58,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0027.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0028",
+      "slug": "req-sicat-0028",
+      "title": "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve registrar e verificar, conforme aplicabilidade, os seguros obrigatórios do transportador (RCTR-C, RC-DC e RC-V — Lei 14.599/2023) e o Plano de Gerenciamento de Riscos (PGR) vinculado às coberturas pertinentes, checando vigência na data da operação (não apenas \"seguro cadastrado\") por meio de uma interface InsuranceVerificationProvider com estratégias intercambiáveis (integração ANTT quando disponível, seguradora/parceiro, evidência manual, override administrativo autorizado), alimentando o gate de pré-liberação e alertas de expiração.",
+      "business_rationale": "Verificação automática de seguros no contexto do RNTRC tem cronograma ANTT em 2026, mas nenhum endpoint oficial deve ser presumido publicamente acessível sem credenciamento; minimizar dados pessoais de análise de risco (LGPD) (baseline deep-research 2026-08-13, \"Seguros e PGR\"). Fase F do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Integração ANTT-seguros ou parceiro segurador é pendência P8 do guia [EXTERNAL DEPENDENCY]; fallback de evidência manual sempre disponível com fonte explícita."
+      ],
+      "verification_method": [
+        "test-integration",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0024"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase F)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0028.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0029",
+      "slug": "req-sicat-0029",
+      "title": "Transporte: emissão fiscal DF-e (condicional a go/no-go comercial)",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "Condicionado a decisão comercial explícita (go/no-go) e ADR próprio, o sistema deve emitir documentos fiscais eletrônicos (CT-e/MDF-e e, quando pertinente, NF-e) com gestão de certificados digitais, assinatura, submissão à SEFAZ, contingência, eventos fiscais e encerramento — avaliando o reuso do pacote compartilhado @flavioneto11/fiscal-kit (packages/fiscal-kit, sandbox-first) como fundação do gateway fiscal.",
+      "business_rationale": "Emissão fiscal completa envolve certificados, contingência, particularidades estaduais e operação de alta criticidade — deliberadamente separada da importação/validação (REQ-SICAT-0027) para não concentrar risco em uma única release (baseline deep-research 2026-08-13, \"Documentos fiscais\"). Fase G do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md",
+          "packages/fiscal-kit"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "risk_tags": [
+        "external-dependency",
+        "legal-review-required"
+      ],
+      "capability_blocks": [
+        "nota-fiscal-emissao",
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Só inicia com ADR próprio de emissão vs. validação e pendência P9 do guia resolvida (certificados, credenciamento SEFAZ, responsabilidade fiscal)."
+      ],
+      "verification_method": [
+        "architecture-review",
+        "test-integration",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0027"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase G, condicional)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres",
+          "infra-sealed-secrets"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0029.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0030",
+      "slug": "req-sicat-0030",
+      "title": "Transporte: Regulatory Watch com aprovação humana obrigatória",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve acompanhar a evolução normativa do domínio de transporte por um fluxo DETECTED → INGESTED → AI_ANALYZED → HUMAN_REVIEW → APPROVED → TESTED → SCHEDULED → ACTIVE, em que fontes recebem hash e data, cada regra ativa aponta para sua fonte, a IA pode sugerir mudanças mas nunca ativar sozinha uma regra bloqueante, e a ativação respeita effective_from controlado com fixtures de comportamento antes/depois.",
+      "business_rationale": "Tanto ANTT quanto documentos fiscais receberam mudanças relevantes em 2026 e a Lei 15.485/2026 prevê regulamentação complementar; atualização regulatória automática sem aprovação humana é recusa explícita do programa (baseline deep-research 2026-08-13, \"Fontes regulatórias com aprovação humana\"). Fase H do programa.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "verification_method": [
+        "test-integration",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0018"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase H)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0030.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0031",
+      "slug": "req-sicat-0031",
+      "title": "Transporte: Centro Operacional com buckets e métricas da vertical",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve estender o Centro Operacional existente do SICAT (não criar um segundo framework de observabilidade) com os buckets e métricas da vertical Transporte: saúde por integração (ANTT, provedor CIOT, SEFAZ, VPO, seguros), operações criadas/bloqueadas, bloqueios por regra, ofertas abaixo do piso impedidas, CIOTs pendentes/falhos, divergências MDF-e, RNTRC irregulares, seguros vencendo, jobs em retry/DLQ por integração, tempo de liberação e regras regulatórias próximas de mudança de vigência.",
+      "business_rationale": "O Centro Operacional já oferece jobs/retry/DLQ/auditoria/health/relatórios; a vertical nova se encaixa nos mesmos registries de status operacional (baseline deep-research 2026-08-13, \"Hardening e Centro Operacional\"). Entrega incremental nas fases C–H.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "observabilidade"
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring",
+        "demo"
+      ],
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0013"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0014"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0019"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação incremental C–H)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-frontend"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0031.yaml"
+    },
+    {
       "id": "REQ-SICAT-NFR-0001",
       "slug": "req-sicat-nfr-0001",
       "title": "Resiliência em operações de fila com retry automático",
@@ -12986,6 +13984,300 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/sicat/REQ-SICAT-NFR-0008.yaml"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0009",
+      "slug": "req-sicat-nfr-0009",
+      "title": "Reprodutibilidade temporal das decisões regulatórias (time-travel)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"reprodutibilidade temporal\": toda decisão de compliance e todo cálculo regulatório da vertical Transporte referenciam a versão da regra vigente na data de referência e permanecem reproduzíveis bit a bit depois que novas versões, tabelas ou coeficientes entrarem em vigor; nenhuma operação histórica é reprocessada silenciosamente com regra nova.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "quality_scenarios": [
+        {
+          "source": "Operador da ANTT publica atualização de tabela de piso / nova resolução",
+          "stimulus": "Nova regulatory_rule_version (ou freight_floor_version) entra em vigor com effective_from posterior a operações já avaliadas",
+          "environment": "Produção, com avaliações de compliance e cálculos de piso persistidos com snapshot",
+          "artifact": "compliance_evaluations/compliance_checks e freight_floor_calculations com rule_version e inputs_snapshot congelados",
+          "response": "Reavaliar/reconsultar uma operação histórica com a mesma reference_date resolve a MESMA versão de regra e produz o MESMO resultado; a versão nova só afeta operações com reference_date dentro da sua vigência",
+          "response_measure": "100% das decisões referenciam rule_version explícita; testes de fronteira temporal (23/24/25-05-2026 e 05/06/07-08-2026) verdes; zero reprocessamento retroativo silencioso detectado em auditoria"
+        }
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0018"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0019"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0022"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0009.yaml"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0010",
+      "slug": "req-sicat-nfr-0010",
+      "title": "Evidência e auditabilidade de toda decisão de compliance de transporte",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"decisão explicável\": toda aprovação, alerta ou bloqueio de compliance da vertical Transporte é explicável a partir de dados estruturados — regra, versão, base legal, reason code, entradas congeladas e evidências — sem depender de log textual solto; para qualquer TransportOperation deve ser possível responder quem decidiu, com qual regra, qual versão da legislação e qual evidência prova cada conclusão.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Auditor/fiscalização ou operador questionando uma liberação ou bloqueio passado",
+          "stimulus": "Consulta \"por que esta operação foi bloqueada/liberada?\" sobre uma avaliação de meses atrás",
+          "environment": "Produção; catálogo regulatório já evoluiu desde a avaliação",
+          "artifact": "compliance_evaluations (append-only) + compliance_checks (raw_status, legal_basis congelada) + compliance_evidence + trilha de auditoria por correlationId",
+          "response": "A resposta é reconstruída integralmente a partir das tabelas de compliance e evidências, incluindo o resultado bruto pré-clamp quando a regra ainda não era enforçável",
+          "response_measure": "100% dos checks com ruleCode+ruleVersion+legalBasis persistidos; 100% dos bloqueios com reasonCode e humanMessage; avaliações imutáveis (zero updates em compliance_evaluations); evidência presente (payload ou storage_ref) em todo check que decidiu um gate"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0019"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-NFR-0005",
+          "note": "Estende a rastreabilidade fim-a-fim por correlationId ao domínio Transporte."
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0010.yaml"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0011",
+      "slug": "req-sicat-nfr-0011",
+      "title": "LGPD e minimização de dados no domínio Transporte",
+      "type": "non-functional",
+      "status": "proposed",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"minimização de dados\": no domínio Transporte, armazenar a evidência necessária não significa copiar integralmente tudo que órgão/provedor retornou; dados pessoais de motoristas e de sistemas de análise de risco são minimizados (reason code regulatório + evidência, nunca coleção indiscriminada), certificados/tokens/ credenciais ficam fora de git e de logs, e o acesso a dados sensíveis é controlado e auditado — em linha com a disciplina que a Lei 15.485/2026 impõe a bancos de gerenciamento de risco (LGPD).",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Integração externa (ANTT, provedor CIOT, seguradora, gerenciadora de risco) respondendo a uma verificação",
+          "stimulus": "Resposta externa contém dados pessoais além do necessário para a decisão de compliance (ex.: perfil completo de motorista)",
+          "environment": "Produção, gateways das fases C–F ativos, auditoria de trocas habilitada",
+          "artifact": "compliance_evidence, audit_logs (sanitizados) e tabelas do domínio Transporte",
+          "response": "Apenas o subconjunto necessário à decisão é persistido (status, reason code, identificadores, vigências); cabeçalhos/corpos auditados passam por sanitização; nenhum certificado, token ou credencial aparece em log ou git",
+          "response_measure": "Mapeamento de dados sensíveis do domínio (CPF/CNPJ, motoristas, apólices, certificados, credenciais) documentado com finalidade/retenção/acesso; zero segredos em git (secret-scan verde); campos sensíveis mascarados na trilha de auditoria; retenção definida para evidências com dado pessoal"
+        }
+      ],
+      "verification_method": [
+        "architecture-review",
+        "test-integration",
+        "manual-review"
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0024"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0025"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0028"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; vigora a partir da Fase C)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres",
+          "infra-sealed-secrets"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0011.yaml"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0012",
+      "slug": "req-sicat-nfr-0012",
+      "title": "Resiliência e saúde das integrações do domínio Transporte",
+      "type": "non-functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"resiliência por integração\": as integrações da vertical Transporte (ANTT/RNTRC, provedor CIOT, VPO, DF-e, seguros) usam a fila transacional existente com retry/backoff e DLQ por operação, expõem saúde por provedor no Centro Operacional e degradam de forma controlada — indisponibilidade de um provedor não bloqueia consultas locais nem outras integrações; operações externas não idempotentes usam guarda de idempotência no handler e reconciliação de identidade remota.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/deep-research-report.md",
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Provedor externo do domínio Transporte (ANTT, CIOT/PEF, VPO, SEFAZ, seguradora)",
+          "stimulus": "Falha transiente (timeout, 429, 5xx) ou indisponibilidade prolongada durante comando assíncrono",
+          "environment": "Produção; worker com raias e batch configurados; DLQ ativa",
+          "artifact": "Jobs transporte.* na tabela jobs; gateways dedicados; buckets de saúde do Centro Operacional",
+          "response": "Retry automático com backoff conforme getRetryConfig da operação; após max_attempts, job vai a DLQ com side-effect terminal notificado; saúde do provedor reflete a degradação; comandos idempotentes não duplicam efeito externo em re-execução",
+          "response_measure": "Taxa de sucesso em retry de transiente >= 80%; zero duplicação de CIOT/VPO em re-execução de job (guarda de idempotência + reconciliador); indisponibilidade de 1 provedor não afeta p95 das rotas locais da vertical"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0024"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0025"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0026"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0027"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-NFR-0001",
+          "note": "Estende a resiliência de fila existente às integrações de transporte."
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; vigora a partir da Fase C)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ],
+        "slo_refs": [
+          "slo-retry-success"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0012.yaml"
     },
     {
       "id": "REQ-SPECS-0001",
@@ -21292,6 +22584,69 @@
       ]
     },
     {
+      "id": "REQ-SICAT-0017",
+      "title": "Transporte: bounded context e agregado TransportOperation com máquina de estados",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0018",
+      "title": "Transporte: catálogo regulatório temporal (fontes, regras TR-*, versões) com aprovação humana",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0019",
+      "title": "Transporte: motor de compliance com gates e decisões evidenciadas",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0022",
+      "title": "Transporte: FreightFloorEngine — cálculo de piso mínimo versionado com snapshot reproduzível",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0025",
+      "title": "Transporte: ciclo completo do CIOT com provedor abstraído",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0029",
+      "title": "Transporte: emissão fiscal DF-e (condicional a go/no-go comercial)",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-NFR-0009",
+      "title": "Reprodutibilidade temporal das decisões regulatórias (time-travel)",
+      "product": "sicat",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-ZAPBRIDGE-0002",
       "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
       "product": "zapbridge",
@@ -21559,6 +22914,15 @@
       "impact_score": 58,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0027",
+      "title": "Transporte: importação e validação de NF-e/CT-e/MDF-e com schema registry e vínculos",
+      "product": "sicat",
+      "impact_score": 58,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -22153,6 +23517,24 @@
       "impact_score": 45,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0023",
+      "title": "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável",
+      "product": "sicat",
+      "impact_score": 45,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-NFR-0010",
+      "title": "Evidência e auditabilidade de toda decisão de compliance de transporte",
+      "product": "sicat",
+      "impact_score": 45,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -23884,6 +25266,42 @@
       ]
     },
     {
+      "id": "REQ-SICAT-0020",
+      "title": "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0024",
+      "title": "Transporte: elegibilidade RNTRC de transportador e veículo com verificação evidenciada",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0026",
+      "title": "Transporte: Vale-Pedágio Obrigatório — applicability engine, antecipação e evidência",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0028",
+      "title": "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-SICAT-NFR-0001",
       "title": "Resiliência em operações de fila com retry automático",
       "product": "sicat",
@@ -23935,6 +25353,24 @@
       "impact_score": 38,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-NFR-0011",
+      "title": "LGPD e minimização de dados no domínio Transporte",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-NFR-0012",
+      "title": "Resiliência e saúde das integrações do domínio Transporte",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -24403,6 +25839,33 @@
       "impact_score": 30,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0021",
+      "title": "Transporte: experiência operacional mínima (navegação, operações, painel de conformidade, regras)",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0030",
+      "title": "Transporte: Regulatory Watch com aprovação humana obrigatória",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0031",
+      "title": "Transporte: Centro Operacional com buckets e métricas da vertical",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {

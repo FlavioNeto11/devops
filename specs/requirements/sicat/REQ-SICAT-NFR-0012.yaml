@@ -1,0 +1,58 @@
+id: REQ-SICAT-NFR-0012
+slug: req-sicat-nfr-0012
+title: Resiliência e saúde das integrações do domínio Transporte
+type: non-functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve atender ao atributo de qualidade "resiliência por integração": as integrações da
+  vertical Transporte (ANTT/RNTRC, provedor CIOT, VPO, DF-e, seguros) usam a fila transacional
+  existente com retry/backoff e DLQ por operação, expõem saúde por provedor no Centro Operacional
+  e degradam de forma controlada — indisponibilidade de um provedor não bloqueia consultas locais
+  nem outras integrações; operações externas não idempotentes usam guarda de idempotência no
+  handler e reconciliação de identidade remota.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Provedor externo do domínio Transporte (ANTT, CIOT/PEF, VPO, SEFAZ, seguradora)
+    stimulus: Falha transiente (timeout, 429, 5xx) ou indisponibilidade prolongada durante comando assíncrono
+    environment: Produção; worker com raias e batch configurados; DLQ ativa
+    artifact: Jobs transporte.* na tabela jobs; gateways dedicados; buckets de saúde do Centro Operacional
+    response: Retry automático com backoff conforme getRetryConfig da operação; após max_attempts, job vai a DLQ com side-effect terminal notificado; saúde do provedor reflete a degradação; comandos idempotentes não duplicam efeito externo em re-execução
+    response_measure: "Taxa de sucesso em retry de transiente >= 80%; zero duplicação de CIOT/VPO em re-execução de job (guarda de idempotência + reconciliador); indisponibilidade de 1 provedor não afeta p95 das rotas locais da vertical"
+verification_method: [test-integration, monitoring]
+links:
+  - type: constrains
+    target: REQ-SICAT-0024
+  - type: constrains
+    target: REQ-SICAT-0025
+  - type: constrains
+    target: REQ-SICAT-0026
+  - type: constrains
+    target: REQ-SICAT-0027
+  - type: relates_to
+    target: REQ-SICAT-NFR-0001
+    note: "Estende a resiliência de fila existente às integrações de transporte."
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; vigora a partir da Fase C)
+allocation:
+  service_refs:
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres
+  slo_refs:
+    - slo-retry-success

@@ -1,0 +1,50 @@
+id: REQ-SICAT-NFR-0010
+slug: req-sicat-nfr-0010
+title: Evidência e auditabilidade de toda decisão de compliance de transporte
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve atender ao atributo de qualidade "decisão explicável": toda aprovação, alerta ou
+  bloqueio de compliance da vertical Transporte é explicável a partir de dados estruturados —
+  regra, versão, base legal, reason code, entradas congeladas e evidências — sem depender de log
+  textual solto; para qualquer TransportOperation deve ser possível responder quem decidiu, com
+  qual regra, qual versão da legislação e qual evidência prova cada conclusão.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: false
+quality_scenarios:
+  - source: Auditor/fiscalização ou operador questionando uma liberação ou bloqueio passado
+    stimulus: Consulta "por que esta operação foi bloqueada/liberada?" sobre uma avaliação de meses atrás
+    environment: Produção; catálogo regulatório já evoluiu desde a avaliação
+    artifact: compliance_evaluations (append-only) + compliance_checks (raw_status, legal_basis congelada) + compliance_evidence + trilha de auditoria por correlationId
+    response: A resposta é reconstruída integralmente a partir das tabelas de compliance e evidências, incluindo o resultado bruto pré-clamp quando a regra ainda não era enforçável
+    response_measure: "100% dos checks com ruleCode+ruleVersion+legalBasis persistidos; 100% dos bloqueios com reasonCode e humanMessage; avaliações imutáveis (zero updates em compliance_evaluations); evidência presente (payload ou storage_ref) em todo check que decidiu um gate"
+verification_method: [test-integration, monitoring]
+links:
+  - type: constrains
+    target: REQ-SICAT-0019
+  - type: relates_to
+    target: REQ-SICAT-NFR-0005
+    note: "Estende a rastreabilidade fim-a-fim por correlationId ao domínio Transporte."
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

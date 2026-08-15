@@ -1,0 +1,60 @@
+id: REQ-SICAT-0019
+slug: req-sicat-0019
+title: "Transporte: motor de compliance com gates e decisões evidenciadas"
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve avaliar a conformidade de uma TransportOperation por gates nomeados
+  (GATE_PROPOSAL, GATE_CONTRACT, GATE_CIOT, GATE_FISCAL, GATE_PRE_BOARDING, GATE_RELEASE,
+  GATE_IN_TRANSIT, GATE_COMPLETION) que retornam, por regra aplicável, PASS/WARN/BLOCK/
+  NOT_APPLICABLE com ruleCode, versão da regra, base legal, reasonCode, mensagem humana e
+  evidências persistidas; integrações externas trazem fatos e somente o motor de compliance decide
+  se uma transição é permitida.
+business_rationale: >-
+  A direção regulatória de 2026 é preventiva (CIOT universalizado, bloqueio sistêmico de operações
+  abaixo do piso, responsabilização de plataformas que intermedeiam ofertas irregulares): o
+  diferencial do produto é impedir que a operação avance sem saber, demonstrar e registrar por que
+  está conforme (baseline deep-research 2026-08-13, "Um Compliance Gate separado das integrações").
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks:
+  - camadas-rigidas
+  - observabilidade
+acceptance_criteria:
+  - "Avaliação persiste compliance_evaluations (append-only) com reference_date distinta de evaluated_at, snapshot do agregado, engine_version e correlation_id; checks individuais congelam legal_basis, inputs e resultado."
+  - "Regra sem versão vigente na reference_date resulta NOT_APPLICABLE com reasonCode RULE_NOT_YET_EFFECTIVE ou RULE_NO_LONGER_EFFECTIVE — nunca erro nem bloqueio."
+  - "Clamp de enforcement: regra com implementation_state != ACTIVE ou blocking=false nunca produz BLOCK efetivo; o resultado bruto é preservado em raw_status para auditoria com reasonCode RULE_NOT_ENFORCEABLE."
+  - "Transição de estado com gate exigido só ocorre com avaliação fresh sem BLOCK; bloqueio responde 409 application/problem+json com os checks bloqueantes."
+  - "Avaliações são reprodutíveis: reavaliar com a mesma reference_date e mesmo snapshot produz o mesmo resultado mesmo após novas versões de regra entrarem em vigor."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0017
+  - type: depends_on
+    target: REQ-SICAT-0018
+  - type: relates_to
+    target: REQ-SICAT-0014
+    note: "Reutiliza a trilha de auditoria técnica correlacionada por correlationId."
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

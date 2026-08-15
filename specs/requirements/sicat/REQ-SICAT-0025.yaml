@@ -1,0 +1,59 @@
+id: REQ-SICAT-0025
+slug: req-sicat-0025
+title: "Transporte: ciclo completo do CIOT com provedor abstraído"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve suportar o ciclo completo do CIOT (pré-validação → solicitação → registro →
+  retificação → cancelamento → encerramento, incluindo rejeição e bloqueio) por meio de adapters
+  de provedor (nunca dependência direta de fornecedor único), registrando participantes, carga,
+  origem/destino, frete, forma e prazo de pagamento, requests/responses auditáveis, idempotência e
+  vínculo com MDF-e; CIOT registrado nunca é tratado como sinônimo de operação regular
+  (REGISTERED ≠ COMPLIANT).
+business_rationale: >-
+  CIOT universalizado desde 24/05/2026 (Res. ANTT 6.078/2026) e reforçado pela Lei 15.485/2026
+  (registro prévio, responsabilidade pela geração, vínculo ao MDF-e, multa por ausência). A
+  identidade remota nasce na resposta do provedor: aplicar o padrão marcador de correlação +
+  estado *_unconfirmed + reconciliador (DL-102) desde o dia 1 (baseline deep-research 2026-08-13,
+  "CIOT e pagamento do frete"). Fase C do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: true
+risk_tags: [external-dependency]
+capability_blocks:
+  - gateway-externo
+  - worker-queue-transacional
+  - idempotencia
+acceptance_criteria:
+  - "Operações CIOT são jobs assíncronos (202 + command-accepted) com retry/DLQ; contratação de provedor CIOT/PEF é pendência P5 do guia [EXTERNAL DEPENDENCY]; gateway nasce em modo mock/homologação."
+verification_method: [test-integration, test-unit, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0017
+  - type: depends_on
+    target: REQ-SICAT-0019
+  - type: relates_to
+    target: REQ-SICAT-0011
+    note: "Reutiliza fila transacional, retry e DLQ existentes."
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase C)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres
