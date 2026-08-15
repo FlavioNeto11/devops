@@ -17,6 +17,10 @@ coverage/
 
 # --- Logs ---
 *.log
+# Estado de runtime do runner-watchdog (timestamp do ultimo restart). O .log
+# irmao ja cai no *.log acima; o .state escapava e deixava scripts/logs/
+# aparecendo como nao-rastreado.
+scripts/logs/
 
 # --- Cache de ferramentas (Playwright MCP etc.) ---
 .playwright-mcp/
