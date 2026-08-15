@@ -359,6 +359,30 @@ export async function insertVehicleLink(
   return row;
 }
 
+/**
+ * Tipo de vínculo entre UM veículo e UMA parte, ou `null` quando não há vínculo — usado por
+ * TR-RNTRC-002 (`transport-compliance-service.ts`) para checar se o veículo de tração da operação
+ * está vinculado ao transportador (carrier). `rule-evaluators.ts` é PURO (sem SQL); esta consulta
+ * roda no motor de compliance ANTES de montar `ctx`, no mesmo molde de
+ * `findLatestFreightFloorCalculationForOperation` para `ctx.floorCalculation`.
+ */
+export async function findVehiclePartyLinkType(
+  vehicleId: string,
+  partyId: string,
+  client: DbClient = null
+): Promise<VehicleLinkType | null> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<{ link_type: string }>(
+    `select link_type from transport_vehicle_links
+      where vehicle_id = $1 and party_id = $2
+      order by created_at desc
+      limit 1`,
+    [vehicleId, partyId]
+  );
+  const row = result.rows[0];
+  return row ? (row.link_type as VehicleLinkType) : null;
+}
+
 /** Vínculos de uma parte, com um resumo (plate/vehicleType) do veículo — evita N+1 no frontend. */
 export async function listVehicleLinksByParty(
   partyId: string,

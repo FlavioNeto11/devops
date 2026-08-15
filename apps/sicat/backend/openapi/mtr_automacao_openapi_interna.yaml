@@ -93,8 +93,18 @@ tags:
 - name: Transporte - Cadastros
   description: Cadastro-base da vertical Transporte — transportadores (partes) e veículos, com
     tenancy por `integrationAccountId`, CRUD síncrono e locking otimista (`version`). Os campos
-    `rntrc*` guardam o estado DECLARADO pelo operador; a verificação de regularidade via ANTT é
-    Fase C (rotas `/regularidade`/`/verificar` não existem neste contrato).
+    `rntrc*` refletem a ÚLTIMA verificação aplicada (`rntrcVerificationSource`
+    `manual`/`open_data`/`antt`) — ver tag "Transporte - RNTRC" para o fluxo de verificação.
+- name: Transporte - RNTRC
+  description: 'Verificação de regularidade RNTRC do transportador (PR-C1) — primeiro gateway
+    externo REAL e primeiro job type assíncrono (202) da vertical Transporte. `manual` (evidência
+    declarada) é SÍNCRONO (200); `open_data` (Portal de Dados Abertos da ANTT, dados.antt.gov.br)
+    ENFILEIRA (202, `CommandAccepted`) e roda no worker via `antt-rntrc-gateway.ts`. Distinção
+    central: dado aberto é CACHE INFORMATIVO — nunca prova de regularidade emitida pela ANTT.
+    `open_data` NUNCA produz um status "verificado" conclusivo sozinho: o resultado sempre vem
+    acompanhado de `dataReferenceDate` (data-base do dado consultado) e a defasagem fica explícita
+    para quem lê. `antt` (consulta credenciada) é interface RESERVADA — recusada com 400 nesta
+    fase.'
 - name: Transporte - Operações
   description: Agregado central `TransportOperation` — máquina de estados explícita (13 estados)
     com transições guardadas. `submeter-validacao` ORQUESTRA a avaliação do `GATE_PROPOSAL` e a
@@ -6855,6 +6865,150 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/verificar-rntrc:
+    post:
+      operationId: transporteTransportadorVerificarRntrc
+      summary: Solicitar verificação de regularidade RNTRC
+      description: |-
+        Duas estratégias com desfecho DIFERENTE por desenho — `strategy` no corpo decide qual:
+
+        - `manual`: evidência DECLARADA por um usuário (`manualEvidence.resultStatus` obrigatório).
+          SÍNCRONO — grava a verificação e atualiza o transportador no MESMO request, responde
+          `200` com `TransporteRntrcVerificacaoResource`.
+        - `open_data`: integração REAL com o Portal de Dados Abertos da ANTT
+          (dados.antt.gov.br, dataset "rntrc"). ASSÍNCRONO — ENFILEIRA (idempotente via
+          `Idempotency-Key`; um 2º POST em voo devolve o MESMO job) e responde `202` com
+          `CommandAccepted`. O worker resolve o resource mensal mais recente do CKAN e consulta via
+          `datastore_search` (quando ativo) ou baixa/consulta o CSV (fallback streaming, cacheado
+          localmente) — nos dois casos o resultado é CACHE INFORMATIVO: nunca prova regularidade
+          emitida pela ANTT, sempre acompanhado de `dataReferenceDate` (defasagem explícita).
+        - `antt` (consulta credenciada): interface RESERVADA para fase futura — recusada com `400`
+          (`RNTRC_VERIFICATION_STRATEGY_NOT_IMPLEMENTED`) nesta fase do programa.
+      tags:
+      - Transporte - RNTRC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteRntrcVerificarRequest'
+            examples:
+              openData:
+                summary: open_data — enfileira (202)
+                value:
+                  integrationAccountId: acc_exemplo_prod
+                  strategy: open_data
+              manual:
+                summary: manual — síncrono (200)
+                value:
+                  integrationAccountId: acc_exemplo_prod
+                  strategy: manual
+                  manualEvidence:
+                    resultStatus: active
+                    resultCategory: ETC
+                    notes: Consulta manual no portal MTR-e da ANTT em 2026-08-14.
+      responses:
+        '202':
+          description: 'Verificação `open_data` enfileirada'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+              example:
+                commandId: cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                correlationId: corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+                entityType: transport_party
+                entityId: trparty_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
+                operation: transporte.rntrc.verify
+                status: queued
+                submittedAt: '2026-08-14T12:30:00Z'
+                links:
+                  job: /v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7
+                  entity: /v1/transporte/transportadores/trparty_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
+                  audit: /v1/audit/corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44
+        '200':
+          description: 'Verificação `manual` concluída (síncrona)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRntrcVerificacaoResource'
+              example:
+                id: rntrcver_7a2b3c4d5e6f7a8b9c0d1e2f
+                partyId: trparty_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
+                rntrcNumber: '50085788'
+                strategy: manual
+                requestedStatus: succeeded
+                resultStatus: active
+                resultCategory: ETC
+                dataReferenceDate: null
+                evidenceSource: manual_declaration
+                verifiedBy: operador.exemplo
+                createdAt: '2026-08-14T12:30:00Z'
+                completedAt: '2026-08-14T12:30:00Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/verificacoes-rntrc:
+    get:
+      operationId: transporteTransportadorVerificacoesRntrcList
+      summary: Histórico paginado de verificações RNTRC do transportador
+      description: Leitura pura de `rntrc_verifications` (todas as tentativas — `pending`
+        nunca aparece aqui além do instante entre o enqueue e a conclusão do worker) — mais
+        recente primeiro.
+      tags:
+      - Transporte - RNTRC
+      responses:
+        '200':
+          description: Página do histórico de verificações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRntrcVerificacaoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
   /v1/transporte/transportadores/{partyId}/veiculos:
     post:
       operationId: transporteTransportadorVinculoVeiculoCreate
@@ -13328,6 +13482,136 @@ components:
         totalItems:
           type: integer
           minimum: 0
+    TransporteRntrcManualEvidenceInput:
+      type: object
+      description: 'Evidência DECLARADA por um usuário (estratégia `manual`) — LGPD: só os campos
+        necessários para registrar a checagem, nunca um blob livre.'
+      required:
+      - resultStatus
+      properties:
+        resultStatus:
+          type: string
+          enum: [active, suspended, cancelled, expired, not_found, unknown]
+        resultCategory:
+          oneOf:
+          - type: string
+            enum: [TAC, ETC, CTC]
+          - type: 'null'
+        rntrcNumber:
+          type:
+          - string
+          - 'null'
+          description: Sobrescreve o `rntrcNumber` do cadastro nesta verificação, se informado.
+        notes:
+          type: string
+          maxLength: 500
+          description: Nota curta (ex. "consulta manual no portal MTR-e em 2026-08-14").
+    TransporteRntrcVerificarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - strategy
+      properties:
+        integrationAccountId:
+          type: string
+        strategy:
+          type: string
+          enum: [open_data, manual, antt]
+          description: '`antt` é interface RESERVADA — recusada com 400 nesta fase.'
+        manualEvidence:
+          oneOf:
+          - $ref: '#/components/schemas/TransporteRntrcManualEvidenceInput'
+          - type: 'null'
+          description: Obrigatório quando `strategy=manual`; ignorado nas demais estratégias.
+    TransporteRntrcVerificacaoResource:
+      type: object
+      description: 'UMA tentativa de verificação de regularidade RNTRC (`rntrc_verifications`,
+        APPEND-ONLY — uma nova verificação sempre cria uma linha nova). Dado aberto é CACHE
+        INFORMATIVO: `resultStatus=active` com `strategy=open_data` NÃO é uma certidão de
+        regularidade — é o retrato do dado publicado em `dataReferenceDate`.'
+      required:
+      - id
+      - partyId
+      - rntrcNumber
+      - strategy
+      - requestedStatus
+      - resultStatus
+      - resultCategory
+      - dataReferenceDate
+      - evidenceSource
+      - verifiedBy
+      - createdAt
+      - completedAt
+      properties:
+        id:
+          type: string
+        partyId:
+          type: string
+        rntrcNumber:
+          type:
+          - string
+          - 'null'
+        strategy:
+          type: string
+          enum: [open_data, manual, antt]
+        requestedStatus:
+          type: string
+          enum: [pending, succeeded, failed]
+        resultStatus:
+          oneOf:
+          - type: string
+            enum: [active, suspended, cancelled, expired, not_found, unknown]
+          - type: 'null'
+        resultCategory:
+          oneOf:
+          - type: string
+            enum: [TAC, ETC, CTC]
+          - type: 'null'
+        dataReferenceDate:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Data-base do dado consultado (só `open_data`) — `null` em `manual`/falhas.
+        evidenceSource:
+          oneOf:
+          - type: string
+            enum: [manual_declaration, open_data]
+          - type: 'null'
+        verifiedBy:
+          type:
+          - string
+          - 'null'
+          description: Usuário que declarou a evidência (`manual`); `null` em `open_data`.
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    TransporteRntrcVerificacaoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteRntrcVerificacaoResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
     TransporteOperacaoFrete:
       type: object
       description: Frete DECOMPOSTO — cada componente é independente; VPO NUNCA é somado ao frete.

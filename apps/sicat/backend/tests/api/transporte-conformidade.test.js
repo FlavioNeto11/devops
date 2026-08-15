@@ -312,8 +312,14 @@ describe('Conformidade — ciclo feliz: submeter-validacao → contratar → ove
     assert.deepEqual(body.operation.availableCommands, ['cancel']);
     assert.equal(body.evaluation.gate, 'GATE_CONTRACT');
 
+    // PR-C1: TR-RNTRC-001 evoluiu para considerar a última verificação de `rntrc_verifications`
+    // (`ctx.carrierRntrcVerification`), não mais o `rntrcStatus` DECLARADO no cadastro. O carrier
+    // deste setup nunca passou por `verificar-rntrc` — WARN RNTRC_NOT_VERIFIED é o resultado
+    // CORRETO agora (não bloqueia `contratar`; só um `block` bloquearia). Cobertura completa do
+    // frescor/estratégias de TR-RNTRC-001 vive em `tests/unit/rule-evaluators.test.js`.
     const rntrc001 = body.evaluation.checks.find((check) => check.ruleCode === 'TR-RNTRC-001');
-    assert.equal(rntrc001?.status, 'PASS', 'carrier com RNTRC ativo no cadastro de setup');
+    assert.equal(rntrc001?.status, 'WARN');
+    assert.equal(rntrc001?.reasonCode, 'RNTRC_NOT_VERIFIED');
 
     operation = body.operation;
   });

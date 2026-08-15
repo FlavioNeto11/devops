@@ -33,12 +33,16 @@ import {
   RULE_EVALUATORS,
   RULES_WITHOUT_EVALUATOR_YET,
   applyEnforcementClamp,
+  type CarrierRntrcVerificationContext,
   type ComplianceCheckStatus,
   type FreightFloorCalculationContext
 } from '../lib/transport/rule-evaluators.js';
 import type { TransportOperationAggregate } from '../lib/transport/transport-operation-types.js';
 import { findLatestFreightFloorCalculationForOperation } from './freight-floor-service.js';
 import type { FreightFloorCalculationRecord } from '../repositories/freight-floor-repo.js';
+import { findLatestSucceededRntrcVerificationForParty } from '../repositories/rntrc-verification-repo.js';
+import { findVehiclePartyLinkType } from '../repositories/transport-vehicle-repo.js';
+import type { RntrcVerification } from '../lib/transport/rntrc-verification-types.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -162,11 +166,32 @@ function toFloorCalculationContext(record: FreightFloorCalculationRecord | null)
   };
 }
 
+function findCarrierOperationParty(aggregate: TransportOperationAggregate) {
+  return aggregate.parties.find((party) => party.role === 'carrier') ?? null;
+}
+
+function findTractionOperationVehicle(aggregate: TransportOperationAggregate) {
+  return aggregate.vehicles.find((vehicle) => vehicle.position === 'traction') ?? null;
+}
+
+/** `RntrcVerification` (repo) → recorte que `rule-evaluators.ts` conhece (PR-C1, TR-RNTRC-001). */
+function toCarrierRntrcVerificationContext(record: RntrcVerification | null): CarrierRntrcVerificationContext | null {
+  if (!record || !record.resultStatus || !record.completedAt) return null;
+  return {
+    strategy: record.strategy,
+    resultStatus: record.resultStatus,
+    dataReferenceDate: record.dataReferenceDate,
+    completedAt: record.completedAt
+  };
+}
+
 async function buildCheckForRule(
   rule: RegulatoryRuleWithVersion,
   aggregate: TransportOperationAggregate,
   referenceDate: string,
-  floorCalculation: FreightFloorCalculationContext | null
+  floorCalculation: FreightFloorCalculationContext | null,
+  carrierRntrcVerification: CarrierRntrcVerificationContext | null,
+  carrierTractionVehicleLinkType: string | null
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -210,7 +235,14 @@ async function buildCheckForRule(
     };
   }
 
-  const rawOutcome = evaluator({ operation: aggregate, ruleVersion: version, referenceDate, floorCalculation });
+  const rawOutcome = evaluator({
+    operation: aggregate,
+    ruleVersion: version,
+    referenceDate,
+    floorCalculation,
+    carrierRntrcVerification,
+    carrierTractionVehicleLinkType
+  });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
   return {
@@ -285,9 +317,30 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
   );
   const floorCalculation = toFloorCalculationContext(floorCalculationRecord);
 
+  // Carregados UMA vez por avaliação (não por regra) — só TR-RNTRC-001/002 consomem, mesmo racional
+  // de `floorCalculation` acima (PR-B1). `rule-evaluators.ts` continua PURO: nenhuma das duas
+  // consultas roda dentro de um evaluator.
+  const carrierParty = findCarrierOperationParty(aggregate);
+  const carrierRntrcVerificationRecord = carrierParty
+    ? await findLatestSucceededRntrcVerificationForParty(carrierParty.partyId, input.integrationAccountId)
+    : null;
+  const carrierRntrcVerification = toCarrierRntrcVerificationContext(carrierRntrcVerificationRecord);
+
+  const tractionVehicle = findTractionOperationVehicle(aggregate);
+  const carrierTractionVehicleLinkType = tractionVehicle && carrierParty
+    ? await findVehiclePartyLinkType(tractionVehicle.vehicleId, carrierParty.partyId)
+    : null;
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
-    checkBuilds.push(await buildCheckForRule(rule, aggregate, referenceDate, floorCalculation));
+    checkBuilds.push(await buildCheckForRule(
+      rule,
+      aggregate,
+      referenceDate,
+      floorCalculation,
+      carrierRntrcVerification,
+      carrierTractionVehicleLinkType
+    ));
   }
 
   let overallStatus: ComplianceOverallStatus = 'pass';

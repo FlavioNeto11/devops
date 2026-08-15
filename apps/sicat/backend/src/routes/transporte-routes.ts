@@ -60,6 +60,10 @@ import {
   listFreightFloorCalculationsHttpService,
   listFreightFloorTablesService
 } from '../services/freight-floor-service.js';
+import {
+  listRntrcVerificationsService,
+  requestRntrcVerificationService
+} from '../services/transport-rntrc-verification-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -155,6 +159,30 @@ export function registerTransporteRoutes(router: express.Router): void {
     const response = await updateTransportPartyService(
       String(req.params.partyId || ''),
       (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Verificação de regularidade RNTRC (PR-C1) — `manual` é SÍNCRONO (200); `open_data` ENFILEIRA
+  // (202, primeiro job type assíncrono com gateway externo real da vertical).
+  // ===========================================================================================
+
+  router.post('/v1/transporte/transportadores/:partyId/verificar-rntrc', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await requestRntrcVerificationService(
+      String(req.params.partyId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    const isQueuedCommand = (response as LooseRecord).status === 'queued' && Boolean((response as LooseRecord).commandId);
+    res.status(isQueuedCommand ? 202 : 200).json(response);
+  }));
+
+  router.get('/v1/transporte/transportadores/:partyId/verificacoes-rntrc', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listRntrcVerificationsService(
+      String(req.params.partyId || ''),
+      (req.query || {}) as LooseRecord
     );
     res.json(response);
   }));

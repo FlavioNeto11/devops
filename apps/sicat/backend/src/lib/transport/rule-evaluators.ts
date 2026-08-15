@@ -52,12 +52,36 @@ export type FreightFloorCalculationContext = {
   floorVersion: FreightFloorCalculationVersionRef | null;
 };
 
+/**
+ * Recorte da última verificação RNTRC SUCEDIDA do carrier vinculado à operação (PR-C1,
+ * `rntrc_verifications`), montado por `transport-compliance-service.ts` a partir de
+ * `rntrc-verification-repo.findLatestSucceededRntrcVerificationForParty`. `null` quando o carrier
+ * nunca teve uma verificação concluída com sucesso (falhas de rede não contam — ver
+ * `completeVerificationFailed`, nunca `succeeded`).
+ */
+export type CarrierRntrcVerificationContext = {
+  strategy: 'open_data' | 'manual' | 'antt';
+  resultStatus: 'active' | 'suspended' | 'cancelled' | 'expired' | 'not_found' | 'unknown';
+  /** Data-base do dado consultado (só `open_data`) — a defasagem que o relatório precisa mostrar. */
+  dataReferenceDate: string | null;
+  /** Quando a verificação terminou — é o que decide o frescor dos 90 dias, não `dataReferenceDate`. */
+  completedAt: string;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
   referenceDate: string;
   /** Cálculo de piso mais recente da operação (PR-B1) — `undefined`/`null` tratados iguais (nenhum cálculo ainda). */
   floorCalculation?: FreightFloorCalculationContext | null;
+  /** Última verificação RNTRC bem-sucedida do carrier vinculado (PR-C1) — `undefined`/`null` = nunca verificado. */
+  carrierRntrcVerification?: CarrierRntrcVerificationContext | null;
+  /**
+   * Tipo de vínculo (`owned|leased|aggregated|rntrc_fleet`) entre o veículo de TRAÇÃO da operação e
+   * o carrier (PR-C1, `transport_vehicle_links`). `undefined`/`null` = sem veículo de tração OU sem
+   * vínculo — TR-RNTRC-002 distingue os dois casos olhando `operation.vehicles` diretamente.
+   */
+  carrierTractionVehicleLinkType?: string | null;
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -96,8 +120,43 @@ function outcome(
 // TR-RNTRC-001 — RNTRC regular para a operação (GATE_CONTRACT)
 // =================================================================================================
 
-const IRREGULAR_RNTRC_STATUSES = new Set(['suspended', 'cancelled', 'expired']);
+const IRREGULAR_RNTRC_RESULT_STATUSES = new Set(['suspended', 'cancelled', 'expired', 'not_found']);
 
+/**
+ * Janela de frescor de uma verificação RNTRC (PR-C1, guia do programa — pendência P4). Acima disso
+ * o dado é tratado como STALE (`RNTRC_VERIFICATION_STALE`), mesmo que o último resultado conhecido
+ * tenha sido `active` — o mundo pode ter mudado desde então, e nem `open_data` nem `manual` provam
+ * o contrário retroativamente.
+ */
+const RNTRC_VERIFICATION_FRESHNESS_DAYS = 90;
+
+/** Dias entre `referenceDate` (YYYY-MM-DD) e um timestamp ISO qualquer — puro, sem `new Date()` do relógio real. */
+function daysBetween(referenceDate: string, isoTimestamp: string): number {
+  const refMs = new Date(`${referenceDate}T00:00:00Z`).getTime();
+  const otherMs = new Date(`${isoTimestamp.slice(0, 10)}T00:00:00Z`).getTime();
+  return Math.floor((refMs - otherMs) / 86400000);
+}
+
+function buildRntrc001PassMessage(verification: CarrierRntrcVerificationContext): string {
+  if (verification.strategy === 'open_data') {
+    return `RNTRC ativo conforme dados abertos da ANTT (dataDate=${verification.dataReferenceDate ?? 'desconhecida'}) — `
+      + 'cache informativo, não é certidão de regularidade emitida pela ANTT.';
+  }
+  return 'RNTRC verificado manualmente como ativo (evidência declarada pelo operador).';
+}
+
+/**
+ * TR-RNTRC-001 — RNTRC regular para a operação (GATE_CONTRACT). Evoluído no PR-C1: agora considera
+ * a verificação mais recente do carrier (`ctx.carrierRntrcVerification`), não só o `rntrcStatus`
+ * DECLARADO no cadastro (esse continua sendo o gate de "RNTRC preenchido" — `CARRIER_RNTRC_MISSING`
+ * é sobre o CADASTRO, nunca sobre a verificação).
+ *
+ * `not_found` entra no MESMO bloco bruto de suspended/cancelled/expired: o dado aberto da ANTT só
+ * lista registros ATIVO/PENDENTE (ver `antt-rntrc-gateway.ts`), então "não encontrado" é o único
+ * sinal de irregularidade que `open_data` consegue produzir — e o clamp de enforcement
+ * (`applyEnforcementClamp`) rebaixa qualquer `block` bruto para `warn` enquanto a regra não estiver
+ * `ACTIVE`+`blocking=true` (que TR-RNTRC-001 já é, ver seed — logo aqui BLOQUEIA de verdade).
+ */
 function evaluateRntrc001(ctx: RuleEvaluatorContext): RuleOutcome {
   const carrier = findPartyByRole(ctx.operation.parties, 'carrier');
   const inputs = { carrierLinked: Boolean(carrier) };
@@ -111,8 +170,8 @@ function evaluateRntrc001(ctx: RuleEvaluatorContext): RuleOutcome {
   }
 
   const rntrcNumber = carrier.partySnapshot.rntrcNumber as string | null | undefined;
-  const rntrcStatus = (carrier.partySnapshot.rntrcStatus as string | null | undefined) ?? 'unknown';
-  const checkInputs = { ...inputs, rntrcNumber: rntrcNumber ?? null, rntrcStatus };
+  const declaredRntrcStatus = (carrier.partySnapshot.rntrcStatus as string | null | undefined) ?? 'unknown';
+  const checkInputs = { ...inputs, rntrcNumber: rntrcNumber ?? null, declaredRntrcStatus };
 
   if (!rntrcNumber) {
     return outcome('block', 'RNTRC do transportador vinculado não está preenchido no cadastro.', {
@@ -122,25 +181,111 @@ function evaluateRntrc001(ctx: RuleEvaluatorContext): RuleOutcome {
     });
   }
 
-  if (IRREGULAR_RNTRC_STATUSES.has(rntrcStatus)) {
-    return outcome('block', `RNTRC do transportador está "${rntrcStatus}" — situação irregular para operar.`, {
-      reasonCode: 'CARRIER_RNTRC_IRREGULAR',
-      inputs: checkInputs,
-      result: { rntrcStatus }
-    });
-  }
+  const verification = ctx.carrierRntrcVerification ?? null;
 
-  if (rntrcStatus === 'unknown') {
-    return outcome('warn', 'RNTRC declarado, mas o status ainda não foi verificado (declaração do operador).', {
+  if (!verification) {
+    return outcome('warn', 'RNTRC preenchido, mas o transportador nunca teve uma verificação de regularidade concluída (nem dados abertos, nem manual).', {
       reasonCode: 'RNTRC_NOT_VERIFIED',
       inputs: checkInputs,
-      result: { rntrcStatus }
+      result: { rntrcNumber, declaredRntrcStatus }
     });
   }
 
-  return outcome('pass', `RNTRC do transportador regular ("${rntrcStatus}").`, {
+  const resultInputs = {
+    ...checkInputs,
+    verificationStrategy: verification.strategy,
+    verificationResultStatus: verification.resultStatus,
+    verificationDataReferenceDate: verification.dataReferenceDate,
+    verificationCompletedAt: verification.completedAt
+  };
+
+  if (IRREGULAR_RNTRC_RESULT_STATUSES.has(verification.resultStatus)) {
+    const label = verification.resultStatus === 'not_found'
+      ? 'não encontrado no dado consultado'
+      : `"${verification.resultStatus}"`;
+    return outcome('block', `Última verificação RNTRC do transportador (${verification.strategy}): ${label} — situação irregular para operar.`, {
+      reasonCode: 'CARRIER_RNTRC_IRREGULAR',
+      inputs: resultInputs,
+      result: { resultStatus: verification.resultStatus, strategy: verification.strategy }
+    });
+  }
+
+  const ageDays = daysBetween(ctx.referenceDate, verification.completedAt);
+  const isFresh = ageDays <= RNTRC_VERIFICATION_FRESHNESS_DAYS;
+
+  if (verification.resultStatus === 'active' && isFresh) {
+    return outcome('pass', buildRntrc001PassMessage(verification), {
+      inputs: resultInputs,
+      result: {
+        rntrcNumber,
+        strategy: verification.strategy,
+        resultStatus: verification.resultStatus,
+        dataReferenceDate: verification.dataReferenceDate,
+        ageDays
+      }
+    });
+  }
+
+  if (verification.resultStatus === 'active') {
+    // Fresco vs. stale é sobre QUANDO verificamos, não sobre o que a verificação encontrou.
+    return outcome(
+      'warn',
+      `Última verificação RNTRC (${verification.strategy}) tem ${ageDays} dia(s) — acima da janela de frescor `
+        + `de ${RNTRC_VERIFICATION_FRESHNESS_DAYS} dias. Reverifique antes de considerar a operação regular.`,
+      {
+        reasonCode: 'RNTRC_VERIFICATION_STALE',
+        inputs: resultInputs,
+        result: { ageDays, freshnessLimitDays: RNTRC_VERIFICATION_FRESHNESS_DAYS }
+      }
+    );
+  }
+
+  // `unknown` — ex.: `PENDENTE` no dado aberto da ANTT (nem regular nem irregular). Mesmo rótulo
+  // de "nunca verificado": o operador não tem uma confirmação de regularidade em mãos.
+  return outcome('warn', `Última verificação RNTRC (${verification.strategy}) não confirmou regularidade (resultado: ${verification.resultStatus}).`, {
+    reasonCode: 'RNTRC_NOT_VERIFIED',
+    inputs: resultInputs,
+    result: { resultStatus: verification.resultStatus }
+  });
+}
+
+// =================================================================================================
+// TR-RNTRC-002 — veículo de tração vinculado ao carrier (GATE_PRE_BOARDING)
+// =================================================================================================
+
+/**
+ * TR-RNTRC-002 (PR-C1, sai de `RULES_WITHOUT_EVALUATOR_YET`): o veículo de TRAÇÃO da operação
+ * precisa ter um vínculo formal (`owned|leased|aggregated|rntrc_fleet`) com o carrier no cadastro-
+ * base (`transport_vehicle_links`) — sem isso não há como afirmar que o veículo compõe a frota
+ * RNTRC do transportador. `GATE_PRE_BOARDING` já pressupõe veículo definido (a operação não embarca
+ * sem um); por isso a AUSÊNCIA de veículo de tração aqui é `block` bruto, não `not_applicable`.
+ */
+function evaluateRntrc002(ctx: RuleEvaluatorContext): RuleOutcome {
+  const tractionVehicle = ctx.operation.vehicles.find((vehicle) => vehicle.position === 'traction') ?? null;
+  const inputs = { hasTractionVehicle: Boolean(tractionVehicle) };
+
+  if (!tractionVehicle) {
+    return outcome('block', 'Nenhum veículo de tração vinculado à operação — obrigatório para o embarque.', {
+      reasonCode: 'VEHICLE_MISSING',
+      inputs,
+      result: {}
+    });
+  }
+
+  const linkType = ctx.carrierTractionVehicleLinkType ?? null;
+  const checkInputs = { ...inputs, vehicleId: tractionVehicle.vehicleId, linkType };
+
+  if (!linkType) {
+    return outcome('warn', 'Veículo de tração da operação não tem vínculo formal com o transportador (carrier) no cadastro-base.', {
+      reasonCode: 'VEHICLE_NOT_LINKED_TO_CARRIER',
+      inputs: checkInputs,
+      result: {}
+    });
+  }
+
+  return outcome('pass', `Veículo de tração vinculado ao transportador (tipo de vínculo: "${linkType}").`, {
     inputs: checkInputs,
-    result: { rntrcNumber, rntrcStatus }
+    result: { linkType }
   });
 }
 
@@ -480,6 +625,7 @@ function evaluateComp001(): RuleOutcome {
 
 export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-RNTRC-001': evaluateRntrc001,
+  'TR-RNTRC-002': evaluateRntrc002,
   'TR-PMF-001': evaluatePmf001,
   'TR-PMF-002': evaluatePmf002,
   'TR-PMF-003': evaluatePmf003,
@@ -499,9 +645,15 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * integração/dado necessário para avaliar a regra de verdade — mapeada por domínio regulatório:
  * RNTRC (verificação ANTT) e CIOT (ciclo completo) → Fase C; VPO (antecipação/meio de pagamento) →
  * Fase D; NF-e/CT-e/MDF-e (importação fiscal) → Fase E; seguros/PGR → Fase F.
+ *
+ * TR-RNTRC-002 SAIU deste mapa no PR-C1 (evaluator declarativo, `evaluateRntrc002` acima).
+ * TR-RNTRC-003 CONTINUA aqui — regra de revalidação anual da Lei 15.485/2026, ainda sem
+ * regulamentação ANTT complementar (pendência P2 do guia; a versão do seed já nasce
+ * `implementationState: 'AWAITING_REGULATION'`). Sem uma norma que diga COMO a revalidação anual
+ * deve ser checada, não há o que um evaluator avaliaria — permanece `EVALUATOR_NOT_IMPLEMENTED`
+ * até a regulamentação existir, mesmo a versão da regra já estando vigente por data.
  */
 export const RULES_WITHOUT_EVALUATOR_YET: Partial<Record<RuleCode, { targetPhase: string }>> = {
-  'TR-RNTRC-002': { targetPhase: 'C' },
   'TR-RNTRC-003': { targetPhase: 'C' },
   'TR-CIOT-001': { targetPhase: 'C' },
   'TR-CIOT-002': { targetPhase: 'C' },
