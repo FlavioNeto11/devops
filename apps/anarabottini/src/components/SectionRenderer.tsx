@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Check, Clock, Download, ExternalLink, Lock, Play, Clapperboard, Youtube, Instagram } from 'lucide-react';
+import { ArrowRight, Check, Clock, Download, ExternalLink, Lock, Play, Clapperboard } from 'lucide-react';
+import { Youtube, Instagram } from '../lib/brand-icons';
 import { Reveal, SectionHeading } from './ui';
 import { GridGlow, PortraitCard, InfinityMotif } from './backgrounds';
 import ProposalButton from './ProposalButton';

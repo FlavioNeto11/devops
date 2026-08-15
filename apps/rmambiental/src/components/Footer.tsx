@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
+import { Mail, MessageCircle, MapPin } from 'lucide-react';
+import { Linkedin, Instagram } from '../lib/brand-icons';
 import { useSite } from '../lib/SiteContext';
 import { asset } from '../lib/utils';
 import { serviceGroups } from '../data/services';
