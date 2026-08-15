@@ -115,7 +115,11 @@ POST /v1/transporte/operacoes/{id}/cancelar
 Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` → `gen:operations` **+
 `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de
 `sicatAuthMiddleware`; RBAC `transporte.read`/`transporte.write` + papel `sicat.transporte.operator`
-(nunca alargar `sicat.reader`).
+(nunca alargar `sicat.reader`). **Nota (decisão do PR-A2):** as chaves RBAC entram quando houver
+mecanismo de enforcement por rota HTTP ou tools conversacionais da vertical — hoje o enforcement
+por `permission_key` existe só no gate do chat, e o meta-teste do catálogo
+(`tests/unit/conversation-permission-catalog.test.js`) rejeita chave semeada sem consumidor. O
+PR-A2 seguiu o padrão da casa (DMR): rota só com `sicatAuthMiddleware`.
 
 ## 7. Motor de compliance
 
@@ -166,7 +170,7 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 | PR | Backend | Contrato | Docs |
 |---|---|---|---|
 | A1 | migrations 021/022, `regulatory-repo.ts`, seed, `lib/transport/regulatory-types.ts` | — | este doc, DL-022 doc, estado-atual, guia |
-| A2 | `transporte-routes.ts`, `transporte-regras-service.ts`, RBAC | 3 GETs de regras + schemas + examples | estado-atual |
+| A2 | `transporte-routes.ts`, `transporte-regras-service.ts` (RBAC adiado — ver nota do §6) | 3 GETs de regras + schemas + examples | estado-atual |
 | A3 | migration 023, repos/services/validator de parties/vehicles | CRUD transportadores/veículos | estado-atual |
 | A4 | migration 024, `transport-state-machine.ts`, repo/service de operações, registry operacional | CRUD operações + cancelar | estado-atual, guia |
 | A5 | migration 025, `transport-compliance-service.ts`, `rule-evaluators.ts` | conformidade + submeter-validacao + contratar | estado-atual, guia |

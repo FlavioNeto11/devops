@@ -1016,6 +1016,33 @@ const operationsData = [
     "summary": "Receber mensagens de entrada do WhatsApp",
     "tag": "WhatsApp Channel",
     "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras",
+    "method": "get",
+    "specPath": "/v1/transporte/regras",
+    "expressPath": "/v1/transporte/regras",
+    "summary": "Listar regras do catálogo regulatório de transporte",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras_code",
+    "method": "get",
+    "specPath": "/v1/transporte/regras/{code}",
+    "expressPath": "/v1/transporte/regras/:code",
+    "summary": "Detalhar regra do catálogo regulatório",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras_code_historico",
+    "method": "get",
+    "specPath": "/v1/transporte/regras/{code}/historico",
+    "expressPath": "/v1/transporte/regras/:code/historico",
+    "summary": "Histórico de versões de uma regra do catálogo",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
 

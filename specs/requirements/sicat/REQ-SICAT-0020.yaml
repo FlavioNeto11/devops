@@ -30,7 +30,7 @@ capability_blocks:
   - contract-openapi
   - idempotencia
 acceptance_criteria:
-  - "Toda rota nova de /v1/transporte/* nasce atrás de sicatAuthMiddleware e com chave RBAC própria (transporte.read para leitura, transporte.write para mutação), sem alargar o papel-piso sicat.reader."
+  - "Toda rota nova de /v1/transporte/* nasce atrás de sicatAuthMiddleware (padrão da casa — enforcement por permission_key hoje existe só no gate conversacional); chaves RBAC transporte.read/transporte.write entram quando houver mecanismo de enforcement por rota HTTP ou tools conversacionais da vertical, sem alargar o papel-piso sicat.reader."
   - "GET /v1/transporte/regras aceita filtro vigenteEm e devolve a versão da regra resolvida na data."
   - "Alterações de superfície HTTP evoluem OpenAPI, exemplos, operações geradas (os dois geradores), rotas e testes de contrato no mesmo PR; npm run validate:openapi permanece verde."
   - "Na Fase A não há job type novo: avaliação de conformidade é síncrona (200); o padrão 202/command-accepted entra quando houver integração externa (Fase C)."
@@ -42,9 +42,9 @@ links:
     target: REQ-SICAT-0019
 version:
   baseline_version: 1.0.0
-  item_revision: 1
-  semantic_change: none
-  change_reason: criação inicial — programa SICAT Transporte (Onda 0)
+  item_revision: 2
+  semantic_change: patch
+  change_reason: alinhamento do critério de RBAC ao padrão da casa (PR-A2 — enforcement por chave só existe no gate conversacional; meta-teste do catálogo rejeita chave sem consumidor)
 allocation:
   service_refs:
     - svc-sicat-api
