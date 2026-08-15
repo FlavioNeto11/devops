@@ -756,6 +756,84 @@ primeiro, worker só depois de Ready.
 
 ---
 
+## Migration 029 — Ciclo do VPO Transporte + 2 job types (PR-D1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — o TERCEIRO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts` no PR-C1 e
+`ciot-provider-gateway.ts` no PR-C2), e a SEGUNDA aplicação do padrão **DL-102** (marcador de
+correlação + `*_unconfirmed` + reconciliador), desta vez sobre um recurso MUTÁVEL em vez de
+append-por-tentativa. NÃO existe fornecedora de VPO integrada tecnicamente
+([EXTERNAL DEPENDENCY] P6 do guia do programa) — `gateways/vpo-gateway.ts` só implementa `mock`.
+
+- **`029_transport_vpo.sql`** — `vpo_providers` (PK `text` via `createPrefixedId` (`vpoprov_`),
+  cadastro de referência CONFIGURÁVEL, sem tenancy — `version` + trigger `increment_version()`),
+  `vpo_allocations` (`vpoalloc_`, `version` + trigger) e `vpo_events` (`vpoev_`, APPEND-ONLY, sem
+  `version`). **Decisão estrutural que diverge de `ciot_operations`**: `vpo_allocations` é
+  MUTÁVEL — `unique(operation_id)` garante NO MÁXIMO uma linha por operação (a especificação do
+  PR pediu "cria/atualiza", não "cada tentativa cria uma linha nova"); o histórico completo vive
+  em `vpo_events`. `applicability_reason_code` é OBRIGATÓRIO quando `status='not_applicable'`
+  (`chk_vpoalloc_not_applicable_reason`) — a exigência "até NOT_APPLICABLE deixa justificativa"
+  virou constraint de banco, não convenção de código. `status` e `event_type` foram ESTENDIDOS além
+  do conjunto mínimo da especificação (`pending/applicable/not_applicable/acquired/cancelled`) com
+  dois estados de trânsito (`acquisition_requested`/`acquisition_unconfirmed`) e um evento
+  (`reconciled`) — necessários para sustentar o padrão DL-102 pedido explicitamente para
+  `.../vpo/adquirir`; sem eles não haveria como representar "dispatchado, aguardando confirmação"
+  distinto de "resposta perdida", a mesma distinção que já motiva `ciot_operations.status`.
+
+**Fila — 4 pontos tocados, 2 job types novos** (`transporte.vpo.acquire|reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 2 novos `case`s no switch de `processJob`, delegando a
+   `handleTransporteVpoAcquire(job)`/`handleTransporteVpoReconcile(job)` **sem** o parâmetro
+   `gateway` (mesmo molde do CIOT); o corpo de cada job vive em `transport-vpo-service.ts`
+   (`runVpo*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteVpoTerminalFailureSideEffect` (definido em `transport-vpo-service.ts` e
+   re-exportado por `operation-handlers.ts`, mesmo molde de `applyTransporteCiotTerminalFailureSideEffect`),
+   registrado em `workers/job-runner.ts` nos dois pontos de despacho — distingue rejeição
+   DEFINITIVA do provedor (`VPO_PROVIDER_REJECTED_TEST` → volta a `applicable`, SEM esperar
+   reconciliação) de qualquer outro terminal DEPOIS do dispatch (→ `acquisition_unconfirmed`,
+   NUNCA falha definitiva — DL-102).
+2. `src/lib/retry.ts` — as 2 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (`acquire`: 4; `reconcile`: 3, mesmo racional do CIOT — já faz polling próprio) e
+   `getRetryConfig` (`acquire`: 4 tentativas exponencial 5s→120s; `reconcile`: 3 tentativas,
+   5s→60s). `VPO_PROVIDER_REJECTED_TEST`/`VPO_PROVIDER_NOT_CONFIGURED`/
+   `TRANSPORTE_VPO_ALREADY_TERMINAL` entram em `NON_RETRYABLE_ERROR_CODES`;
+   `VPO_PROVIDER_LOST_RESPONSE_TEST`/`VPO_RECONCILE_QUERY_FAILED` entram em
+   `RETRYABLE_ERROR_CODES` (mesmo molde do CIOT).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) — `entityType 'vpo_allocation'` usa
+   `entityId = operationId` (mesmo padrão de `ciot_operation`, via o parâmetro `entityLink` já
+   existente desde o PR-C2 — nenhuma mudança de assinatura foi necessária aqui).
+4. Contrato: 1 endpoint de comando novo (`POST .../vpo/adquirir`, `202`) entrou em
+   `commandEndpoints` de `scripts/validate-openapi.js`.
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteVpoReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueTransporteCiotReconcileSweepIfNeeded` (relógio próprio, env var própria
+`TRANSPORTE_VPO_RECONCILE_SWEEP_MS`, default 5 min) — é a rede de segurança para `vpo_allocations`
+em `acquisition_unconfirmed` cujo enfileiramento de `reconcile` pelo side-effect terminal falhou.
+
+As DUAS escritas de `POST .../vpo/registrar-aquisicao` (`vpo_allocations` → `acquired` +
+`transport_operations.vpo_amount` via CAS) rodam NUMA transação (`db/pool.ts#withTransaction`) —
+primeira vez que um service da vertical Transporte usa transação explícita cruzando duas tabelas
+(os PRs anteriores aceitavam a janela de corrida, documentada, entre `insert`/`update` e o CAS do
+cabeçalho da operação).
+
+Gateway `src/gateways/vpo-gateway.ts` (TS): `mode: 'mock'` (default, `VPO_PROVIDER_MODE`) é
+STATEFUL EM MEMÓRIA POR PROCESSO, mesmo padrão do CIOT — calcula o valor do VPO a partir da
+distância da rota (tarifa de SANDBOX, nunca real); sem rota/distância válida, rejeita com
+`VPO_PROVIDER_REJECTED_TEST`. `mode: 'real'` recusa `createVpoProviderGateway` com
+`VPO_PROVIDER_NOT_CONFIGURED`.
+
+Cadastro de fornecedoras (`vpo_providers`) carregado por loader MANUAL e ADITIVO
+(`scripts/load-vpo-providers.js`, `npm run load:vpo-providers`, molde
+`load-freight-floor-tables.js`) a partir de `reference-data/vpo/fornecedoras-habilitadas.json` —
+16 fornecedoras REAIS pesquisadas na fonte oficial gov.br/antt em 14/08/2026. O loader NUNCA roda
+no boot (`AUTO_SEED`) e NUNCA toca `is_active` de uma linha existente (upsert por `name`).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`

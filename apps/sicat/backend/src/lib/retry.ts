@@ -38,7 +38,14 @@ const RETRYABLE_ERROR_CODES = new Set([
   // Erro do reconciliador de CIOT ao consultar o provedor — INCONCLUSIVO, nunca "não existe"
   // (mesmo racional de `SUBMIT_RECONCILE_SEARCH_FAILED`, que não precisa de entrada aqui porque
   // sempre chega embrulhado como AppError 502 sem `code` próprio reconhecido — este JÁ tem code).
-  'CIOT_RECONCILE_QUERY_FAILED'
+  'CIOT_RECONCILE_QUERY_FAILED',
+  // Provedor de VPO (PR-D1) — "resposta perdida" simulada pelo mock (DL-102, mesmo papel de
+  // `CIOT_PROVIDER_LOST_RESPONSE_TEST`). Também coberto por status (504) via
+  // `classifyRetryabilityFromStatus`; registrado aqui para clareza/redundância.
+  'VPO_PROVIDER_LOST_RESPONSE_TEST',
+  // Erro do reconciliador de VPO ao consultar o provedor — INCONCLUSIVO, mesmo racional de
+  // `CIOT_RECONCILE_QUERY_FAILED`.
+  'VPO_RECONCILE_QUERY_FAILED'
 ]);
 
 const NON_RETRYABLE_ERROR_CODES = new Set([
@@ -73,7 +80,21 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   // Mesma classe de `RNTRC_VERIFICATION_ALREADY_TERMINAL`, para os 5 job types do CIOT: a linha já
   // não está no status esperado para a transição — resultado provavelmente já aplicado por uma
   // tentativa anterior que não chegou a `finishJob`.
-  'TRANSPORTE_CIOT_ALREADY_TERMINAL'
+  'TRANSPORTE_CIOT_ALREADY_TERMINAL',
+  // Provedor de VPO (PR-D1): recusa DEFINITIVA do provedor (ex.: rota sem distância válida para
+  // calcular o pedágio) — decisão de negócio, não falha transitória. O side-effect terminal
+  // (`applyTransporteVpoTerminalFailureSideEffect`) lê justamente ESTE código para distinguir "o
+  // provedor recusou" (→ volta a `applicable`, liberando novo retry) de "a resposta se perdeu" (→
+  // `acquisition_unconfirmed`, DL-102) — por isso precisa chegar a `failed` numa ÚNICA tentativa,
+  // nunca esgotar retries primeiro.
+  'VPO_PROVIDER_REJECTED_TEST',
+  // Configuração ausente (`VPO_PROVIDER_MODE=real`, [EXTERNAL DEPENDENCY] P6 sem fornecedora
+  // integrada tecnicamente) — retentar não resolve, é decisão do operador trocar de modo.
+  'VPO_PROVIDER_NOT_CONFIGURED',
+  // Mesma classe de `TRANSPORTE_CIOT_ALREADY_TERMINAL`, para os 2 job types do VPO: a linha já não
+  // está no status esperado para a transição — resultado provavelmente já aplicado por uma
+  // tentativa anterior que não chegou a `finishJob`.
+  'TRANSPORTE_VPO_ALREADY_TERMINAL'
 ]);
 
 type ErrorLike = {
@@ -110,7 +131,9 @@ type RetryableOperation =
   | 'transporte.ciot.rectify'
   | 'transporte.ciot.cancel'
   | 'transporte.ciot.close'
-  | 'transporte.ciot.reconcile';
+  | 'transporte.ciot.reconcile'
+  | 'transporte.vpo.acquire'
+  | 'transporte.vpo.reconcile';
 
 type JobLike = {
   attempts: number;
@@ -371,7 +394,14 @@ export function calculateJobPriority(operation: string): number {
     'transporte.ciot.rectify': 4,
     'transporte.ciot.cancel': 4,
     'transporte.ciot.close': 4,
-    'transporte.ciot.reconcile': 3
+    'transporte.ciot.reconcile': 3,
+    // Aquisição de VPO via provedor abstraído (PR-D1, mock — sem fornecedora integrada
+    // tecnicamente, P6). Mesmo nível de `transporte.ciot.register` (4): acima de housekeeping,
+    // abaixo das operações CETESB críticas — outro provedor, não disputa fila com o MTR/CIOT.
+    // `reconcile` fica ABAIXO da mutação, mesmo racional do CIOT (rede de segurança, não o
+    // caminho do usuário esperando).
+    'transporte.vpo.acquire': 4,
+    'transporte.vpo.reconcile': 3
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -584,6 +614,26 @@ export function getRetryConfig(operation: string): RetryConfig {
     // INFRAESTRUTURA em torno desse polling (ex.: erro ao gravar o resultado), por isso é mais
     // curto que os comandos mutantes.
     'transporte.ciot.reconcile': {
+      maxAttempts: 3,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 60000
+    },
+    // Aquisição de VPO via provedor abstraído (PR-D1, mock — sem fornecedora integrada
+    // tecnicamente, P6). Mesmo orçamento do CIOT: 4 tentativas, exponencial 5s→120s.
+    // `VPO_PROVIDER_REJECTED_TEST` é NON-retryable (registrado em `NON_RETRYABLE_ERROR_CODES`) — só
+    // a resposta PERDIDA (`VPO_PROVIDER_LOST_RESPONSE_TEST`) de fato percorre este backoff antes de
+    // declarar `acquisition_unconfirmed` no terminal.
+    'transporte.vpo.acquire': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    // Reconciliador (DL-102): já faz polling PRÓPRIO contra o provedor (`vpo-reconciler.ts`, 5
+    // tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
+    // INFRAESTRUTURA em torno desse polling, mesmo racional de `transporte.ciot.reconcile`.
+    'transporte.vpo.reconcile': {
       maxAttempts: 3,
       strategy: 'exponential',
       baseDelayMs: 5000,

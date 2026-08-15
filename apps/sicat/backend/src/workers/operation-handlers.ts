@@ -68,6 +68,10 @@ import {
   runCiotCloseJob,
   runCiotReconcileJob
 } from '../services/transport-ciot-service.js';
+import {
+  runVpoAcquireJob,
+  runVpoReconcileJob
+} from '../services/transport-vpo-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -1117,6 +1121,39 @@ async function handleTransporteCiotReconcile(job: JobEntity) {
 // importado lá.
 export { applyTransporteCiotTerminalFailureSideEffect } from '../services/transport-ciot-service.js';
 
+/**
+ * Aquisição de VPO com provedor ABSTRAÍDO (PR-D1) — 2 handlers, SEM parâmetro `gateway` (mesmo
+ * molde de `handleTransporteCiotRegister`): o corpo de cada um vive em `transport-vpo-service.ts`
+ * (`runVpo*Job`); aqui só a costura com a fila — `{ outcome, ...patch }` → `finishJob`. Rejeição do
+ * provedor e resposta perdida (DL-102) NÃO são tratadas aqui — propagam e são interpretadas pelo
+ * side-effect terminal `applyTransporteVpoTerminalFailureSideEffect` (re-exportado abaixo, chamado
+ * pelos DOIS pontos de `workers/job-runner.ts`).
+ */
+async function handleTransporteVpoAcquire(job: JobEntity) {
+  const result = await runVpoAcquireJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteVpoReconcile(job: JobEntity) {
+  const result = await runVpoReconcileJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+// Re-exportado (não redefinido) — mesmo racional de `applyTransporteCiotTerminalFailureSideEffect`
+// acima: a implementação mora em `transport-vpo-service.ts` porque depende profundamente de
+// `repositories/vpo-repo.ts`, já importado lá.
+export { applyTransporteVpoTerminalFailureSideEffect } from '../services/transport-vpo-service.js';
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1322,6 +1359,11 @@ export async function processJob(job: JobEntity, gateway: {
       return handleTransporteCiotClose(job);
     case 'transporte.ciot.reconcile':
       return handleTransporteCiotReconcile(job);
+    // Aquisição de VPO (PR-D1) — SEM o parâmetro `gateway`, mesmo molde do CIOT.
+    case 'transporte.vpo.acquire':
+      return handleTransporteVpoAcquire(job);
+    case 'transporte.vpo.reconcile':
+      return handleTransporteVpoReconcile(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

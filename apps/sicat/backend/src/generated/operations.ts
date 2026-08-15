@@ -1322,6 +1322,51 @@ const operationsData = [
     "summary": "Ciot atual + eventos paginados",
     "tag": "Transporte - CIOT",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_avaliar_aplicabilidade",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/avaliar-aplicabilidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/avaliar-aplicabilidade",
+    "summary": "Avaliar aplicabilidade do VPO (síncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_registrar_aquisicao",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/registrar-aquisicao",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/registrar-aquisicao",
+    "summary": "Registrar aquisição MANUAL do VPO (síncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_adquirir",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/adquirir",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/adquirir",
+    "summary": "Adquirir VPO via provedor (assíncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_vpo",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo",
+    "summary": "Alocação de VPO atual + eventos paginados",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_vpo_fornecedoras",
+    "method": "get",
+    "specPath": "/v1/transporte/vpo/fornecedoras",
+    "expressPath": "/v1/transporte/vpo/fornecedoras",
+    "summary": "Fornecedoras de VPO habilitadas (cadastro configurável, read-only)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
 

@@ -144,6 +144,22 @@ tags:
     (`ciot_pending` permanece; um novo `solicitar` cria uma nova tentativa); cancelar o CIOT
     (`.../ciot/cancelar`) é um ciclo DISTINTO de cancelar a operação
     (`.../operacoes/{id}/cancelar`) — `REGISTERED ≠ COMPLIANT` (FAQ ANTT).'
+- name: Transporte - Vale-Pedagio
+  description: 'Vale-Pedágio Obrigatório — VPO (PR-D1, Lei 10.209/2001 + Res. ANTT 6.024/2023). VPO
+    NÃO é checkbox universal: `avaliar-aplicabilidade` roda o `VpoApplicabilityEngine` (rota/regime
+    de carga/múltiplos embarcadores) e persiste o resultado numa alocação MUTÁVEL por operação
+    (`vpo_allocations` — ao contrário do CIOT, que cria uma linha por tentativa); TODO desfecho
+    `not_applicable` carrega `applicabilityReasonCode` obrigatório (constraint de banco). Aquisição
+    em dois caminhos: `registrar-aquisicao` (síncrono, 200, evidência declarada MANUALMENTE) e
+    `adquirir` (assíncrono, 202) via fornecedora habilitada — cadastro CONFIGURÁVEL
+    (`GET .../vpo/fornecedoras`, carregado por `npm run load:vpo-providers`, NUNCA hardcoded).
+    Padrão DL-102 replicado deliberadamente do CIOT para `adquirir`: a referência do provedor nasce
+    na RESPOSTA, e uma resposta perdida vira `acquisition_unconfirmed` (NUNCA falha definitiva),
+    resolvido por um reconciliador. NÃO existe fornecedora de VPO integrada tecnicamente
+    ([EXTERNAL DEPENDENCY] P6): a implementação concreta hoje é `mock`; `VPO_PROVIDER_MODE=real`
+    recusa com `VPO_PROVIDER_NOT_CONFIGURED`. O valor do VPO é SEMPRE separado do frete
+    (`transport_operations.vpoAmount`, campo decomposto — nunca somado a `freightOfferedAmount`/
+    `freightContractedAmount`).'
 security:
 - bearerAuth: []
 paths:
@@ -8232,6 +8248,282 @@ paths:
           minimum: 1
           maximum: 200
           default: 20
+  /v1/transporte/operacoes/{operationId}/vpo/avaliar-aplicabilidade:
+    post:
+      operationId: transporteOperacaoVpoAvaliarAplicabilidade
+      summary: Avaliar aplicabilidade do VPO (síncrono)
+      description: |-
+        Roda o `VpoApplicabilityEngine` (Lei 10.209/2001 + Res. ANTT 6.024/2023) sobre a rota/regime
+        de carga/embarcadores da operação e faz upsert na alocação de VPO (`vpo_allocations` —
+        recurso MUTÁVEL, uma linha por operação, ao contrário do CIOT). NÃO toca frete. Um desfecho
+        `NOT_APPLICABLE` SEMPRE carrega `applicabilityReasonCode` (constraint de banco) — a
+        exigência de que até a dispensa deixe justificativa evidenciada. Reavaliar uma alocação já
+        `acquired`/em aquisição NÃO regride o estado (o evento é registrado, mas o status persistido
+        não muda).
+      tags:
+      - Transporte - Vale-Pedagio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVpoAvaliarAplicabilidadeRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '200':
+          description: Alocação de VPO atual (avaliada/atualizada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVpoAllocationResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/vpo/registrar-aquisicao:
+    post:
+      operationId: transporteOperacaoVpoRegistrarAquisicao
+      summary: Registrar aquisição MANUAL do VPO (síncrono)
+      description: |-
+        Exige a alocação em `applicable` (`409 TRANSPORTE_VPO_NOT_APPLICABLE` fora disso — rode
+        `avaliar-aplicabilidade` primeiro). `providerId` precisa apontar para uma fornecedora
+        `isActive=true` (`GET .../vpo/fornecedoras`); `evidence` é OBRIGATÓRIA (objeto livre com o
+        que comprova a aquisição declarada). Atualiza `vpo_allocations` (`status=acquired`,
+        `evidenceSource=manual`) E `transport_operations.vpoAmount` (CAS por `version`) NUMA
+        transação — o valor é SEMPRE separado do frete, nunca somado a `freightOfferedAmount`/
+        `freightContractedAmount`.
+      tags:
+      - Transporte - Vale-Pedagio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVpoRegistrarAquisicaoRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 3
+              providerId: vpoprov_7a2b3c4d5e6f7a8b9c0d1e2f
+              providerReference: VPO123456789
+              amount: 350.5
+              evidence:
+                comprovante: recibo-fornecedora-2026-08-14.pdf
+      responses:
+        '200':
+          description: Alocação de VPO atualizada (acquired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVpoAllocationResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/vpo/adquirir:
+    post:
+      operationId: transporteOperacaoVpoAdquirir
+      summary: Adquirir VPO via provedor (assíncrono)
+      description: |-
+        Exige a alocação em `applicable` (`409 TRANSPORTE_VPO_NOT_APPLICABLE` fora disso).
+        `providerId` precisa apontar para uma fornecedora `isActive=true`. ENFILEIRA
+        `transporte.vpo.acquire` (idempotente via `Idempotency-Key`; dedupe por
+        `(entityType=vpo_allocation, entityId=operationId, operation)`). NÃO existe fornecedora de
+        VPO integrada tecnicamente ([EXTERNAL DEPENDENCY] P6): a implementação concreta hoje é
+        `mock` (sandbox determinístico); `VPO_PROVIDER_MODE=real` recusa com
+        `VPO_PROVIDER_NOT_CONFIGURED`. Padrão DL-102 replicado do CIOT: a referência do provedor
+        nasce na RESPOSTA — uma resposta perdida vira `acquisition_unconfirmed` (NUNCA falha
+        definitiva), resolvido por um reconciliador.
+      tags:
+      - Transporte - Vale-Pedagio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteVpoAdquirirRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              providerId: vpoprov_7a2b3c4d5e6f7a8b9c0d1e2f
+      responses:
+        '202':
+          description: Aquisição de VPO enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+              example:
+                commandId: cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                correlationId: corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f56
+                entityType: vpo_allocation
+                entityId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                operation: transporte.vpo.acquire
+                status: queued
+                submittedAt: '2026-08-15T12:30:00Z'
+                links:
+                  job: /v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                  entity: /v1/transporte/operacoes/trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b/vpo
+                  audit: /v1/audit/corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f56
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/vpo:
+    get:
+      operationId: transporteOperacaoVpoGet
+      summary: Alocação de VPO atual + eventos paginados
+      description: 'Devolve a alocação ÚNICA de VPO da operação (`allocation: null` quando
+        `avaliar-aplicabilidade` nunca rodou) e o histórico paginado de eventos
+        (`vpo_events`, APPEND-ONLY — avaliação de aplicabilidade, dispatch, confirmação, resposta
+        perdida, reconciliação, aquisição, evidência anexada).'
+      tags:
+      - Transporte - Vale-Pedagio
+      responses:
+        '200':
+          description: Estado atual do VPO da operação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVpoStateResponse'
+              example:
+                allocation:
+                  id: vpoalloc_7a2b3c4d5e6f7a8b9c0d1e2f
+                  operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  status: acquired
+                  applicable: true
+                  applicabilityReasonCode: VPO_REQUIRED_TOLL_ROUTE
+                  providerId: vpoprov_7a2b3c4d5e6f7a8b9c0d1e2f
+                  providerReference: VPO123456789
+                  amount: 350.5
+                  acquiredAt: '2026-08-15T12:30:05Z'
+                  evidenceSource: provider
+                  mdfeReference: null
+                  createdAt: '2026-08-15T12:29:00Z'
+                  updatedAt: '2026-08-15T12:30:05Z'
+                events:
+                  items:
+                  - id: vpoev_1a2b3c4d5e6f7a8b9c0d1e2f
+                    eventType: applicability_evaluated
+                    detail: { applicable: true, reasonCode: VPO_REQUIRED_TOLL_ROUTE }
+                    createdAt: '2026-08-15T12:29:00Z'
+                  - id: vpoev_2b3c4d5e6f7a8b9c0d1e2f3a
+                    eventType: acquisition_requested
+                    detail: { providerId: vpoprov_7a2b3c4d5e6f7a8b9c0d1e2f }
+                    createdAt: '2026-08-15T12:30:01Z'
+                  - id: vpoev_3c4d5e6f7a8b9c0d1e2f3a4b
+                    eventType: acquired
+                    detail: { providerReference: VPO123456789, amount: 350.5, evidenceSource: provider }
+                    createdAt: '2026-08-15T12:30:05Z'
+                  total: 3
+                  page: 1
+                  pageSize: 20
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/vpo/fornecedoras:
+    get:
+      operationId: transporteVpoFornecedorasList
+      summary: Fornecedoras de VPO habilitadas (cadastro configurável, read-only)
+      description: |-
+        Cadastro CONFIGURÁVEL (`vpo_providers`) — NUNCA hardcoded no código. Carregado
+        manualmente pelo operador (`npm run load:vpo-providers`, a partir de
+        `reference-data/vpo/fornecedoras-habilitadas.json`, pesquisado na fonte oficial
+        gov.br/antt) — o loader é ADITIVO e nunca desativa uma fornecedora sozinho.
+        Lista TODAS (ativas e inativas, com `isActive` visível), não só as habilitadas.
+      tags:
+      - Transporte - Vale-Pedagio
+      responses:
+        '200':
+          description: Fornecedoras de VPO cadastradas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteVpoProviderListResponse'
+              example:
+                items:
+                - id: vpoprov_7a2b3c4d5e6f7a8b9c0d1e2f
+                  name: Veloe
+                  isActive: true
+                  habilitationSource: https://www.gov.br/antt/pt-br/assuntos/cargas/vale-pedagio-obrigatorio/fornecedores-de-vpo-habilitadas
+                  habilitationCheckedAt: '2026-08-14'
+                  notes: Desde 2025 a ANTT determinou o fim da comercialização de meios físicos de VPO.
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
 components:
   securitySchemes:
     bearerAuth:
@@ -14134,6 +14426,241 @@ components:
           - type: 'null'
         events:
           $ref: '#/components/schemas/TransporteCiotEventListResponse'
+    TransporteVpoAvaliarAplicabilidadeRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+    TransporteVpoRegistrarAquisicaoRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      - providerId
+      - amount
+      - evidence
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: '`version` ATUAL de `transport_operations` — CAS obrigatório para atualizar `vpoAmount`.'
+        providerId:
+          type: string
+          description: Precisa apontar para uma fornecedora `isActive=true` (`GET .../vpo/fornecedoras`).
+        providerReference:
+          type:
+          - string
+          - 'null'
+          description: Referência/identificador da aquisição na fornecedora (opcional na aquisição manual).
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        evidence:
+          type: object
+          additionalProperties: true
+          description: Evidência declarada da aquisição — objeto livre, OBRIGATÓRIO e não-vazio.
+    TransporteVpoAdquirirRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - providerId
+      properties:
+        integrationAccountId:
+          type: string
+        providerId:
+          type: string
+          description: Precisa apontar para uma fornecedora `isActive=true` (`GET .../vpo/fornecedoras`).
+    TransporteVpoAllocationResource:
+      type: object
+      description: 'Alocação de VPO da operação (`vpo_allocations`) — recurso MUTÁVEL, uma linha por
+        operação (ao contrário de `ciot_operations`, uma linha por TENTATIVA). O histórico completo
+        vive em `vpo_events` (`GET .../vpo`).'
+      required:
+      - id
+      - operationId
+      - status
+      - applicable
+      - applicabilityReasonCode
+      - providerId
+      - providerReference
+      - amount
+      - acquiredAt
+      - evidenceSource
+      - mdfeReference
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        operationId:
+          type: string
+        status:
+          type: string
+          enum:
+          - pending
+          - applicable
+          - not_applicable
+          - acquisition_requested
+          - acquisition_unconfirmed
+          - acquired
+          - cancelled
+          description: '`acquisition_requested`/`acquisition_unconfirmed` só existem para sustentar o
+            padrão DL-102 na aquisição via provedor — `acquisition_unconfirmed` NUNCA é confundido
+            com falha definitiva (resolvido só pelo reconciliador).'
+        applicable:
+          type:
+          - boolean
+          - 'null'
+          description: 'Veredito do `VpoApplicabilityEngine`: `true` devido, `false` dispensado,
+            `null` indeterminado (exige análise humana — ex.: carga fracionada, múltiplos embarcadores).'
+        applicabilityReasonCode:
+          type:
+          - string
+          - 'null'
+          description: 'SEMPRE preenchido quando `status=not_applicable` (constraint de banco) — a
+            exigência de que até a dispensa deixe justificativa evidenciada.'
+        providerId:
+          type:
+          - string
+          - 'null'
+        providerReference:
+          type:
+          - string
+          - 'null'
+          description: Nasce na RESPOSTA do provedor (padrão DL-102) — `null` até a aquisição confirmar.
+        amount:
+          type:
+          - number
+          - 'null'
+        acquiredAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        evidenceSource:
+          type:
+          - string
+          - 'null'
+          enum:
+          - manual
+          - provider
+          - mock
+        mdfeReference:
+          type:
+          - string
+          - 'null'
+          description: Referência do VPO no MDF-e (TR-VPO-004) — preenchido só na Fase E.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteVpoEventResource:
+      type: object
+      description: UM evento da trilha APPEND-ONLY (`vpo_events`) do ciclo do VPO.
+      required:
+      - id
+      - eventType
+      - detail
+      - createdAt
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+          enum:
+          - applicability_evaluated
+          - acquisition_requested
+          - acquisition_unconfirmed
+          - reconciled
+          - acquired
+          - acquisition_failed
+          - cancelled
+          - evidence_attached
+        detail:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+    TransporteVpoEventListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteVpoEventResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteVpoStateResponse:
+      type: object
+      description: 'Alocação ATUAL de VPO da operação (`null` quando `avaliar-aplicabilidade` nunca
+        rodou) + o histórico paginado de eventos.'
+      required:
+      - allocation
+      - events
+      properties:
+        allocation:
+          oneOf:
+          - $ref: '#/components/schemas/TransporteVpoAllocationResource'
+          - type: 'null'
+        events:
+          $ref: '#/components/schemas/TransporteVpoEventListResponse'
+    TransporteVpoProviderResource:
+      type: object
+      description: Fornecedora de VPO cadastrada (`vpo_providers`) — cadastro CONFIGURÁVEL, nunca hardcoded.
+      required:
+      - id
+      - name
+      - isActive
+      - habilitationSource
+      - habilitationCheckedAt
+      - notes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+          description: Desativação é ato manual do operador — o loader (`load:vpo-providers`) nunca toca este campo.
+        habilitationSource:
+          type:
+          - string
+          - 'null'
+          description: URL da fonte oficial da habilitação (gov.br/antt).
+        habilitationCheckedAt:
+          type:
+          - string
+          - 'null'
+          format: date
+        notes:
+          type: string
+    TransporteVpoProviderListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteVpoProviderResource'
     TransporteOperacaoFrete:
       type: object
       description: Frete DECOMPOSTO — cada componente é independente; VPO NUNCA é somado ao frete.

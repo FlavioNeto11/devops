@@ -1,0 +1,24 @@
+{
+  "$comment": "Cadastro de referência das fornecedoras de Vale-Pedágio Obrigatório (VPO) habilitadas em âmbito nacional pela ANTT (Lei 10.209/2001 + Res. ANTT 6.024/2023). A lista é DINÂMICA — novo credenciamento/descredenciamento acontece sem aviso prévio ([EXTERNAL DEPENDENCY] P6 do guia do programa, docs/30-transporte/transporte-guia.md). Este arquivo é um SNAPSHOT pesquisado manualmente na fonte oficial; o loader (scripts/load-vpo-providers.js, npm run load:vpo-providers) é MANUAL e ADITIVO — nunca roda no boot (AUTO_SEED), nunca desativa uma fornecedora sozinho (upsert por name; desativação é ato humano explícito, ex.: futura rota admin). Promover este snapshot exige repetir a pesquisa na fonte oficial e atualizar checkedAt.",
+  "habilitationSource": "https://www.gov.br/antt/pt-br/assuntos/cargas/vale-pedagio-obrigatorio/fornecedores-de-vpo-habilitadas",
+  "checkedAt": "2026-08-14",
+  "notes": "Desde 2025 a ANTT determinou o fim da comercialização de meios físicos de VPO — a operação é exclusivamente por meios eletrônicos (tags homologadas).",
+  "providers": [
+    { "name": "Sem Parar" },
+    { "name": "Repom" },
+    { "name": "Roadcard" },
+    { "name": "Target" },
+    { "name": "Move Mais" },
+    { "name": "PagBem" },
+    { "name": "Bradesco" },
+    { "name": "nstech" },
+    { "name": "Veloe" },
+    { "name": "ConectCar" },
+    { "name": "Logcard" },
+    { "name": "Strada Pay" },
+    { "name": "NDD Tech" },
+    { "name": "Extratta" },
+    { "name": "AuthPay" },
+    { "name": "Ailog Bank" }
+  ]
+}
