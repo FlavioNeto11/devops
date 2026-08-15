@@ -10,7 +10,11 @@ const props = defineProps({
     type: String,
     default: 'manifest',
     validator: (value) =>
-      ['manifest', 'job', 'cdf', 'dmr', 'account-health', 'transport-operation', 'compliance', 'ciot'].includes(value)
+      [
+        'manifest', 'job', 'cdf', 'dmr', 'account-health', 'transport-operation', 'compliance', 'ciot',
+        'rntrc-status', 'rntrc-verification', 'vpo-allocation', 'fiscal-validation', 'fiscal-authorization',
+        'insurance-policy', 'pgr-status', 'piso-tabela-review', 'dfe-issuance', 'watch-item'
+      ].includes(value)
   },
   /** Label customizado. Se informado, ignora o mapa de labels. */
   label: { type: String, default: null },

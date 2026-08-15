@@ -133,10 +133,13 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
-    // Vertical NOVA (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) —
-    // bounded context separado do MTR ambiental (não reaproveita `manifest`).
-    // Atrás de VITE_FEATURE_TRANSPORTE (default desligada): `hidden` some com
-    // o grupo inteiro do menu até a flag ligar — ver `filterNavigationGroups`.
+    // Vertical NOVA (DL-103, programa "SICAT Transporte") — bounded context
+    // separado do MTR ambiental (não reaproveita `manifest`). Nasceu com dois
+    // itens na Onda 1.5/PR-F1 (Operações + Regras) e ganhou o resto no PR-H2
+    // (frontend completo): cadastros, pendências, Regulatory Watch e tabelas
+    // de piso. Atrás de VITE_FEATURE_TRANSPORTE (default desligada): `hidden`
+    // some com o grupo inteiro do menu até a flag ligar — ver
+    // `filterNavigationGroups`.
     id: 'transporte',
     label: 'Transporte',
     icon: 'mdi-truck-outline',
@@ -151,10 +154,40 @@ export const NAVIGATION_GROUPS = [
         description: 'Acompanhar operações de transporte e a conformidade regulatória'
       },
       {
+        to: '/transporte/pendencias',
+        label: 'Pendências',
+        icon: 'mdi-clipboard-alert-outline',
+        description: 'Centro Operacional: compliance, CIOT, VPO, fiscal, seguros e RNTRC num só lugar'
+      },
+      {
+        to: '/transporte/transportadores',
+        label: 'Transportadores',
+        icon: 'mdi-account-hard-hat-outline',
+        description: 'Cadastro de transportadores, RNTRC, seguros e PGR'
+      },
+      {
+        to: '/transporte/veiculos',
+        label: 'Veículos',
+        icon: 'mdi-truck-outline',
+        description: 'Cadastro de veículos usados nas operações'
+      },
+      {
         to: '/transporte/regras',
         label: 'Regras regulatórias',
         icon: 'mdi-gavel',
         description: 'Consultar o catálogo de regras TR-* e sua vigência'
+      },
+      {
+        to: '/transporte/watch',
+        label: 'Watch regulatório',
+        icon: 'mdi-radar',
+        description: 'Fila de mudanças normativas detectadas em fontes monitoradas'
+      },
+      {
+        to: '/transporte/piso/tabelas',
+        label: 'Tabelas de piso',
+        icon: 'mdi-table',
+        description: 'Versões de tabela de piso mínimo de frete carregadas'
       }
     ]
   },
@@ -362,7 +395,10 @@ export function flattenNavigation(groups) {
 /**
  * Rotas que correspondem a si mesmas e às suas subrotas (ex: detalhe).
  */
-const PREFIX_MATCH_PATHS = ['/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria', '/transporte/operacoes'];
+const PREFIX_MATCH_PATHS = [
+  '/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria',
+  '/transporte/operacoes', '/transporte/transportadores', '/transporte/watch'
+];
 
 /**
  * Subrotas que possuem item de navegação próprio e, portanto, NÃO devem

@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2); Fase G (emissão de DF-e) entregue SANDBOX-READY atrás de `DFE_ISSUANCE_MODE=off` (PR-G); Fase H parte 1 (Regulatory Watch + Centro Operacional da vertical) entregue no BACKEND, atrás de `REGULATORY_WATCH_MODE=off` (PR-H1) — frontend do fluxo humano fica para o PR-H2
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); Fase B (piso mínimo) em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) com evidência manual + provider `mock` (PR-F2); Fase G (emissão de DF-e) SANDBOX-READY atrás de `DFE_ISSUANCE_MODE=off` (PR-G); Fase H (Regulatory Watch + Centro Operacional da vertical) backend atrás de `REGULATORY_WATCH_MODE=off` (PR-H1); **frontend COMPLETO de toda a vertical entregue atrás de `VITE_FEATURE_TRANSPORTE`** — mínimo na Onda 1.5 (PR-F1: operações + regras), completo no PR-H2 (cadastros, RNTRC, CIOT, VPO, piso, documentos fiscais, seguros/PGR, emissão e Regulatory Watch)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -1066,6 +1066,54 @@ de retry, `mode=off`, múltiplas fontes com uma fora do ar), `tests/api/transpor
 (skip-if-no-DB: CRUD do fluxo + promoção 400/404/409/200 + `verificar-agora` 202/idempotência),
 `tests/api/transporte-operations-overview.test.js` (skip-if-no-DB: agregados por conta + conta
 vazia).
+
+O PR-H2 (frontend completo) fechou a vertical no frontend — **backend intocado neste PR**. Toda a
+superfície HTTP das Ondas B–H que ainda não tinha UI (cadastros/RNTRC/CIOT/VPO/piso/documentos
+fiscais/seguros-PGR/emissão/Regulatory Watch) ganhou tela, atrás da MESMA
+`VITE_FEATURE_TRANSPORTE`, 100% design system `Sicat*` — sem componente novo em
+`components/sicat/`. `lib/status-map.js` ganhou 10 domínios novos (`rntrc-status`,
+`rntrc-verification`, `vpo-allocation`, `fiscal-validation`, `fiscal-authorization`,
+`insurance-policy`, `pgr-status`, `piso-tabela-review`, `dfe-issuance`, `watch-item`) e corrigiu uma
+lacuna do domínio `ciot` existente (faltava `request_unconfirmed`, o estado DL-102 do CIOT — sem
+ele o badge caía no fallback neutro e escondia uma solicitação possivelmente órfã).
+`views/transporte/transporteUiHelpers.js` ganhou o vocabulário auxiliar correspondente (enums de
+cadastro, rótulo de evento de trilha append-only, e as funções `ciotAvailableAction`/
+`vpoAvailableAction`/`resolveInsuranceExpiryState` — esta última PURA, deriva `expiring`/`expired`
+de `daysToExpiry` independente do status administrativo da apólice). `services/api.js` ganhou ~40
+funções novas na seção Transporte (mesmo padrão síncrono/202+`Idempotency-Key` do PR-F1);
+`stores/transporteStore.js` ganhou piso/CIOT/VPO/documentos fiscais/emissões escopados à operação
+selecionada (comandos 202 usam `useJobAwait` e recarregam o recurso ao concluir); quatro stores
+NOVAS no mesmo molde (factory function sem estado de módulo compartilhado):
+`transportadoresStore.js`, `veiculosStore.js`, `watchStore.js`, `transportePendenciasStore.js`.
+Sete telas novas — `TransporteTransportadoresListView`/`TransporteTransportadorDetailView`
+(cadastro + RNTRC declarado/verificado + veículos vinculados + apólices RCTR-C/RC-DC/RC-V + PGR),
+`TransporteVeiculosListView` (detalhe em drawer, sem rota própria), `TransportePendenciasView`
+(Centro Operacional — consome `GET .../operations/overview` + fornecedoras de VPO), 
+`TransporteWatchListView`/`TransporteWatchDetailView` (fila do Regulatory Watch — revisar
+aprovar/rejeitar, aplicar SEMPRE `blocking=false`, "Verificar agora"), `TransportePisoTabelasView`
+(read-only). `TransporteOperacaoDetailView` (existente) ganhou cinco seções: piso mínimo (botão
+calcular + histórico), CIOT (pré-validar/solicitar/retificar/cancelar/encerrar + aviso
+"REGISTERED ≠ CONFORME"), VPO (avaliar aplicabilidade + registrar aquisição manual/adquirir via
+provedor), documentos fiscais (importar XML colado + badges de validação/autorização + issues
+visíveis) e emissões (emitir NF-e sandbox, com tratamento explícito do 409
+`DFE_ISSUANCE_FEATURE_DISABLED`). `TransporteRegrasView` (existente) ganhou histórico de versões
+por regra + "Promover a bloqueante" (diálogo com `reviewNotes` obrigatório + confirmação dupla
+`useConfirmDialog` danger). **Desvio de contrato registrado, não deste PR**: o histórico de versões
+(`GET .../regras/{code}/historico`, `TransportRuleVersionResource`) nunca expôs o `version`
+(locking otimista) que `POST .../promover` exige — a UI usa `1` (valor real de toda versão nunca
+promovida, mesmo default do exemplo `promover` do OpenAPI) e memoriza em sessão o `version` novo
+devolvido por uma promoção bem-sucedida para a promoção/reversão seguinte da MESMA versão; 409
+`REGULATORY_RULE_VERSION_CONFLICT` vira uma mensagem clara pedindo para reabrir o histórico e
+tentar de novo. `config/navigation.js` (grupo "Transporte" — 7 itens, todos atrás da flag) e
+`router.js` (7 rotas novas, todas ANTES do catch-all, mesmo padrão `featureFlag: 'transporte'` +
+`requiresActiveCetesbAccount: true`) — ver tabela completa em
+[`../FRONTEND-UX-NAVIGATION.md`](../FRONTEND-UX-NAVIGATION.md). `config/glossary.js` ganhou DF-e,
+emissão sandbox e Regulatory Watch. Cobertura: `frontend/tests/unit/status-map.test.js` e
+`transporte-ui-helpers.test.js` estendidos (39 casos novos), `frontend/tests/ui/
+transporte-smoke.spec.ts` estendido com list-render de Pendências/Transportadores/Watch (mesmo
+padrão de `test.skip` dinâmico quando a flag está desligada no ambiente do `webServer`).
+**Vertical Transporte: frontend completo — programa fechado, exceto pendências P externas
+(dependências externas — ANTT/seguradoras/SEFAZ credenciadas — fora do controle do programa).**
 
 ## 4. Riscos e limites conhecidos
 

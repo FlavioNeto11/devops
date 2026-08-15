@@ -45,6 +45,13 @@ import CdfCreateView from './views/CdfCreateView.vue';
 import TransporteOperacaoListView from './views/transporte/TransporteOperacaoListView.vue';
 import TransporteOperacaoDetailView from './views/transporte/TransporteOperacaoDetailView.vue';
 import TransporteRegrasView from './views/transporte/TransporteRegrasView.vue';
+import TransportePendenciasView from './views/transporte/TransportePendenciasView.vue';
+import TransporteTransportadoresListView from './views/transporte/TransporteTransportadoresListView.vue';
+import TransporteTransportadorDetailView from './views/transporte/TransporteTransportadorDetailView.vue';
+import TransporteVeiculosListView from './views/transporte/TransporteVeiculosListView.vue';
+import TransporteWatchListView from './views/transporte/TransporteWatchListView.vue';
+import TransporteWatchDetailView from './views/transporte/TransporteWatchDetailView.vue';
+import TransportePisoTabelasView from './views/transporte/TransportePisoTabelasView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 
 // Destino inicial do admin/SRE (persona de sistema) — não exige conta CETESB.
@@ -453,6 +460,98 @@ const routes = [
       audience: 'operator',
       featureFlag: 'transporte',
       breadcrumb: ['Transporte', 'Regras regulatórias']
+    }
+  },
+  {
+    // PR-H2 (frontend completo) — mesma vertical, mesma flag, mesmas regras
+    // de tenancy/persona do bloco acima (PR-F1). Cadastros ANTES de
+    // Pendências/Watch/Piso por serem os recursos mais referenciados
+    // (operações/vínculos apontam para transportadores/veículos).
+    path: '/transporte/pendencias',
+    name: 'TransportePendencias',
+    component: TransportePendenciasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Pendências']
+    }
+  },
+  {
+    path: '/transporte/transportadores',
+    name: 'TransporteTransportadorList',
+    component: TransporteTransportadoresListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Transportadores']
+    }
+  },
+  {
+    path: '/transporte/transportadores/:partyId',
+    name: 'TransporteTransportadorDetalhe',
+    component: TransporteTransportadorDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe do transportador']
+    }
+  },
+  {
+    path: '/transporte/veiculos',
+    name: 'TransporteVeiculoList',
+    component: TransporteVeiculosListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Veículos']
+    }
+  },
+  {
+    // Regulatory Watch é GLOBAL no backend (sem tenancy — mesmo racional do
+    // catálogo de regras), mas a TELA continua atrás de
+    // `requiresActiveCetesbAccount` como o resto da vertical: é a mesma
+    // convenção do grupo (PR-F1 já documentava isto para /transporte/regras).
+    path: '/transporte/watch',
+    name: 'TransporteWatchList',
+    component: TransporteWatchListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Watch regulatório']
+    }
+  },
+  {
+    path: '/transporte/watch/:itemId',
+    name: 'TransporteWatchDetalhe',
+    component: TransporteWatchDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe do item de Watch']
+    }
+  },
+  {
+    path: '/transporte/piso/tabelas',
+    name: 'TransportePisoTabelas',
+    component: TransportePisoTabelasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Tabelas de piso']
     }
   },
   {

@@ -16,7 +16,7 @@ Fonte declarativa canonica:
 
 | Modulo | Grupos | Rotas-chave |
 | --- | --- | --- |
-| Operacao | Início, Operação MTR, MTR Provisório, DMR, Certificados (CDF), Transporte (atrás de flag) | `/dashboard`, `/manifestos`, `/manifestos/novo`, `/manifestos/:id`, `/relatorios/mtrs`, `/jobs`, `/mtr-provisorio`, `/mtr-provisorio/novo`, `/dmr`, `/dmr/pendentes`, `/dmr/novo`, `/cdf`, `/cdf/novo`, `/transporte/operacoes`, `/transporte/operacoes/:operationId`, `/transporte/regras` |
+| Operacao | Início, Operação MTR, MTR Provisório, DMR, Certificados (CDF), Transporte (atrás de flag) | `/dashboard`, `/manifestos`, `/manifestos/novo`, `/manifestos/:id`, `/relatorios/mtrs`, `/jobs`, `/mtr-provisorio`, `/mtr-provisorio/novo`, `/dmr`, `/dmr/pendentes`, `/dmr/novo`, `/cdf`, `/cdf/novo`, `/transporte/operacoes`, `/transporte/operacoes/:operationId`, `/transporte/pendencias`, `/transporte/transportadores`, `/transporte/transportadores/:partyId`, `/transporte/veiculos`, `/transporte/regras`, `/transporte/watch`, `/transporte/watch/:itemId`, `/transporte/piso/tabelas` |
 | Monitoramento | Centro Operacional | `/operacao/dashboard`, `/operacao/jobs`, `/operacao/auditoria`, `/operacao/auditoria/:correlationId`, `/operacao/cetesb-health`, `/operacao/relatorios/mtr`, `/operacao/command-center` |
 | Inteligencia | Chat operacional | `/conversacional/chat` |
 | Administracao | Administração | `/admin/acessos` |
@@ -43,7 +43,7 @@ Fonte declarativa canonica:
 | MTR Provisório | Fluxo emergencial | `/mtr-provisorio`, `/mtr-provisorio/novo`, `/mtr-provisorio/:id` |
 | DMR | Declarações e pendências | `/dmr`, `/dmr/pendentes`, `/dmr/novo`, `/dmr/:dmrId` |
 | Certificados (CDF) | Consulta, emissão e download de certificados | `/cdf`, `/cdf/novo` |
-| Transporte | Vertical nova (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) — operações e catálogo regulatório de transporte rodoviário. Bounded context separado do MTR ambiental; **atrás de `VITE_FEATURE_TRANSPORTE`** (default desligada — grupo oculto do menu e rotas bloqueadas por guard mesmo por URL direta) | `/transporte/operacoes`, `/transporte/operacoes/:operationId`, `/transporte/regras` |
+| Transporte | Vertical (DL-103, programa "SICAT Transporte") — operações, cadastros (transportadores/veículos), pendências (Centro Operacional), catálogo regulatório e Regulatory Watch da vertical de transporte rodoviário. Bounded context separado do MTR ambiental; **atrás de `VITE_FEATURE_TRANSPORTE`** (default desligada — grupo oculto do menu e rotas bloqueadas por guard mesmo por URL direta). Frontend mínimo na Onda 1.5/PR-F1 (Operações + Regras); frontend completo no PR-H2 (CIOT/VPO/piso/fiscal/seguros/emissão dentro do detalhe da operação + as 5 telas novas abaixo) | `/transporte/operacoes`, `/transporte/operacoes/:operationId`, `/transporte/pendencias`, `/transporte/transportadores`, `/transporte/transportadores/:partyId`, `/transporte/veiculos`, `/transporte/regras`, `/transporte/watch`, `/transporte/watch/:itemId`, `/transporte/piso/tabelas` |
 
 Nota operacional:
 
@@ -102,7 +102,7 @@ desliga; default sempre DESLIGADO).
 
 | Flag | Env var | Default | Gateia |
 | --- | --- | --- | --- |
-| Transporte | `VITE_FEATURE_TRANSPORTE` | desligada | Grupo de menu "Transporte" (`config/navigation.js`, `hidden` no grupo) **e** as 3 rotas `/transporte/*` no `router.beforeEach` (`meta.featureFlag: 'transporte'` — bloqueia também por URL direta, com aviso via `queueRouteDenialNotice`/`ROUTE_DENIAL_REASONS.FEATURE_FLAG`) |
+| Transporte | `VITE_FEATURE_TRANSPORTE` | desligada | Grupo de menu "Transporte" (`config/navigation.js`, `hidden` no grupo) **e** as 9 rotas `/transporte/*` no `router.beforeEach` (`meta.featureFlag: 'transporte'` — bloqueia também por URL direta, com aviso via `queueRouteDenialNotice`/`ROUTE_DENIAL_REASONS.FEATURE_FLAG`) |
 
 Para ligar em dev local: descomente `VITE_FEATURE_TRANSPORTE=true` em `frontend/.env.example` no
 seu `.env`.

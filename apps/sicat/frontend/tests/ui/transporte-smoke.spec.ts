@@ -212,6 +212,98 @@ async function mockTransportOperationRoutes(page) {
   });
 }
 
+// --- Fixtures do PR-H2 (frontend completo) — Pendências/Transportadores/Watch. ---
+
+const carrierId = 'trparty_qa_smoke_0001a2b3c4d5e6f7';
+
+const carrierSummary = {
+  id: carrierId,
+  version: 1,
+  integrationAccountId,
+  documentType: 'CNPJ',
+  documentNumber: '31913782000130',
+  legalName: 'Transportadora QA Smoke Ltda',
+  tradeName: null,
+  rntrcNumber: null,
+  rntrcCategory: null,
+  rntrcStatus: 'unknown',
+  rntrcVerifiedAt: null,
+  rntrcVerificationSource: 'manual',
+  municipality: 'São Paulo',
+  uf: 'SP',
+  isActive: true,
+  metadata: {},
+  roles: ['carrier'],
+  createdAt: '2026-08-13T12:15:00.000Z',
+  updatedAt: '2026-08-13T12:15:00.000Z'
+};
+
+const watchItemId = 'regwitem_qa_smoke_0001a2b3c4d5e6f7';
+
+const watchItemSummary = {
+  id: watchItemId,
+  sourceId: 'src_qa_smoke_antt_piso',
+  status: 'human_review',
+  detectedChange: { previousHash: 'abc123', newHash: 'def456', httpStatus: 200, etag: null, lastModified: null },
+  ingestedContentRef: null,
+  aiAnalysis: {},
+  humanReviewNotes: null,
+  reviewedBy: null,
+  reviewedAt: null,
+  appliedRuleVersionId: null,
+  correlationId: 'corr_qa_smoke_watch_0001',
+  version: 1,
+  createdAt: '2026-08-13T12:15:00.000Z',
+  updatedAt: '2026-08-13T12:15:00.000Z'
+};
+
+const operationsOverview = {
+  generatedAt: '2026-08-13T12:15:00.000Z',
+  operationsByStatus: { draft: 1 },
+  compliance: { topBlockedRules: [], belowFloorOffers: 0 },
+  ciot: { byStatus: {}, unconfirmedPending: 0 },
+  vpo: { applicableNotAcquired: 0 },
+  fiscalDocuments: { invalid: 0, warnings: 0 },
+  insurance: { expiringOrExpiredCount: 0, windowDays: 30 },
+  rntrc: { staleCarriers: 0, freshnessDays: 90 },
+  jobs: { retryWait: 0, dlq: 0 },
+  watch: { pendingHumanReviewGlobal: 1 }
+};
+
+async function mockTransportReferenceRoutes(page) {
+  await page.route('**/v1/transporte/transportadores?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [carrierSummary], total: 1, page: 1, pageSize: 20 })
+    });
+  });
+
+  await page.route('**/v1/transporte/watch?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [watchItemSummary], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 })
+    });
+  });
+
+  await page.route('**/v1/transporte/operations/overview?**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(operationsOverview) });
+  });
+
+  await page.route('**/v1/transporte/vpo/fornecedoras', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) });
+  });
+
+  await page.route('**/v1/transporte/seguros/vencimentos?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], total: 0, windowDays: 30, referenceDate: '2026-08-13' })
+    });
+  });
+}
+
 test.describe('Transporte smoke (programa "SICAT Transporte", Onda 1.5/PR-F1)', () => {
   test('lista /transporte/operacoes → detalhe → painel de conformidade visível', async ({ page }) => {
     await setupAuthenticatedSession(page);
@@ -252,5 +344,60 @@ test.describe('Transporte smoke (programa "SICAT Transporte", Onda 1.5/PR-F1)', 
     await page.goto('/transporte/operacoes');
     await page.waitForURL(/\/login/, { timeout: 10_000 });
     expect(page.url()).toMatch(/\/login/);
+  });
+
+  // PR-H2 (frontend completo) — list render de Pendências/Transportadores/Watch.
+  // Mesma cobertura mínima do teste original: a rota carrega autenticada e
+  // mostra pelo menos um item mockado. Sem flag (default), o guard redireciona
+  // para /dashboard ANTES da tela carregar — mesmo padrão de skip do teste acima.
+  test('Pendências (Centro Operacional) carrega os cards do overview', async ({ page }) => {
+    await setupAuthenticatedSession(page);
+    await mockSessionContext(page);
+    await mockTransportReferenceRoutes(page);
+
+    await page.goto('/transporte/pendencias');
+    await page.waitForLoadState('networkidle');
+
+    test.skip(
+      !page.url().includes('/transporte/pendencias'),
+      'VITE_FEATURE_TRANSPORTE está desligada neste ambiente (default off) — rota redirecionou para /dashboard.'
+    );
+
+    await expect(page.getByRole('heading', { name: /Pendências/i })).toBeVisible();
+    await expect(page.getByText('Watch aguardando revisão')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('Transportadores lista o cadastro mockado', async ({ page }) => {
+    await setupAuthenticatedSession(page);
+    await mockSessionContext(page);
+    await mockTransportReferenceRoutes(page);
+
+    await page.goto('/transporte/transportadores');
+    await page.waitForLoadState('networkidle');
+
+    test.skip(
+      !page.url().includes('/transporte/transportadores'),
+      'VITE_FEATURE_TRANSPORTE está desligada neste ambiente (default off) — rota redirecionou para /dashboard.'
+    );
+
+    await expect(page.getByRole('heading', { name: /Transportadores/i })).toBeVisible();
+    await expect(page.getByText(carrierSummary.legalName)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('Watch regulatório lista o item mockado', async ({ page }) => {
+    await setupAuthenticatedSession(page);
+    await mockSessionContext(page);
+    await mockTransportReferenceRoutes(page);
+
+    await page.goto('/transporte/watch');
+    await page.waitForLoadState('networkidle');
+
+    test.skip(
+      !page.url().includes('/transporte/watch'),
+      'VITE_FEATURE_TRANSPORTE está desligada neste ambiente (default off) — rota redirecionou para /dashboard.'
+    );
+
+    await expect(page.getByRole('heading', { name: /Regulatory Watch/i })).toBeVisible();
+    await expect(page.getByText(watchItemSummary.sourceId)).toBeVisible({ timeout: 10_000 });
   });
 });

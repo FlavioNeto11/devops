@@ -259,3 +259,434 @@ export function formatDateTimeBR(value) {
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('pt-BR');
 }
+
+// ---------------------------------------------------------------------------
+// PR-H2 (frontend completo) — helpers dos cadastros/CIOT/VPO/fiscal/piso/
+// seguros/emissão/Regulatory Watch. Rótulos de STATUS continuam vindo do
+// status-map.js (badge); o que vive aqui é vocabulário auxiliar que o
+// status-map não cobre: enums de cadastro, mapeamento de evento → texto de
+// timeline e regras de exibição de ação por estado (o que cada tela usa para
+// decidir QUAL botão mostrar).
+// ---------------------------------------------------------------------------
+
+export function rntrcStatusLabel(status) {
+  return resolveStatusLabel('rntrc-status', status);
+}
+
+export function rntrcVerificationRequestedStatusLabel(status) {
+  return resolveStatusLabel('rntrc-verification', status);
+}
+
+const RNTRC_STRATEGY_LABELS = Object.freeze({
+  open_data: 'Dados abertos (ANTT)',
+  manual: 'Declaração manual',
+  antt: 'Consulta credenciada (ANTT)'
+});
+
+export function rntrcStrategyLabel(strategy) {
+  const key = String(strategy || '').trim();
+  return RNTRC_STRATEGY_LABELS[key] || key || '-';
+}
+
+const RNTRC_CATEGORY_LABELS = Object.freeze({ TAC: 'TAC', ETC: 'ETC', CTC: 'CTC' });
+
+export function rntrcCategoryLabel(category) {
+  const key = String(category || '').trim();
+  return RNTRC_CATEGORY_LABELS[key] || '-';
+}
+
+const RNTRC_RESULT_STATUS_LABELS = Object.freeze({
+  active: 'Ativo',
+  suspended: 'Suspenso',
+  cancelled: 'Cancelado',
+  expired: 'Vencido',
+  not_found: 'Não encontrado',
+  unknown: 'Desconhecido'
+});
+
+export function rntrcResultStatusLabel(status) {
+  const key = String(status || '').trim();
+  return RNTRC_RESULT_STATUS_LABELS[key] || '-';
+}
+
+// ---------------------------------------------------------------------------
+// Cadastros — transportador/veículo (papéis, tipos, vínculos).
+// ---------------------------------------------------------------------------
+
+export const DOCUMENT_TYPE_OPTIONS = Object.freeze([
+  { value: 'CNPJ', label: 'CNPJ' },
+  { value: 'CPF', label: 'CPF' }
+]);
+
+const PARTY_ROLE_LABELS = Object.freeze({
+  contractor: 'Contratante',
+  shipper: 'Embarcador',
+  carrier: 'Transportador',
+  subcontractor: 'Subcontratado',
+  consignee: 'Destinatário',
+  driver: 'Motorista'
+});
+
+export const PARTY_ROLE_OPTIONS = Object.freeze([
+  { value: '', label: 'Todos' },
+  ...Object.keys(PARTY_ROLE_LABELS).map((value) => ({ value, label: PARTY_ROLE_LABELS[value] }))
+]);
+
+export function partyRoleLabel(role) {
+  const key = String(role || '').trim();
+  return PARTY_ROLE_LABELS[key] || key || '-';
+}
+
+const VEHICLE_TYPE_LABELS = Object.freeze({
+  tractor: 'Cavalo mecânico',
+  truck: 'Caminhão',
+  semi_trailer: 'Semirreboque',
+  trailer: 'Reboque',
+  other: 'Outro'
+});
+
+export const VEHICLE_TYPE_OPTIONS = Object.freeze([
+  { value: '', label: 'Todos' },
+  ...Object.keys(VEHICLE_TYPE_LABELS).map((value) => ({ value, label: VEHICLE_TYPE_LABELS[value] }))
+]);
+
+export function vehicleTypeLabel(type) {
+  const key = String(type || '').trim();
+  return VEHICLE_TYPE_LABELS[key] || key || '-';
+}
+
+const VEHICLE_LINK_TYPE_LABELS = Object.freeze({
+  owned: 'Próprio',
+  leased: 'Locado',
+  aggregated: 'Agregado',
+  rntrc_fleet: 'Frota RNTRC declarada'
+});
+
+export const VEHICLE_LINK_TYPE_OPTIONS = Object.freeze(
+  Object.keys(VEHICLE_LINK_TYPE_LABELS).map((value) => ({ value, label: VEHICLE_LINK_TYPE_LABELS[value] }))
+);
+
+export function vehicleLinkTypeLabel(type) {
+  const key = String(type || '').trim();
+  return VEHICLE_LINK_TYPE_LABELS[key] || key || '-';
+}
+
+const VEHICLE_POSITION_LABELS = Object.freeze({
+  traction: 'Tração',
+  towed_1: 'Reboque 1',
+  towed_2: 'Reboque 2'
+});
+
+export function vehiclePositionLabel(position) {
+  const key = String(position || '').trim();
+  return VEHICLE_POSITION_LABELS[key] || key || '-';
+}
+
+// ---------------------------------------------------------------------------
+// CIOT — status/eventos/papel responsável.
+// ---------------------------------------------------------------------------
+
+export function ciotStatusLabel(status) {
+  return resolveStatusLabel('ciot', status);
+}
+
+const CIOT_RESPONSIBLE_PARTY_LABELS = Object.freeze({
+  contractor: 'Contratante',
+  subcontractor: 'Subcontratado'
+});
+
+export function ciotResponsiblePartyLabel(role) {
+  const key = String(role || '').trim();
+  return CIOT_RESPONSIBLE_PARTY_LABELS[key] || key || '-';
+}
+
+const CIOT_EVENT_LABELS = Object.freeze({
+  pre_validated: 'Pré-validado',
+  request_dispatched: 'Solicitação enviada ao provedor',
+  request_confirmed: 'Solicitação confirmada',
+  request_unconfirmed: 'Solicitação sem confirmação',
+  registered: 'CIOT registrado',
+  rectify_requested: 'Retificação solicitada',
+  rectified: 'CIOT retificado',
+  cancel_requested: 'Cancelamento solicitado',
+  cancelled: 'CIOT cancelado',
+  close_requested: 'Encerramento solicitado',
+  closed: 'CIOT encerrado',
+  rejected: 'Rejeitado pelo provedor',
+  blocked: 'Bloqueado',
+  reconciled: 'Reconciliado'
+});
+
+export function ciotEventLabel(eventType) {
+  const key = String(eventType || '').trim();
+  return CIOT_EVENT_LABELS[key] || humanizeUnknown(eventType);
+}
+
+/**
+ * Qual botão do ciclo do CIOT mostrar a partir do status ATUAL — a máquina
+ * "de fato" vive no backend (transport-state-machine + ciot_operations); esta
+ * função só traduz o status corrente na AÇÃO seguinte válida na UI, para não
+ * duplicar a regra em cada tela que precisa decidir o botão.
+ */
+export function ciotAvailableAction(ciotStatus) {
+  const key = String(ciotStatus || '').trim();
+  if (!key) return 'solicitar';
+  if (key === 'registered' || key === 'rectified') return 'gerenciar'; // retificar/cancelar/encerrar
+  if (key === 'rejected' || key === 'cancelled' || key === 'blocked') return 'solicitar'; // nova tentativa
+  return null; // requested/request_unconfirmed/closed: aguardando ou terminal
+}
+
+// ---------------------------------------------------------------------------
+// VPO — status/eventos/aplicabilidade/evidência.
+// ---------------------------------------------------------------------------
+
+export function vpoAllocationStatusLabel(status) {
+  return resolveStatusLabel('vpo-allocation', status);
+}
+
+/** `applicable` é tri-state: true/false/null (indeterminado — exige análise humana). */
+export function vpoApplicableLabel(applicable) {
+  if (applicable === true) return 'Devido';
+  if (applicable === false) return 'Dispensado';
+  return 'Indeterminado';
+}
+
+export function vpoApplicableTone(applicable) {
+  if (applicable === true) return 'warning';
+  if (applicable === false) return 'neutral';
+  return 'neutral';
+}
+
+const VPO_EVENT_LABELS = Object.freeze({
+  applicability_evaluated: 'Aplicabilidade avaliada',
+  acquisition_requested: 'Aquisição solicitada',
+  acquisition_unconfirmed: 'Aquisição sem confirmação',
+  reconciled: 'Reconciliado',
+  acquired: 'VPO adquirido',
+  acquisition_failed: 'Falha na aquisição',
+  cancelled: 'Cancelado',
+  evidence_attached: 'Evidência anexada'
+});
+
+export function vpoEventLabel(eventType) {
+  const key = String(eventType || '').trim();
+  return VPO_EVENT_LABELS[key] || humanizeUnknown(eventType);
+}
+
+const VPO_EVIDENCE_SOURCE_LABELS = Object.freeze({
+  manual: 'Declaração manual',
+  provider: 'Fornecedora (provedor)',
+  mock: 'Simulado (sandbox)'
+});
+
+export function vpoEvidenceSourceLabel(source) {
+  const key = String(source || '').trim();
+  return VPO_EVIDENCE_SOURCE_LABELS[key] || '-';
+}
+
+/** Qual ação do VPO mostrar a partir do status ATUAL da alocação. */
+export function vpoAvailableAction(allocationStatus) {
+  const key = String(allocationStatus || '').trim();
+  if (!key || key === 'pending') return 'avaliar';
+  if (key === 'applicable') return 'adquirir';
+  return null; // not_applicable/acquisition_requested/acquisition_unconfirmed/acquired/cancelled
+}
+
+// ---------------------------------------------------------------------------
+// Documentos fiscais (DF-e) — tipo, validação, autorização, issues.
+// ---------------------------------------------------------------------------
+
+const FISCAL_DOCUMENT_TYPE_LABELS = Object.freeze({ NFE: 'NF-e', CTE: 'CT-e', MDFE: 'MDF-e' });
+
+export const FISCAL_DOCUMENT_TYPE_OPTIONS = Object.freeze(
+  Object.keys(FISCAL_DOCUMENT_TYPE_LABELS).map((value) => ({ value, label: FISCAL_DOCUMENT_TYPE_LABELS[value] }))
+);
+
+export function fiscalDocumentTypeLabel(type) {
+  const key = String(type || '').trim();
+  return FISCAL_DOCUMENT_TYPE_LABELS[key] || key || '-';
+}
+
+export function fiscalValidationStatusLabel(status) {
+  return resolveStatusLabel('fiscal-validation', status);
+}
+
+export function fiscalAuthorizationStatusLabel(status) {
+  return resolveStatusLabel('fiscal-authorization', status);
+}
+
+export function fiscalIssueTone(severity) {
+  return String(severity || '').trim().toLowerCase() === 'error' ? 'error' : 'warning';
+}
+
+// ---------------------------------------------------------------------------
+// Emissão de DF-e (sandbox-ready) — status/eventos.
+// ---------------------------------------------------------------------------
+
+export function dfeIssuanceStatusLabel(status) {
+  return resolveStatusLabel('dfe-issuance', status);
+}
+
+const DFE_ISSUANCE_EVENT_LABELS = Object.freeze({
+  created: 'Emissão criada',
+  built: 'Documento construído',
+  signed: 'Documento assinado',
+  submitted: 'Enviado à SEFAZ (sandbox)',
+  submit_unconfirmed: 'Envio sem confirmação',
+  authorized: 'Autorizado',
+  rejected: 'Rejeitado',
+  failed: 'Falhou',
+  cancelled: 'Cancelado',
+  reconciled: 'Reconciliado',
+  imported_to_registry: 'Importado ao acervo fiscal'
+});
+
+export function dfeIssuanceEventLabel(eventType) {
+  const key = String(eventType || '').trim();
+  return DFE_ISSUANCE_EVENT_LABELS[key] || humanizeUnknown(eventType);
+}
+
+/** Terminal = não aceita mais `cancelar`/reprocessamento nesta emissão. */
+const DFE_ISSUANCE_TERMINAL_STATUSES = Object.freeze(['authorized', 'rejected', 'failed_validation', 'cancelled']);
+
+export function isDfeIssuanceTerminal(status) {
+  return DFE_ISSUANCE_TERMINAL_STATUSES.includes(String(status || '').trim());
+}
+
+/** Código do problema 409 quando `DFE_ISSUANCE_MODE=off` (default) — mensagem fixa e clara. */
+export const DFE_ISSUANCE_FEATURE_DISABLED_CODE = 'DFE_ISSUANCE_FEATURE_DISABLED';
+
+export const DFE_ISSUANCE_FEATURE_DISABLED_MESSAGE =
+  'Emissão de DF-e está desligada nesta instalação (DFE_ISSUANCE_MODE=off) — pendência conhecida do programa, sem previsão de habilitação nesta fase.';
+
+// ---------------------------------------------------------------------------
+// Piso mínimo de frete — outcome do cálculo (MODO SHADOW).
+// ---------------------------------------------------------------------------
+
+const PISO_OUTCOME_LABELS = Object.freeze({
+  calculated: 'Calculado',
+  not_applicable: 'Não aplicável (regime não exige piso)',
+  missing_coefficients: 'Sem tabela vigente para os insumos informados',
+  missing_inputs: 'Insumos insuficientes para o cálculo'
+});
+
+export function pisoOutcomeLabel(outcome) {
+  const key = String(outcome || '').trim();
+  return PISO_OUTCOME_LABELS[key] || key || '-';
+}
+
+/** Badge de conformidade do piso — `compliant` é tri-state (true/false/null). */
+export function pisoComplianceBadge(compliant) {
+  if (compliant === true) return { label: 'Conforme com o piso', tone: 'success' };
+  if (compliant === false) return { label: 'Abaixo do piso', tone: 'error' };
+  return { label: 'Não avaliável', tone: 'neutral' };
+}
+
+export function pisoTabelaReviewStatusLabel(status) {
+  return resolveStatusLabel('piso-tabela-review', status);
+}
+
+const PISO_TABLE_CODE_LABELS = Object.freeze({ A: 'Tabela A', B: 'Tabela B', C: 'Tabela C', D: 'Tabela D' });
+
+export function pisoTableCodeLabel(code) {
+  const key = String(code || '').trim();
+  return PISO_TABLE_CODE_LABELS[key] || key || '-';
+}
+
+// ---------------------------------------------------------------------------
+// Seguros (apólices/PGR) — tipo de apólice, vigência derivada.
+// ---------------------------------------------------------------------------
+
+const POLICY_TYPE_LABELS = Object.freeze({ RCTR_C: 'RCTR-C', RC_DC: 'RC-DC', RC_V: 'RC-V' });
+
+export const POLICY_TYPE_OPTIONS = Object.freeze([
+  { value: '', label: 'Todos' },
+  ...Object.keys(POLICY_TYPE_LABELS).map((value) => ({ value, label: POLICY_TYPE_LABELS[value] }))
+]);
+
+export function policyTypeLabel(type) {
+  const key = String(type || '').trim();
+  return POLICY_TYPE_LABELS[key] || key || '-';
+}
+
+export function policyStatusLabel(status) {
+  return resolveStatusLabel('insurance-policy', status);
+}
+
+export function pgrStatusLabel(status) {
+  return resolveStatusLabel('pgr-status', status);
+}
+
+/**
+ * Vigência DERIVADA da apólice contra `daysToExpiry` (campo já calculado pelo
+ * backend contra HOJE) — dimensão INDEPENDENTE do status administrativo
+ * (`insurance-policy` no status-map): uma apólice `active` pode estar
+ * `expired` na prática se ninguém a marcou `expired_marked`. Módulo PURO —
+ * só olha os números, nunca chama `new Date()`.
+ *
+ * @param {{ status?: string, daysToExpiry?: number }} policy
+ * @param {number} warningWindowDays janela de "vencendo" (default 30, espelha windowDays da API)
+ */
+export function resolveInsuranceExpiryState(policy, warningWindowDays = 30) {
+  const status = String(policy?.status || '').trim();
+  const days = Number(policy?.daysToExpiry);
+
+  if (status === 'cancelled') return { state: 'cancelled', tone: 'neutral', label: 'Cancelada' };
+  if (status === 'expired_marked') return { state: 'expired', tone: 'error', label: 'Vencida' };
+  if (!Number.isFinite(days)) return { state: 'unknown', tone: 'neutral', label: 'Vigência desconhecida' };
+  if (days < 0) return { state: 'expired', tone: 'error', label: `Vencida há ${Math.abs(days)} dia(s)` };
+  if (days <= warningWindowDays) return { state: 'expiring', tone: 'warning', label: `Vence em ${days} dia(s)` };
+  return { state: 'valid', tone: 'success', label: `Vence em ${days} dia(s)` };
+}
+
+// ---------------------------------------------------------------------------
+// Regulatory Watch — status/eventos/decisão de revisão.
+// ---------------------------------------------------------------------------
+
+export function watchItemStatusLabel(status) {
+  return resolveStatusLabel('watch-item', status);
+}
+
+const WATCH_EVENT_LABELS = Object.freeze({
+  detected: 'Mudança detectada',
+  ingested: 'Conteúdo capturado',
+  ai_analyzed: 'Analisado por IA',
+  ai_skipped: 'Análise de IA pulada',
+  human_review: 'Enviado para revisão humana',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+  tested: 'Testado',
+  scheduled: 'Agendado',
+  active_applied: 'Aplicado ao catálogo',
+  check_run_no_change: 'Varredura sem mudança'
+});
+
+export function watchEventLabel(eventType) {
+  const key = String(eventType || '').trim();
+  return WATCH_EVENT_LABELS[key] || humanizeUnknown(eventType);
+}
+
+/** Só itens em `human_review` aceitam a ação "revisar" (aprovar/rejeitar). */
+export function watchItemIsReviewable(status) {
+  return String(status || '').trim() === 'human_review';
+}
+
+/** Só itens `approved` aceitam a ação "aplicar" (cria versão de regra). */
+export function watchItemIsApplicable(status) {
+  return String(status || '').trim() === 'approved';
+}
+
+// ---------------------------------------------------------------------------
+// Fallback humanizador local (mesmo espírito de `humanizeFallback` do
+// status-map.js, mas para vocabulário que não é "status de domínio" — ex.:
+// tipo de evento de uma trilha append-only).
+// ---------------------------------------------------------------------------
+
+function humanizeUnknown(value) {
+  const key = String(value || '').trim();
+  if (!key) return '-';
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/(^|\s)([a-zà-ÿ])/g, (_, prefix, char) => `${prefix}${char.toUpperCase()}`);
+}

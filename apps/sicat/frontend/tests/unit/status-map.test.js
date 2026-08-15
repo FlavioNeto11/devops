@@ -17,7 +17,17 @@ import {
   resolveStatusTone,
   TRANSPORT_OPERATION_STATUS_TONES,
   COMPLIANCE_STATUS_TONES,
-  CIOT_STATUS_TONES
+  CIOT_STATUS_TONES,
+  RNTRC_STATUS_TONES,
+  RNTRC_VERIFICATION_TONES,
+  VPO_ALLOCATION_TONES,
+  FISCAL_VALIDATION_TONES,
+  FISCAL_AUTHORIZATION_TONES,
+  INSURANCE_POLICY_TONES,
+  PGR_STATUS_TONES,
+  PISO_TABELA_REVIEW_TONES,
+  DFE_ISSUANCE_TONES,
+  WATCH_ITEM_TONES
 } from '../../src/lib/status-map.js';
 import {
   resolveManifestStatusLabel,
@@ -163,4 +173,81 @@ test('ciot: vocabulário mínimo da Fase C tem tone e rótulo pt-BR (sem UI aind
   }
   assert.equal(resolveStatusTone('ciot', 'registered'), 'success');
   assert.equal(resolveStatusTone('ciot', 'rejected'), 'error');
+});
+
+test('ciot: request_unconfirmed (DL-102) nunca é confundido com rejected', () => {
+  assert.equal(resolveStatusTone('ciot', 'request_unconfirmed'), 'warning');
+  assert.equal(resolveStatusLabel('ciot', 'request_unconfirmed'), 'Solicitação sem confirmação');
+});
+
+// ---------------------------------------------------------------------------
+// Transporte (PR-H2, frontend completo) — domínios novos: RNTRC (status
+// declarado + tentativa de verificação), VPO, fiscal (validação/autorização
+// separados), seguros/PGR, tabela de piso e emissão de DF-e sandbox-ready.
+// ---------------------------------------------------------------------------
+
+function assertDomainCoverage(domain, tonesMap, { noUnderscoreInLabel = true } = {}) {
+  const states = Object.keys(tonesMap);
+  assert.ok(states.length > 0, `domínio "${domain}" precisa ter pelo menos um status registrado`);
+  for (const state of states) {
+    assert.equal(
+      resolveStatusTone(domain, state),
+      tonesMap[state],
+      `estado "${state}" do domínio "${domain}" deveria ter tone "${tonesMap[state]}"`
+    );
+    const label = resolveStatusLabel(domain, state);
+    assert.ok(label, `estado "${state}" do domínio "${domain}" precisa de rótulo`);
+    if (noUnderscoreInLabel) {
+      assert.ok(!label.includes('_'), `estado "${state}" do domínio "${domain}" vazou underscore no rótulo ("${label}")`);
+    }
+  }
+}
+
+test('rntrc-status: cadastro DECLARADO do transportador (unknown/active/suspended/cancelled/expired)', () => {
+  assertDomainCoverage('rntrc-status', RNTRC_STATUS_TONES);
+  assert.equal(resolveStatusTone('rntrc-status', 'expired'), 'error');
+  assert.equal(resolveStatusLabel('rntrc-status', 'unknown'), 'Não verificado');
+});
+
+test('rntrc-verification: desfecho de UMA tentativa (pending/succeeded/failed)', () => {
+  assertDomainCoverage('rntrc-verification', RNTRC_VERIFICATION_TONES);
+  assert.deepEqual(Object.keys(RNTRC_VERIFICATION_TONES).sort(), ['failed', 'pending', 'succeeded']);
+});
+
+test('vpo-allocation: os 7 status do ciclo do VPO (DL-102 em acquisition_unconfirmed)', () => {
+  assertDomainCoverage('vpo-allocation', VPO_ALLOCATION_TONES);
+  assert.equal(Object.keys(VPO_ALLOCATION_TONES).length, 7);
+  assert.equal(resolveStatusTone('vpo-allocation', 'acquisition_unconfirmed'), 'warning');
+  assert.equal(resolveStatusTone('vpo-allocation', 'acquired'), 'success');
+});
+
+test('fiscal-validation e fiscal-authorization são domínios SEPARADOS (dimensões independentes)', () => {
+  assertDomainCoverage('fiscal-validation', FISCAL_VALIDATION_TONES);
+  assertDomainCoverage('fiscal-authorization', FISCAL_AUTHORIZATION_TONES);
+  assert.equal(resolveStatusTone('fiscal-validation', 'invalid'), 'error');
+  assert.equal(resolveStatusTone('fiscal-authorization', 'denied'), 'error');
+  // 'cancelled' existe nos dois mapas com tones INDEPENDENTES — prova de que
+  // não há vazamento de um domínio para o outro.
+  assert.equal(resolveStatusLabel('fiscal-authorization', 'cancelled'), 'Cancelada');
+});
+
+test('insurance-policy: status ADMINISTRATIVO (active/cancelled/expired_marked)', () => {
+  assertDomainCoverage('insurance-policy', INSURANCE_POLICY_TONES);
+  assert.equal(resolveStatusTone('insurance-policy', 'active'), 'success');
+  assert.equal(resolveStatusTone('insurance-policy', 'expired_marked'), 'error');
+});
+
+test('pgr-status e piso-tabela-review e dfe-issuance e watch-item resolvem tone e rótulo pt-BR', () => {
+  assertDomainCoverage('pgr-status', PGR_STATUS_TONES);
+  assertDomainCoverage('piso-tabela-review', PISO_TABELA_REVIEW_TONES);
+  assertDomainCoverage('dfe-issuance', DFE_ISSUANCE_TONES);
+  assertDomainCoverage('watch-item', WATCH_ITEM_TONES);
+
+  assert.equal(Object.keys(DFE_ISSUANCE_TONES).length, 11);
+  assert.equal(resolveStatusTone('dfe-issuance', 'submit_unconfirmed'), 'warning');
+  assert.equal(resolveStatusTone('dfe-issuance', 'authorized'), 'success');
+
+  assert.equal(Object.keys(WATCH_ITEM_TONES).length, 10);
+  assert.equal(resolveStatusTone('watch-item', 'human_review'), 'warning');
+  assert.equal(resolveStatusTone('watch-item', 'active_applied'), 'success');
 });

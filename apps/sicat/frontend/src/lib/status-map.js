@@ -263,6 +263,11 @@ const COMPLIANCE_STATUS_LABELS = Object.freeze({
 const CIOT_STATUS_TONES = Object.freeze({
   pre_validation: 'neutral',
   requested: 'running',
+  // DL-102: a resposta do provedor se perdeu depois do dispatch — NUNCA é
+  // `rejected` (decisão definitiva). Sem entrada própria a chave cairia no
+  // fallback 'neutral' e esconderia do operador que existe uma solicitação
+  // possivelmente órfã (mesmo raciocínio de MANIFEST_STATUS_SUBMIT_UNCONFIRMED).
+  request_unconfirmed: 'warning',
   registered: 'success',
   rectified: 'warning',
   closed: 'success',
@@ -274,12 +279,217 @@ const CIOT_STATUS_TONES = Object.freeze({
 const CIOT_STATUS_LABELS = Object.freeze({
   pre_validation: 'Pré-validação',
   requested: 'Solicitado',
+  request_unconfirmed: 'Solicitação sem confirmação',
   registered: 'Registrado',
   rectified: 'Retificado',
   closed: 'Encerrado',
   cancelled: 'Cancelado',
   rejected: 'Rejeitado',
   blocked: 'Bloqueado'
+});
+
+// -----------------------------------------------------------------------------
+// Transporte (PR-H2, frontend completo) — domínios que faltavam no PR-F1
+// mínimo: status DECLARADO de RNTRC do transportador (cadastro), tentativa de
+// VERIFICAÇÃO de RNTRC, alocação de VPO, validação/autorização de documento
+// fiscal (dois domínios separados — são dimensões independentes do mesmo
+// TransporteFiscalDocumentResource, ver TransporteDfeValidationIssue/
+// authorizationStatus no OpenAPI), apólice de seguro, PGR, revisão de tabela
+// de piso e emissão de DF-e sandbox-ready. Cada um espelha 1:1 um enum do
+// contrato — igual ao vocabulário 'ciot' acima, nunca reaproveitar por
+// substring entre domínios diferentes.
+// -----------------------------------------------------------------------------
+
+// TransporteTransportadorResource.rntrcStatus — estado DECLARADO no cadastro
+// (o que o operador afirma, sujeito a checagem por `rntrc-verification`).
+const RNTRC_STATUS_TONES = Object.freeze({
+  unknown: 'neutral',
+  active: 'success',
+  suspended: 'warning',
+  cancelled: 'neutral',
+  expired: 'error'
+});
+
+const RNTRC_STATUS_LABELS = Object.freeze({
+  unknown: 'Não verificado',
+  active: 'Ativo',
+  suspended: 'Suspenso',
+  cancelled: 'Cancelado',
+  expired: 'Vencido'
+});
+
+// TransporteRntrcVerificacaoResource.requestedStatus — desfecho de UMA
+// tentativa de verificação (síncrona `manual` ou assíncrona `open_data`).
+const RNTRC_VERIFICATION_TONES = Object.freeze({
+  pending: 'running',
+  succeeded: 'success',
+  failed: 'error'
+});
+
+const RNTRC_VERIFICATION_LABELS = Object.freeze({
+  pending: 'Em verificação',
+  succeeded: 'Concluída',
+  failed: 'Falhou'
+});
+
+// TransporteVpoAllocationResource.status — recurso MUTÁVEL (uma linha por
+// operação, ao contrário do CIOT). `acquisition_unconfirmed` segue o mesmo
+// padrão DL-102 do CIOT: NUNCA é falha definitiva.
+const VPO_ALLOCATION_TONES = Object.freeze({
+  pending: 'neutral',
+  applicable: 'warning',
+  not_applicable: 'neutral',
+  acquisition_requested: 'running',
+  acquisition_unconfirmed: 'warning',
+  acquired: 'success',
+  cancelled: 'neutral'
+});
+
+const VPO_ALLOCATION_LABELS = Object.freeze({
+  pending: 'Pendente de avaliação',
+  applicable: 'Devido',
+  not_applicable: 'Não aplicável',
+  acquisition_requested: 'Aquisição solicitada',
+  acquisition_unconfirmed: 'Aquisição sem confirmação',
+  acquired: 'Adquirido',
+  cancelled: 'Cancelado'
+});
+
+// TransporteFiscalDocumentResource.validationStatus — resultado do
+// dfe-validator.ts local (schema + regras cruzadas), independente da
+// autorização fiscal do documento (domínio `fiscal-authorization`, abaixo).
+const FISCAL_VALIDATION_TONES = Object.freeze({
+  pending: 'neutral',
+  valid: 'success',
+  invalid: 'error',
+  warnings: 'warning'
+});
+
+const FISCAL_VALIDATION_LABELS = Object.freeze({
+  pending: 'Pendente',
+  valid: 'Válido',
+  invalid: 'Inválido',
+  warnings: 'Com avisos'
+});
+
+// TransporteFiscalDocumentResource.authorizationStatus — extraído do
+// protocolo SEFAZ (protNFe/protCTe/protMDFe) presente no XML importado;
+// `unknown` quando o XML não trazia protocolo (assinado isolado).
+const FISCAL_AUTHORIZATION_TONES = Object.freeze({
+  unknown: 'neutral',
+  authorized: 'success',
+  cancelled: 'neutral',
+  denied: 'error'
+});
+
+const FISCAL_AUTHORIZATION_LABELS = Object.freeze({
+  unknown: 'Desconhecida',
+  authorized: 'Autorizada',
+  cancelled: 'Cancelada',
+  denied: 'Denegada'
+});
+
+// TransporteApoliceResource.status — status ADMINISTRATIVO da apólice (não
+// confundir com a vigência DERIVADA — `expiring`/`expired` — ver o helper puro
+// `resolveInsuranceExpiryState` em transporteUiHelpers.js).
+const INSURANCE_POLICY_TONES = Object.freeze({
+  active: 'success',
+  cancelled: 'neutral',
+  expired_marked: 'error'
+});
+
+const INSURANCE_POLICY_LABELS = Object.freeze({
+  active: 'Ativa',
+  cancelled: 'Cancelada',
+  expired_marked: 'Marcada como vencida'
+});
+
+// TransportePgrResource.status.
+const PGR_STATUS_TONES = Object.freeze({
+  active: 'success',
+  superseded: 'neutral',
+  cancelled: 'neutral'
+});
+
+const PGR_STATUS_LABELS = Object.freeze({
+  active: 'Ativo',
+  superseded: 'Substituído',
+  cancelled: 'Cancelado'
+});
+
+// TransportePisoTabelaResource.reviewStatus — sempre `pending_review` nesta
+// fase do programa (promoção a `reviewed` é ato humano futuro, sem rota admin
+// ainda) — o badge já cobre os 3 valores do contrato.
+const PISO_TABELA_REVIEW_TONES = Object.freeze({
+  pending_review: 'warning',
+  reviewed: 'success',
+  rejected: 'error'
+});
+
+const PISO_TABELA_REVIEW_LABELS = Object.freeze({
+  pending_review: 'Em revisão',
+  reviewed: 'Revisada',
+  rejected: 'Rejeitada'
+});
+
+// TransporteEmissaoResource.status — pipeline sandbox-ready do
+// @flavioneto11/fiscal-kit (build → sign → submit). `submit_unconfirmed`
+// segue o mesmo padrão DL-102 do CIOT/VPO — nunca confundir com
+// `failed_validation` (falha ANTES do dispatch, essa sim definitiva).
+const DFE_ISSUANCE_TONES = Object.freeze({
+  draft: 'neutral',
+  building: 'running',
+  built: 'running',
+  signing: 'running',
+  signed: 'running',
+  submitting: 'running',
+  submit_unconfirmed: 'warning',
+  authorized: 'success',
+  rejected: 'error',
+  failed_validation: 'error',
+  cancelled: 'neutral'
+});
+
+const DFE_ISSUANCE_LABELS = Object.freeze({
+  draft: 'Rascunho',
+  building: 'Construindo',
+  built: 'Construído',
+  signing: 'Assinando',
+  signed: 'Assinado',
+  submitting: 'Enviando',
+  submit_unconfirmed: 'Envio sem confirmação',
+  authorized: 'Autorizado',
+  rejected: 'Rejeitado',
+  failed_validation: 'Falha de validação',
+  cancelled: 'Cancelado'
+});
+
+// TransporteWatchItemResource.status — trilha do Regulatory Watch
+// (DETECTED → ... → ACTIVE_APPLIED), PR-H1/PR-H2.
+const WATCH_ITEM_TONES = Object.freeze({
+  detected: 'neutral',
+  ingested: 'neutral',
+  ai_analyzed: 'running',
+  ai_skipped: 'neutral',
+  human_review: 'warning',
+  approved: 'success',
+  rejected: 'error',
+  tested: 'running',
+  scheduled: 'running',
+  active_applied: 'success'
+});
+
+const WATCH_ITEM_LABELS = Object.freeze({
+  detected: 'Detectado',
+  ingested: 'Capturado',
+  ai_analyzed: 'Analisado por IA',
+  ai_skipped: 'Análise de IA pulada',
+  human_review: 'Aguardando revisão humana',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+  tested: 'Testado',
+  scheduled: 'Agendado',
+  active_applied: 'Aplicado'
 });
 
 const ACCOUNT_HEALTH_TONES = Object.freeze({
@@ -324,7 +534,17 @@ const DOMAIN_TONES = Object.freeze({
   'account-health': ACCOUNT_HEALTH_TONES,
   'transport-operation': TRANSPORT_OPERATION_STATUS_TONES,
   compliance: COMPLIANCE_STATUS_TONES,
-  ciot: CIOT_STATUS_TONES
+  ciot: CIOT_STATUS_TONES,
+  'rntrc-status': RNTRC_STATUS_TONES,
+  'rntrc-verification': RNTRC_VERIFICATION_TONES,
+  'vpo-allocation': VPO_ALLOCATION_TONES,
+  'fiscal-validation': FISCAL_VALIDATION_TONES,
+  'fiscal-authorization': FISCAL_AUTHORIZATION_TONES,
+  'insurance-policy': INSURANCE_POLICY_TONES,
+  'pgr-status': PGR_STATUS_TONES,
+  'piso-tabela-review': PISO_TABELA_REVIEW_TONES,
+  'dfe-issuance': DFE_ISSUANCE_TONES,
+  'watch-item': WATCH_ITEM_TONES
 });
 
 const DOMAIN_LABELS = Object.freeze({
@@ -335,7 +555,17 @@ const DOMAIN_LABELS = Object.freeze({
   'account-health': ACCOUNT_HEALTH_LABELS,
   'transport-operation': TRANSPORT_OPERATION_STATUS_LABELS,
   compliance: COMPLIANCE_STATUS_LABELS,
-  ciot: CIOT_STATUS_LABELS
+  ciot: CIOT_STATUS_LABELS,
+  'rntrc-status': RNTRC_STATUS_LABELS,
+  'rntrc-verification': RNTRC_VERIFICATION_LABELS,
+  'vpo-allocation': VPO_ALLOCATION_LABELS,
+  'fiscal-validation': FISCAL_VALIDATION_LABELS,
+  'fiscal-authorization': FISCAL_AUTHORIZATION_LABELS,
+  'insurance-policy': INSURANCE_POLICY_LABELS,
+  'pgr-status': PGR_STATUS_LABELS,
+  'piso-tabela-review': PISO_TABELA_REVIEW_LABELS,
+  'dfe-issuance': DFE_ISSUANCE_LABELS,
+  'watch-item': WATCH_ITEM_LABELS
 });
 
 function normalizeKey(value) {
@@ -428,5 +658,25 @@ export {
   COMPLIANCE_STATUS_TONES,
   COMPLIANCE_STATUS_LABELS,
   CIOT_STATUS_TONES,
-  CIOT_STATUS_LABELS
+  CIOT_STATUS_LABELS,
+  RNTRC_STATUS_TONES,
+  RNTRC_STATUS_LABELS,
+  RNTRC_VERIFICATION_TONES,
+  RNTRC_VERIFICATION_LABELS,
+  VPO_ALLOCATION_TONES,
+  VPO_ALLOCATION_LABELS,
+  FISCAL_VALIDATION_TONES,
+  FISCAL_VALIDATION_LABELS,
+  FISCAL_AUTHORIZATION_TONES,
+  FISCAL_AUTHORIZATION_LABELS,
+  INSURANCE_POLICY_TONES,
+  INSURANCE_POLICY_LABELS,
+  PGR_STATUS_TONES,
+  PGR_STATUS_LABELS,
+  PISO_TABELA_REVIEW_TONES,
+  PISO_TABELA_REVIEW_LABELS,
+  DFE_ISSUANCE_TONES,
+  DFE_ISSUANCE_LABELS,
+  WATCH_ITEM_TONES,
+  WATCH_ITEM_LABELS
 };

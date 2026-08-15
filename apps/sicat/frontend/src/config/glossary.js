@@ -186,6 +186,22 @@ export const GLOSSARY = {
     term: 'RC-V — Seguro de Responsabilidade Civil do Transportador (Veículo)',
     simple: 'Seguro de danos a terceiros',
     explain: 'Cobre danos causados a terceiros pelo veículo durante o transporte da carga.'
+  },
+  dfe: {
+    term: 'DF-e — Documento Fiscal Eletrônico',
+    simple: 'Nota/conhecimento fiscal da viagem',
+    explain: 'Nome geral para NF-e, CT-e e MDF-e — os documentos fiscais eletrônicos que comprovam a carga, o frete e a viagem.',
+    example: 'Importar o XML de uma NF-e para vincular à operação de transporte.'
+  },
+  emissao_sandbox: {
+    term: 'Emissão de DF-e (sandbox)',
+    simple: 'Emitir uma nota fiscal de teste',
+    explain: 'Gera um documento fiscal eletrônico num ambiente de testes (sandbox) — nunca vale como documento fiscal real/produção.'
+  },
+  regulatory_watch: {
+    term: 'Regulatory Watch',
+    simple: 'Vigia de mudanças nas leis',
+    explain: 'Um serviço que fica de olho nas fontes oficiais e avisa quando uma regra do transporte mudou, para alguém revisar antes de valer no sistema.'
   }
 };
 
