@@ -429,15 +429,37 @@ evidências em transação. Regra sem versão vigente ⇒ `NOT_APPLICABLE`
 Gates: `GATE_PROPOSAL`, `GATE_CONTRACT`, `GATE_CIOT`, `GATE_FISCAL`, `GATE_PRE_BOARDING`,
 `GATE_RELEASE`, `GATE_IN_TRANSIT`, `GATE_COMPLETION`.
 
-## 8. Frontend (Onda 1.5)
+## 8. Frontend (Onda 1.5 → PR-H2, completo)
 
-Grupo "Transporte" no módulo `operacao` atrás de feature flag; rotas `/transporte/operacoes[/:id]`
-+ `/admin/transporte/regras` (read-only); domínios novos em `lib/status-map.js`
-(`transport-operation`, `compliance`: `pass→success`, `warn→warning`, `block→error`,
-`not_applicable→neutral`); painel de conformidade **componível** (`SicatCard` + `SicatInlineAlert`
-+ `SicatStatusBadge` + `SicatStatusTimeline`) — sem componente novo de design system; glossário
-ganha CIOT/MDF-e/CT-e/RNTRC/VPO/piso/PGR/RCTR-C/RC-DC/RC-V. Molde: par MTR-Provisório
-(lista/detalhe + store composable + service fino).
+Grupo "Transporte" no módulo `operacao` atrás de `VITE_FEATURE_TRANSPORTE` (default desligada).
+Nasceu mínimo na Onda 1.5 (PR-F1): rotas `/transporte/operacoes[/:id]` + `/transporte/regras`
+(read-only), domínios `transport-operation`/`compliance` em `lib/status-map.js`, painel de
+conformidade **componível** (`SicatCard` + `SicatInlineAlert` + `SicatStatusBadge` +
+`SicatStatusTimeline`). O PR-H2 completou a vertical no frontend — **sem componente novo de design
+system em nenhum dos dois PRs**:
+
+- **9 rotas** (todas atrás da mesma flag, `requiresActiveCetesbAccount: true`, ANTES do catch-all):
+  `/transporte/operacoes[/:operationId]`, `/transporte/pendencias`,
+  `/transporte/transportadores[/:partyId]`, `/transporte/veiculos`, `/transporte/regras`,
+  `/transporte/watch[/:itemId]`, `/transporte/piso/tabelas`.
+- **`lib/status-map.js`**: 10 domínios novos (`rntrc-status`, `rntrc-verification`,
+  `vpo-allocation`, `fiscal-validation`, `fiscal-authorization`, `insurance-policy`, `pgr-status`,
+  `piso-tabela-review`, `dfe-issuance`, `watch-item`) + correção do domínio `ciot` existente
+  (faltava `request_unconfirmed`, o estado DL-102).
+- **Stores** (todas factory functions sem estado de módulo compartilhado, molde do PR-F1):
+  `transporteStore.js` estendida (piso/CIOT/VPO/documentos fiscais/emissões escopados à operação
+  selecionada — comandos 202 via `useJobAwait`) + `transportadoresStore.js`, `veiculosStore.js`,
+  `watchStore.js`, `transportePendenciasStore.js` novas.
+- **7 telas novas** + **2 telas estendidas** (`TransporteOperacaoDetailView` ganha 5 seções; 
+  `TransporteRegrasView` ganha histórico de versões + promoção administrativa a bloqueante).
+- Glossário ganha DF-e, emissão sandbox e Regulatory Watch (CIOT/MDF-e/CT-e/RNTRC/VPO/piso/PGR/
+  RCTR-C/RC-DC/RC-V já vinham do PR-F1).
+- **Desvio de contrato conhecido** (não deste PR — backend congelado): `TransportRuleVersionResource`
+  (histórico de regra) não expõe o `version` de locking otimista que `POST .../promover` exige; a
+  UI usa `1` (valor real de toda versão nunca promovida) e memoriza em sessão o `version` devolvido
+  por uma promoção bem-sucedida.
+
+Molde geral: par MTR-Provisório (lista/detalhe + store composable + service fino).
 
 ## 9. Feature flags e rollout
 
@@ -488,7 +510,8 @@ real) — nunca emissão real, que exigiria um modo/configuração ainda não im
 
 ## 12. Critérios de pronto da Fase A
 
-Backend 100% entregue (PR-A1..A6); frontend é a Onda 1.5 (PR-F1), ainda não iniciado.
+Backend 100% entregue (PR-A1..A6); frontend mínimo entregue na Onda 1.5 (PR-F1) e completo no
+PR-H2 (ver §8) — critérios abaixo continuam descrevendo a Fase A backend, não o frontend completo.
 
 1. ✅ Operação navega `draft → validating → ready_for_contract → contracted` (e `blocked/reopen`,
    `cancelled`) exclusivamente por comandos com gate; matriz estados×comandos coberta por teste. —

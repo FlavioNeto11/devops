@@ -21,7 +21,44 @@ import {
   operationStatusLabel,
   REGULATORY_DOMAIN_OPTIONS,
   routedAvailableCommands,
-  TRANSPORT_OPERATION_STATUS_OPTIONS
+  TRANSPORT_OPERATION_STATUS_OPTIONS,
+  ciotAvailableAction,
+  ciotEventLabel,
+  ciotResponsiblePartyLabel,
+  ciotStatusLabel,
+  dfeIssuanceEventLabel,
+  dfeIssuanceStatusLabel,
+  fiscalAuthorizationStatusLabel,
+  fiscalDocumentTypeLabel,
+  fiscalIssueTone,
+  fiscalValidationStatusLabel,
+  isDfeIssuanceTerminal,
+  partyRoleLabel,
+  pgrStatusLabel,
+  pisoComplianceBadge,
+  pisoOutcomeLabel,
+  pisoTableCodeLabel,
+  pisoTabelaReviewStatusLabel,
+  policyStatusLabel,
+  policyTypeLabel,
+  resolveInsuranceExpiryState,
+  rntrcCategoryLabel,
+  rntrcResultStatusLabel,
+  rntrcStatusLabel,
+  rntrcStrategyLabel,
+  rntrcVerificationRequestedStatusLabel,
+  vehicleLinkTypeLabel,
+  vehiclePositionLabel,
+  vehicleTypeLabel,
+  vpoApplicableLabel,
+  vpoAllocationStatusLabel,
+  vpoAvailableAction,
+  vpoEventLabel,
+  vpoEvidenceSourceLabel,
+  watchEventLabel,
+  watchItemIsApplicable,
+  watchItemIsReviewable,
+  watchItemStatusLabel
 } from '../../src/views/transporte/transporteUiHelpers.js';
 
 test('TRANSPORT_OPERATION_STATUS_OPTIONS tem "Todos" + os 13 estados, sem underscore no rótulo', () => {
@@ -120,4 +157,124 @@ test('formatDateTimeBR: timestamp ISO vira string não-vazia; entrada inválida 
   assert.ok(result.length > 0);
   assert.equal(formatDateTimeBR(null), '-');
   assert.equal(formatDateTimeBR('not-a-date'), '-');
+});
+
+// ---------------------------------------------------------------------------
+// PR-H2 (frontend completo) — cadastros, CIOT, VPO, fiscal, piso, seguros,
+// emissão e Regulatory Watch.
+// ---------------------------------------------------------------------------
+
+test('cadastros: rótulos de papel/tipo de veículo/vínculo nunca vazam underscore', () => {
+  assert.equal(partyRoleLabel('carrier'), 'Transportador');
+  assert.equal(partyRoleLabel('subcontractor'), 'Subcontratado');
+  assert.equal(vehicleTypeLabel('semi_trailer'), 'Semirreboque');
+  assert.equal(vehicleLinkTypeLabel('rntrc_fleet'), 'Frota RNTRC declarada');
+  assert.equal(vehiclePositionLabel('towed_1'), 'Reboque 1');
+});
+
+test('RNTRC: status/estratégia/categoria/resultado reaproveitam o status-map ou têm mapa próprio', () => {
+  assert.equal(rntrcStatusLabel('expired'), 'Vencido');
+  assert.equal(rntrcVerificationRequestedStatusLabel('succeeded'), 'Concluída');
+  assert.equal(rntrcStrategyLabel('open_data'), 'Dados abertos (ANTT)');
+  assert.equal(rntrcCategoryLabel('ETC'), 'ETC');
+  assert.equal(rntrcResultStatusLabel('not_found'), 'Não encontrado');
+});
+
+test('CIOT: status/evento/papel e a ação disponível por estado', () => {
+  assert.equal(ciotStatusLabel('request_unconfirmed'), 'Solicitação sem confirmação');
+  assert.equal(ciotEventLabel('request_dispatched'), 'Solicitação enviada ao provedor');
+  assert.equal(ciotResponsiblePartyLabel('subcontractor'), 'Subcontratado');
+
+  assert.equal(ciotAvailableAction(''), 'solicitar');
+  assert.equal(ciotAvailableAction('registered'), 'gerenciar');
+  assert.equal(ciotAvailableAction('rectified'), 'gerenciar');
+  assert.equal(ciotAvailableAction('rejected'), 'solicitar');
+  assert.equal(ciotAvailableAction('requested'), null, 'em voo — nenhuma ação nova enquanto não resolve');
+  assert.equal(ciotAvailableAction('closed'), null, 'terminal — nada mais a fazer');
+});
+
+test('VPO: status/evento/aplicabilidade/evidência e a ação disponível por estado', () => {
+  assert.equal(vpoAllocationStatusLabel('acquisition_unconfirmed'), 'Aquisição sem confirmação');
+  assert.equal(vpoEventLabel('acquired'), 'VPO adquirido');
+  assert.equal(vpoEvidenceSourceLabel('provider'), 'Fornecedora (provedor)');
+
+  assert.equal(vpoApplicableLabel(true), 'Devido');
+  assert.equal(vpoApplicableLabel(false), 'Dispensado');
+  assert.equal(vpoApplicableLabel(null), 'Indeterminado');
+
+  assert.equal(vpoAvailableAction(''), 'avaliar');
+  assert.equal(vpoAvailableAction('pending'), 'avaliar');
+  assert.equal(vpoAvailableAction('applicable'), 'adquirir');
+  assert.equal(vpoAvailableAction('acquired'), null);
+  assert.equal(vpoAvailableAction('not_applicable'), null);
+});
+
+test('fiscal: validação e autorização são domínios separados; issue severity vira tone', () => {
+  assert.equal(fiscalDocumentTypeLabel('MDFE'), 'MDF-e');
+  assert.equal(fiscalValidationStatusLabel('warnings'), 'Com avisos');
+  assert.equal(fiscalAuthorizationStatusLabel('denied'), 'Denegada');
+  assert.equal(fiscalIssueTone('error'), 'error');
+  assert.equal(fiscalIssueTone('warning'), 'warning');
+  assert.equal(fiscalIssueTone(''), 'warning', 'severidade desconhecida não vira error');
+});
+
+test('emissão DF-e: status/evento e terminalidade', () => {
+  assert.equal(dfeIssuanceStatusLabel('submit_unconfirmed'), 'Envio sem confirmação');
+  assert.equal(dfeIssuanceEventLabel('imported_to_registry'), 'Importado ao acervo fiscal');
+  assert.equal(isDfeIssuanceTerminal('authorized'), true);
+  assert.equal(isDfeIssuanceTerminal('rejected'), true);
+  assert.equal(isDfeIssuanceTerminal('failed_validation'), true);
+  assert.equal(isDfeIssuanceTerminal('cancelled'), true);
+  assert.equal(isDfeIssuanceTerminal('submitting'), false);
+  assert.equal(isDfeIssuanceTerminal('draft'), false);
+});
+
+test('piso: outcome/badge de conformidade (tri-state) e rótulos de tabela', () => {
+  assert.equal(pisoOutcomeLabel('missing_coefficients'), 'Sem tabela vigente para os insumos informados');
+  assert.deepEqual(pisoComplianceBadge(true), { label: 'Conforme com o piso', tone: 'success' });
+  assert.deepEqual(pisoComplianceBadge(false), { label: 'Abaixo do piso', tone: 'error' });
+  assert.deepEqual(pisoComplianceBadge(null), { label: 'Não avaliável', tone: 'neutral' });
+  assert.equal(pisoTabelaReviewStatusLabel('pending_review'), 'Em revisão');
+  assert.equal(pisoTableCodeLabel('A'), 'Tabela A');
+});
+
+test('seguros: tipo/status de apólice e PGR', () => {
+  assert.equal(policyTypeLabel('RCTR_C'), 'RCTR-C');
+  assert.equal(policyStatusLabel('expired_marked'), 'Marcada como vencida');
+  assert.equal(pgrStatusLabel('superseded'), 'Substituído');
+});
+
+test('resolveInsuranceExpiryState: vigência DERIVADA (independente do status administrativo)', () => {
+  assert.deepEqual(
+    resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 45 }),
+    { state: 'valid', tone: 'success', label: 'Vence em 45 dia(s)' }
+  );
+  assert.deepEqual(
+    resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 10 }),
+    { state: 'expiring', tone: 'warning', label: 'Vence em 10 dia(s)' }
+  );
+  assert.deepEqual(
+    resolveInsuranceExpiryState({ status: 'active', daysToExpiry: -5 }),
+    { state: 'expired', tone: 'error', label: 'Vencida há 5 dia(s)' }
+  );
+  // Cancelada não é "vencida" nem "vencendo" — é outra categoria.
+  assert.equal(resolveInsuranceExpiryState({ status: 'cancelled', daysToExpiry: 10 }).state, 'cancelled');
+  // Já marcada como vencida pelo operador — não recalcula pela janela.
+  assert.equal(resolveInsuranceExpiryState({ status: 'expired_marked', daysToExpiry: 200 }).state, 'expired');
+  // daysToExpiry ausente/NaN não quebra — "desconhecida", nunca undefined vazando pra tela.
+  assert.equal(resolveInsuranceExpiryState({ status: 'active' }).state, 'unknown');
+  assert.equal(resolveInsuranceExpiryState(null).state, 'unknown');
+  // Janela customizada (windowDays da API, default 30) — 30 é o limite INCLUSIVO.
+  assert.equal(resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 30 }, 30).state, 'expiring');
+  assert.equal(resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 31 }, 30).state, 'valid');
+});
+
+test('Regulatory Watch: status/evento e as guardas de ação por estado', () => {
+  assert.equal(watchItemStatusLabel('human_review'), 'Aguardando revisão humana');
+  assert.equal(watchEventLabel('active_applied'), 'Aplicado ao catálogo');
+
+  assert.equal(watchItemIsReviewable('human_review'), true);
+  assert.equal(watchItemIsReviewable('approved'), false);
+  assert.equal(watchItemIsApplicable('approved'), true);
+  assert.equal(watchItemIsApplicable('human_review'), false);
 });

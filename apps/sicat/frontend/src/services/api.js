@@ -1555,6 +1555,394 @@ export function getTransportRuleByCode(code, params = {}) {
   );
 }
 
+export function getTransportRuleHistory(code) {
+  return request(`/v1/transporte/regras/${encodeURIComponent(code)}/historico`, { retry: 1, timeoutMs: 15000 });
+}
+
+/** Único caminho para `blocking=true` (ou reverter) — sempre exige `reviewNotes` + `version`. */
+export function promoteTransportRuleVersion(code, versionLabel, payload = {}) {
+  return request(
+    `/v1/transporte/regras/${encodeURIComponent(code)}/versoes/${encodeURIComponent(versionLabel)}/promover`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Transporte — PR-H2 (frontend completo). Cabeçalho de comando padrão para as
+// rotas assíncronas (202) — `Idempotency-Key` opcional, mesmo contrato do
+// `buildMtrProvisorioCommandHeaders`/`buildDmrCommandHeaders` acima.
+// -----------------------------------------------------------------------------
+
+function buildTransporteCommandHeaders(idempotencyKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = String(idempotencyKey);
+  }
+  return headers;
+}
+
+// ---- Cadastros: transportadores -------------------------------------------
+
+export function createTransportCarrier(payload, { idempotencyKey } = {}) {
+  return request('/v1/transporte/transportadores', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarriers(params = {}) {
+  return request(`/v1/transporte/transportadores${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportCarrierById(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function updateTransportCarrier(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** `strategy: manual` responde 200 síncrono; `open_data` responde 202 (CommandAccepted). */
+export function verifyTransportCarrierRntrc(partyId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/verificar-rntrc`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierRntrcVerifications(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/verificacoes-rntrc${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function linkTransportCarrierVehicle(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/veiculos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierVehicleLinks(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/veiculos${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- Cadastros: veículos ----------------------------------------------------
+
+export function createTransportVehicle(payload) {
+  return request('/v1/transporte/veiculos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportVehicles(params = {}) {
+  return request(`/v1/transporte/veiculos${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportVehicleById(vehicleId, params = {}) {
+  return request(
+    `/v1/transporte/veiculos/${encodeURIComponent(vehicleId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function updateTransportVehicle(vehicleId, payload) {
+  return request(`/v1/transporte/veiculos/${encodeURIComponent(vehicleId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+// ---- Piso mínimo de frete (MODO SHADOW) ------------------------------------
+
+export function calculateTransportOperationFloor(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/calcular-piso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationFloorCalculations(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/calculos-piso${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Catálogo GLOBAL (sem tenancy) de tabelas de piso carregadas — read-only. */
+export function listTransportFloorTables() {
+  return request('/v1/transporte/piso/tabelas', { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- CIOT -------------------------------------------------------------------
+
+export function preValidateTransportOperationCiot(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/pre-validar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function requestTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/solicitar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function rectifyTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/retificar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function cancelTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/cancelar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function closeTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/encerrar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getTransportOperationCiot(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- VPO (Vale-Pedágio Obrigatório) -----------------------------------------
+
+export function evaluateTransportOperationVpoApplicability(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/avaliar-aplicabilidade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function registerTransportOperationVpoAcquisition(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/registrar-aquisicao`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function acquireTransportOperationVpo(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/adquirir`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getTransportOperationVpo(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Cadastro CONFIGURÁVEL de fornecedoras de VPO — nunca hardcoded na UI. */
+export function listTransportVpoProviders() {
+  return request('/v1/transporte/vpo/fornecedoras', { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- Documentos fiscais (DF-e) ----------------------------------------------
+
+export function importTransportFiscalDocument(payload) {
+  return request('/v1/transporte/documentos-fiscais/importar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function linkTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/vincular`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function unlinkTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/desvincular`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function revalidateTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/revalidar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationFiscalDocuments(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/documentos-fiscais${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function getTransportFiscalDocumentById(documentId, params = {}) {
+  return request(
+    `/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- Seguros (apólices/PGR) --------------------------------------------------
+
+export function createTransportCarrierInsurancePolicy(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierInsurancePolicies(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function verifyTransportCarrierInsurancePolicies(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/verificar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateTransportCarrierInsurancePolicy(partyId, policyId, payload) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/${encodeURIComponent(policyId)}`,
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+}
+
+export function createTransportCarrierPgr(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/pgr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierPgrs(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/pgr${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Centro Operacional — alertas de apólice vencendo/vencida (Pendências). */
+export function listTransportInsuranceExpiryAlerts(params = {}) {
+  return request(`/v1/transporte/seguros/vencimentos${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- Emissão de DF-e (sandbox-ready) -----------------------------------------
+
+export function requestTransportOperationDfeIssuance(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/emissoes`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationDfeIssuances(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/emissoes${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function cancelTransportDfeIssuance(issuanceId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/emissoes/${encodeURIComponent(issuanceId)}/cancelar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+// ---- Regulatory Watch (PR-H1/PR-H2) — GLOBAL, sem tenancy --------------------
+
+export function listTransportWatchItems(params = {}) {
+  return request(`/v1/transporte/watch${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function getTransportWatchItemById(itemId) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function reviewTransportWatchItem(itemId, payload) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}/revisar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function applyTransportWatchItem(itemId, payload) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}/aplicar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function triggerTransportWatchCheck({ idempotencyKey } = {}) {
+  return request('/v1/transporte/watch/verificar-agora', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey)
+  });
+}
+
+// ---- Centro Operacional — visão consolidada (Pendências) --------------------
+
+export function getTransportOperationsOverview(params = {}) {
+  return request(`/v1/transporte/operations/overview${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
 // =============================================================================
 // Vínculos de canal (WhatsApp) — cadeia whatsapp-channel-sicat (fase 02).
 //
