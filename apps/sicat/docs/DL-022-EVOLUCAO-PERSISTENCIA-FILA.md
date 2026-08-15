@@ -575,6 +575,29 @@ npm run worker
 
 ---
 
+## Migrations 021/022 — Catálogo regulatório Transporte (PR-A1, 2026-08-13)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103 — bounded
+context separado do ambiental; nada referencia `manifests`/entidades CETESB):
+
+- **`021_transporte_regulatory_catalog.sql`** — `regulatory_sources`, `regulatory_rules` e
+  `regulatory_rule_versions` (catálogo regulatório temporal, seed das 26 regras TR-* em
+  `src/bootstrap/regulatory-rules-seed.ts`). Além do padrão DL-022 (PK text, `version` +
+  trigger `increment_version`, checks idempotentes), traz duas travas novas:
+  `chk_regrulev_blocking_reviewed` (versão `ACTIVE` só é bloqueante com `reviewed_by`/
+  `reviewed_at` — revisão humana) e **exclusion constraint** GiST anti-sobreposição de
+  vigência por regra (`create extension if not exists btree_gist`).
+- **`022_transporte_freight_floor_catalog.sql`** — `freight_floor_versions` e
+  `freight_floor_coefficients` (estrutura das tabelas de piso, **sem nenhum coeficiente
+  semeado** — pendência P3 do guia Transporte: coeficiente real só entra com revisão humana).
+
+⚠️ **Rollout escalonado obrigatório** (api primeiro, worker só depois de Ready): `runMigrations`
+(`src/db/migrate.ts`) **não tem advisory lock** — com `AUTO_MIGRATE=true` na api E no worker,
+duas migrations inéditas na mesma corrida podem colidir em `23505` na PK de `schema_migrations`
+e derrubar os dois pods em CrashLoop simultâneo (armadilha 13 do `apps/sicat/CLAUDE.md`).
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`

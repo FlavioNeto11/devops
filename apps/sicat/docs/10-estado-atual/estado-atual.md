@@ -438,6 +438,19 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
+### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1 entregue)
+
+Bounded context novo, separado do ambiental (DL-103; programa em
+[`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
+fundação: catálogo regulatório temporal (migrations
+[`021`](../../backend/src/sql/021_transporte_regulatory_catalog.sql) +
+[`022`](../../backend/src/sql/022_transporte_freight_floor_catalog.sql)), seed idempotente das 26
+regras TR-* ([`regulatory-rules-seed.ts`](../../backend/src/bootstrap/regulatory-rules-seed.ts),
+todas `blocking=false` — promoção exige revisão humana, travada em DDL), repositório de consulta
+temporal ([`regulatory-repo.ts`](../../backend/src/repositories/regulatory-repo.ts)) e a categoria
+`tests/regulatory/`. **🕓 Sem superfície HTTP ainda** (rotas read-only vêm no PR-A2); 📋 tabelas de
+piso criadas **vazias** por desenho (coeficiente real só com revisão humana — pendência P3 do guia).
+
 ## 4. Riscos e limites conhecidos
 
 - ~~**P0 — autorização das rotas REST.**~~ **FECHADO.** `middlewares/auth.ts` continua verificando só
