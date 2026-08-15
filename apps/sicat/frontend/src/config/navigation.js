@@ -7,9 +7,16 @@
  *   - "Operação": sempre visível (operador parceiro).
  *   - "Sistema" e "Administração": só com canAccessAdmin (SRE/admin).
  *
- * Cada grupo: { id, label, icon, kind: 'direct' | 'group', module, items?, to? }
+ * Cada grupo: { id, label, icon, kind: 'direct' | 'group', module, items?, to?, hidden? }
  * Cada item:  { to, label, icon, description?, requiresAdminAccess?, hidden? }
+ *
+ * `hidden` no GRUPO (não só no item) existe por causa da vertical Transporte
+ * (DL-103, Onda 1.5/PR-F1): o grupo inteiro precisa sumir do menu quando
+ * `VITE_FEATURE_TRANSPORTE` está desligada — não faz sentido esconder item a
+ * item um grupo que só tem itens atrás da mesma flag.
  */
+
+import { TRANSPORTE_FEATURE_FLAG } from '../lib/feature-flags.js';
 
 export const NAVIGATION_MODULES = [
   { id: 'operacao', label: 'Operação' },
@@ -122,6 +129,32 @@ export const NAVIGATION_GROUPS = [
         label: 'Gerar certificado',
         icon: 'mdi-file-plus-outline',
         description: 'Pedir um novo certificado à CETESB'
+      }
+    ]
+  },
+  {
+    // Vertical NOVA (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) —
+    // bounded context separado do MTR ambiental (não reaproveita `manifest`).
+    // Atrás de VITE_FEATURE_TRANSPORTE (default desligada): `hidden` some com
+    // o grupo inteiro do menu até a flag ligar — ver `filterNavigationGroups`.
+    id: 'transporte',
+    label: 'Transporte',
+    icon: 'mdi-truck-outline',
+    kind: 'group',
+    module: 'operacao',
+    hidden: !TRANSPORTE_FEATURE_FLAG,
+    items: [
+      {
+        to: '/transporte/operacoes',
+        label: 'Operações',
+        icon: 'mdi-truck-fast-outline',
+        description: 'Acompanhar operações de transporte e a conformidade regulatória'
+      },
+      {
+        to: '/transporte/regras',
+        label: 'Regras regulatórias',
+        icon: 'mdi-gavel',
+        description: 'Consultar o catálogo de regras TR-* e sua vigência'
       }
     ]
   },
@@ -258,6 +291,10 @@ export function filterNavigationGroups({ canAccessAdmin = false, accountType = '
   const type = String(accountType || '').toLowerCase();
   return NAVIGATION_GROUPS
     .map((group) => {
+      // Grupo inteiro atrás de feature flag (ex.: "Transporte" — DL-103/PR-F1).
+      if (group.hidden) {
+        return null;
+      }
       // Admin/SRE é persona de sistema: não enxerga o módulo "Operação" (telas de operador).
       if (canAccessAdmin && group.module === 'operacao') {
         return null;
@@ -325,7 +362,7 @@ export function flattenNavigation(groups) {
 /**
  * Rotas que correspondem a si mesmas e às suas subrotas (ex: detalhe).
  */
-const PREFIX_MATCH_PATHS = ['/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria'];
+const PREFIX_MATCH_PATHS = ['/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria', '/transporte/operacoes'];
 
 /**
  * Subrotas que possuem item de navegação próprio e, portanto, NÃO devem

@@ -14,7 +14,10 @@ import {
   resolveManifestSituationLabel,
   resolveManifestStatusTone,
   resolveStatusLabel,
-  resolveStatusTone
+  resolveStatusTone,
+  TRANSPORT_OPERATION_STATUS_TONES,
+  COMPLIANCE_STATUS_TONES,
+  CIOT_STATUS_TONES
 } from '../../src/lib/status-map.js';
 import {
   resolveManifestStatusLabel,
@@ -92,4 +95,72 @@ test('tom do badge acompanha a leitura de relance', () => {
   assert.equal(resolveManifestStatusTone('draft'), 'neutral');
   assert.equal(resolveManifestStatusTone('failed'), 'error');
   assert.equal(resolveStatusTone('manifest', 'Recebido'), 'success');
+});
+
+// ---------------------------------------------------------------------------
+// Transporte (DL-103, Onda 1.5/PR-F1) — domínios novos: máquina de estados de
+// TransportOperation (13 estados), resultado pós-clamp do motor de compliance
+// (PASS/WARN/BLOCK/NOT_APPLICABLE, sempre MAIÚSCULO no contrato) e o
+// vocabulário mínimo do CIOT (Fase C, sem UI ainda).
+// ---------------------------------------------------------------------------
+
+test('transport-operation: os 13 estados da máquina têm tone e rótulo pt-BR', () => {
+  const expectedTones = {
+    draft: 'neutral',
+    validating: 'running',
+    blocked: 'error',
+    ready_for_contract: 'neutral',
+    contracted: 'success',
+    ciot_pending: 'running',
+    ciot_registered: 'neutral',
+    fiscal_pending: 'running',
+    ready_for_release: 'neutral',
+    in_transit: 'running',
+    completion_pending: 'running',
+    completed: 'success',
+    cancelled: 'error'
+  };
+
+  const states = Object.keys(expectedTones);
+  assert.equal(states.length, 13, 'a máquina de estados de TransportOperation tem 13 estados');
+
+  for (const state of states) {
+    assert.equal(
+      resolveStatusTone('transport-operation', state),
+      expectedTones[state],
+      `estado "${state}" deveria ter tone "${expectedTones[state]}"`
+    );
+    const label = resolveStatusLabel('transport-operation', state);
+    assert.ok(label && !label.includes('_'), `estado "${state}" precisa de rótulo pt-BR sem underscore ("${label}")`);
+  }
+
+  assert.equal(TRANSPORT_OPERATION_STATUS_TONES.blocked, 'error');
+  assert.equal(TRANSPORT_OPERATION_STATUS_TONES.completed, 'success');
+});
+
+test('compliance: PASS/WARN/BLOCK/NOT_APPLICABLE (contrato em MAIÚSCULO) resolvem tone e rótulo', () => {
+  // O contrato (TransporteConformidadeCheckResource.status/overallStatus) devolve
+  // sempre em MAIÚSCULO — normalizeKey precisa fazer o lowercase na leitura.
+  assert.equal(resolveStatusTone('compliance', 'PASS'), 'success');
+  assert.equal(resolveStatusTone('compliance', 'WARN'), 'warning');
+  assert.equal(resolveStatusTone('compliance', 'BLOCK'), 'error');
+  assert.equal(resolveStatusTone('compliance', 'NOT_APPLICABLE'), 'neutral');
+
+  assert.equal(resolveStatusLabel('compliance', 'PASS'), 'Conforme');
+  assert.equal(resolveStatusLabel('compliance', 'WARN'), 'Atenção');
+  assert.equal(resolveStatusLabel('compliance', 'BLOCK'), 'Bloqueado');
+  assert.equal(resolveStatusLabel('compliance', 'NOT_APPLICABLE'), 'Não aplicável');
+
+  assert.equal(COMPLIANCE_STATUS_TONES.block, 'error');
+});
+
+test('ciot: vocabulário mínimo da Fase C tem tone e rótulo pt-BR (sem UI ainda nesta onda)', () => {
+  const states = ['pre_validation', 'requested', 'registered', 'rectified', 'closed', 'cancelled', 'rejected', 'blocked'];
+  for (const state of states) {
+    assert.ok(CIOT_STATUS_TONES[state], `estado "${state}" do CIOT precisa de tone registrado`);
+    const label = resolveStatusLabel('ciot', state);
+    assert.ok(label && !label.includes('_'), `estado "${state}" do CIOT precisa de rótulo pt-BR sem underscore ("${label}")`);
+  }
+  assert.equal(resolveStatusTone('ciot', 'registered'), 'success');
+  assert.equal(resolveStatusTone('ciot', 'rejected'), 'error');
 });

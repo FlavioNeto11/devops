@@ -13,6 +13,7 @@ import {
   takeRouteDenialNotice
 } from './lib/route-denial-notice.js';
 import { decideStaleBundleRecovery } from './lib/stale-bundle-recovery.js';
+import { TRANSPORTE_FEATURE_FLAG } from './lib/feature-flags.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
 import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
@@ -41,6 +42,9 @@ import MtrReportsView from './modules/mtr-reports/MtrReportsView.vue';
 import CommandCenterView from './modules/command-center/CommandCenterView.vue';
 import CdfListView from './views/CdfListView.vue';
 import CdfCreateView from './views/CdfCreateView.vue';
+import TransporteOperacaoListView from './views/transporte/TransporteOperacaoListView.vue';
+import TransporteOperacaoDetailView from './views/transporte/TransporteOperacaoDetailView.vue';
+import TransporteRegrasView from './views/transporte/TransporteRegrasView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 
 // Destino inicial do admin/SRE (persona de sistema) — não exige conta CETESB.
@@ -48,6 +52,13 @@ const ADMIN_HOME = '/operacao/dashboard';
 
 // Destino de fallback do operador quando uma rota é negada (permissão ou perfil).
 const OPERATOR_HOME = '/dashboard';
+
+// Feature flags por chave — `meta.featureFlag` nas rotas abaixo referencia esta
+// tabela (DL-103, vertical Transporte, Onda 1.5/PR-F1 — a primeira flag do
+// frontend; ver lib/feature-flags.js).
+const ROUTE_FEATURE_FLAGS = {
+  transporte: TRANSPORTE_FEATURE_FLAG
+};
 
 // Regras de perfil (persona) por rota: `lib/persona-access.js` — módulo PURO,
 // coberto por node:test (o guard abaixo não pode voltar a ficar sem teste).
@@ -399,6 +410,52 @@ const routes = [
     }
   },
   {
+    // Vertical NOVA (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) —
+    // bounded context separado do MTR ambiental. SEM `personas`: o backend de
+    // Transporte não usa `accountType` (generator/carrier/receiver) do MTR
+    // ambiental — é uma vertical de OPERADOR genérica, sem perfil exclusivo
+    // nesta fase (declarar `personas: ['carrier']` aqui seria inventar uma
+    // semântica que a conta CETESB ativa não carrega). `requiresActiveCetesbAccount:
+    // true` porque a tenancy do backend (`integrationAccountId`) hoje só é
+    // resolvida no frontend via a conta CETESB ativa (`authStore.integrationAccountId`)
+    // — não existe, nesta fase, uma segunda tela de seleção de "conta de
+    // transporte" independente.
+    path: '/transporte/operacoes',
+    name: 'TransporteOperacaoList',
+    component: TransporteOperacaoListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Operações']
+    }
+  },
+  {
+    path: '/transporte/operacoes/:operationId',
+    name: 'TransporteOperacaoDetalhe',
+    component: TransporteOperacaoDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe da operação']
+    }
+  },
+  {
+    path: '/transporte/regras',
+    name: 'TransporteRegras',
+    component: TransporteRegrasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Regras regulatórias']
+    }
+  },
+  {
     path: '/dev/components',
     name: 'DevComponentsPlayground',
     component: () => import('./views/dev/SicatComponentsPlayground.vue'),
@@ -550,6 +607,20 @@ router.beforeEach(async (to, from, next) => {
       next(OPERATOR_HOME);
       return;
     }
+  }
+
+  // Vertical atrás de feature flag (ex.: Transporte — DL-103/PR-F1): flag
+  // desligada bloqueia também por URL direta, não só oculta no menu
+  // (`config/navigation.js` já esconde o grupo — este guard é o cinto de
+  // segurança para quem digita/salva a URL).
+  if (to.meta.featureFlag && !ROUTE_FEATURE_FLAGS[to.meta.featureFlag]) {
+    queueRouteDenialNotice(buildRouteDenialNotice({
+      reason: ROUTE_DENIAL_REASONS.FEATURE_FLAG,
+      deniedPath: to.path,
+      redirectTo: OPERATOR_HOME
+    }));
+    next(OPERATOR_HOME);
+    return;
   }
 
   // Perfil da conta CETESB ativa (Gerador/Transportador/Destinador): telas
