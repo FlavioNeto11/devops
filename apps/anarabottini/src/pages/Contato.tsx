@@ -1,4 +1,5 @@
-import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
+import { Mail, MessageCircle, MapPin } from 'lucide-react';
+import { Linkedin, Instagram } from '../lib/brand-icons';
 import { useSite, useContentTree } from '../lib/SiteContext';
 import { findPage } from '../lib/content';
 import { Reveal } from '../components/ui';

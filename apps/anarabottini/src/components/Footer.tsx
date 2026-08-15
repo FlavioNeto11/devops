@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Mail, MessageCircle, MapPin, Linkedin, Instagram, Youtube } from 'lucide-react';
+import { Mail, MessageCircle, MapPin } from 'lucide-react';
+import { Linkedin, Instagram, Youtube } from '../lib/brand-icons';
 import { useSite } from '../lib/SiteContext';
 
 const quick = [

@@ -17,9 +17,11 @@ import {
   ShoppingBag, Briefcase, HelpCircle, Info, AlertTriangle, AlertCircle, X, ChevronLeft, ChevronRight,
   Eye, EyeOff, ThumbsUp, Smile, Bell, Flag, Bookmark, Tag, Tags, Folder, FolderOpen, Settings, Cog,
   Wrench, Hammer, Monitor, Laptop, Server, Database, Wifi, Rocket, School, Projector, Edit, Trash2,
-  Plus, Minus, Youtube, Instagram,
+  Plus, Minus,
   type LucideIcon,
 } from 'lucide-react';
+// Ícones de marca saíram do lucide 1.x — versões locais com a mesma API/nome.
+import { Youtube, Instagram } from './brand-icons';
 
 /**
  * Mapa nome→componente para ícones vindos do CMS (data.icon é string).
