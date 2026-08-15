@@ -77,14 +77,22 @@ describe('GET /v1/transporte/regras — catálogo read-only', { concurrency: 1 }
     }
   });
 
-  it('lista as 26 regras com a versão resolvida, sem vazar ids internos', async (t) => {
+  it('lista as 26 regras SEMEADAS com a versão resolvida, sem vazar ids internos', async (t) => {
     if (skipIfNoDb(t)) return;
 
     const { response, body } = await getJson('/v1/transporte/regras?vigenteEm=2026-08-13');
     assert.equal(response.status, 200);
     assert.equal(body.referenceDate, '2026-08-13');
-    assert.equal(body.totalItems, RULE_CODES.length);
-    assert.deepEqual(body.items.map((item) => item.code), [...RULE_CODES]);
+    // Banco de teste é COMPARTILHADO entre arquivos rodando em paralelo: outra suíte pode ter
+    // uma regra transitória viva neste instante (ex.: TR-WATCHAPI-* de transporte-watch.test.js).
+    // O invariante desta asserção é "as 26 regras do seed estão TODAS presentes, na ordem do
+    // catálogo" — nunca "não existe mais nada no banco inteiro" (mesma lição do isolamento
+    // piso × catálogo).
+    assert.ok(body.totalItems >= RULE_CODES.length, `esperava >= ${RULE_CODES.length} regras, veio ${body.totalItems}`);
+    const seededCodes = body.items
+      .map((item) => item.code)
+      .filter((code) => RULE_CODES.includes(code));
+    assert.deepEqual(seededCodes, [...RULE_CODES]);
 
     const ciot = body.items.find((item) => item.code === 'TR-CIOT-001');
     assert.ok(ciot, 'TR-CIOT-001 ausente da lista');
@@ -93,6 +101,10 @@ describe('GET /v1/transporte/regras — catálogo read-only', { concurrency: 1 }
     assert.equal(ciot.currentVersion?.versionLabel, 'v2026-05-universal');
     assert.equal(ciot.currentVersion?.implementationState, 'ACTIVE');
     assert.equal(ciot.currentVersion?.blocking, false);
+    // `version` (locking otimista) é parte do contrato: é o valor que o body de
+    // POST .../versoes/{versionLabel}/promover exige — sem ele o frontend teria de adivinhar.
+    assert.equal(typeof ciot.currentVersion?.version, 'number');
+    assert.ok(ciot.currentVersion.version >= 1, 'version de locking otimista deve ser >= 1');
 
     // O contrato NÃO expõe ids internos randômicos nem source_hash — em nenhum nível.
     for (const forbidden of ['id', 'ruleId', 'sourceHash', 'createdAt', 'updatedAt']) {
@@ -193,5 +205,15 @@ describe('GET /v1/transporte/regras — catálogo read-only', { concurrency: 1 }
     const superseded = body.versions.find((version) => version.versionLabel === 'v2019-baseline');
     assert.equal(superseded.effectiveUntil, '2026-05-23');
     assert.equal(superseded.implementationState, 'SUPERSEDED');
+
+    // Toda versão do histórico expõe `version` (locking otimista) — insumo do /promover.
+    for (const version of body.versions) {
+      assert.equal(
+        typeof version.version,
+        'number',
+        `${version.versionLabel}: campo 'version' ausente no histórico`
+      );
+      assert.ok(version.version >= 1);
+    }
   });
 });

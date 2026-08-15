@@ -14577,9 +14577,15 @@ components:
       - severity
       - reviewedBy
       - reviewedAt
+      - version
       properties:
         versionLabel:
           type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Versão de locking otimista da linha (incrementada a cada alteração) —
+            obrigatória no body de `POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`.
         legalBasis:
           type: array
           items:

@@ -1098,13 +1098,12 @@ provedor), documentos fiscais (importar XML colado + badges de validação/autor
 visíveis) e emissões (emitir NF-e sandbox, com tratamento explícito do 409
 `DFE_ISSUANCE_FEATURE_DISABLED`). `TransporteRegrasView` (existente) ganhou histórico de versões
 por regra + "Promover a bloqueante" (diálogo com `reviewNotes` obrigatório + confirmação dupla
-`useConfirmDialog` danger). **Desvio de contrato registrado, não deste PR**: o histórico de versões
-(`GET .../regras/{code}/historico`, `TransportRuleVersionResource`) nunca expôs o `version`
-(locking otimista) que `POST .../promover` exige — a UI usa `1` (valor real de toda versão nunca
-promovida, mesmo default do exemplo `promover` do OpenAPI) e memoriza em sessão o `version` novo
-devolvido por uma promoção bem-sucedida para a promoção/reversão seguinte da MESMA versão; 409
-`REGULATORY_RULE_VERSION_CONFLICT` vira uma mensagem clara pedindo para reabrir o histórico e
-tentar de novo. `config/navigation.js` (grupo "Transporte" — 7 itens, todos atrás da flag) e
+`useConfirmDialog` danger). **Desvio de contrato RESOLVIDO** (branch
+`sicat/transporte-19-regra-version-contract`): o histórico de versões (`GET
+.../regras/{code}/historico`) e o `currentVersion` das listagens agora expõem `version` (locking
+otimista) no `TransporteRegraVersaoResource` — a UI consome o valor direto da linha aberta
+(workaround do cache em sessão removido); 409 `REGULATORY_RULE_VERSION_CONFLICT` passa a
+significar alteração concorrente REAL e mantém a mensagem pedindo para reabrir o histórico. `config/navigation.js` (grupo "Transporte" — 7 itens, todos atrás da flag) e
 `router.js` (7 rotas novas, todas ANTES do catch-all, mesmo padrão `featureFlag: 'transporte'` +
 `requiresActiveCetesbAccount: true`) — ver tabela completa em
 [`../FRONTEND-UX-NAVIGATION.md`](../FRONTEND-UX-NAVIGATION.md). `config/glossary.js` ganhou DF-e,

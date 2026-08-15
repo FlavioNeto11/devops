@@ -7,11 +7,20 @@
   "displayOrder": 80,
   "currentVersion": {
     "versionLabel": "v2026-05-universal",
+    "version": 1,
     "legalBasis": [
-      { "reference": "Res. ANTT 5.862/2019" },
-      { "reference": "Res. ANTT 6.078/2026" },
-      { "reference": "Lei 15.485/2026" },
-      { "reference": "Portaria SUROC 6/2026" }
+      {
+        "reference": "Res. ANTT 5.862/2019"
+      },
+      {
+        "reference": "Res. ANTT 6.078/2026"
+      },
+      {
+        "reference": "Lei 15.485/2026"
+      },
+      {
+        "reference": "Portaria SUROC 6/2026"
+      }
     ],
     "summary": "CIOT universal para toda operação remunerada (Res. 6.078/2026).",
     "effectiveFrom": "2026-05-24",
