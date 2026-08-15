@@ -3,6 +3,7 @@ import { ensureStorageDirs } from '../lib/files.js';
 import { runMigrations } from '../db/migrate.js';
 import { ensureBaseData } from './base-data.js';
 import { ensureRegulatoryCatalogSeeded } from './regulatory-rules-seed.js';
+import { ensureDfeSchemaRegistrySeeded } from './dfe-schema-seed.js';
 import { seedAiRuntimeDefaults } from '../services/ai-control/ai-control-bootstrap.js';
 import {
   refreshConversationPermissionCatalogSnapshot,
@@ -39,6 +40,20 @@ export async function ensureStartup() {
       console.error(
         '[regulatory-catalog-seed] FALHA ao reconciliar o catalogo regulatorio Transporte. A vertical '
           + 'segue sem catalogo ate o proximo boot bem-sucedido; o restante do SICAT nao e afetado: '
+          + `${error instanceof Error ? error.stack || error.message : String(error)}`
+      );
+    }
+
+    // Schema registry de DF-e (PR-E1, DL-103) — mesmo gate AUTO_SEED, mesma postura de falha NAO
+    // derruba o boot (a importacao de DF-e ainda nao tem superficie HTTP para ninguem depender dela
+    // no primeiro segundo de vida do pod).
+    try {
+      const dfeSchemaSeedResult = await ensureDfeSchemaRegistrySeeded();
+      console.log(`[dfe-schema-seed] schema registry reconciliado ${JSON.stringify(dfeSchemaSeedResult)}`);
+    } catch (error: unknown) {
+      console.error(
+        '[dfe-schema-seed] FALHA ao reconciliar o schema registry de DF-e. A importacao de DF-e segue '
+          + 'sem registry ate o proximo boot bem-sucedido; o restante do SICAT nao e afetado: '
           + `${error instanceof Error ? error.stack || error.message : String(error)}`
       );
     }

@@ -160,6 +160,24 @@ tags:
     recusa com `VPO_PROVIDER_NOT_CONFIGURED`. O valor do VPO é SEMPRE separado do frete
     (`transport_operations.vpoAmount`, campo decomposto — nunca somado a `freightOfferedAmount`/
     `freightContractedAmount`).'
+- name: Transporte - Documentos Fiscais
+  description: 'Importação e validação de DF-e — NF-e/CT-e/MDF-e (PR-E1). TUDO SÍNCRONO (201/200,
+    sem job/gateway) — parsing local do XML, SEM chamada à SEFAZ (emissão fica na Fase G, atrás de
+    flag, via `fiscal-kit`). `importar` faz parse → resolve a entrada VIGENTE do schema registry
+    (`dfe_schema_registry`, versionado por `document_type`+`layout_version`+`technical_note`, na
+    data de EMISSÃO do documento — nenhuma regra de XML depende de schema "eterno") → valida
+    (`dfe-validator.ts`) → grava o XML em `STORAGE_DIR/transporte-dfe/<hash>.xml` (NUNCA em coluna
+    jsonb — só `xmlStorageRef`+`xmlHash` no contrato) → persiste `fiscal_documents` + vínculos
+    automáticos entre documentos (`fiscal_document_links`: NF-e↔CT-e↔MDF-e, resolvidos pelas chaves
+    referenciadas no XML já importadas) + trilha de eventos APPEND-ONLY. Dedupe por
+    `(integrationAccountId, accessKey)` → `409 DFE_ALREADY_IMPORTED`. `vincular`/`desvincular`
+    associam/desassociam um documento a uma `TransportOperation`; `revalidar` reprocessa a
+    validação com o registry/operação ATUAIS a partir do XML já armazenado (NUNCA muda o snapshot
+    importado). Antecipa em TESTE as rejeições da NT MDF-e 2026.001 (CIOT obrigatório no MDF-e para
+    transporte remunerado por terceiros, `MDFE_CIOT_MISSING`) via perfil ativável do schema
+    registry (`validationProfile.mdfeRequiresCiot`) — `effectiveFrom` [ASSUMPTION], cronograma
+    técnico oficial ainda não publicado (pendência P7 do guia). NÃO valida XSD completo (limitação
+    documentada) — o schema registry governa PERFIS de validação, não schemas XML inteiros.'
 security:
 - bearerAuth: []
 paths:
@@ -8524,6 +8542,248 @@ paths:
                 $ref: '#/components/schemas/UnauthorizedProblem'
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
+  /v1/transporte/documentos-fiscais/importar:
+    post:
+      operationId: transporteDocumentosFiscaisImportar
+      summary: Importar e validar um DF-e (NF-e/CT-e/MDF-e) — síncrono
+      description: |-
+        Parse do XML (`xmlContent`, string) → resolve a entrada VIGENTE do schema registry na data
+        de EMISSÃO do documento → valida (`dfe-validator.ts`) → grava o XML em storage (nunca em
+        coluna jsonb) → persiste `fiscal_documents` + `fiscal_document_links` resolvidos
+        automaticamente (chaves referenciadas no XML já importadas antes) + eventos
+        (`imported`, `validated`, e `linked_to_operation` quando `operationId` é informado no
+        próprio request). Dedupe por `(integrationAccountId, accessKey)` → `409
+        DFE_ALREADY_IMPORTED` (`errors.existingId` aponta para o documento já importado).
+        `operationId` é OPCIONAL — pode importar antes de vincular a uma operação.
+      tags:
+      - Transporte - Documentos Fiscais
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteDfeImportarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              xmlContent: <nfeProc versao="4.00">...</nfeProc>
+              operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+      responses:
+        '201':
+          description: Documento fiscal importado e validado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+  /v1/transporte/documentos-fiscais/{documentId}/vincular:
+    post:
+      operationId: transporteDocumentoFiscalVincular
+      summary: Vincular um documento fiscal já importado a uma operação
+      description: |-
+        Grava `operationId` no documento fiscal (`fiscal_documents.operation_id`) e roda o
+        cross-check CIOT↔MDF-e (`MDFE_CIOT_MISMATCH`, só para MDF-e) + o side-effect
+        `vpo_allocations.mdfe_reference` (MDF-e com vale-pedágio + alocação `acquired`) contra o
+        ESTADO ATUAL da operação — sem reler o XML (usa o snapshot já extraído na importação).
+        `version` é OPCIONAL: quando informado, faz CAS (compare-and-swap) contra
+        `fiscal_documents.version`.
+      tags:
+      - Transporte - Documentos Fiscais
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteDfeVincularRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+      responses:
+        '200':
+          description: Documento fiscal vinculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: documentId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/documentos-fiscais/{documentId}/desvincular:
+    post:
+      operationId: transporteDocumentoFiscalDesvincular
+      summary: Desvincular um documento fiscal da operação atual
+      description: |-
+        Zera `operationId` do documento fiscal. `version` é OPCIONAL (CAS quando informado).
+        NÃO reprocessa `validationIssues` — rode `revalidar` depois se quiser refletir a ausência
+        de operação nos issues dependentes de contexto (ex.: `DFE_PARTY_MISMATCH`).
+      tags:
+      - Transporte - Documentos Fiscais
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteDfeDesvincularRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '200':
+          description: Documento fiscal desvinculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: documentId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/documentos-fiscais/{documentId}/revalidar:
+    post:
+      operationId: transporteDocumentoFiscalRevalidar
+      summary: Reprocessar a validação de um documento fiscal já importado
+      description: |-
+        Relê o XML do storage (`xmlStorageRef`/`xmlHash` — snapshot IMUTÁVEL da importação), resolve
+        o schema registry ATUAL para a data de emissão do documento, reconstrói o contexto da
+        operação vinculada (partes/rota/CIOT/VPO ATUAIS, quando `operationId` está preenchido) e
+        roda `dfe-validator.ts` de novo — sobrescrevendo SÓ `validationStatus`/`validationIssues`.
+        NUNCA muda `xmlStorageRef`/`xmlHash`/campos extraídos do XML original
+        (`issuerDocument`/`ciotNumbers`/etc.). Registra um evento `revalidated`.
+      tags:
+      - Transporte - Documentos Fiscais
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteDfeRevalidarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '200':
+          description: Documento fiscal revalidado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: documentId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/documentos-fiscais:
+    get:
+      operationId: transporteOperacaoDocumentosFiscaisList
+      summary: Documentos fiscais vinculados a uma operação
+      description: Lista `fiscal_documents` com `operation_id` = a operação informada (ordem de
+        importação). Cada item NUNCA inclui o XML — só `xmlStorageRef`/`xmlHash` internos.
+      tags:
+      - Transporte - Documentos Fiscais
+      responses:
+        '200':
+          description: Documentos fiscais da operação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentListResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/documentos-fiscais/{documentId}:
+    get:
+      operationId: transporteDocumentoFiscalGet
+      summary: Detalhe de um documento fiscal (issues + links)
+      description: 'Devolve o documento fiscal com `validationIssues` completos e `links`
+        (`fiscal_document_links` — outros documentos referenciados/referenciadores, ex.: NF-e dentro
+        do CT-e, CT-e/NF-e dentro do MDF-e). NUNCA devolve o XML inteiro — `xmlStorageRef`/`xmlHash`
+        são só uma referência interna de storage.'
+      tags:
+      - Transporte - Documentos Fiscais
+      responses:
+        '200':
+          description: Documento fiscal (com issues e links)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteFiscalDocumentDetailResource'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: documentId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
 components:
   securitySchemes:
     bearerAuth:
@@ -14661,6 +14921,246 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TransporteVpoProviderResource'
+    TransporteDfeImportarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - xmlContent
+      properties:
+        integrationAccountId:
+          type: string
+        xmlContent:
+          type: string
+          description: XML completo do DF-e (NF-e/CT-e/MDF-e), como string. Aceita tanto o XML
+            "processado" (`nfeProc`/`cteProc`/`mdfeProc`, com protocolo de autorização) quanto o
+            XML assinado isolado (sem protocolo — authorizationStatus sai `unknown`).
+        operationId:
+          type:
+          - string
+          - 'null'
+          description: Opcional — quando informado, vincula o documento à operação NO MESMO
+            request (grava `linked_to_operation` na trilha de eventos).
+    TransporteDfeVincularRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - operationId
+      properties:
+        integrationAccountId:
+          type: string
+        operationId:
+          type: string
+        version:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          description: Opcional — quando informado, faz CAS contra `fiscal_documents.version`.
+    TransporteDfeDesvincularRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+    TransporteDfeRevalidarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+    TransporteDfeValidationIssue:
+      type: object
+      description: UM achado da validação local (`dfe-validator.ts`) — código ESTÁVEL, nunca texto
+        livre como chave.
+      required:
+      - severity
+      - code
+      - message
+      properties:
+        severity:
+          type: string
+          enum:
+          - error
+          - warning
+        code:
+          type: string
+          description: 'Ex.: DFE_ACCESS_KEY_MISMATCH, DFE_NOT_AUTHORIZED, MDFE_CIOT_MISSING,
+            MDFE_CIOT_MISMATCH, MDFE_VPO_MISSING_INFO, CTE_WITHOUT_NFE_REFERENCE,
+            DFE_PARTY_MISMATCH, DFE_ROUTE_MISMATCH.'
+        message:
+          type: string
+    TransporteFiscalDocumentResource:
+      type: object
+      description: 'Documento fiscal importado (`fiscal_documents`). NUNCA carrega o XML — só
+        `xmlStorageRef`/`xmlHash` (referência interna de storage, `STORAGE_DIR/transporte-dfe/
+        <hash>.xml`).'
+      required:
+      - id
+      - operationId
+      - documentType
+      - accessKey
+      - layoutVersion
+      - schemaRegistryId
+      - authorizationStatus
+      - protocol
+      - issuedAt
+      - issuerDocument
+      - issuerName
+      - recipientDocument
+      - recipientName
+      - totalAmount
+      - validationStatus
+      - validationIssues
+      - ciotNumbers
+      - xmlStorageRef
+      - xmlHash
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        operationId:
+          type:
+          - string
+          - 'null'
+        documentType:
+          type: string
+          enum:
+          - NFE
+          - CTE
+          - MDFE
+        accessKey:
+          type: string
+          description: Chave de acesso de 44 dígitos (layout SEFAZ).
+        layoutVersion:
+          type:
+          - string
+          - 'null'
+        schemaRegistryId:
+          type:
+          - string
+          - 'null'
+          description: Entrada do schema registry (`dfe_schema_registry`) resolvida na data de
+            emissão do documento — `null` quando nenhuma entrada cobre o layout.
+        authorizationStatus:
+          type: string
+          enum:
+          - unknown
+          - authorized
+          - cancelled
+          - denied
+          description: Extraído de protNFe/protCTe/protMDFe (cStat) quando presente — `unknown`
+            quando o XML importado não tem protocolo de autorização.
+        protocol:
+          type:
+          - string
+          - 'null'
+        issuedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        issuerDocument:
+          type:
+          - string
+          - 'null'
+        issuerName:
+          type:
+          - string
+          - 'null'
+        recipientDocument:
+          type:
+          - string
+          - 'null'
+        recipientName:
+          type:
+          - string
+          - 'null'
+        totalAmount:
+          type:
+          - number
+          - 'null'
+        validationStatus:
+          type: string
+          enum:
+          - pending
+          - valid
+          - invalid
+          - warnings
+        validationIssues:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteDfeValidationIssue'
+        ciotNumbers:
+          type: array
+          items:
+            type: string
+          description: CIOTs extraídos do infCIOT (só MDF-e — vazio para NF-e/CT-e).
+        xmlStorageRef:
+          type: string
+          description: Referência INTERNA de storage — nunca o conteúdo do XML.
+        xmlHash:
+          type: string
+          description: SHA-256 do conteúdo do XML importado.
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteFiscalDocumentLinkResource:
+      type: object
+      description: UM vínculo entre documentos fiscais (`fiscal_document_links`), resolvido
+        automaticamente na importação.
+      required:
+      - id
+      - linkedDocumentId
+      - linkType
+      - createdAt
+      properties:
+        id:
+          type: string
+        linkedDocumentId:
+          type: string
+        linkType:
+          type: string
+          enum:
+          - nfe_in_cte
+          - cte_in_mdfe
+          - nfe_in_mdfe
+        createdAt:
+          type: string
+          format: date-time
+    TransporteFiscalDocumentDetailResource:
+      allOf:
+      - $ref: '#/components/schemas/TransporteFiscalDocumentResource'
+      - type: object
+        required:
+        - links
+        properties:
+          links:
+            type: array
+            items:
+              $ref: '#/components/schemas/TransporteFiscalDocumentLinkResource'
+    TransporteFiscalDocumentListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteFiscalDocumentResource'
     TransporteOperacaoFrete:
       type: object
       description: Frete DECOMPOSTO — cada componente é independente; VPO NUNCA é somado ao frete.

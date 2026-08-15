@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte">
+  <CTe>
+    <infCte Id="CTe35260811222333000181570010000000011000000030" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <mod>57</mod>
+        <serie>1</serie>
+        <nCT>1</nCT>
+        <dhEmi>2026-08-02T09:00:00-03:00</dhEmi>
+        <tpImp>1</tpImp>
+        <tpEmis>1</tpEmis>
+        <tpAmb>2</tpAmb>
+        <tpCTe>0</tpCTe>
+        <verProc>SICAT-fixture-1.0</verProc>
+        <cMunEnv>3550308</cMunEnv>
+        <UFEnv>SP</UFEnv>
+        <modal>01</modal>
+        <tpServ>0</tpServ>
+        <cMunIni>3550308</cMunIni>
+        <UFIni>SP</UFIni>
+        <cMunFim>3509502</cMunFim>
+        <UFFim>SP</UFFim>
+        <toma3>
+          <toma>0</toma>
+        </toma3>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>Transportes Fixture LTDA</xNome>
+        <IE>111222333444</IE>
+      </emit>
+      <dest>
+        <CNPJ>22333444000155</CNPJ>
+        <xNome>Embarcadora Fixture LTDA</xNome>
+      </dest>
+      <vPrest>
+        <vTPrest>3800.00</vTPrest>
+        <vRec>3800.00</vRec>
+      </vPrest>
+      <infCTeNorm>
+        <infCarga>
+          <vCarga>26000.00</vCarga>
+          <proPred>Soja em graos</proPred>
+        </infCarga>
+        <infDoc>
+          <infNFe>
+            <chave>35260811222333000181550010000000011000000017</chave>
+          </infNFe>
+        </infDoc>
+      </infCTeNorm>
+    </infCte>
+  </CTe>
+  <protCTe versao="4.00">
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <chCTe>35260811222333000181570010000000011000000030</chCTe>
+      <dhRecbto>2026-08-02T09:05:00-03:00</dhRecbto>
+      <nProt>135260000023456</nProt>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso do CT-e</xMotivo>
+    </infProt>
+  </protCTe>
+</cteProc>

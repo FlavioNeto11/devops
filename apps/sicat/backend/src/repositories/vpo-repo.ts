@@ -434,6 +434,26 @@ export async function markVpoReconcileNotFoundRevertToApplicable(id: string): Pr
   return mapAllocationRow(result.rows[0]);
 }
 
+/**
+ * Referência do VPO no MDF-e (TR-VPO-004, PR-E1) — coluna já nascida na migration 029, populada só
+ * agora que a Fase E existe. Guardado por `status = 'acquired'` (mesmo padrão das demais transições
+ * desta tabela): uma alocação ainda não adquirida não tem o que referenciar. Idempotente — chamar
+ * de novo com o MESMO `mdfeReference` é NO-OP visível (a linha nem muda de `updated_at`, trigger
+ * `increment_version` só dispara quando `old.* is distinct from new.*`).
+ */
+export async function setVpoAllocationMdfeReference(id: string, mdfeReference: string, client: DbClient = null): Promise<VpoAllocation | null> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<VpoAllocationRow>(
+    `update vpo_allocations set
+       mdfe_reference = $2
+     where id = $1
+       and status = 'acquired'
+     returning *`,
+    [id, mdfeReference]
+  );
+  return mapAllocationRow(result.rows[0]);
+}
+
 // =============================================================================
 // vpo_events — APPEND-ONLY
 // =============================================================================

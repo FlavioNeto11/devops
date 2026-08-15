@@ -95,6 +95,26 @@ export type VpoAllocationEvaluationContext = {
   amount: number | null;
   providerId: string | null;
   evidenceSource: string | null;
+  /** Referência do VPO no MDF-e (PR-E1, `vpo_allocations.mdfe_reference`) — `null` até `transport-fiscal-service.ts` aplicar o side-effect (MDF-e com valePed vinculado + allocation `acquired`). Consumido por TR-VPO-004. */
+  mdfeReference: string | null;
+};
+
+/**
+ * Recorte de UM documento fiscal (`fiscal_documents`, PR-E1) vinculado à operação — montado por
+ * `transport-compliance-service.ts` a partir de `transport-fiscal-repo.ts#listFiscalDocumentsForOperation`.
+ * `validationIssueCodes` é a lista de `code` de `validation_issues` (não o objeto inteiro) — é o que
+ * TR-MDFE-002 usa para saber SE o schema registry exigiu CIOT (`MDFE_CIOT_MISSING`) sem duplicar a
+ * decisão do perfil (`dfe-validator.ts` já decidiu isso na validação — o motor de compliance só LÊ
+ * o resultado, nunca recalcula a regra da NT MDF-e 2026.001 por conta própria).
+ */
+export type FiscalDocumentEvaluationContext = {
+  id: string;
+  documentType: 'NFE' | 'CTE' | 'MDFE';
+  validationStatus: 'pending' | 'valid' | 'invalid' | 'warnings';
+  authorizationStatus: 'unknown' | 'authorized' | 'cancelled' | 'denied';
+  validationIssueCodes: string[];
+  ciotNumbers: string[];
+  hasValePedagio: boolean;
 };
 
 export type RuleEvaluatorContext = {
@@ -115,6 +135,8 @@ export type RuleEvaluatorContext = {
   ciotOperation?: CiotOperationEvaluationContext | null;
   /** Alocação de VPO da operação (PR-D1) — `undefined`/`null` = `avaliar-aplicabilidade` nunca rodou. */
   vpoAllocation?: VpoAllocationEvaluationContext | null;
+  /** Documentos fiscais (NF-e/CT-e/MDF-e) vinculados à operação (PR-E1) — lista vazia/`undefined` = nenhum documento importado ou vinculado ainda. */
+  fiscalDocuments?: FiscalDocumentEvaluationContext[];
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -869,6 +891,258 @@ function evaluateCiot004(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
+// TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002 — documentos fiscais (PR-E1, GATE_FISCAL).
+// `ctx.fiscalDocuments` é montado por `transport-compliance-service.ts` a partir de
+// `transport-fiscal-repo.ts#listFiscalDocumentsForOperation` — nenhum evaluator aqui lê banco/XML.
+// =================================================================================================
+
+/**
+ * Quando mais de um documento do MESMO tipo está vinculado (ex.: reimportação após cancelamento),
+ * prioriza um que já é "bom" (autorizado + válido/warnings) — senão, o MAIS RECENTE da lista (a
+ * ordem que `listFiscalDocumentsForOperation` devolve, `created_at asc`). Nunca "o pior", nunca
+ * "o primeiro" cegamente: um documento cancelado antigo não deveria mascarar um substituto válido.
+ */
+function findMostRelevantFiscalDocument(
+  fiscalDocuments: FiscalDocumentEvaluationContext[],
+  documentType: FiscalDocumentEvaluationContext['documentType']
+): FiscalDocumentEvaluationContext | null {
+  const matches = fiscalDocuments.filter((document) => document.documentType === documentType);
+  if (matches.length === 0) return null;
+  const good = matches.find(
+    (document) => document.authorizationStatus === 'authorized'
+      && (document.validationStatus === 'valid' || document.validationStatus === 'warnings')
+  );
+  return good ?? matches[matches.length - 1] ?? null;
+}
+
+/**
+ * Molde comum de TR-NFE-001/TR-CTE-001/TR-MDFE-001: documento do tipo presente + autorizado +
+ * validation_status `valid`/`warnings` → pass/warn; `invalid`/`cancelled`/`denied` → block bruto;
+ * ausente → o desfecho de `opts.missingSeverity` (NF-e/CT-e podem legitimamente faltar conforme o
+ * arranjo — `warn`; MDF-e ausente é `block` bruto, obrigatório para o transporte).
+ */
+function evaluateFiscalDocumentPresenceRule(
+  ctx: RuleEvaluatorContext,
+  documentType: FiscalDocumentEvaluationContext['documentType'],
+  opts: { missingReasonCode: string; missingSeverity: 'warn' | 'block'; missingMessage: string }
+): RuleOutcome {
+  const fiscalDocuments = ctx.fiscalDocuments ?? [];
+  const document = findMostRelevantFiscalDocument(fiscalDocuments, documentType);
+  const inputs = {
+    documentType,
+    documentsOfTypeCount: fiscalDocuments.filter((entry) => entry.documentType === documentType).length
+  };
+
+  if (!document) {
+    return outcome(opts.missingSeverity, opts.missingMessage, { reasonCode: opts.missingReasonCode, inputs });
+  }
+
+  const checkInputs = {
+    ...inputs,
+    validationStatus: document.validationStatus,
+    authorizationStatus: document.authorizationStatus
+  };
+
+  if (document.authorizationStatus === 'cancelled') {
+    return outcome('block', `${documentType} vinculado está CANCELADO na SEFAZ (protocolo de cancelamento presente no XML).`, {
+      reasonCode: `DFE_${documentType}_CANCELLED`,
+      inputs: checkInputs
+    });
+  }
+
+  if (document.authorizationStatus === 'denied') {
+    return outcome('block', `${documentType} vinculado teve autorização DENEGADA na SEFAZ.`, {
+      reasonCode: `DFE_${documentType}_DENIED`,
+      inputs: checkInputs
+    });
+  }
+
+  if (document.validationStatus === 'invalid') {
+    return outcome('block', `${documentType} vinculado com validação local INVÁLIDA — ver validationIssues do documento (GET .../documentos-fiscais/${document.id}).`, {
+      reasonCode: `DFE_${documentType}_INVALID`,
+      inputs: checkInputs
+    });
+  }
+
+  if (document.validationStatus === 'warnings') {
+    return outcome('warn', `${documentType} vinculado com validação local em AVISO — ver validationIssues do documento (GET .../documentos-fiscais/${document.id}).`, {
+      reasonCode: `DFE_${documentType}_WARNINGS`,
+      inputs: checkInputs
+    });
+  }
+
+  // `validationStatus === 'valid'` implica `authorizationStatus === 'authorized'`: `DFE_NOT_AUTHORIZED`
+  // (dfe-validator.ts) é ele mesmo um warning que empurraria o status para `warnings`, nunca `valid`.
+  return outcome('pass', `${documentType} vinculado autorizado e validado sem pendências.`, {
+    inputs: checkInputs,
+    result: { documentId: document.id }
+  });
+}
+
+function evaluateNfe001(ctx: RuleEvaluatorContext): RuleOutcome {
+  return evaluateFiscalDocumentPresenceRule(ctx, 'NFE', {
+    missingReasonCode: 'DFE_MISSING_NFE',
+    missingSeverity: 'warn',
+    missingMessage: 'Nenhuma NF-e vinculada à operação — pode ser legítimo conforme o arranjo (nem toda '
+      + 'operação de transporte tem NF-e própria vinculada).'
+  });
+}
+
+function evaluateCte001(ctx: RuleEvaluatorContext): RuleOutcome {
+  return evaluateFiscalDocumentPresenceRule(ctx, 'CTE', {
+    missingReasonCode: 'DFE_MISSING_CTE',
+    missingSeverity: 'warn',
+    missingMessage: 'Nenhum CT-e vinculado à operação — pode ser legítimo conforme o arranjo.'
+  });
+}
+
+/** MDF-e é o ÚNICO dos três com ausência em `block` bruto — obrigatório para o transporte (ao contrário de NF-e/CT-e, que podem legitimamente faltar). */
+function evaluateMdfe001(ctx: RuleEvaluatorContext): RuleOutcome {
+  return evaluateFiscalDocumentPresenceRule(ctx, 'MDFE', {
+    missingReasonCode: 'MDFE_MISSING',
+    missingSeverity: 'block',
+    missingMessage: 'Nenhum MDF-e vinculado à operação — documento obrigatório para o transporte rodoviário de cargas.'
+  });
+}
+
+/**
+ * TR-MDFE-002 — CIOT presente no MDF-e quando obrigatório (a antecipação em TESTE da NT MDF-e
+ * 2026.001). NÃO recalcula "o perfil exige CIOT" aqui — LÊ `MDFE_CIOT_MISMATCH`/`MDFE_CIOT_MISSING`
+ * de `document.validationIssueCodes`, já decididos por `dfe-validator.ts` na importação/revalidação
+ * (única fonte de verdade do perfil do schema registry).
+ */
+function evaluateMdfe002(ctx: RuleEvaluatorContext): RuleOutcome {
+  const fiscalDocuments = ctx.fiscalDocuments ?? [];
+  const mdfe = findMostRelevantFiscalDocument(fiscalDocuments, 'MDFE');
+
+  if (!mdfe) {
+    return outcome('not_applicable', 'Sem MDF-e vinculado à operação — a ausência em si é tratada por TR-MDFE-001.', {
+      reasonCode: 'MDFE_NOT_PRESENT',
+      inputs: {}
+    });
+  }
+
+  const inputs = { ciotNumbers: mdfe.ciotNumbers, validationIssueCodes: mdfe.validationIssueCodes };
+
+  if (mdfe.validationIssueCodes.includes('MDFE_CIOT_MISSING')) {
+    return outcome(
+      'block',
+      'MDF-e vinculado está sem CIOT (infCIOT) — obrigatório sob o perfil vigente do schema registry '
+        + '(antecipação em TESTE da NT MDF-e 2026.001, transporte remunerado por terceiros).',
+      { reasonCode: 'MDFE_CIOT_MISSING', inputs }
+    );
+  }
+
+  if (mdfe.validationIssueCodes.includes('MDFE_CIOT_MISMATCH')) {
+    return outcome('block', 'CIOT registrado na operação não aparece no infCIOT do MDF-e vinculado (divergência detectada na importação/vínculo).', {
+      reasonCode: 'MDFE_CIOT_MISMATCH',
+      inputs
+    });
+  }
+
+  if (mdfe.ciotNumbers.length > 0) {
+    return outcome('pass', 'MDF-e vinculado traz CIOT (infCIOT) coerente com a operação.', {
+      inputs,
+      result: { ciotNumbers: mdfe.ciotNumbers }
+    });
+  }
+
+  return outcome(
+    'pass',
+    'MDF-e vinculado sem CIOT no infCIOT, mas o perfil vigente do schema registry não exige (fora da '
+      + 'janela da NT MDF-e 2026.001, ou operação não caracterizada como remunerada por terceiros).',
+    { inputs }
+  );
+}
+
+// =================================================================================================
+// TR-CIOT-005 — CIOT vinculado ao MDF-e quando aplicável (PR-E1, GATE_FISCAL). Sai de
+// `RULES_WITHOUT_EVALUATOR_YET` — dependia do vínculo CIOT↔MDF-e, que só existe a partir desta fase.
+// =================================================================================================
+
+function evaluateCiot005(ctx: RuleEvaluatorContext): RuleOutcome {
+  const ciotOperation = ctx.ciotOperation ?? null;
+
+  if (!isCiotConsideredRegistered(ciotOperation)) {
+    return outcome('not_applicable', 'CIOT ainda não registrado — o vínculo CIOT↔MDF-e não se aplica ainda.', {
+      reasonCode: 'CIOT_NOT_REGISTERED',
+      inputs: { ciotStatus: ciotOperation?.status ?? null }
+    });
+  }
+
+  const fiscalDocuments = ctx.fiscalDocuments ?? [];
+  const mdfe = findMostRelevantFiscalDocument(fiscalDocuments, 'MDFE');
+  const ciotNumber = ciotOperation?.ciotNumber ?? null;
+  const inputs = { ciotNumber, mdfePresent: Boolean(mdfe) };
+
+  if (!mdfe) {
+    return outcome('warn', 'CIOT registrado, mas ainda não há MDF-e vinculado à operação para conferir o vínculo.', {
+      reasonCode: 'CIOT_MDFE_LINK_PENDING',
+      inputs
+    });
+  }
+
+  if (ciotNumber && mdfe.ciotNumbers.includes(ciotNumber)) {
+    return outcome('pass', `CIOT registrado (${ciotNumber}) presente no infCIOT do MDF-e vinculado.`, {
+      inputs,
+      result: { ciotNumber }
+    });
+  }
+
+  return outcome('warn', 'CIOT registrado, mas o MDF-e vinculado ainda não confirma o vínculo (ver validationIssues do documento).', {
+    reasonCode: 'CIOT_MDFE_LINK_PENDING',
+    inputs
+  });
+}
+
+// =================================================================================================
+// TR-VPO-004 — referência do VPO no MDF-e quando exigida (PR-E1, GATE_FISCAL). Sai de
+// `RULES_WITHOUT_EVALUATOR_YET` — dependia do vínculo VPO↔MDF-e, que só existe a partir desta fase.
+// =================================================================================================
+
+function evaluateVpo004(ctx: RuleEvaluatorContext): RuleOutcome {
+  const allocation = ctx.vpoAllocation ?? null;
+
+  if (!allocation) {
+    return outcome('warn', 'Aplicabilidade do VPO ainda não foi avaliada para esta operação (rode avaliar-aplicabilidade).', {
+      reasonCode: 'VPO_APPLICABILITY_NOT_EVALUATED',
+      inputs: {}
+    });
+  }
+
+  if (allocation.status === 'not_applicable') {
+    return outcome(
+      'not_applicable',
+      `VPO dispensado para esta operação — motivo evidenciado: ${allocation.applicabilityReasonCode ?? 'sem código'}.`,
+      { reasonCode: allocation.applicabilityReasonCode ?? undefined, inputs: { status: allocation.status } }
+    );
+  }
+
+  if (allocation.status !== 'acquired') {
+    return outcome('warn', 'VPO ainda não foi adquirido — a referência no MDF-e não pode ser conferida ainda (ver TR-VPO-002).', {
+      reasonCode: 'VPO_NOT_ACQUIRED',
+      inputs: { status: allocation.status }
+    });
+  }
+
+  const fiscalDocuments = ctx.fiscalDocuments ?? [];
+  const mdfe = findMostRelevantFiscalDocument(fiscalDocuments, 'MDFE');
+  const inputs = { status: allocation.status, mdfeReference: allocation.mdfeReference, mdfeHasValePedagio: mdfe?.hasValePedagio ?? false };
+
+  if (mdfe && mdfe.hasValePedagio && allocation.mdfeReference) {
+    return outcome('pass', 'VPO adquirido e referenciado no MDF-e vinculado (infANTT/valePed/disp presente).', {
+      inputs,
+      result: { mdfeReference: allocation.mdfeReference }
+    });
+  }
+
+  return outcome('warn', 'VPO adquirido, mas o MDF-e vinculado ainda não traz referência de vale-pedágio (infANTT/valePed/disp ausente ou vínculo pendente).', {
+    reasonCode: 'VPO_MDFE_REFERENCE_MISSING',
+    inputs
+  });
+}
+
+// =================================================================================================
 // TR-COMP-001 — conjunto mínimo para liberação aprovado (GATE_RELEASE)
 // =================================================================================================
 
@@ -901,6 +1175,12 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-CIOT-002': evaluateCiot002,
   'TR-CIOT-003': evaluateCiot003,
   'TR-CIOT-004': evaluateCiot004,
+  'TR-CIOT-005': evaluateCiot005,
+  'TR-NFE-001': evaluateNfe001,
+  'TR-CTE-001': evaluateCte001,
+  'TR-MDFE-001': evaluateMdfe001,
+  'TR-MDFE-002': evaluateMdfe002,
+  'TR-VPO-004': evaluateVpo004,
   'TR-COMP-001': evaluateComp001
 };
 
@@ -920,20 +1200,23 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * deve ser checada, não há o que um evaluator avaliaria — permanece `EVALUATOR_NOT_IMPLEMENTED`
  * até a regulamentação existir, mesmo a versão da regra já estando vigente por data.
  * TR-CIOT-001/002/003 SAÍRAM deste mapa no PR-C2 (evaluators declarativos com o ciclo completo do
- * CIOT, `evaluateCiot001/002/003` acima). TR-CIOT-005 CONTINUA aqui — depende do vínculo CIOT↔MDF-e
- * (Fase E, NT MDF-e 2026.001 em revisão — pendência P7 do guia).
+ * CIOT, `evaluateCiot001/002/003` acima). TR-CIOT-005 SAIU no PR-E1 (`evaluateCiot005` acima) — o
+ * vínculo CIOT↔MDF-e que faltava agora existe via `ctx.fiscalDocuments`.
  * TR-VPO-002 SAIU deste mapa no PR-D1 (evaluator declarativo entregue, `evaluateVpo002` acima —
- * ciclo de aquisição via `VpoApplicabilityEngine` + `vpo_allocations`). TR-VPO-004 CONTINUA aqui —
- * depende do vínculo VPO↔MDF-e (Fase E, mesma NT MDF-e 2026.001 em revisão de TR-CIOT-005).
+ * ciclo de aquisição via `VpoApplicabilityEngine` + `vpo_allocations`). TR-VPO-004 SAIU no PR-E1
+ * (`evaluateVpo004` acima) — mesmo racional de TR-CIOT-005, vínculo VPO↔MDF-e via
+ * `vpo_allocations.mdfe_reference` (aplicado por `transport-fiscal-service.ts`).
+ * TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002 SAÍRAM deste mapa no PR-E1 (importação/validação de
+ * DF-e, `ctx.fiscalDocuments` montado por `transport-compliance-service.ts` a partir de
+ * `transport-fiscal-repo.ts#listFiscalDocumentsForOperation`).
+ *
+ * Único código que CONTINUA aqui: TR-RNTRC-003 — regra de revalidação anual da Lei 15.485/2026,
+ * ainda sem regulamentação ANTT complementar (pendência P2 do guia; a versão do seed já nasce
+ * `implementationState: 'AWAITING_REGULATION'`). Sem uma norma que diga COMO a revalidação anual
+ * deve ser checada, não há o que um evaluator avaliaria.
  */
 export const RULES_WITHOUT_EVALUATOR_YET: Partial<Record<RuleCode, { targetPhase: string }>> = {
   'TR-RNTRC-003': { targetPhase: 'C' },
-  'TR-CIOT-005': { targetPhase: 'E' },
-  'TR-VPO-004': { targetPhase: 'E' },
-  'TR-NFE-001': { targetPhase: 'E' },
-  'TR-CTE-001': { targetPhase: 'E' },
-  'TR-MDFE-001': { targetPhase: 'E' },
-  'TR-MDFE-002': { targetPhase: 'E' },
   'TR-SEG-001': { targetPhase: 'F' },
   'TR-SEG-002': { targetPhase: 'F' },
   'TR-SEG-003': { targetPhase: 'F' },

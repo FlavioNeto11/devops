@@ -36,6 +36,7 @@ import {
   type CarrierRntrcVerificationContext,
   type CiotOperationEvaluationContext,
   type ComplianceCheckStatus,
+  type FiscalDocumentEvaluationContext,
   type FreightFloorCalculationContext,
   type VpoAllocationEvaluationContext
 } from '../lib/transport/rule-evaluators.js';
@@ -49,6 +50,8 @@ import { findLatestCiotOperationForOperation } from '../repositories/ciot-repo.j
 import type { CiotOperation } from '../lib/transport/ciot-types.js';
 import { findVpoAllocationByOperationId } from '../repositories/vpo-repo.js';
 import type { VpoAllocation } from '../lib/transport/vpo-types.js';
+import { listFiscalDocumentsForOperation } from '../repositories/transport-fiscal-repo.js';
+import type { FiscalDocument } from '../lib/transport/dfe-types.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -201,7 +204,7 @@ function toCiotOperationEvaluationContext(record: CiotOperation | null): CiotOpe
   };
 }
 
-/** `VpoAllocation` (repo) → recorte que `rule-evaluators.ts` conhece (PR-D1, TR-VPO-001/002/003). */
+/** `VpoAllocation` (repo) → recorte que `rule-evaluators.ts` conhece (PR-D1, TR-VPO-001/002/003; `mdfeReference` desde o PR-E1, TR-VPO-004). */
 function toVpoAllocationEvaluationContext(record: VpoAllocation | null): VpoAllocationEvaluationContext | null {
   if (!record) return null;
   return {
@@ -210,7 +213,21 @@ function toVpoAllocationEvaluationContext(record: VpoAllocation | null): VpoAllo
     applicabilityReasonCode: record.applicabilityReasonCode,
     amount: record.amount,
     providerId: record.providerId,
-    evidenceSource: record.evidenceSource
+    evidenceSource: record.evidenceSource,
+    mdfeReference: record.mdfeReference
+  };
+}
+
+/** `FiscalDocument` (repo) → recorte que `rule-evaluators.ts` conhece (PR-E1, TR-NFE-001/CTE-001/MDFE-001/002). `hasValePedagio` deriva de `vpoReferences` não-vazio (mesma extração de `dfe-parser.ts`), e `validationIssueCodes` é só a lista de `code` — nunca o objeto `DfeValidationIssue` inteiro (o evaluator não precisa da mensagem humana). */
+function toFiscalDocumentEvaluationContext(record: FiscalDocument): FiscalDocumentEvaluationContext {
+  return {
+    id: record.id,
+    documentType: record.documentType,
+    validationStatus: record.validationStatus,
+    authorizationStatus: record.authorizationStatus,
+    validationIssueCodes: record.validationIssues.map((issue) => issue.code),
+    ciotNumbers: record.ciotNumbers,
+    hasValePedagio: record.vpoReferences.length > 0
   };
 }
 
@@ -222,7 +239,8 @@ async function buildCheckForRule(
   carrierRntrcVerification: CarrierRntrcVerificationContext | null,
   carrierTractionVehicleLinkType: string | null,
   ciotOperation: CiotOperationEvaluationContext | null,
-  vpoAllocation: VpoAllocationEvaluationContext | null
+  vpoAllocation: VpoAllocationEvaluationContext | null,
+  fiscalDocuments: FiscalDocumentEvaluationContext[]
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -274,7 +292,8 @@ async function buildCheckForRule(
     carrierRntrcVerification,
     carrierTractionVehicleLinkType,
     ciotOperation,
-    vpoAllocation
+    vpoAllocation,
+    fiscalDocuments
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -369,10 +388,16 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
   const ciotOperationRecord = await findLatestCiotOperationForOperation(input.operationId, input.integrationAccountId);
   const ciotOperation = toCiotOperationEvaluationContext(ciotOperationRecord);
 
-  // Carregado UMA vez por avaliação (não por regra) — só TR-VPO-001/002/003 consomem, mesmo
+  // Carregado UMA vez por avaliação (não por regra) — só TR-VPO-001/002/003/004 consomem, mesmo
   // racional de `ciotOperation` acima (PR-D1).
   const vpoAllocationRecord = await findVpoAllocationByOperationId(input.operationId, input.integrationAccountId);
   const vpoAllocation = toVpoAllocationEvaluationContext(vpoAllocationRecord);
+
+  // Carregado UMA vez por avaliação (não por regra) — só TR-NFE-001/CTE-001/MDFE-001/002/CIOT-005/
+  // VPO-004 consomem (PR-E1). Lista completa (não só MDF-e) porque `rule-evaluators.ts` filtra por
+  // `documentType` internamente — `transport-compliance-service.ts` não decide qual regra quer qual tipo.
+  const fiscalDocumentRecords = await listFiscalDocumentsForOperation(input.operationId, input.integrationAccountId);
+  const fiscalDocuments = fiscalDocumentRecords.map(toFiscalDocumentEvaluationContext);
 
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
@@ -384,7 +409,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       carrierRntrcVerification,
       carrierTractionVehicleLinkType,
       ciotOperation,
-      vpoAllocation
+      vpoAllocation,
+      fiscalDocuments
     ));
   }
 

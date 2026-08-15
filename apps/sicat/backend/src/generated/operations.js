@@ -1357,5 +1357,59 @@ export const operations = [
     "summary": "Fornecedoras de VPO habilitadas (cadastro configurável, read-only)",
     "tag": "Transporte - Vale-Pedagio",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_importar",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/importar",
+    "expressPath": "/v1/transporte/documentos-fiscais/importar",
+    "summary": "Importar e validar um DF-e (NF-e/CT-e/MDF-e) — síncrono",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 201
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_vincular",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/vincular",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/vincular",
+    "summary": "Vincular um documento fiscal já importado a uma operação",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_desvincular",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/desvincular",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/desvincular",
+    "summary": "Desvincular um documento fiscal da operação atual",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_revalidar",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/revalidar",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/revalidar",
+    "summary": "Reprocessar a validação de um documento fiscal já importado",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_documentos_fiscais",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/documentos-fiscais",
+    "expressPath": "/v1/transporte/operacoes/:operationId/documentos-fiscais",
+    "summary": "Documentos fiscais vinculados a uma operação",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_documentos_fiscais_documentId",
+    "method": "get",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId",
+    "summary": "Detalhe de um documento fiscal (issues + links)",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
   }
 ];

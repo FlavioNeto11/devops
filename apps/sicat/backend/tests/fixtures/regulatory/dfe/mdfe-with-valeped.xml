@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdfeProc versao="3.00" xmlns="http://www.portalfiscal.inf.br/mdfe">
+  <MDFe>
+    <infMDFe Id="MDFe35260811222333000181580010000000031000000063" versao="3.00">
+      <ide>
+        <cUF>35</cUF>
+        <tpAmb>2</tpAmb>
+        <tpEmit>1</tpEmit>
+        <mod>58</mod>
+        <serie>1</serie>
+        <nMDF>3</nMDF>
+        <cMDF>00000003</cMDF>
+        <cDV>3</cDV>
+        <modal>1</modal>
+        <dhEmi>2026-08-04T07:00:00-03:00</dhEmi>
+        <tpEmis>1</tpEmis>
+        <procEmi>0</procEmi>
+        <verProc>SICAT-fixture-1.0</verProc>
+        <UFIni>SP</UFIni>
+        <UFFim>MG</UFFim>
+        <dhIniViagem>2026-08-04T08:00:00-03:00</dhIniViagem>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>Transportes Fixture LTDA</xNome>
+        <IE>111222333444</IE>
+      </emit>
+      <infModal versaoModal="3.00">
+        <rodo>
+          <infANTT>
+            <infCIOT>
+              <CIOT>2026081500000001</CIOT>
+              <CNPJ>11222333000181</CNPJ>
+            </infCIOT>
+            <valePed>
+              <disp>
+                <CNPJForn>33000167000101</CNPJForn>
+                <CNPJPg>11222333000181</CNPJPg>
+                <nCompra>987654321</nCompra>
+                <tpCategVeic>06</tpCategVeic>
+              </disp>
+            </valePed>
+          </infANTT>
+        </rodo>
+      </infModal>
+      <infDoc>
+        <infMunDescarga>
+          <cMunDescarga>3106200</cMunDescarga>
+          <xMunDescarga>Belo Horizonte</xMunDescarga>
+        </infMunDescarga>
+      </infDoc>
+      <tot>
+        <qCTe>0</qCTe>
+        <vCarga>26000.00</vCarga>
+        <cUnid>01</cUnid>
+        <qCarga>28000.0000</qCarga>
+      </tot>
+    </infMDFe>
+  </MDFe>
+  <protMDFe versao="3.00">
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <chMDFe>35260811222333000181580010000000031000000063</chMDFe>
+      <dhRecbto>2026-08-04T07:05:00-03:00</dhRecbto>
+      <nProt>135260000056780</nProt>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso do MDF-e</xMotivo>
+    </infProt>
+  </protMDFe>
+</mdfeProc>
