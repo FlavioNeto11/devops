@@ -112,8 +112,19 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   'DFE_ISSUANCE_TYPE_NOT_SUPPORTED',
   // `DFE_ISSUANCE_MODE=off` — retentar não resolve, é decisão do operador ligar o sandbox
   // (mesma classe de `CIOT_PROVIDER_NOT_CONFIGURED`/`VPO_PROVIDER_NOT_CONFIGURED`).
-  'DFE_ISSUANCE_DISABLED'
+  'DFE_ISSUANCE_DISABLED',
+  // Verificação de seguros (PR-F2): hoje só é lançado em contexto HTTP síncrono (sem job type),
+  // mas registrado DEFENSIVAMENTE na mesma classe dos demais *_NOT_CONFIGURED — se um dia entrar
+  // numa fila, retentar não resolve configuração ausente ([EXTERNAL DEPENDENCY] P8).
+  'INSURANCE_PROVIDER_NOT_CONFIGURED'
 ]);
+
+// Exceção DOCUMENTADA à precedência de `NON_RETRYABLE_ERROR_CODES` sobre o status HTTP
+// (ver `isRetryableJobError`): o `CETESB_AUTH_FAILED` embrulhado pelo gateway em 502 É
+// retentável — o gateway renova a sessão CETESB na tentativa seguinte (comportamento
+// pré-existente, travado por teste em tests/unit/retry-classification.test.js). Sem status
+// classificável (lançado localmente, fora do wrapper HTTP), continua não-retentável pela lista.
+const STATUS_FIRST_NON_RETRYABLE_EXCEPTIONS = new Set(['CETESB_AUTH_FAILED']);
 
 type ErrorLike = {
   status?: number;
@@ -293,13 +304,25 @@ export function isRetryableJobError(error: unknown): boolean {
     return gatewayClassification;
   }
 
+  // Código EXPLICITAMENTE não-retentável vence o status HTTP: erros permanentes de
+  // configuração/capacidade chegam com 5xx (tipicamente 501 — ex.: CIOT_PROVIDER_NOT_CONFIGURED,
+  // VPO_PROVIDER_NOT_CONFIGURED, INSURANCE_PROVIDER_NOT_CONFIGURED, DFE_ISSUANCE_DISABLED,
+  // DFE_ISSUANCE_TYPE_NOT_SUPPORTED) e a regra ">=500 → retryable" abaixo os retentava até
+  // esgotar max_attempts antes da DLQ — tentativas gastas em erros que nunca mudam. A lista
+  // curada NON_RETRYABLE_ERROR_CODES é intenção explícita do domínio; só ela tem precedência
+  // (os prefixos heurísticos VALIDATION_/INVALID_/MISSING_ continuam APÓS o status, como antes),
+  // com a exceção documentada em STATUS_FIRST_NON_RETRYABLE_EXCEPTIONS.
+  const code = extractErrorCode(error);
+  if (code && NON_RETRYABLE_ERROR_CODES.has(code) && !STATUS_FIRST_NON_RETRYABLE_EXCEPTIONS.has(code)) {
+    return false;
+  }
+
   const status = extractErrorStatus(error);
   const retryabilityFromStatus = classifyRetryabilityFromStatus(status);
   if (retryabilityFromStatus != null) {
     return retryabilityFromStatus;
   }
 
-  const code = extractErrorCode(error);
   const retryabilityFromCode = classifyRetryabilityFromCode(code, status);
   if (retryabilityFromCode != null) {
     return retryabilityFromCode;
