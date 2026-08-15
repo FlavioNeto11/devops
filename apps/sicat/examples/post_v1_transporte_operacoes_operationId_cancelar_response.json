@@ -1,0 +1,73 @@
+{
+  "id": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+  "version": 4,
+  "integrationAccountId": "acc_exemplo_prod",
+  "sessionContextId": null,
+  "referenceCode": "PED-2026-000123",
+  "status": "cancelled",
+  "cargoRegime": "lotacao",
+  "operationClassification": null,
+  "freight": {
+    "offeredAmount": 3800.00,
+    "contractedAmount": null,
+    "floorAmount": null,
+    "tollAmount": null,
+    "vpoAmount": null,
+    "otherComponentsAmount": null,
+    "totalContractValue": null
+  },
+  "currency": "BRL",
+  "paymentMethod": "boleto",
+  "paymentTermDays": 30,
+  "blockedReasonCode": null,
+  "cancelledReason": "Cliente desistiu do frete antes da contratação.",
+  "parties": [
+    {
+      "id": "troppart_2b3c4d5e6f7a8b9c0d1e2f3a4b5c",
+      "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f",
+      "role": "carrier",
+      "partySnapshot": {
+        "documentType": "CNPJ",
+        "documentNumber": "11222333000181",
+        "legalName": "Transportes Exemplo LTDA",
+        "rntrcNumber": "12345678",
+        "rntrcCategory": "TAC",
+        "rntrcStatus": "active"
+      },
+      "createdAt": "2026-08-13T12:15:00Z"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "tropveh_3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+      "vehicleId": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b",
+      "position": "traction",
+      "vehicleSnapshot": {
+        "plate": "ABC1D23",
+        "renavam": "12345678901",
+        "vehicleType": "truck",
+        "axlesCount": 3,
+        "cargoBodyType": "baú"
+      },
+      "createdAt": "2026-08-13T12:15:00Z"
+    }
+  ],
+  "cargo": [],
+  "route": {
+    "id": "troproute_4d5e6f7a8b9c0d1e2f3a4b5c6d7e",
+    "originMunicipality": "São Paulo",
+    "originUf": "SP",
+    "originIbgeCode": null,
+    "destinationMunicipality": "Campinas",
+    "destinationUf": "SP",
+    "destinationIbgeCode": null,
+    "distanceKm": 99.5,
+    "routeSource": "manual",
+    "tollExpected": null,
+    "waypoints": [],
+    "createdAt": "2026-08-13T12:15:00Z"
+  },
+  "availableCommands": [],
+  "createdAt": "2026-08-13T12:15:00Z",
+  "updatedAt": "2026-08-13T12:30:00Z"
+}

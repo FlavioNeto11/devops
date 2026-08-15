@@ -17,6 +17,8 @@
  * exige lockstep no contrato + exemplos + operations.ts.
  */
 
+import type { TransportOperationStatus } from './transport/transport-state-machine.js';
+
 export type OperationalStatusBucket =
   | 'in_flight'
   | 'lifecycle'
@@ -390,4 +392,48 @@ export function describeMtrProvisorioOperationalStatus(
   return describeOperationalStatus(
     mapMtrProvisorioStatusToOperational(status, lastErrorCode)
   );
+}
+
+/**
+ * Mapeamento canônico da máquina de estados de `TransportOperation` para a taxonomia operacional
+ * (PR-A4, DL-103 — vertical Transporte, bounded context separado do ambiental).
+ *
+ * Espelha `src/lib/transport/transport-state-machine.ts` (`TRANSPORT_OPERATION_STATUSES`, 13
+ * estados) — reaproveita o MESMO `TransportOperationStatus` do módulo de estados, sem enum
+ * paralelo (mudou lá, muda aqui no mesmo PR).
+ *
+ * Os estados de fases C+ (`ciot_pending` em diante) ainda não são alcançáveis por API neste PR —
+ * só o grafo de `transport-state-machine.ts` os declara (sem rota até o PR-A5) — mas o registry já
+ * os mapeia: todos caem em `awaiting_remote_confirmation` (aguardando confirmação de CIOT/fiscal/
+ * liberação/viagem/conclusão — sinal externo ainda não chegou).
+ */
+const TRANSPORT_OPERATION_STATUS_TO_OPERATIONAL: Readonly<Record<TransportOperationStatus, OperationalStatusCode>> = Object.freeze({
+  draft: 'ready',
+  validating: 'running',
+  blocked: 'blocked_missing_context',
+  ready_for_contract: 'ready',
+  contracted: 'ready',
+  ciot_pending: 'awaiting_remote_confirmation',
+  ciot_registered: 'awaiting_remote_confirmation',
+  fiscal_pending: 'awaiting_remote_confirmation',
+  ready_for_release: 'awaiting_remote_confirmation',
+  in_transit: 'awaiting_remote_confirmation',
+  completion_pending: 'awaiting_remote_confirmation',
+  completed: 'completed_with_document',
+  cancelled: 'failed_internal_processing'
+});
+
+export const TRANSPORT_OPERATION_OPERATIONAL_STATUS_REGISTRY: Readonly<Record<TransportOperationStatus, OperationalStatusCode>> =
+  TRANSPORT_OPERATION_STATUS_TO_OPERATIONAL;
+
+export function mapTransportOperationStatusToOperational(
+  status: TransportOperationStatus | string
+): OperationalStatusCode {
+  return TRANSPORT_OPERATION_STATUS_TO_OPERATIONAL[status as TransportOperationStatus] ?? 'ready';
+}
+
+export function describeTransportOperationOperationalStatus(
+  status: TransportOperationStatus | string
+): OperationalStatusDescriptor {
+  return describeOperationalStatus(mapTransportOperationStatusToOperational(status));
 }

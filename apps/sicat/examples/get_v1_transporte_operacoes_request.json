@@ -1,0 +1,11 @@
+{
+  "query": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "status": "draft",
+    "page": 1,
+    "pageSize": 20
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_operacoes_list"
+  }
+}

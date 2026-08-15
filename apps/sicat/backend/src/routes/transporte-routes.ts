@@ -1,17 +1,21 @@
 /**
  * Rotas da vertical TRANSPORTE — PR-A2 (catálogo regulatório read-only) + PR-A3 (cadastro-base de
- * transportadores/veículos, DL-103).
+ * transportadores/veículos) + PR-A4 (agregado `TransportOperation` + máquina de estados, DL-103).
  *
  * HTTP mapping only, no molde de `dmr-routes.ts`: cada handler delega ao service. Sem SQL, sem
  * gateway, sem regra de negócio. Erros propagam como `AppError` para `error-handler.ts`
  * (problem+json). Toda rota nasce FECHADA atrás de `sicatAuthMiddleware` — a catraca de
  * `tests/api/v1-auth-coverage.test.js` cobre o registro.
  *
- * Cadastros (PR-A3) são TODOS síncronos (201/200) — sem 202/job neste PR (a verificação externa
- * de regularidade RNTRC via ANTT é Fase C; rotas `/regularidade`/`/verificar` não existem aqui).
+ * Cadastros (PR-A3) e operações (PR-A4) são TODOS síncronos (201/200) — sem 202/job neste PR (a
+ * verificação externa de regularidade RNTRC via ANTT é Fase C; rotas `/regularidade`/`/verificar`
+ * não existem aqui). As transições `submeter-validacao`/`cancelar` são as ÚNICAS expostas da
+ * máquina de estados neste PR — as transições com gate (`aprovar`, `contratar`, ...) ficam
+ * declaradas em `transport-state-machine.ts` mas sem rota até o motor de compliance (PR-A5).
  */
 
 import express from 'express';
+import type { IncomingHttpHeaders } from 'node:http';
 import { asyncHandler } from '../lib/http.js';
 import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 import {
@@ -33,6 +37,14 @@ import {
   listTransportVehiclesService,
   updateTransportVehicleService
 } from '../services/transport-vehicle-service.js';
+import {
+  cancelTransportOperation,
+  createTransportOperation,
+  getTransportOperationById,
+  listTransportOperationsService,
+  submitTransportOperationValidation,
+  updateTransportOperation
+} from '../services/transport-operation-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & { correlationId?: string | null };
@@ -40,6 +52,15 @@ type RequestWithContext = express.Request & { correlationId?: string | null };
 function getCorrelationId(req: express.Request): string | null {
   const correlationId = (req as RequestWithContext).correlationId;
   return typeof correlationId === 'string' && correlationId.length > 0 ? correlationId : null;
+}
+
+function toHeaderMap(headers: IncomingHttpHeaders): Record<string, string | undefined> {
+  const entries = Object.entries(headers).map(([key, value]) => {
+    if (typeof value === 'string') return [key, value] as const;
+    if (Array.isArray(value)) return [key, value.join(', ')] as const;
+    return [key, undefined] as const;
+  });
+  return Object.fromEntries(entries);
 }
 
 export function registerTransporteRoutes(router: express.Router): void {
@@ -132,6 +153,57 @@ export function registerTransporteRoutes(router: express.Router): void {
   router.patch('/v1/transporte/veiculos/:vehicleId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await updateTransportVehicleService(
       String(req.params.vehicleId || ''),
+      (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Operações — agregado TransportOperation (PR-A4)
+  // ===========================================================================================
+
+  router.post('/v1/transporte/operacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createTransportOperation(
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getCorrelationId(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/operacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listTransportOperationsService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  router.get('/v1/transporte/operacoes/:operationId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getTransportOperationById(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  router.patch('/v1/transporte/operacoes/:operationId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await updateTransportOperation(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Só as transições SEM gate ganham rota neste PR — ver o cabeçalho do arquivo.
+  router.post('/v1/transporte/operacoes/:operationId/submeter-validacao', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await submitTransportOperationValidation(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/operacoes/:operationId/cancelar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await cancelTransportOperation(
+      String(req.params.operationId || ''),
       (req.body || {}) as LooseRecord
     );
     res.json(response);
