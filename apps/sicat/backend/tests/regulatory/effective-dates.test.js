@@ -6,6 +6,11 @@ import {
   normalizeReferenceDate,
   resolveVersionFromList
 } from '../../src/lib/transport/regulatory-temporal.js';
+import {
+  buildFutureRuleVersion,
+  buildRevokedRuleVersion,
+  buildSupersededPair
+} from '../fixtures/regulatory/rule-version-fixtures.js';
 
 /**
  * Testes REGULATÓRIOS de fronteira temporal (PR-A1 — a pasta `tests/regulatory/` nasce aqui e
@@ -88,6 +93,50 @@ describe('tests/regulatory — propriedades do catálogo inteiro', () => {
         }
       }
     }
+  });
+});
+
+describe('tests/regulatory — fronteira 05/06/07-08-2026 (Lei 15.485/2026 — conversão da MP 1.343/2026)', () => {
+  // As 4 regras que a Lei 15.485/2026 introduz com effective_from=2026-08-06 diretamente (fora da
+  // baseline anterior): TR-CIOT-003 (responsável pelo CIOT), TR-CIOT-004 (dados obrigatórios do
+  // CIOT), TR-PAY-001 (prazo de pagamento) e TR-COMP-001 (conjunto mínimo para liberação).
+  const RULES_FROM_LEI_15485 = ['TR-CIOT-003', 'TR-CIOT-004', 'TR-PAY-001', 'TR-COMP-001'];
+
+  for (const code of RULES_FROM_LEI_15485) {
+    it(`${code}: nada resolve em 2026-08-05 (véspera); resolve em 2026-08-06 e permanece em 2026-08-07`, () => {
+      const versions = versionsOf(code);
+      assert.equal(resolveVersionFromList(versions, '2026-08-05'), null);
+      assert.equal(resolveVersionFromList(versions, '2026-08-06')?.versionLabel, 'v2026-08-baseline');
+      assert.equal(resolveVersionFromList(versions, '2026-08-07')?.versionLabel, 'v2026-08-baseline');
+    });
+  }
+});
+
+describe('tests/regulatory — regra com vigência futura (fixture) não vale antes do effectiveFrom', () => {
+  it('buildFutureRuleVersion() não resolve hoje (2026-08-13), resolve a partir do próprio effectiveFrom', () => {
+    const future = buildFutureRuleVersion();
+    assert.equal(resolveVersionFromList([future], '2026-08-13'), null);
+    assert.equal(resolveVersionFromList([future], future.effectiveFrom)?.versionLabel, future.versionLabel);
+  });
+});
+
+describe('tests/regulatory — regra revogada/superseded (fixture) fora de vigência após effectiveUntil', () => {
+  it('buildRevokedRuleVersion(): resolve dentro da janela (inclusive no effectiveUntil), nada depois', () => {
+    const revoked = buildRevokedRuleVersion();
+    assert.equal(resolveVersionFromList([revoked], revoked.effectiveFrom)?.versionLabel, revoked.versionLabel);
+    assert.equal(
+      resolveVersionFromList([revoked], revoked.effectiveUntil)?.versionLabel,
+      revoked.versionLabel,
+      'effectiveUntil é INCLUSIVO'
+    );
+    assert.equal(resolveVersionFromList([revoked], '2016-01-01'), null, 'depois de effectiveUntil não há mais versão');
+  });
+
+  it('buildSupersededPair(): before some exatamente quando after nasce — sem sobreposição, sem buraco', () => {
+    const { before, after } = buildSupersededPair();
+    assert.equal(resolveVersionFromList([before, after], before.effectiveUntil)?.versionLabel, before.versionLabel);
+    assert.equal(resolveVersionFromList([before, after], after.effectiveFrom)?.versionLabel, after.versionLabel);
+    assert.notEqual(before.effectiveUntil, after.effectiveFrom, 'janelas adjacentes, nunca a MESMA data');
   });
 });
 

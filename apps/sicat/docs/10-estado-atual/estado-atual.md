@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1..PR-A5 entregues; backend completo, falta PR-A6/PR-F1)
+### 3.9 ⚠️ Vertical Transporte — Fase A BACKEND CONCLUÍDA (PR-A1..A6); frontend (Onda 1.5, PR-F1) NÃO iniciado
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -534,6 +534,36 @@ codes), `tests/unit/transport-compliance-clamp.test.js` (clamp isolado) e
 `tests/api/transporte-conformidade.test.js` (skip-if-no-DB: ciclo feliz completo, append-only,
 fronteira temporal 23/24-05-2026 refletida em `TR-CIOT-001`, tenancy A×B, e o caminho `blocked`
 com versão forçada `blocking=true`+revisada, restaurada em `finally`).
+
+O PR-A6 (último PR backend da Fase A) consolidou `tests/regulatory/` como categoria de primeira
+classe e fechou a documentação da fase. Fixtures temporais reaproveitáveis em
+`tests/fixtures/regulatory/`: `operation-aggregates.js` (agregados TAC lotação, ETC fracionada,
+CTC subcontratada e rascunho incompleto), `rule-version-fixtures.js` (versão futura, revogada e o
+par antes/depois estilo `TR-CIOT-001`) e `fixtures-manifest.json` (mapeia toda `(code,
+version_label)` do seed real a um trio `{before, on, after}`). Cinco **META-GUARDAS** —
+testes que codificam POLÍTICA DE ENGENHARIA do programa, não comportamento de uma função isolada —
+em `tests/regulatory/rule-catalog-invariants.test.js`: (1) nenhuma versão `ACTIVE+blocking=true`
+sem `reviewed_by`/`reviewed_at` (`[LEGAL REVIEW REQUIRED]`); (2) todo `ruleCode` do seed tem
+evaluator OU pendência declarada (`RULES_WITHOUT_EVALUATOR_YET`), união exata dos 26 codes, sem
+sobreposição nem entrada órfã; (3) toda `RegulatoryRuleVersion` do seed tem fixture de fronteira
+temporal no manifesto — o teste VALIDA o manifesto contra o seed, não o contrário; (4) o seed jamais
+insere em `freight_floor_versions`/`freight_floor_coefficients` (piso só entra com revisão humana,
+pendência P3); (5) rede de segurança EM MEMÓRIA (implementação deliberadamente independente de
+`resolveVersionFromList`) contra vigências sobrepostas na mesma regra.
+`tests/regulatory/compliance-gates.test.js` cobre a matriz gate×regra×resultado dos 8 gates contra
+os agregados de fixture e prova, aplicando `applyEnforcementClamp` com as versões REAIS do seed,
+que **nenhum status final é `block`** — a regra de ouro da Fase A, agora em teste automático.
+`tests/regulatory/freight-floor-applicability.test.js` cobre a aplicabilidade DECLARADA do piso
+(`TR-PMF-001..004`, sem cálculo — `FreightFloorEngine` é Fase B) e já deixa fixture pronta para o
+contrato futuro (piso calculado → pass/block por comparação). `effective-dates.test.js` ganhou a
+fronteira 05/06/07-08-2026 (Lei 15.485/2026: `TR-CIOT-003/004`, `TR-PAY-001`, `TR-COMP-001`) e um
+teste de integração time-travel dedicado (`tests/regulatory/time-travel-integration.test.js`,
+skip-if-no-DB): a MESMA operação avaliada via `evaluateGateService` em `referenceDate` 2026-08-05
+vs. 2026-08-07 muda `TR-CIOT-004` de `NOT_APPLICABLE`/`RULE_NOT_YET_EFFECTIVE` para avaliação de
+verdade (`pass`), provando a fronteira ponta a ponta contra o Postgres, não só na resolução pura.
+Nenhuma inconsistência real encontrada pelos meta-guardas no seed/evaluators existentes — os cinco
+passaram de primeira contra o catálogo real. **Fase A backend: completa.** Falta só a Onda 1.5
+(PR-F1, frontend).
 
 ## 4. Riscos e limites conhecidos
 

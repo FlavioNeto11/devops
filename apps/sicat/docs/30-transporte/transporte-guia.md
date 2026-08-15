@@ -68,8 +68,8 @@ Decisões estruturantes do relatório e o estado de adoção no produto. Atualiz
 | 10 | Fiscal: começar por **importação + validação** de XML; emissão só em fase posterior com go/no-go | ✅ | Decisão de roadmap adotada (Fases E e G) |
 | 11 | Seguros RCTR-C/RC-DC/RC-V + PGR com verificação multiestrategia (`InsuranceVerificationProvider`) | 📋 | Fase F |
 | 12 | Regulatory Watch com aprovação humana obrigatória (IA sugere, humano ativa) | 📋 | Fase H |
-| 13 | Testes regulatórios como categoria própria + fixtures de fronteira temporal (24/05/2026, 06/08/2026) | ⚠️ | `tests/regulatory/effective-dates.test.js` nasceu no PR-A1 (fronteira 24/05/2026 coberta); consolida no PR-A6 |
-| 14 | Regra de engenharia: mudança de `RegulatoryRuleVersion` exige fixture antes/depois da vigência | 📋 | Meta-guarda no PR-A6 |
+| 13 | Testes regulatórios como categoria própria + fixtures de fronteira temporal (24/05/2026, 06/08/2026) | ✅ | PR-A6: categoria consolidada — `tests/regulatory/` (`effective-dates`, `compliance-gates`, `freight-floor-applicability`, `rule-catalog-invariants`, `time-travel-integration`) + `tests/fixtures/regulatory/`; fronteiras 24/05/2026 e 06/08/2026 cobertas |
+| 14 | Regra de engenharia: mudança de `RegulatoryRuleVersion` exige fixture antes/depois da vigência | ✅ | PR-A6: meta-guarda 3 (`tests/regulatory/rule-catalog-invariants.test.js`) valida `fixtures-manifest.json` contra o seed — toda `(code, version_label)` com fixture `{before, on, after}` |
 | 15 | Reutilizar fila/jobs/DLQ, auditoria por correlationId, idempotência, RBAC, Centro Operacional, design system `Sicat*` | ✅ | Padrão da casa confirmado na exploração; sem segundo framework |
 | 16 | Compliance da Fase A **síncrono** (sem chamada externa; job types só quando houver integração) | ⚠️ | Adaptação ao relatório: 202/job fica para a Fase C (decisão D1 do plano) |
 | 17 | UX: painel "CONFORMIDADE DA OPERAÇÃO" (PASS/WARN/BLOCK por requisito) na ficha da operação | 📋 | Onda 1.5 (PR-F1), componível com `Sicat*` existentes |
@@ -84,22 +84,22 @@ será preenchida conforme os testes nascerem (`tests/regulatory/`).
 
 | Regra | Título curto | Base legal principal | Gate default | Fase | REQ | Teste | Estado |
 |---|---|---|---|---|---|---|---|
-| TR-RNTRC-001 | RNTRC regular para a operação | Lei 11.442/2007 + Res. ANTT 5.982/2022 | GATE_CONTRACT | A (evaluator local) / C (verificação) | REQ-SICAT-0024 | a criar | 📋 |
+| TR-RNTRC-001 | RNTRC regular para a operação | Lei 11.442/2007 + Res. ANTT 5.982/2022 | GATE_CONTRACT | A (evaluator local) / C (verificação) | REQ-SICAT-0024 | `tests/regulatory/compliance-gates.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 | TR-RNTRC-002 | Veículo compatível com transportador/operação | Res. ANTT 5.982/2022 | GATE_PRE_BOARDING | C | REQ-SICAT-0024 | a criar | 📋 |
 | TR-RNTRC-003 | Revalidação anual quando exigível | Lei 15.485/2026 (dep. regulamentação ANTT) | GATE_CONTRACT | C | REQ-SICAT-0024 | a criar | 🕓 AWAITING_REGULATION |
-| TR-PMF-001 | Determinar aplicabilidade do piso | Lei 13.703/2018 + Res. ANTT 5.867/2020 | GATE_PROPOSAL | A/B | REQ-SICAT-0022 | a criar | 📋 |
-| TR-PMF-002 | Não permitir oferta/publicação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_PROPOSAL | B | REQ-SICAT-0023 | a criar | 📋 |
-| TR-PMF-003 | Não permitir contratação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_CONTRACT | B | REQ-SICAT-0023 | a criar | 📋 |
-| TR-PMF-004 | Usar versão do piso vigente na data | Res. ANTT 5.867/2020 (tabelas vigentes) | GATE_PROPOSAL | B | REQ-SICAT-0022 | a criar | 📋 |
+| TR-PMF-001 | Determinar aplicabilidade do piso | Lei 13.703/2018 + Res. ANTT 5.867/2020 | GATE_PROPOSAL | A/B | REQ-SICAT-0022 | `tests/regulatory/freight-floor-applicability.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
+| TR-PMF-002 | Não permitir oferta/publicação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_PROPOSAL | B | REQ-SICAT-0023 | `tests/regulatory/freight-floor-applicability.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
+| TR-PMF-003 | Não permitir contratação abaixo do piso | Lei 13.703/2018 + Lei 15.485/2026 | GATE_CONTRACT | B | REQ-SICAT-0023 | `tests/regulatory/freight-floor-applicability.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
+| TR-PMF-004 | Usar versão do piso vigente na data | Res. ANTT 5.867/2020 (tabelas vigentes) | GATE_PROPOSAL | B | REQ-SICAT-0022 | `tests/regulatory/freight-floor-applicability.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 | TR-CIOT-001 | Obrigatoriedade do CIOT | Res. 5.862/2019 + Res. 6.078/2026 + Lei 15.485/2026 | GATE_CIOT | A (catálogo) / C (ciclo) | REQ-SICAT-0025 | `tests/regulatory/effective-dates.test.js` | 📋 |
 | TR-CIOT-002 | CIOT antes do início da operação | Res. ANTT 6.078/2026 | GATE_RELEASE | C | REQ-SICAT-0025 | a criar | 📋 |
-| TR-CIOT-003 | Responsável pelo CIOT conforme enquadramento | Lei 15.485/2026 | GATE_CIOT | C | REQ-SICAT-0025 | a criar | 📋 |
-| TR-CIOT-004 | Dados obrigatórios do CIOT completos | Lei 15.485/2026 | GATE_CIOT | A (completude local) | REQ-SICAT-0025 | a criar | 📋 |
+| TR-CIOT-003 | Responsável pelo CIOT conforme enquadramento | Lei 15.485/2026 | GATE_CIOT | C | REQ-SICAT-0025 | `tests/regulatory/effective-dates.test.js` (fronteira 06/08/2026) | 📋 |
+| TR-CIOT-004 | Dados obrigatórios do CIOT completos | Lei 15.485/2026 | GATE_CIOT | A (completude local) | REQ-SICAT-0025 | `tests/regulatory/compliance-gates.test.js` + `tests/regulatory/time-travel-integration.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 | TR-CIOT-005 | CIOT vinculado ao MDF-e quando aplicável | Lei 15.485/2026 + NT MDF-e 2026.001 | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 🕓 UNDER_REVIEW |
-| TR-PAY-001 | Prazo/forma de pagamento conforme norma vigente | Lei 15.485/2026 (30 dias úteis) | GATE_CONTRACT | A (declarativo) | REQ-SICAT-0025 | a criar | 📋 |
-| TR-VPO-001 | Determinar aplicabilidade do VPO | Lei 10.209/2001 + Res. ANTT 6.024/2023 | GATE_PRE_BOARDING | A (declarativo) / D (engine) | REQ-SICAT-0026 | a criar | 📋 |
+| TR-PAY-001 | Prazo/forma de pagamento conforme norma vigente | Lei 15.485/2026 (30 dias úteis) | GATE_CONTRACT | A (declarativo) | REQ-SICAT-0025 | `tests/regulatory/compliance-gates.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
+| TR-VPO-001 | Determinar aplicabilidade do VPO | Lei 10.209/2001 + Res. ANTT 6.024/2023 | GATE_PRE_BOARDING | A (declarativo) / D (engine) | REQ-SICAT-0026 | `tests/regulatory/compliance-gates.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 | TR-VPO-002 | VPO antecipado antes do embarque | Lei 10.209/2001 | GATE_PRE_BOARDING | D | REQ-SICAT-0026 | a criar | 📋 |
-| TR-VPO-003 | VPO separado do valor do frete | Lei 10.209/2001 | GATE_CONTRACT | A (modelagem) | REQ-SICAT-0026 | a criar | 📋 |
+| TR-VPO-003 | VPO separado do valor do frete | Lei 10.209/2001 | GATE_CONTRACT | A (modelagem) | REQ-SICAT-0026 | `tests/regulatory/compliance-gates.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 | TR-VPO-004 | Referência do VPO no MDF-e quando exigida | Res. ANTT 6.024/2023 + regras MDF-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 🕓 UNDER_REVIEW |
 | TR-NFE-001 | NF-e autorizada e compatível | Ajustes SINIEF/MOC NF-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 📋 |
 | TR-CTE-001 | CT-e autorizado e compatível | Ajustes SINIEF/MOC CT-e | GATE_FISCAL | E | REQ-SICAT-0027 | a criar | 📋 |
@@ -109,7 +109,7 @@ será preenchida conforme os testes nascerem (`tests/regulatory/`).
 | TR-SEG-002 | RC-DC vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
 | TR-SEG-003 | RC-V vigente | Lei 14.599/2023 | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
 | TR-PGR-001 | PGR vigente quando requerido | Lei 14.599/2023 + regulamentação securitária | GATE_PRE_BOARDING | F | REQ-SICAT-0028 | a criar | 📋 |
-| TR-COMP-001 | Conjunto mínimo para liberação aprovado | Conjunto regulatório | GATE_RELEASE | A (estrutura) / C+ (efetivo) | REQ-SICAT-0019 | a criar | 📋 |
+| TR-COMP-001 | Conjunto mínimo para liberação aprovado | Conjunto regulatório | GATE_RELEASE | A (estrutura) / C+ (efetivo) | REQ-SICAT-0019 | `tests/regulatory/compliance-gates.test.js` | ⚠️ evaluator declarativo entregue (Fase A); verificação externa/cálculo nas fases B/C+ |
 
 ## Pendências [LEGAL REVIEW REQUIRED] e [EXTERNAL DEPENDENCY]
 
