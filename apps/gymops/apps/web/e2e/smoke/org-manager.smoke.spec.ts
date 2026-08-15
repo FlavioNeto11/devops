@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs } from './fixtures';
+import { authStatePath } from './fixtures';
 
-const P = PROFILES.org_manager;
+// Auth via storageState produced by e2e/auth.setup.ts (1 login per role for the
+// whole suite) — keeps the suite under the real /auth/login rate limit (10/min).
+test.use({ storageState: authStatePath('org_manager') });
 
 test.describe('Smoke — org_manager', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAs(page, P);
-  });
-
-  test('reaches dashboard', async ({ page }) => {
+  test('reaches dashboard (role-based redirect)', async ({ page }) => {
+    // App truth (resolveRedirect + auth-bootstrap): authenticated org_manager
+    // hitting /login is redirected to /dashboard.
+    await page.goto('/login');
     await expect(page).toHaveURL(/dashboard/, { timeout: 10_000 });
   });
 

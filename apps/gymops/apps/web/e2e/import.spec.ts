@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs } from './smoke/fixtures';
+import { authStatePath } from './smoke/fixtures';
 
 // BUG-014: do NOT use `fileURLToPath(import.meta.url)` here — @gymops/web is CJS
 // and the @playwright/test transpiler emits incompatible code, aborting the whole
 // test collection (0 tests run). The derived `__dirname` was dead code anyway
 // (the fixture is inline and uploaded via Buffer, no filesystem access needed).
+
+// Auth via storageState produced by e2e/auth.setup.ts — no per-test UI login
+// (keeps the suite under the real /auth/login rate limit, 10/min per IP).
+test.use({ storageState: authStatePath('owner') });
 
 // Minimal Trello board fixture for E2E
 const TRELLO_BOARD = {
@@ -23,10 +27,6 @@ const TRELLO_BOARD = {
 };
 
 test.describe('Trello Import', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAs(page, PROFILES.owner);
-  });
-
   test('upload JSON, see preview, and reach mapping step', async ({ page }) => {
     await page.goto('/settings/import');
     // Page heading is "Importar do Trello" (settings/import/page.tsx) — a broad

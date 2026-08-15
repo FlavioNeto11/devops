@@ -1,19 +1,22 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs, type LoginContext } from './fixtures';
+import { authStatePath, loadLoginContext, type LoginContext } from './fixtures';
 
-const P = PROFILES.executor;
+// Auth via storageState produced by e2e/auth.setup.ts (1 login per role for the
+// whole suite) — keeps the suite under the real /auth/login rate limit (10/min).
+test.use({ storageState: authStatePath('executor') });
 
 test.describe('Smoke — executor', () => {
   let ctx: LoginContext;
 
-  test.beforeEach(async ({ page }) => {
-    ctx = await loginAs(page, P);
+  test.beforeEach(() => {
+    ctx = loadLoginContext('executor');
   });
 
-  test('reaches personal view after login (BUG-005 regression)', async ({ page }) => {
-    // executor has area-level membership — login must resolve the auth context
-    // via unit_areas (BUG-005) and land on the app, not bounce back to /login.
+  test('reaches personal view (BUG-005 regression)', async ({ page }) => {
+    // executor has area-level membership — the session must resolve the auth
+    // context via unit_areas (BUG-005) and stay in the app, not bounce to /login.
     // App truth (resolveRedirect): executor lands on /me (personal view).
+    await page.goto('/login');
     await expect(page).toHaveURL(/\/me/, { timeout: 10_000 });
   });
 

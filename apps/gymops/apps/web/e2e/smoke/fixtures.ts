@@ -1,4 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 /**
  * Smoke test credentials.
@@ -15,6 +17,8 @@ export const PROFILES = {
 
 export type ProfileKey = keyof typeof PROFILES;
 
+export const API_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+
 /**
  * Context returned by POST /auth/login — lets specs navigate to the TRUE
  * landing/target pages of each role (e.g. `/units/<primaryUnitId>`).
@@ -27,15 +31,49 @@ export interface LoginContext {
 }
 
 /**
+ * Auth artifacts produced by e2e/auth.setup.ts — one storageState (httpOnly
+ * refresh cookie + zustand localStorage) and one LoginContext JSON per role.
+ * Kept under e2e/.auth (gitignored), regenerated on every run.
+ */
+export const AUTH_DIR = path.join(__dirname, '..', '.auth');
+
+export function authStatePath(key: ProfileKey): string {
+  return path.join(AUTH_DIR, `${key}.json`);
+}
+
+export function loginContextPath(key: ProfileKey): string {
+  return path.join(AUTH_DIR, `${key}.ctx.json`);
+}
+
+/** Read the LoginContext saved by auth.setup.ts (call at RUNTIME, not module load). */
+export function loadLoginContext(key: ProfileKey): LoginContext {
+  return JSON.parse(fs.readFileSync(loginContextPath(key), 'utf8')) as LoginContext;
+}
+
+/**
+ * Get a FRESH access token using the httpOnly refresh cookie carried by the
+ * storageState-backed `request` fixture (the setup-time accessToken expires in
+ * 15 min — do not reuse it for API calls late in the suite).
+ */
+export async function freshAccessToken(request: APIRequestContext): Promise<string> {
+  const res = await request.post(`${API_URL}/auth/refresh`);
+  expect(res.status(), 'refresh-cookie session should still be valid').toBe(200);
+  const body = (await res.json()) as { data?: { accessToken?: string } };
+  return body.data?.accessToken ?? '';
+}
+
+/**
  * Helper: log in through the real UI and wait to leave /login.
  *
- * - Captures the /auth/login response so specs can use role/organizationId/
+ * Used by e2e/auth.setup.ts (once per role) and by the few specs that exercise
+ * the credential flow itself. Everything else reuses storageState.
+ *
+ * - Captures the /auth/login response so callers can use role/organizationId/
  *   primaryUnitId to assert the app's real role-based redirect (resolveRedirect
  *   in apps/web/src/app/(auth)/login/page.tsx).
- * - POST /auth/login has a REAL rate limit (10/min per IP — routes/auth). The
- *   serial E2E suite is synthetic load that can graze that ceiling; a 429 here
- *   is not a UX regression, so wait for the 1-minute window to renew and retry
- *   (at most twice) instead of failing the suite.
+ * - POST /auth/login has a REAL rate limit (10/min per IP — routes/auth). A 429
+ *   here is synthetic E2E load, not a UX regression: extend the test timeout,
+ *   wait the 1-minute window out and retry (at most twice).
  */
 export async function loginAs(
   page: Page,
@@ -53,6 +91,12 @@ export async function loginAs(
     const response = await responsePromise;
 
     if (response.status() === 429 && attempt <= 2) {
+      try {
+        // The wait below outlives the default 30s test timeout — extend it.
+        test.info().setTimeout(test.info().timeout + 45_000);
+      } catch {
+        // outside a test (global/setup context) — nothing to extend
+      }
       await page.waitForTimeout(31_000); // rate-limit window is 1 minute
       continue;
     }

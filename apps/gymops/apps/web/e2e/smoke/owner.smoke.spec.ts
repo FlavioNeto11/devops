@@ -1,17 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs, type LoginContext } from './fixtures';
+import { API_URL, authStatePath, freshAccessToken, loadLoginContext, type LoginContext } from './fixtures';
 
-const P = PROFILES.owner;
-const API_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+// Auth via storageState produced by e2e/auth.setup.ts (1 login per role for the
+// whole suite) — keeps the suite under the real /auth/login rate limit (10/min).
+test.use({ storageState: authStatePath('owner') });
 
 test.describe('Smoke — owner', () => {
   let ctx: LoginContext;
 
-  test.beforeEach(async ({ page }) => {
-    ctx = await loginAs(page, P);
+  test.beforeEach(() => {
+    ctx = loadLoginContext('owner');
   });
 
-  test('reaches dashboard', async ({ page }) => {
+  test('reaches dashboard (role-based redirect)', async ({ page }) => {
+    // App truth (resolveRedirect + auth-bootstrap): authenticated owner hitting
+    // /login is redirected to /dashboard.
+    await page.goto('/login');
     await expect(page).toHaveURL(/dashboard/, { timeout: 10_000 });
   });
 
@@ -19,8 +23,9 @@ test.describe('Smoke — owner', () => {
     // App truth: the "Nova atividade" CTA lives on the UNIT page (units/[id],
     // behind canCreate()); the Central de Atividades (/activities) is browse-only.
     // Owner is org-scoped (no primaryUnitId) — resolve a unit via the API.
+    const token = await freshAccessToken(request);
     const res = await request.get(`${API_URL}/units?organizationId=${ctx.organizationId}`, {
-      headers: { Authorization: `Bearer ${ctx.accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.ok()).toBeTruthy();
     const body = (await res.json()) as { data?: Array<{ id: string }> };
