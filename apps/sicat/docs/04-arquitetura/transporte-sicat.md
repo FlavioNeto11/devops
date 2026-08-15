@@ -104,6 +104,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `028_transport_ciot.sql` | `ciot_operations` (`version`+trigger), `ciot_events` (append-only) — ✅ entregue (PR-C2, provedor `mock`) | C2 |
 | `029_transport_vpo.sql` | `vpo_providers` (cadastro de referência, `version`+trigger), `vpo_allocations` (`version`+trigger, MUTÁVEL — uma linha por operação), `vpo_events` (append-only) — ✅ entregue (PR-D1, provedor `mock`) | D1 |
 | `030_transport_fiscal_documents.sql` | `dfe_schema_registry` (`version`+trigger, SEM tenancy), `fiscal_documents` (`version`+trigger), `fiscal_document_links` (append-only), `fiscal_document_events` (append-only) — ✅ entregue (PR-E1) | E1 |
+| `031_transport_insurance.sql` | `insurance_policies` (`version`+trigger), `risk_management_plans`/PGR (`version`+trigger), `insurance_verifications` (append-only) — ✅ entregue (PR-F2, provider `mock`) | F2 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -273,6 +274,42 @@ por `permission_key` existe só no gate do chat, e o meta-teste do catálogo
 (`tests/unit/conversation-permission-catalog.test.js`) rejeita chave semeada sem consumidor. O
 PR-A2 seguiu o padrão da casa (DMR): rota só com `sicatAuthMiddleware`.
 
+**PR-F2 (Fase F, seguros obrigatórios do transportador + PGR — TUDO síncrono, sem job/gateway):**
+
+```text
+POST /v1/transporte/transportadores/{partyId}/apolices              (201 — registro manual, evidência)
+GET  /v1/transporte/transportadores/{partyId}/apolices               (200 — lista, isCurrentlyValid/daysToExpiry derivados)
+POST /v1/transporte/transportadores/{partyId}/apolices/verificar     (200 — roda o provider abstraído; 501 se antt/real)
+PATCH /v1/transporte/transportadores/{partyId}/apolices/{policyId}   (200 — locking otimista; validFrom/Until gera verification nova)
+POST /v1/transporte/transportadores/{partyId}/pgr                    (201 — registro manual)
+GET  /v1/transporte/transportadores/{partyId}/pgr                    (200 — lista)
+GET  /v1/transporte/seguros/vencimentos                              (200 — alertas: expiring_soon + expired_with_open_operation)
+```
+
+Tag `Transporte - Seguros`. `InsuranceVerificationProvider` (`gateways/insurance-verification-
+provider.ts`) segue o MESMO molde de `ciot-provider-gateway.ts`/`vpo-gateway.ts`: interface abstrata
++ hoje só `mode: mock` (consulta determinística e SEM ESTADO — ao contrário de CIOT/VPO, não há
+Map por processo, porque `verifyCarrier`/`verifyPolicy` são leitura pura, não mutação a lembrar
+entre chamadas); `INSURANCE_PROVIDER_MODE=antt` ou `real` recusa com `501
+INSURANCE_PROVIDER_NOT_CONFIGURED` ([EXTERNAL DEPENDENCY] P8). VIGÊNCIA NA DATA DA OPERAÇÃO, não
+"cadastrada" (mesmo racional de RNTRC, pendência P4): `insurance_policies.status`/
+`risk_management_plans.status` são ADMINISTRATIVOS — a vigência real é sempre `validFrom <=
+referenceDate <= validUntil` (`validUntil` pode ser nulo em `risk_management_plans`, vigência
+indeterminada). Alterar `validFrom`/`validUntil` via `PATCH` NUNCA é silencioso: gera uma
+`insurance_verifications` NOVA (append-only) com o resultado da alteração, mesmo a apólice em si
+sendo atualizada in-place (cadastro administrativo, não histórico por tentativa). LGPD: `evidence`
+aceita só `notes`/`documentRef` — nunca condições comerciais completas.
+
+4 evaluators novos saíram de `RULES_WITHOUT_EVALUATOR_YET` (`TR-SEG-001`/`TR-SEG-002`/`TR-SEG-003`/
+`TR-PGR-001`, `rule-evaluators.ts`) — `RULES_WITHOUT_EVALUATOR_YET` agora só tem `TR-RNTRC-003`
+(aguardando regulamentação ANTT). `ctx.carrierInsurance` (`{policies, pgr}`, montado por
+`transport-compliance-service.ts` a partir de
+`transport-insurance-repo.ts#findApplicablePolicyForPartyAndType`/`findApplicablePlanForParty`, uma
+consulta por tipo de apólice + uma para o PGR) é o recorte MÍNIMO que os evaluators consomem — a
+apólice/PGR que MELHOR cobre a `referenceDate` do gate, nunca a "mais recente" cega. TR-PGR-001
+exige o PGR quando o carrier tem apólice RCTR-C OU RC-DC REGISTRADA (independente da vigência
+daquelas — assunto de TR-SEG-001/002); RC-V isolado não aciona a exigência.
+
 ## 7. Motor de compliance
 
 `TransportComplianceService` (worker-callable desde o nascimento): resolve regras do gate → versão
@@ -309,7 +346,8 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 - **[LEGAL REVIEW REQUIRED]** — baseline de 13/08/2026 aceita como ponto de partida, não parecer
   jurídico; pendências P1–P3/P9/P10 do guia antes de qualquer flip para bloqueante.
 - **[EXTERNAL DEPENDENCY]** — credenciamento ANTT (P4), provedor CIOT/PEF (P5), fornecedoras VPO
-  (P6), XMLs reais + NT MDF-e 2026.001 (P7), integração seguros (P8): travam C–F, não A/B.
+  (P6), XMLs reais + NT MDF-e 2026.001 (P7), integração técnica de seguros com ANTT/seguradora (P8,
+  CRUD + `mode: mock` já entregues no PR-F2): travam C–F, não A/B.
 - **[ASSUMPTION]** — `btree_gist` disponível no Postgres 16 do cluster (exclusion constraint);
   fallback: validação de sobreposição no service + teste.
 - Colisão de numeração de migration (`021_` já teve precedente de colisão `012_` dupla) — conferir
@@ -332,6 +370,7 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 | C2 | migration 028, `ciot-provider-gateway.ts`, `ciot-correlation.ts`, `ciot-reconciler.ts`, `ciot-repo.ts`, `transport-ciot-service.ts`, TR-CIOT-001/002/003 | ciclo do CIOT (pre-validar 200 + solicitar/retificar/cancelar/encerrar 202 + GET) | este doc, DL-022 doc, estado-atual, guia |
 | D1 | migration 029, `vpo-applicability-engine.ts`, `vpo-correlation.ts`, `vpo-reconciler.ts`, `vpo-repo.ts`, `transport-vpo-service.ts`, `load-vpo-providers.js`, TR-VPO-002 | VPO (avaliar-aplicabilidade 200 + registrar-aquisicao 200 + adquirir 202 + GET + fornecedoras) | este doc, DL-022 doc, estado-atual, guia |
 | E1 | migration 030, `dfe-parser.ts`, `dfe-validator.ts`, `dfe-schema-seed.ts`, `dfe-schema-registry-repo.ts`, `transport-fiscal-repo.ts`, `transport-fiscal-service.ts`, `vpo-repo.ts#setVpoAllocationMdfeReference`, TR-NFE-001/CTE-001/MDFE-001/002/CIOT-005/VPO-004 | DF-e (importar 201 + vincular/desvincular/revalidar 200 + GET lista/detalhe) | este doc, DL-022 doc, estado-atual, guia |
+| F2 | migration 031, `insurance-verification-provider.ts`, `transport-insurance-repo.ts`, `transport-insurance-service.ts`, TR-SEG-001/002/003/TR-PGR-001 | apólices (criar 201 + listar/verificar/atualizar 200) + PGR (criar 201 + listar 200) + vencimentos (200) | este doc, DL-022 doc, estado-atual, guia |
 
 ## 12. Critérios de pronto da Fase A
 

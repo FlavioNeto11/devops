@@ -178,6 +178,30 @@ tags:
     registry (`validationProfile.mdfeRequiresCiot`) — `effectiveFrom` [ASSUMPTION], cronograma
     técnico oficial ainda não publicado (pendência P7 do guia). NÃO valida XSD completo (limitação
     documentada) — o schema registry governa PERFIS de validação, não schemas XML inteiros.'
+- name: Transporte - Seguros
+  description: 'Seguros obrigatórios do transportador — RCTR-C/RC-DC/RC-V — e PGR (PR-F2, Lei
+    14.599/2023). TUDO SÍNCRONO (201/200, sem job/fila): `apolices` registra evidência MANUAL
+    declarada por um usuário (gera `insurance_verifications` `strategy: manual`); `apolices/
+    verificar` roda o `InsuranceVerificationProvider` abstraído
+    (`gateways/insurance-verification-provider.ts`) — hoje só `mode: mock` (sandbox determinístico);
+    `INSURANCE_PROVIDER_MODE=antt` ou `real` recusa com `501 INSURANCE_PROVIDER_NOT_CONFIGURED`
+    ([EXTERNAL DEPENDENCY] P8 — a ANTT tem cronograma de verificação automática de seguros, mas ele
+    exige credenciamento que o operador ainda não tem). VIGÊNCIA NA DATA DA OPERAÇÃO, não
+    "cadastrada": o motor de compliance (`GATE_PRE_BOARDING`, regras TR-SEG-001/002/003) confere a
+    janela `validFrom`/`validUntil` contra a data DE REFERÊNCIA da avaliação, nunca contra "hoje"
+    isoladamente — uma apólice válida hoje mas vencida na data da operação é tratada como vencida.
+    `status` em `TransporteApoliceResource`/`TransportePgrResource` é ADMINISTRATIVO
+    (`active`/`cancelled`/`expired_marked`); `isCurrentlyValid`/`daysToExpiry` são DERIVADOS contra
+    hoje (visão humana de listagem/alerta) — não confundir com a checagem do motor de compliance.
+    PGR (`.../pgr`) é exigido por vínculo legal quando o transportador tem apólice RCTR-C OU RC-DC
+    registrada (TR-PGR-001); RC-V isolado não aciona a exigência. Alteração de `validFrom`/
+    `validUntil` via `PATCH .../apolices/{policyId}` NUNCA é silenciosa: gera uma linha NOVA em
+    `insurance_verifications` (append-only) com o resultado da alteração. `GET .../seguros/
+    vencimentos` lista alertas para o Centro Operacional: apólices vencendo em `windowDays` dias
+    (default 30) e apólices JÁ VENCIDAS com pelo menos uma operação NÃO-TERMINAL em aberto
+    vinculada ao mesmo transportador como carrier. LGPD: `evidence` é sempre um objeto MÍNIMO
+    (número/vigência/tipo/nota curta) — nunca condições comerciais completas (franquia, cláusulas,
+    prêmio).'
 security:
 - bearerAuth: []
 paths:
@@ -8784,6 +8808,309 @@ paths:
         required: true
         schema: { type: string }
       - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/transportadores/{partyId}/apolices:
+    post:
+      operationId: transporteTransportadorApoliceCreate
+      summary: Registrar apólice de seguro do transportador (evidência manual)
+      description: 'SÍNCRONO (201) — registro de apólice com evidência declarada por um usuário
+        (`evidenceSource: manual`). Valida `policyType` (RCTR_C/RC_DC/RC_V), o par
+        `validFrom`/`validUntil` (`validUntil >= validFrom`) e `coverageAmount` (>= 0 quando
+        informado). Grava a apólice e uma `insurance_verifications` (`strategy: manual`,
+        `verifiedBy` = usuário autenticado) NUMA transação. `409
+        TRANSPORT_INSURANCE_POLICY_DUPLICATE` quando já existe apólice com o mesmo
+        `policyType`+`policyNumber` para este transportador nesta conta.'
+      tags:
+      - Transporte - Seguros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApoliceCreateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              policyType: RCTR_C
+              insurerName: Seguradora Exemplo S.A.
+              insurerDocument: '11222333000181'
+              policyNumber: RCTRC-2026-000123
+              coverageAmount: 500000
+              validFrom: '2026-01-01'
+              validUntil: '2026-12-31'
+              evidence:
+                notes: Apólice renovada — cópia recebida por e-mail do corretor.
+      responses:
+        '201':
+          description: Apólice registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteTransportadorApolicesList
+      summary: Listar apólices do transportador (com vigência derivada contra hoje)
+      description: 'Cada item traz `isCurrentlyValid`/`daysToExpiry` DERIVADOS contra a data de HOJE
+        (visão humana de listagem) — não confundir com a checagem do motor de compliance
+        (`GET .../operacoes/{operationId}/conformidade`), que usa a data de referência da
+        OPERAÇÃO.'
+      tags:
+      - Transporte - Seguros
+      responses:
+        '200':
+          description: Página de apólices do transportador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: policyType
+        schema:
+          type: string
+          enum: [RCTR_C, RC_DC, RC_V]
+      - in: query
+        name: page
+        schema: { type: integer, minimum: 1, default: 1 }
+      - in: query
+        name: pageSize
+        schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  /v1/transporte/transportadores/{partyId}/apolices/verificar:
+    post:
+      operationId: transporteTransportadorApolicesVerificar
+      summary: Verificar seguros do transportador via provider abstraído
+      description: 'SÍNCRONO (200) — roda o `InsuranceVerificationProvider`
+        (`gateways/insurance-verification-provider.ts`) configurado (`INSURANCE_PROVIDER_MODE`,
+        default `mock`) para o transportador: cada apólice encontrada é criada (chave natural nova)
+        ou atualizada (já existente) com `evidenceSource` = a origem do provider, e uma
+        `insurance_verifications` é gravada por apólice tocada. `INSURANCE_PROVIDER_MODE=antt` ou
+        `real` recusa com `501 INSURANCE_PROVIDER_NOT_CONFIGURED` — nenhuma integração técnica com
+        seguradora/ANTT credenciada ainda ([EXTERNAL DEPENDENCY] P8).'
+      tags:
+      - Transporte - Seguros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApoliceVerificarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '200':
+          description: Resultado da verificação (apólices criadas/atualizadas pelo provider)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceVerificarResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '501':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/apolices/{policyId}:
+    patch:
+      operationId: transporteTransportadorApoliceUpdate
+      summary: Atualizar apólice (correções administrativas; locking otimista)
+      description: 'Locking otimista via `version` (409
+        `TRANSPORT_INSURANCE_POLICY_VERSION_CONFLICT` em divergência). Alterar `validFrom`/
+        `validUntil` NUNCA é silencioso: gera uma linha NOVA em `insurance_verifications`
+        (append-only) com o resultado da alteração (`previousValidFrom`/`previousValidUntil` vs.
+        os novos valores) — a apólice em si é atualizada in-place (é um cadastro administrativo,
+        não um histórico por tentativa), mas a MUDANÇA de vigência fica sempre auditada.'
+      tags:
+      - Transporte - Seguros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApoliceUpdateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 1
+              validUntil: '2027-01-31'
+      responses:
+        '200':
+          description: Apólice atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: policyId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/pgr:
+    post:
+      operationId: transporteTransportadorPgrCreate
+      summary: Registrar PGR do transportador (evidência manual)
+      description: 'SÍNCRONO (201) — Plano de Gerenciamento de Riscos, vínculo legal com RCTR-C/
+        RC-DC (Lei 14.599/2023, TR-PGR-001). `409 TRANSPORT_PGR_DUPLICATE` quando já existe PGR
+        com o mesmo `planReference` para este transportador nesta conta.'
+      tags:
+      - Transporte - Seguros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransportePgrCreateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              planReference: PGR-2026-001
+              versionLabel: v1
+              validFrom: '2026-01-01'
+              validUntil: '2027-12-31'
+      responses:
+        '201':
+          description: PGR registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportePgrResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteTransportadorPgrList
+      summary: Listar PGRs do transportador
+      tags:
+      - Transporte - Seguros
+      responses:
+        '200':
+          description: PGRs do transportador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportePgrListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/seguros/vencimentos:
+    get:
+      operationId: transporteSegurosVencimentosList
+      summary: Alertas de vencimento de seguros (Centro Operacional)
+      description: 'Dois tipos de alerta: `expiring_soon` (apólices `active` vencendo entre hoje e
+        hoje+`windowDays`, default 30) e `expired_with_open_operation` (apólices `active` JÁ
+        VENCIDAS com pelo menos uma operação NÃO-TERMINAL — status fora de `completed`/`cancelled`
+        — em aberto vinculada ao mesmo transportador como `carrier`; apólice vencida sem operação
+        em aberto não gera alerta — não é ruído acionável).'
+      tags:
+      - Transporte - Seguros
+      responses:
+        '200':
+          description: Alertas de vencimento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteSeguroVencimentoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: windowDays
+        schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
 components:
   securitySchemes:
     bearerAuth:
@@ -16237,3 +16564,252 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TransportePisoTabelaResource'
+    TransporteApoliceResource:
+      type: object
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - partyId
+      - policyType
+      - insurerName
+      - insurerDocument
+      - policyNumber
+      - coverageAmount
+      - validFrom
+      - validUntil
+      - status
+      - evidenceSource
+      - isCurrentlyValid
+      - daysToExpiry
+      - createdAt
+      - updatedAt
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        integrationAccountId: { type: string }
+        partyId: { type: string }
+        policyType: { type: string, enum: [RCTR_C, RC_DC, RC_V] }
+        insurerName: { type: string }
+        insurerDocument: { type: [string, 'null'] }
+        policyNumber: { type: string }
+        coverageAmount: { type: [number, 'null'] }
+        validFrom: { type: string, format: date }
+        validUntil: { type: string, format: date }
+        status: { type: string, enum: [active, cancelled, expired_marked] }
+        evidenceSource: { type: string, enum: [manual, provider, antt, mock] }
+        isCurrentlyValid:
+          type: boolean
+          description: Derivado contra HOJE (visão de listagem) — status administrativo
+            `active` E `validFrom` <= hoje <= `validUntil`.
+        daysToExpiry:
+          type: integer
+          description: 'Dias entre hoje e `validUntil` (`validUntil - hoje`) — negativo quando
+            já vencida.'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TransporteApoliceCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - policyType
+      - insurerName
+      - policyNumber
+      - validFrom
+      - validUntil
+      properties:
+        integrationAccountId: { type: string }
+        policyType: { type: string, enum: [RCTR_C, RC_DC, RC_V] }
+        insurerName: { type: string }
+        insurerDocument: { type: string }
+        policyNumber: { type: string }
+        coverageAmount: { type: number, minimum: 0 }
+        validFrom: { type: string, format: date }
+        validUntil: { type: string, format: date }
+        status:
+          type: string
+          enum: [active, cancelled, expired_marked]
+          default: active
+        evidence:
+          type: object
+          description: 'LGPD — só `notes` (nota curta) e `documentRef` (referência a um anexo,
+            nunca o anexo em si) são persistidos; qualquer outra chave é descartada.'
+          properties:
+            notes: { type: string, maxLength: 500 }
+            documentRef: { type: string, maxLength: 200 }
+          additionalProperties: true
+    TransporteApoliceUpdateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId: { type: string }
+        version: { type: integer, minimum: 1 }
+        insurerName: { type: string }
+        insurerDocument: { type: string }
+        coverageAmount: { type: number, minimum: 0 }
+        validFrom: { type: string, format: date }
+        validUntil: { type: string, format: date }
+        status: { type: string, enum: [active, cancelled, expired_marked] }
+        evidence:
+          type: object
+          properties:
+            notes: { type: string, maxLength: 500 }
+            documentRef: { type: string, maxLength: 200 }
+          additionalProperties: true
+    TransporteApoliceListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteApoliceResource'
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    TransporteApoliceVerificarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+    TransporteApoliceVerificarResponse:
+      type: object
+      required:
+      - partyId
+      - source
+      - policies
+      properties:
+        partyId: { type: string }
+        source: { type: string, enum: [mock, provider, antt] }
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteApoliceResource'
+    TransportePgrResource:
+      type: object
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - partyId
+      - planReference
+      - versionLabel
+      - validFrom
+      - validUntil
+      - status
+      - evidenceSource
+      - relatedPolicyTypes
+      - isCurrentlyValid
+      - createdAt
+      - updatedAt
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        integrationAccountId: { type: string }
+        partyId: { type: string }
+        planReference: { type: string }
+        versionLabel: { type: string }
+        validFrom: { type: string, format: date }
+        validUntil: { type: [string, 'null'], format: date }
+        status: { type: string, enum: [active, superseded, cancelled] }
+        evidenceSource: { type: string, enum: [manual, mock] }
+        relatedPolicyTypes:
+          type: array
+          items:
+            type: string
+            enum: [RCTR_C, RC_DC, RC_V]
+        isCurrentlyValid:
+          type: boolean
+          description: Derivado contra HOJE — status administrativo `active` E `validFrom` <=
+            hoje <= `validUntil` (ou `validUntil` nulo — vigência indeterminada).
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TransportePgrCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - planReference
+      - validFrom
+      properties:
+        integrationAccountId: { type: string }
+        planReference: { type: string }
+        versionLabel: { type: string }
+        validFrom: { type: string, format: date }
+        validUntil: { type: string, format: date }
+        status:
+          type: string
+          enum: [active, superseded, cancelled]
+          default: active
+        evidence:
+          type: object
+          properties:
+            notes: { type: string, maxLength: 500 }
+            documentRef: { type: string, maxLength: 200 }
+          additionalProperties: true
+        relatedPolicyTypes:
+          type: array
+          default: [RCTR_C, RC_DC]
+          items:
+            type: string
+            enum: [RCTR_C, RC_DC, RC_V]
+    TransportePgrListResponse:
+      type: object
+      required:
+      - items
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportePgrResource'
+        totalItems: { type: integer }
+    TransporteSeguroVencimentoItem:
+      type: object
+      required:
+      - alertType
+      - policyId
+      - partyId
+      - partyLegalName
+      - policyType
+      - policyNumber
+      - validUntil
+      - daysToExpiry
+      - openOperationIds
+      properties:
+        alertType: { type: string, enum: [expiring_soon, expired_with_open_operation] }
+        policyId: { type: string }
+        partyId: { type: string }
+        partyLegalName: { type: string }
+        policyType: { type: string, enum: [RCTR_C, RC_DC, RC_V] }
+        policyNumber: { type: string }
+        validUntil: { type: string, format: date }
+        daysToExpiry: { type: integer }
+        openOperationIds:
+          type: array
+          items:
+            type: string
+          description: IDs das operações NÃO-TERMINAIS em aberto que dependem desta apólice —
+            vazio quando `alertType` é `expiring_soon` (o alerta de vencimento próximo não exige
+            operação em aberto para existir).
+    TransporteSeguroVencimentoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - windowDays
+      - referenceDate
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteSeguroVencimentoItem'
+        total: { type: integer }
+        windowDays: { type: integer }
+        referenceDate: { type: string, format: date }

@@ -1411,5 +1411,68 @@ export const operations = [
     "summary": "Detalhe de um documento fiscal (issues + links)",
     "tag": "Transporte - Documentos Fiscais",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_apolices",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices",
+    "summary": "Registrar apólice de seguro do transportador (evidência manual)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_apolices",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices",
+    "summary": "Listar apólices do transportador (com vigência derivada contra hoje)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_apolices_verificar",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/verificar",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/verificar",
+    "summary": "Verificar seguros do transportador via provider abstraído",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_transportadores_partyId_apolices_policyId",
+    "method": "patch",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/{policyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/:policyId",
+    "summary": "Atualizar apólice (correções administrativas; locking otimista)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_pgr",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/pgr",
+    "expressPath": "/v1/transporte/transportadores/:partyId/pgr",
+    "summary": "Registrar PGR do transportador (evidência manual)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_pgr",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/pgr",
+    "expressPath": "/v1/transporte/transportadores/:partyId/pgr",
+    "summary": "Listar PGRs do transportador",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_seguros_vencimentos",
+    "method": "get",
+    "specPath": "/v1/transporte/seguros/vencimentos",
+    "expressPath": "/v1/transporte/seguros/vencimentos",
+    "summary": "Alertas de vencimento de seguros (Centro Operacional)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
   }
 ];
