@@ -65,6 +65,20 @@
       "rationale": "IA grounded nos dados operacionais do app sem estourar heap nem vazar chave — o engine de conversa do SICAT é a referência do bloco rag-pgvector.",
       "blocks": ["rag-pgvector"],
       "cites": ["apps/sicat/backend/src/services/conversation/memory"]
+    },
+    {
+      "title": "ADR-010 (DL-103): Bounded context Transporte separado do ambiental",
+      "decision": "A vertical de transporte rodoviário remunerado de cargas (RNTRC, piso mínimo, CIOT, VPO, NF-e/CT-e/MDF-e, seguros/PGR) nasce como bounded context próprio: agregado TransportOperation com máquina de estados explícita, tabelas transport_* sem FK/reuso de entidades ambientais (manifests/DMR), roles em inglês (carrier/contractor/shipper), gateway CETESB intocado; integrações ANTT/SEFAZ/provedores entram por gateways dedicados em TS nas fases C+.",
+      "rationale": "MTR ambiental (Manifesto de Transporte de Resíduos, CETESB) e MDF-e/CT-e/CIOT (cargas, ANTT/SEFAZ) têm semânticas distintas; misturá-los produziria dívida arquitetural grave. Decisão DL-103 do app, baseline em apps/sicat/docs/30-transporte/.",
+      "blocks": ["camadas-rigidas", "migrations-versionadas"],
+      "cites": ["apps/sicat/docs/30-transporte/transporte-guia.md", "apps/sicat/docs/04-arquitetura/transporte-sicat.md"]
+    },
+    {
+      "title": "ADR-011 (DL-103): Catálogo regulatório temporal + compliance gates como motor de decisão",
+      "decision": "Regras legais do domínio Transporte vivem em catálogo versionado (regulatory_sources/rules TR-*/rule_versions com effective_from/until e estados DRAFT..AWAITING_REGULATION), nunca em if/else espalhado; um TransportComplianceService avalia gates nomeados (GATE_PROPOSAL..GATE_COMPLETION) devolvendo PASS/WARN/BLOCK/NOT_APPLICABLE com base legal, versão e evidência persistida (append-only); nenhuma regra nasce bloqueante — promoção a blocking=true exige revisão humana (check constraint + clamp BLOCK→WARN com raw_status preservado) e fixtures de comportamento antes/depois da vigência.",
+      "rationale": "A regulação de 2026 (Lei 15.485/2026, Res. ANTT 6.078/2026) está em transição com veto parcial e regulamentação complementar pendente: o produto precisa responder 'qual regra valia nesta data?' e provar cada decisão — sem reprocessamento retroativo silencioso. Decisão DL-103 do app.",
+      "blocks": ["migrations-versionadas", "camadas-rigidas"],
+      "cites": ["apps/sicat/docs/30-transporte/deep-research-report.md", "apps/sicat/docs/30-transporte/transporte-guia.md"]
     }
   ]
 }

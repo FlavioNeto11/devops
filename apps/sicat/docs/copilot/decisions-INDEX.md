@@ -2,7 +2,7 @@
 title: "Índice de Decisões Arquiteturais"
 status: reference
 applies_to: [sicat]
-updated: 2026-08-08
+updated: 2026-08-13
 language: pt-BR
 ---
 
@@ -17,10 +17,11 @@ language: pt-BR
 3. **Leia Planejamento, Decisões e Validação** para entender o raciocínio e estado atual.
 4. **Consulte Handoff** para checkpoints de implementação (se houver).
 
-## Decisões Arquiteturais (DL-102 a DL-001)
+## Decisões Arquiteturais (DL-103 a DL-001)
 
 | DL | Título | Status | Handoff/Referência |
 |---|---|---|---|
+| [DL-103](13-decision-log.md#dl-103) | SICAT Transporte — bounded context separado do ambiental, catálogo regulatório temporal e compliance gates como motor de decisão | 📋 PLANEJADO (governança entregue; implementação nas Ondas 1+) | [docs/30-transporte/transporte-guia.md](../30-transporte/transporte-guia.md) |
 | [DL-102](13-decision-log.md#dl-102) | Correlação pré-submit de manifesto — marcador determinístico em `manObservacao` contra MTR duplicado, entregue **inerte** | ⚠️ PARCIAL (**1 de 3 partes ligada**) | [docs/05-operacao/runbook-canal-whatsapp.md](../05-operacao/runbook-canal-whatsapp.md) §8 |
 | [DL-101](13-decision-log.md#dl-101) | Canal conversacional externo (WhatsApp) — identidade no servidor, 2 provedores, ticket como linha, níveis por efeito irreversível e as recusas (N2/N3) | ✅ COMPLETADO (**N2 fechado por desenho**) | [docs/handoffs/whatsapp-channel-sicat/](../handoffs/whatsapp-channel-sicat/) |
 | [DL-100](#dl-100) | Refatoração UX/UI corporativa — design system `Sicat*`, navegação por audiência e decomposição de telas-monstro | ✅ COMPLETADO | [docs/copilot/handoffs/DL-100/](handoffs/DL-100/) |

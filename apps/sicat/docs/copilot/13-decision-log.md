@@ -2,6 +2,72 @@
 
 # Decision log
 
+## DL-103
+**Tema:** SICAT Transporte — bounded context separado do ambiental, catálogo regulatório temporal e compliance gates como motor de decisão
+**Data:** 2026-08-13
+**Tipo:** Backend / Frontend / Arquitetura de vertical nova / Governança regulatória
+**Especialistas:** programa `transporte` (Onda 0) — baseline deep-research 2026-08-13 + plano aprovado pelo operador
+**Status:** 📋 **PLANEJADO — governança entregue; implementação nas Ondas 1+ (PRs `sicat/transporte-01..07`)**
+
+### Planejamento
+- **Objetivo:** dar ao SICAT uma vertical de **transporte rodoviário remunerado de cargas** (RNTRC, piso mínimo, CIOT, Vale-Pedágio, NF-e/CT-e/MDF-e, seguros/PGR) como **motor preventivo de conformidade** — a operação só avança entre estados quando passa por gates regulatórios versionados — sem tocar no domínio ambiental (MTR/CDF/DMR CETESB).
+- **Escopo da decisão:** fronteiras do bounded context, modelo do catálogo regulatório temporal, motor de compliance, política de enforcement, registro da baseline e roadmap por ondas. Implementação: migrations `021+`, `transporte-routes.ts`, services/evaluators, frontend mínimo — nos PRs das Ondas 1/1.5.
+- **Critério pronto (desta entrega):** baseline registrada e imutável (`docs/30-transporte/deep-research-report.md`), guia vivo com matriz de rastreabilidade (`docs/30-transporte/transporte-guia.md`), 19 REQs na base de requisitos (`REQ-SICAT-0017..0031`, `NFR-0009..0012`), ADR-010/011 em `specs/products/sicat/architecture.json`, este DL.
+
+### Contexto
+- A regulação de 2026 tornou a conformidade **preventiva**: CIOT universalizado desde 24/05/2026 (Res. ANTT 6.078/2026 + Portaria SUROC 6/2026), e a **Lei nº 15.485/2026** (conversão da MP 1.343/2026, veto parcial — Veto nº 43/2026) sujeita às sanções do piso mínimo também quem **anuncia/oferta/publica/intermedeia** frete abaixo do piso, incluindo plataformas digitais. A validação precisa acontecer **antes da oferta**, não no embarque.
+- No repositório, a vertical é **greenfield puro**: zero código de CIOT/RNTRC/VPO/piso/MDF-e (só material comercial marcado como roadmap em `docs/20-comercial/`); zero REQs de transporte em `specs/`.
+- O termo "transportador" já existe no domínio ambiental (papel do MTR de **resíduos** — `dmr_declaration_items.partner_role`) e é um **falso amigo** do carrier do TRC.
+
+### Decisões
+- **D1 — Bounded context Transporte SEPARADO do ambiental.** Nenhuma FK ou reuso de `manifests`/entidades ambientais; nenhum arquivo novo com `mtr`/`manifest` no nome; roles do TRC em inglês (`carrier`, `contractor`, `shipper`, `subcontractor`) eliminando colisão até lexical com o `transportador` ambiental. O gateway CETESB não é tocado (DL-093 intacta). MTR ambiental ≠ MDF-e — misturá-los seria dívida arquitetural grave.
+- **D2 — Agregado central `TransportOperation` com máquina de estados explícita; transição só via comando + gate.** Grafo completo declarado em módulo puro (`lib/transport-state-machine.ts`), mas só transições da fase corrente têm endpoint; escrita de status exclusivamente por compare-and-swap (`where status=$from and version=$v`); `PATCH` rejeita o campo `status` (422). Integrações externas trazem **fatos**; quem decide transição é o `TransportComplianceService`.
+- **D3 — Regras legais NUNCA viram if/else espalhado: catálogo regulatório temporal versionado.** `regulatory_sources` + `regulatory_rules` (códigos estáveis `TR-*`) + `regulatory_rule_versions` (vigência `effective_from/until`, estados `DRAFT|UNDER_REVIEW|ACTIVE|FUTURE|SUPERSEDED|REVOKED|AWAITING_REGULATION`). A pergunta fundacional é "qual regra valia NESTA data?" (`resolveRuleVersionAt`), com constraint de não-sobreposição temporal por regra.
+- **D4 — Nenhuma regra nasce bloqueante; promoção a `blocking=true` é ato humano.** Trava dupla: check constraint no DDL (`ACTIVE + blocking=true` ⇒ `reviewed_by`/`reviewed_at` obrigatórios) + clamp no engine (regra não-enforçável nunca produz BLOCK efetivo; resultado bruto preservado em `raw_status` com `RULE_NOT_ENFORCEABLE`). Rito de promoção: item [LEGAL REVIEW REQUIRED] resolvido no guia + fixtures de comportamento antes/depois da vigência + canário em WARN em produção.
+- **D5 — Baseline regulatória registrada como snapshot IMUTÁVEL + guia vivo.** O estudo de 13/08/2026 vive íntegro em `docs/30-transporte/deep-research-report.md`; evolução normativa entra no guia e no catálogo como nova `rule_version` — nunca como edição do snapshot. Todo PR do programa cita a seção do guia que o motiva e atualiza a tabela de adoção.
+- **D6 — Fase A é 100% local (sem chamada externa) e o compliance é SÍNCRONO (200).** Sem job type novo, sem touch em `operation-handlers.ts`/`lib/retry.ts`/`command-response.ts` — zero risco à fila existente. O `TransportComplianceService` nasce worker-callable para virar handler de job na Fase C sem refatoração. Integrações (ANTT/CIOT/VPO/SEFAZ/seguros) entram por gateways dedicados **em TS** nas fases C+ com 202/command-accepted, retry/DLQ e o padrão DL-102 (marcador de correlação + `*_unconfirmed` + reconciliador) desde o dia 1.
+- **D7 — Avaliações de compliance são APPEND-ONLY e temporalmente reproduzíveis.** `compliance_evaluations` sem update (desvio deliberado do padrão version/trigger, justificado no header da migration); `reference_date` distinta de `evaluated_at`; snapshot do agregado + base legal congelada por check. Operação de agosto não muda de resultado porque tabela de novembro substituiu coeficientes.
+- **D8 — RBAC: chaves novas `transporte.read`/`transporte.write` + papel semeado `sicat.transporte.operator`.** Nunca alargar `sicat.reader` (papel-piso do cadastro público) nem misturar a vertical no `sicat.operator` ambiental.
+- **D9 — Entrega por ondas com flags em DOIS níveis.** Feature flag por capacidade (deploy) + `implementation_state`/`blocking` por regra no catálogo (dado). Ondas: 0 governança → 1 Fase A backend → 1.5 frontend mínimo → B piso → C RNTRC/CIOT → D VPO → E fiscal import/validação → F seguros/PGR → G emissão (go/no-go com ADR próprio) → H Regulatory Watch/hardening.
+
+### Recusas (decisões negativas)
+- **⛔ Regra fixa de antecipação de 70% do frete** — dispositivo **vetado** (Veto nº 43/2026); não existe no produto enquanto o veto vigorar (pendência P1 do guia, monitorada).
+- **⛔ Coeficiente de piso hardcoded ou em seed sem revisão** — coeficiente só entra no catálogo com `review_status=reviewed` (pendência P3).
+- **⛔ Reutilizar `Manifest`/renomear MTR ambiental para acomodar MDF-e** — ver D1.
+- **⛔ CIOT dentro do `manifest-service` / chamada ANTT direta de rota** — fronteira de camadas inegociável.
+- **⛔ Segundo sistema de fila ou segundo framework de observabilidade** — reutilizar `jobs` + Centro Operacional.
+- **⛔ Emissão fiscal antes de importação/validação** — Fase G condicionada a go/no-go comercial e ADR próprio.
+- **⛔ Atualização regulatória automática por robô/IA sem aprovação humana** — Regulatory Watch (Fase H) sugere; humano ativa.
+- **⛔ Tratar "CIOT gerado" como "operação legalmente liberada"** — `REGISTERED ≠ COMPLIANT` (FAQ ANTT).
+
+### Alternativas consideradas
+- **Evoluir o fluxo de MTR existente com campos fiscais:** rejeitada — semânticas distintas (resíduos CETESB × cargas ANTT/SEFAZ); produziria acoplamento irreversível.
+- **Compliance assíncrono (202+job) já na Fase A:** rejeitada — sem I/O externo não há benefício; custo de 4 pontos de job type + extensão do envelope command-accepted sem necessidade (D6).
+- **Regras em tabela de configuração simples (chave→booleano):** rejeitada — sem vigência temporal nem base legal citada, não responde "qual regra valia nesta data?" nem sustenta auditoria.
+
+### Consequências
+- A Fase A entrega um motor de compliance que **ainda não bloqueia nada** (todas as 26 regras `TR-*` nascem `blocking=false`) — o valor inicial é estrutural: catálogo temporal consultável, operação com estados guardados e decisões evidenciadas. Um leitor apressado pode achar "que não faz nada"; é deliberado (D4).
+- Estados a partir de `ciot_pending` existem no grafo mas são **inalcançáveis por API** até as fases C+ — documentado na máquina de estados (campo `phase` por transição) e nos testes.
+- 4 PRs da Onda 1 introduzem migrations inéditas (`021`–`025`): cada deploy exige **rollout escalonado** api → Ready → worker (armadilha 13 do `CLAUDE.md` — `runMigrations` sem advisory lock).
+- Pendências externas (P4–P8 do guia) não bloqueiam as Ondas 0–2, mas travam C–F; o programa foi sequenciado para maximizar entrega antes delas.
+
+### Validação
+- Onda 0: `specs-baseline-check.ps1` sem drift (400 requisitos válidos); gates `specs-governance`/`reqhub-gate` nos PRs; validador de links markdown limpo.
+- Ondas 1+: validação obrigatória por PR (`typecheck`, `lint`, `validate:openapi`, `gen:operations` + `sync-operations-ts.mjs`, `npm test`) + categoria nova `tests/regulatory/` com testes de fronteira temporal (23/24/25-05-2026; 05/06/07-08-2026) e meta-guardas (nenhuma versão ACTIVE+blocking sem revisor; toda `version_label` com fixtures antes/depois).
+
+### Resultado
+O programa Transporte tem fundação governada: baseline imutável + guia vivo + 19 REQs rastreáveis +
+este DL + ADR-010/011. A implementação começa pela Onda 1 (PR `sicat/transporte-01-catalogo-regulatorio`).
+
+### Referências
+- [docs/30-transporte/transporte-guia.md](../30-transporte/transporte-guia.md) — guia vivo (tabela de adoção, matriz TR-*, pendências)
+- [docs/30-transporte/deep-research-report.md](../30-transporte/deep-research-report.md) — baseline regulatória (snapshot 13/08/2026)
+- [docs/04-arquitetura/transporte-sicat.md](../04-arquitetura/transporte-sicat.md) — arquitetura alvo da vertical
+- `specs/requirements/sicat/REQ-SICAT-0017..0031, NFR-0009..0012` — requisitos do programa
+- DL-102 — padrão marcador de correlação + `*_unconfirmed` + reconciliador (replicar em CIOT/MDF-e)
+- DL-093 — gateway CETESB permanece em `.js` e intocado
+- DL-022 — fila transacional única (sem broker externo)
+
 ## DL-102
 **Tema:** Correlação pré-submit de manifesto — identidade de idempotência que a CETESB não oferece, gravada em campo livre, e a opção deliberada de entregar o mecanismo INERTE
 **Data:** 2026-08-08
