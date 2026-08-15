@@ -7,6 +7,7 @@ coverage
 # Temporary files and test data
 storage/temp/**/*
 storage/documents/**/*
+storage/transporte-dfe/**/*
 tests/manual/*.json
 tests/manual/*.txt
 tests/manual/test-output.txt

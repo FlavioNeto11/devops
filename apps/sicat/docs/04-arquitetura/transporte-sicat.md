@@ -103,6 +103,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `027_transport_rntrc_verifications.sql` | `rntrc_verifications` (append-only) — ✅ entregue (PR-C1) | C1 |
 | `028_transport_ciot.sql` | `ciot_operations` (`version`+trigger), `ciot_events` (append-only) — ✅ entregue (PR-C2, provedor `mock`) | C2 |
 | `029_transport_vpo.sql` | `vpo_providers` (cadastro de referência, `version`+trigger), `vpo_allocations` (`version`+trigger, MUTÁVEL — uma linha por operação), `vpo_events` (append-only) — ✅ entregue (PR-D1, provedor `mock`) | D1 |
+| `030_transport_fiscal_documents.sql` | `dfe_schema_registry` (`version`+trigger, SEM tenancy), `fiscal_documents` (`version`+trigger), `fiscal_document_links` (append-only), `fiscal_document_events` (append-only) — ✅ entregue (PR-E1) | E1 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -219,6 +220,50 @@ TR-VPO-002 NOVO (saiu de `RULES_WITHOUT_EVALUATOR_YET`) em `rule-evaluators.ts`;
 é carregado por `transport-compliance-service.ts` a partir de
 `vpo-repo.findVpoAllocationByOperationId`, mesmo molde de `ctx.ciotOperation` (PR-C2).
 
+**PR-E1 (Fase E, importação e validação de DF-e — TUDO síncrono, sem job/gateway):**
+
+```text
+POST /v1/transporte/documentos-fiscais/importar                        (201 — parse+valida+grava, dedupe 409)
+POST /v1/transporte/documentos-fiscais/{id}/vincular                    (200 — associa a uma operação)
+POST /v1/transporte/documentos-fiscais/{id}/desvincular                 (200)
+POST /v1/transporte/documentos-fiscais/{id}/revalidar                   (200 — reprocessa com registry/operação ATUAIS)
+GET  /v1/transporte/operacoes/{operationId}/documentos-fiscais          (200 — lista da operação)
+GET  /v1/transporte/documentos-fiscais/{id}                             (200 — detalhe com issues+links)
+```
+
+Tag `Transporte - Documentos Fiscais`. Parser (`lib/transport/dfe-parser.ts`) + validador
+(`lib/transport/dfe-validator.ts`) PUROS sobre `xmlContent` (string) — dependência de runtime NOVA
+`fast-xml-parser` (zero deps nativas; `packages/fiscal-kit` só CONSTRÓI XML simplificado próprio
+para emissão, nunca interpreta o layout real da SEFAZ). Schema registry versionado
+(`dfe_schema_registry`, migration `030`, seed próprio `bootstrap/dfe-schema-seed.ts`) resolve a
+entrada vigente por `(document_type, layout_version)` na data de EMISSÃO do documento — mesmo
+predicado temporal do catálogo regulatório (`resolveVersionFromList` reaproveitado, não duplicado);
+nenhuma regra de XML depende de um schema "eterno". `fiscal_documents` NUNCA guarda o XML — só
+`xmlStorageRef`/`xmlHash` (`STORAGE_DIR/transporte-dfe/<hash>.xml`); `fiscal_document_links`
+(NF-e↔CT-e↔MDF-e) são resolvidos automaticamente na importação, cruzando as chaves referenciadas no
+XML contra documentos já importados na mesma conta.
+
+Antecipação em TESTE das rejeições da NT MDF-e 2026.001 (CIOT obrigatório no MDF-e para transporte
+remunerado por terceiros, pendência P7 do guia): a entrada `MDFE/3.00/NT MDF-e 2026.001` do schema
+registry nasce com `validationProfile.mdfeRequiresCiot=true` e `effectiveFrom` **[ASSUMPTION]**
+`2026-10-01` (cronograma técnico oficial ainda não publicado) — antes dessa data resolve para a
+entrada BASELINE (`validationProfile: {}`) e o mesmo MDF-e sem CIOT não gera o issue
+`MDFE_CIOT_MISSING`; a mudança de comportamento segue só a DATA DE EMISSÃO do documento, nunca um
+`if` hardcoded. Cross-check CIOT↔MDF-e (`MDFE_CIOT_MISMATCH`, quando o CIOT registrado da operação
+não bate com o `infCIOT` do MDF-e) e o side-effect `vpo_allocations.mdfe_reference` (MDF-e com
+`valePed` + alocação `acquired`) rodam na importação (quando `operationId` já vem no request) e em
+`vincular` (sobre o snapshot já extraído, sem reler o XML); `revalidar` é quem de fato relê o XML e
+reprocessa a validação INTEIRA contra o registry/operação ATUAIS — mas NUNCA reescreve
+`xmlStorageRef`/`xmlHash`/campos extraídos do documento original.
+
+6 evaluators novos saíram de `RULES_WITHOUT_EVALUATOR_YET` (`TR-NFE-001`/`TR-CTE-001`/
+`TR-MDFE-001`/`TR-MDFE-002`/`TR-CIOT-005`/`TR-VPO-004`, `rule-evaluators.ts`) — `RULES_WITHOUT_
+EVALUATOR_YET` agora só tem `TR-RNTRC-003` (aguardando regulamentação ANTT, sem alvo de fase
+definido). `ctx.fiscalDocuments` (lista da operação, montada por `transport-compliance-service.ts`
+a partir de `transport-fiscal-repo.ts#listFiscalDocumentsForOperation`) é o recorte MÍNIMO que os
+evaluators consomem — inclusive `validationIssueCodes` (só os `code`, nunca o objeto inteiro), que
+é como `TR-MDFE-002` sabe se o perfil da NT exigiu CIOT sem recalcular a regra por conta própria.
+
 Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` (ou exemplo inline no YAML, molde RNTRC) →
 `gen:operations` **+ `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de
 `sicatAuthMiddleware`; RBAC `transporte.read`/`transporte.write` + papel `sicat.transporte.operator`
@@ -285,6 +330,8 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 | B1 | migration 026, `freight-floor-service.ts` (modo shadow) | cálculo de piso + histórico | estado-atual, guia |
 | C1 | migration 027, `antt-rntrc-gateway.ts`, `transport-rntrc-verification-service.ts`, TR-RNTRC-002 | verificação RNTRC (manual 200 + open_data 202) | estado-atual, guia |
 | C2 | migration 028, `ciot-provider-gateway.ts`, `ciot-correlation.ts`, `ciot-reconciler.ts`, `ciot-repo.ts`, `transport-ciot-service.ts`, TR-CIOT-001/002/003 | ciclo do CIOT (pre-validar 200 + solicitar/retificar/cancelar/encerrar 202 + GET) | este doc, DL-022 doc, estado-atual, guia |
+| D1 | migration 029, `vpo-applicability-engine.ts`, `vpo-correlation.ts`, `vpo-reconciler.ts`, `vpo-repo.ts`, `transport-vpo-service.ts`, `load-vpo-providers.js`, TR-VPO-002 | VPO (avaliar-aplicabilidade 200 + registrar-aquisicao 200 + adquirir 202 + GET + fornecedoras) | este doc, DL-022 doc, estado-atual, guia |
+| E1 | migration 030, `dfe-parser.ts`, `dfe-validator.ts`, `dfe-schema-seed.ts`, `dfe-schema-registry-repo.ts`, `transport-fiscal-repo.ts`, `transport-fiscal-service.ts`, `vpo-repo.ts#setVpoAllocationMdfeReference`, TR-NFE-001/CTE-001/MDFE-001/002/CIOT-005/VPO-004 | DF-e (importar 201 + vincular/desvincular/revalidar 200 + GET lista/detalhe) | este doc, DL-022 doc, estado-atual, guia |
 
 ## 12. Critérios de pronto da Fase A
 

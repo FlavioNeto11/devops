@@ -67,3 +67,4 @@ diagnostics/
 
 # artefatos de runtime dos testes do SICAT (documentos gerados pelo worker)
 apps/sicat/backend/storage/documents/
+apps/sicat/backend/storage/transporte-dfe/

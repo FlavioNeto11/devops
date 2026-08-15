@@ -79,6 +79,14 @@ import {
   registrarAquisicaoVpoManual,
   solicitarAquisicaoVpo
 } from '../services/transport-vpo-service.js';
+import {
+  desvincularDocumentoFiscal,
+  getFiscalDocumentByIdService,
+  getFiscalDocumentsForOperationService,
+  importarDocumentoFiscal,
+  revalidarDocumentoFiscal,
+  vincularDocumentoFiscal
+} from '../services/transport-fiscal-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -441,6 +449,68 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Cadastro CONFIGURÁVEL de fornecedoras habilitadas (read-only) — carregado via `npm run load:vpo-providers`.
   router.get('/v1/transporte/vpo/fornecedoras', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
     const response = await listVpoProvidersService();
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Documentos Fiscais — importação/validação de DF-e (PR-E1). TUDO síncrono (sem job/gateway
+  // nesta camada — o XML chega pronto no request; emissão real via SEFAZ fica na Fase G).
+  // ===========================================================================================
+
+  // 201 — parse + resolve schema registry vigente na emissão + valida + grava XML (storage_ref +
+  // hash, nunca o XML em coluna) + fiscal_documents + links resolvidos + eventos. Dedupe por
+  // (integrationAccountId, accessKey) → 409 DFE_ALREADY_IMPORTED.
+  router.post('/v1/transporte/documentos-fiscais/importar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await importarDocumentoFiscal(
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.post('/v1/transporte/documentos-fiscais/:documentId/vincular', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await vincularDocumentoFiscal(
+      String(req.params.documentId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/documentos-fiscais/:documentId/desvincular', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await desvincularDocumentoFiscal(
+      String(req.params.documentId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // Reprocessa a validação com o registry/operação ATUAIS a partir do XML já armazenado — NUNCA
+  // muda o snapshot importado (xml_storage_ref/xml_hash/campos extraídos do XML original).
+  router.post('/v1/transporte/documentos-fiscais/:documentId/revalidar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await revalidarDocumentoFiscal(
+      String(req.params.documentId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  router.get('/v1/transporte/operacoes/:operationId/documentos-fiscais', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getFiscalDocumentsForOperationService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Detalhe com issues + links — NUNCA devolve o XML inteiro (só storage_ref/hash internos).
+  router.get('/v1/transporte/documentos-fiscais/:documentId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getFiscalDocumentByIdService(
+      String(req.params.documentId || ''),
+      (req.query || {}) as LooseRecord
+    );
     res.json(response);
   }));
 

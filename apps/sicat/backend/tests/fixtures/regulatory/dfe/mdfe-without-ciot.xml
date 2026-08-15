@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdfeProc versao="3.00" xmlns="http://www.portalfiscal.inf.br/mdfe">
+  <MDFe>
+    <infMDFe Id="MDFe35260811222333000181580010000000021000000058" versao="3.00">
+      <ide>
+        <cUF>35</cUF>
+        <tpAmb>2</tpAmb>
+        <tpEmit>1</tpEmit>
+        <mod>58</mod>
+        <serie>1</serie>
+        <nMDF>2</nMDF>
+        <cMDF>00000002</cMDF>
+        <cDV>8</cDV>
+        <modal>1</modal>
+        <dhEmi>2026-08-04T07:00:00-03:00</dhEmi>
+        <tpEmis>1</tpEmis>
+        <procEmi>0</procEmi>
+        <verProc>SICAT-fixture-1.0</verProc>
+        <UFIni>SP</UFIni>
+        <UFFim>SP</UFFim>
+        <dhIniViagem>2026-08-04T08:00:00-03:00</dhIniViagem>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>Transportes Fixture LTDA</xNome>
+        <IE>111222333444</IE>
+      </emit>
+      <infModal versaoModal="3.00">
+        <rodo>
+          <codAgPorto>0</codAgPorto>
+        </rodo>
+      </infModal>
+      <infDoc>
+        <infMunDescarga>
+          <cMunDescarga>3509502</cMunDescarga>
+          <xMunDescarga>Campinas</xMunDescarga>
+        </infMunDescarga>
+      </infDoc>
+      <tot>
+        <qCTe>0</qCTe>
+        <vCarga>26000.00</vCarga>
+        <cUnid>01</cUnid>
+        <qCarga>28000.0000</qCarga>
+      </tot>
+    </infMDFe>
+  </MDFe>
+  <protMDFe versao="3.00">
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <chMDFe>35260811222333000181580010000000021000000058</chMDFe>
+      <dhRecbto>2026-08-04T07:05:00-03:00</dhRecbto>
+      <nProt>135260000045678</nProt>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso do MDF-e</xMotivo>
+    </infProt>
+  </protMDFe>
+</mdfeProc>

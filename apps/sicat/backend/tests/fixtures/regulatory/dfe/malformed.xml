@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35260811222333000181550010000000011000000017" versao="4.00">
+      <ide>
+        <dhEmi>2026-08-01T10:00:00-03:00</dhEmi>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ>
+    </infNFe>
+  </NFe>
+</nfeProc>

@@ -832,6 +832,86 @@ no boot (`AUTO_SEED`) e NUNCA toca `is_active` de uma linha existente (upsert po
 ⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
 primeiro, worker só depois de Ready.
 
+## Migration 030 — Importação/validação de DF-e Transporte + schema registry (PR-E1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). Diferente de
+027/028/029, este PR NÃO adiciona fila: `importar`/`vincular`/`desvincular`/`revalidar` são TODOS
+síncronos (o XML chega pronto no request; não há resposta externa para reconciliar) — zero job
+type novo, zero touch em `operation-handlers.ts`/`lib/retry.ts`/`command-response.ts`.
+
+- **`030_transport_fiscal_documents.sql`** — `dfe_schema_registry` (PK `text` via `createPrefixedId`
+  (`dfeschema_`), SEM tenancy — schema registry é global, molde `vpo_providers` — `version` +
+  trigger `increment_version()`), `fiscal_documents` (`dfe_`, `version` + trigger),
+  `fiscal_document_links` (`dfelink_`, APPEND-ONLY, sem `version`) e `fiscal_document_events`
+  (`dfeev_`, APPEND-ONLY). **Decisão de índice não-trivial**: `dfe_schema_registry` precisa de
+  chave natural `(document_type, layout_version, technical_note)`, mas `technical_note` é NULLABLE
+  (a entrada BASELINE de cada tipo não cita nenhuma nota técnica) — uma `UNIQUE` constraint comum
+  trata duas linhas com `technical_note IS NULL` como NÃO-conflitantes (semântica padrão de NULL em
+  índice único), o que quebraria a idempotência do seed na primeira reconciliação de cada tipo
+  (reboot criaria uma SEGUNDA linha, não um upsert). Resolvido com um ÍNDICE (não constraint
+  simples) sobre `(document_type, layout_version, coalesce(technical_note, ''))`, e o `INSERT ...
+  ON CONFLICT` do seed (`bootstrap/dfe-schema-seed.ts`) referenciando a mesma expressão como
+  arbiter. `fiscal_documents.access_key` tem CHECK `length = 44 and access_key ~ '^[0-9]{44}$'`
+  (layout SEFAZ) — a coerência FINA da chave (dígito verificador mod-11, modelo do documento, CNPJ
+  embutido) é responsabilidade de `dfe-validator.ts` (`DFE_ACCESS_KEY_MISMATCH`, um
+  `DfeValidationIssue`, não uma constraint de banco — uma chave de 44 dígitos com DV errado ainda é
+  GRAVÁVEL, só entra `invalid` em `validation_status`). `fiscal_documents` NUNCA guarda o XML: só
+  `xml_storage_ref` (`STORAGE_DIR/transporte-dfe/<hash>.xml`) + `xml_hash` (SHA-256) — mesmo
+  racional de `manifest-service.ts` para documentos MTR/CDF gerados.
+
+**Dependência de runtime NOVA**: `fast-xml-parser` (`^5.10.1`, zero deps nativas, licença MIT).
+Justificativa: `packages/fiscal-kit` (kit de EMISSÃO, Fase G) só CONSTRÓI XML simplificado próprio
+para NF-e (`src/nfe/build.js`, formato inventado para o sandbox, nunca o layout real da SEFAZ) —
+não existia parser XML estrutural no workspace. `XMLValidator.validate()` detecta XML malformado
+(`DFE_XML_INVALID`) ANTES de `XMLParser.parse()` rodar; `removeNSPrefix: true` torna o parser
+tolerante a XML com prefixo de namespace. NUNCA `eval`/regex-DOM-hack.
+
+**Schema registry — por que "nenhuma regra de XML depende de schema eterno"**: `dfe_schema_registry`
+resolve a entrada VIGENTE por `(document_type, layout_version)` na data de EMISSÃO do documento
+(`dfe-schema-registry-repo.ts#findActiveSchemaRegistryEntry`, reaproveitando
+`lib/transport/regulatory-temporal.ts#resolveVersionFromList` do catálogo regulatório — MESMO
+predicado temporal, não duplicado em SQL) — o mesmo layout MDF-e 3.00 pode ter perfis de validação
+DIFERENTES conforme a data (`validation_profile` jsonb, regras ativáveis). A antecipação em TESTE
+das rejeições da NT MDF-e 2026.001 (CIOT obrigatório no MDF-e para transporte remunerado por
+terceiros) é uma LINHA deste registry (`MDFE/3.00/NT MDF-e 2026.001`,
+`validation_profile.mdfeRequiresCiot=true`, `effective_from` **[ASSUMPTION]** `2026-10-01` —
+cronograma técnico oficial da SEFAZ/CONFAZ ainda não publicado, pendência P7 do guia do programa),
+nunca um `if` hardcoded no validador — `dfe-validator.ts#checkMdfeCiotRequired` só lê
+`registryEntry.validationProfile.mdfeRequiresCiot`.
+
+`transport-fiscal-service.ts` orquestra `importarDocumentoFiscal`: parse (puro) → dedupe por
+`(integration_account_id, access_key)` (409 `DFE_ALREADY_IMPORTED`, existingId no campo `errors`
+do problem+json — `context` do `AppError` NÃO é serializado por `error-handler.ts#createProblem`,
+só `errors` é) → resolve o schema registry vigente na emissão → valida (`dfe-validator.ts`, contexto
+da operação já incluído quando `operationId` chega no próprio request) → grava XML em storage →
+persiste `fiscal_documents` + `fiscal_document_links` (resolvidos automaticamente: as chaves
+referenciadas no XML — `infDoc`/`infCTeNorm` — cruzadas contra documentos JÁ importados na mesma
+conta) + eventos (`imported`, `validated`, e `linked_to_operation` quando `operationId` é
+informado) NUMA transação. `vincular` roda o cross-check `MDFE_CIOT_MISMATCH` (CIOT registrado da
+operação vs. `infCIOT` do MDF-e) e o side-effect `vpo_allocations.mdfe_reference` (nova função em
+`vpo-repo.ts`, `setVpoAllocationMdfeReference` — guardada por `status = 'acquired'`, mesmo padrão
+das demais transições da tabela) sobre o SNAPSHOT já extraído — sem reler o XML; `revalidar` é o
+único fluxo que relê o XML do storage e reprocessa a validação INTEIRA contra o registry/operação
+ATUAIS, mas nunca reescreve `xml_storage_ref`/`xml_hash`/`ciot_numbers`/`vpo_references` (congelados
+na importação, parte do snapshot, não da validação).
+
+6 evaluators novos em `rule-evaluators.ts` (`TR-NFE-001`, `TR-CTE-001`, `TR-MDFE-001`,
+`TR-MDFE-002`, `TR-CIOT-005`, `TR-VPO-004`) saíram de `RULES_WITHOUT_EVALUATOR_YET` — que agora só
+tem `TR-RNTRC-003` (aguardando regulamentação ANTT). `ctx.fiscalDocuments` (recorte mínimo — `id`,
+`documentType`, `validationStatus`, `authorizationStatus`, `validationIssueCodes` (só os `code`,
+nunca o objeto `DfeValidationIssue` inteiro), `ciotNumbers`, `hasValePedagio`) é montado por
+`transport-compliance-service.ts` via
+`transport-fiscal-repo.ts#listFiscalDocumentsForOperation`, mesmo molde de `ctx.ciotOperation`/
+`ctx.vpoAllocation`.
+
+Contrato: tag nova `Transporte - Documentos Fiscais`, 6 endpoints — TODOS síncronos (201 import, 200
+os demais). NENHUM entrou em `commandEndpoints` de `scripts/validate-openapi.js` (essa lista é só
+para endpoints `202`/`CommandAccepted`; esta camada não tem nenhum).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
+processos).
+
 ---
 
 **Referências**:

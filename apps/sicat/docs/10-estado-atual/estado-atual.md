@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -854,6 +854,73 @@ reconcile encontra e completa, reconcile not-found → volta a `applicable`),
 obrigatório, registrar-aquisicao manual atualiza `vpoAmount` sem tocar `freightOfferedAmount`,
 adquirir 202 + dedupe via Idempotency-Key, fornecedoras lista as 16 reais, tenancy, 401).
 `tests/regulatory/compliance-gates.test.js` ganhou casos dedicados para os 3 evaluators.
+
+O PR-E1 (Fase E, Onda 5) entregou a **importação e validação de DF-e** (NF-e/CT-e/MDF-e) — TUDO
+síncrono (201/200, sem job/gateway: o XML chega pronto no request, emissão real via SEFAZ fica na
+Fase G atrás de flag). Dependência de runtime NOVA e justificada: `fast-xml-parser` (zero deps
+nativas, MIT) — o workspace não tinha parser XML adequado (`packages/fiscal-kit` só CONSTRÓI XML
+simplificado próprio para emissão, nunca interpreta o layout real da SEFAZ). Parser
+([`dfe-parser.ts`](../../backend/src/lib/transport/dfe-parser.ts)) e validador
+([`dfe-validator.ts`](../../backend/src/lib/transport/dfe-validator.ts)) são módulos PUROS: o
+parser detecta o tipo pela raiz (`nfeProc`/`NFe`, `cteProc`/`CTe`, `mdfeProc`/`MDFe`, tolerante a
+namespaces), extrai chave de acesso/emitente/destinatário/protocolo/valor total e, para MDF-e,
+`infCIOT`/`valePed`/`infDoc`/percurso; NÃO valida XSD completo (limitação documentada). Migration
+[`030`](../../backend/src/sql/030_transport_fiscal_documents.sql) cria `dfe_schema_registry`
+(schema registry VERSIONADO por `document_type`+`layout_version`+`technical_note`, com índice
+único sobre `coalesce(technical_note, '')` — uma UNIQUE constraint comum trataria duas entradas
+`technical_note is null` como não-conflitantes, quebrando a idempotência do seed), `fiscal_documents`
+(NUNCA guarda o XML — só `xml_storage_ref`+`xml_hash`, `STORAGE_DIR/transporte-dfe/<hash>.xml`),
+`fiscal_document_links` (vínculos NF-e↔CT-e↔MDF-e, resolvidos automaticamente na importação) e
+`fiscal_document_events` (append-only: `imported`, `validated`, `revalidated`,
+`linked_to_operation`, `unlinked`). Seed próprio
+[`dfe-schema-seed.ts`](../../backend/src/bootstrap/dfe-schema-seed.ts) (não uma função a mais no
+seed regulatório — o schema registry não é o catálogo TR-*): NF-e 4.00 (2018-01-01), CT-e 4.00
+(2023-02-01), MDF-e 3.00 baseline (2018-01-01, `validationProfile: {}`) e MDF-e 3.00 + **NT MDF-e
+2026.001** (`validationProfile.mdfeRequiresCiot=true`, `effectiveFrom` **[ASSUMPTION]**
+`2026-10-01` — cronograma técnico oficial da SEFAZ/CONFAZ ainda não publicado, pendência P7 do
+guia). `transport-fiscal-service.ts` orquestra `importarDocumentoFiscal`: parse → dedupe por
+`(integrationAccountId, accessKey)` (409 `DFE_ALREADY_IMPORTED`, `errors.existingId`) → resolve a
+entrada VIGENTE do schema registry na data de EMISSÃO do documento (reaproveita
+`resolveVersionFromList` do catálogo regulatório, não duplica o predicado temporal) → valida →
+grava o XML em storage → persiste `fiscal_documents` + links + eventos NUMA transação; quando
+`operationId` chega no próprio request, o contexto da operação (partes/rota/CIOT/VPO) já entra na
+PRIMEIRA validação. `vincular`/`desvincular` associam/desassociam um documento; `vincular` roda o
+cross-check CIOT↔MDF-e (`MDFE_CIOT_MISMATCH`, quando o `infCIOT` do MDF-e não bate com o CIOT
+`registered`/`rectified` da operação) e o side-effect `vpo_allocations.mdfe_reference` (MDF-e com
+`valePed` + alocação `acquired`, via `vpo-repo.ts#setVpoAllocationMdfeReference`, evento
+`evidence_attached` em `vpo_events`) sobre o snapshot JÁ EXTRAÍDO, sem reler o XML; `revalidar` é
+quem de fato relê o XML do storage e reprocessa a validação INTEIRA contra o registry/operação
+ATUAIS — mas NUNCA reescreve `xmlStorageRef`/`xmlHash`/campos extraídos do documento original
+(`ciotNumbers`/`vpoReferences` inclusive, congelados na importação). GET de detalhe devolve
+`validationIssues` + `links`, NUNCA o XML — só a referência interna de storage. 6 evaluators novos
+saíram de `RULES_WITHOUT_EVALUATOR_YET` (`rule-evaluators.ts`): **TR-NFE-001**/**TR-CTE-001**
+(documento ausente → `warn DFE_MISSING_{NFE,CTE}`, pode legitimamente faltar; `invalid`/
+`cancelled`/`denied` → `block` bruto; `valid`/`authorized` → `pass`); **TR-MDFE-001** (mesmo molde,
+mas ausência é `block` bruto `MDFE_MISSING` — MDF-e é obrigatório); **TR-MDFE-002** (lê
+`validationIssueCodes` do documento — `MDFE_CIOT_MISSING`/`MDFE_CIOT_MISMATCH`, já decididos pelo
+validador contra o perfil do schema registry — NUNCA recalcula a regra da NT por conta própria);
+**TR-CIOT-005** (CIOT `registered` presente no `infCIOT` do MDF-e vinculado → `pass`; sem MDF-e
+ainda, ou MDF-e sem o número → `warn CIOT_MDFE_LINK_PENDING`); **TR-VPO-004** (VPO `acquired` + MDF-e
+com `valePed` + `mdfeReference` preenchida → `pass`; `acquired` sem `valePed` no MDF-e → `warn
+VPO_MDFE_REFERENCE_MISSING`). `RULES_WITHOUT_EVALUATOR_YET` agora só tem `TR-RNTRC-003`
+(`AWAITING_REGULATION`, pendência P2 — sem alvo de fase, aguarda regulamentação). `ctx.fiscalDocuments`
+carregado por `transport-compliance-service.ts` via
+`transport-fiscal-repo.ts#listFiscalDocumentsForOperation`, mesmo molde de `ctx.ciotOperation`/
+`ctx.vpoAllocation`. Contrato: tag nova `Transporte - Documentos Fiscais`, 6 endpoints, todos
+síncronos — NENHUM entrou em `commandEndpoints` de `scripts/validate-openapi.js` (sem 202 nesta
+camada). Cobertura: `tests/unit/dfe-parser.test.js` (todas as fixtures + malformed → tipado),
+`tests/unit/dfe-validator.test.js` (chave de acesso — DV mod-11/modelo/CNPJ —, autorização,
+`MDFE_CIOT_MISSING`/`MISMATCH`, `MDFE_VPO_MISSING_INFO`, `CTE_WITHOUT_NFE_REFERENCE`,
+`DFE_PARTY_MISMATCH`/`ROUTE_MISMATCH`), `tests/api/transporte-dfe.test.js` (skip-if-no-DB: importar
+201 + dedupe 409, vincular/desvincular, revalidar reprocessando contexto atual, links automáticos,
+MDF-e atualiza `vpo_allocations.mdfe_reference`, tenancy, 401, XML nunca no corpo da resposta),
+`tests/regulatory/compliance-gates.test.js` (casos dedicados dos 6 evaluators) e
+`tests/regulatory/dfe-schema-registry-time-travel.test.js` (a MESMA entrada MDFE/3.00 resolve
+BASELINE antes de 2026-10-01 e o perfil da NT depois; o MESMO MDF-e sintético importa `valid`
+antes da virada e `invalid`/`MDFE_CIOT_MISSING` na virada, contra `importarDocumentoFiscal` de
+verdade). Fixtures sintéticas em `tests/fixtures/regulatory/dfe/` (chaves de acesso de 44 dígitos
+com DV mod-11 calculado corretamente, CNPJs fictícios) — XMLs reais de design partner seguem
+pendentes para calibração fina do parser (pendência P7 do guia).
 
 ## 4. Riscos e limites conhecidos
 

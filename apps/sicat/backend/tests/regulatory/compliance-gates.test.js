@@ -50,8 +50,8 @@ function toClampableVersion(seedVersion) {
   };
 }
 
-/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). `ciotOperation` (PR-C2)/`vpoAllocation` (PR-D1) são opcionais. */
-function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, ciotOperation = undefined, vpoAllocation = undefined) {
+/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). `ciotOperation` (PR-C2)/`vpoAllocation` (PR-D1)/`fiscalDocuments` (PR-E1) são opcionais. */
+function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, ciotOperation = undefined, vpoAllocation = undefined, fiscalDocuments = undefined) {
   const seedVersion = resolveVersionFromList(rule.versions, referenceDate);
   if (!seedVersion) return { version: null, outcome: null, clamped: null };
 
@@ -59,7 +59,7 @@ function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, cio
   if (!evaluator) return { version: seedVersion, outcome: null, clamped: null };
 
   const clampableVersion = toClampableVersion(seedVersion);
-  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate, ciotOperation, vpoAllocation });
+  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate, ciotOperation, vpoAllocation, fiscalDocuments });
   const clamped = applyEnforcementClamp(outcome, clampableVersion);
   return { version: seedVersion, outcome, clamped };
 }
@@ -74,7 +74,7 @@ function buildCiotOperationFixture(overrides = {}) {
   };
 }
 
-/** Fixture mínima de `ctx.vpoAllocation` (PR-D1) — recorte que os evaluators TR-VPO-001/002/003 consomem. */
+/** Fixture mínima de `ctx.vpoAllocation` (PR-D1) — recorte que os evaluators TR-VPO-001/002/003/004 consomem. */
 function buildVpoAllocationFixture(overrides = {}) {
   return {
     status: 'applicable',
@@ -83,6 +83,21 @@ function buildVpoAllocationFixture(overrides = {}) {
     amount: null,
     providerId: null,
     evidenceSource: null,
+    mdfeReference: null,
+    ...overrides
+  };
+}
+
+/** Fixture mínima de UM `ctx.fiscalDocuments[]` (PR-E1) — recorte que TR-NFE-001/CTE-001/MDFE-001/002/CIOT-005/VPO-004 consomem. */
+function buildFiscalDocumentFixture(documentType, overrides = {}) {
+  return {
+    id: `dfe_fixture_${documentType.toLowerCase()}`,
+    documentType,
+    validationStatus: 'valid',
+    authorizationStatus: 'authorized',
+    validationIssueCodes: [],
+    ciotNumbers: [],
+    hasValePedagio: false,
     ...overrides
   };
 }
@@ -300,6 +315,164 @@ describe('compliance-gates — GATE_PROPOSAL / TR-PMF-002 (oferta não pode fica
     const { outcome } = resolveAndEvaluate(ruleByCode('TR-PMF-002'), buildEtcFracionadaOperation());
     assert.equal(outcome.status, 'not_applicable');
     assert.equal(outcome.reasonCode, 'FLOOR_NOT_APPLICABLE');
+  });
+});
+
+// ===================================================================================================
+// GATE_FISCAL / TR-NFE-001, TR-CTE-001, TR-MDFE-001, TR-MDFE-002, TR-CIOT-005, TR-VPO-004 (PR-E1)
+// ===================================================================================================
+
+describe('compliance-gates — GATE_FISCAL / TR-NFE-001 e TR-CTE-001 (NF-e/CT-e podem legitimamente faltar)', () => {
+  it('sem nenhum documento fiscal vinculado → warn DFE_MISSING_NFE/DFE_MISSING_CTE (nunca block)', () => {
+    const nfe = resolveAndEvaluate(ruleByCode('TR-NFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, []);
+    assert.equal(nfe.outcome.status, 'warn');
+    assert.equal(nfe.outcome.reasonCode, 'DFE_MISSING_NFE');
+
+    const cte = resolveAndEvaluate(ruleByCode('TR-CTE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, []);
+    assert.equal(cte.outcome.status, 'warn');
+    assert.equal(cte.outcome.reasonCode, 'DFE_MISSING_CTE');
+  });
+
+  it('NF-e autorizada e válida → pass', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('NFE')];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-NFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('NF-e com validation_status=invalid → block (raw) DFE_NFE_INVALID', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('NFE', { validationStatus: 'invalid' })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-NFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'DFE_NFE_INVALID');
+  });
+
+  it('CT-e com authorization_status=cancelled → block (raw) DFE_CTE_CANCELLED', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('CTE', { authorizationStatus: 'cancelled' })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CTE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'DFE_CTE_CANCELLED');
+  });
+
+  it('CT-e com validation_status=warnings → warn DFE_CTE_WARNINGS (nunca pass silencioso)', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('CTE', { validationStatus: 'warnings' })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CTE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'DFE_CTE_WARNINGS');
+  });
+});
+
+describe('compliance-gates — GATE_FISCAL / TR-MDFE-001 (MDF-e é o ÚNICO com ausência em block bruto)', () => {
+  it('sem MDF-e vinculado → block (raw) MDFE_MISSING', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, []);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'MDFE_MISSING');
+  });
+
+  it('MDF-e autorizado e válido → pass', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE')];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('MDF-e com authorization_status=denied → block (raw) DFE_MDFE_DENIED', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { authorizationStatus: 'denied' })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'DFE_MDFE_DENIED');
+  });
+});
+
+describe('compliance-gates — GATE_FISCAL / TR-MDFE-002 (CIOT no MDF-e — lê validationIssueCodes, nunca recalcula o perfil)', () => {
+  it('sem MDF-e vinculado → not_applicable MDFE_NOT_PRESENT (coberto por TR-MDFE-001)', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, []);
+    assert.equal(outcome.status, 'not_applicable');
+    assert.equal(outcome.reasonCode, 'MDFE_NOT_PRESENT');
+  });
+
+  it('MDF-e com MDFE_CIOT_MISSING em validationIssueCodes (dfe-validator.ts já decidiu) → block bruto', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { validationIssueCodes: ['MDFE_CIOT_MISSING'] })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'MDFE_CIOT_MISSING');
+  });
+
+  it('MDF-e com MDFE_CIOT_MISMATCH em validationIssueCodes → block bruto', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { ciotNumbers: ['123'], validationIssueCodes: ['MDFE_CIOT_MISMATCH'] })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'MDFE_CIOT_MISMATCH');
+  });
+
+  it('MDF-e com CIOT presente e sem nenhum dos dois issues → pass', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { ciotNumbers: ['123'] })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('MDF-e sem CIOT mas SEM MDFE_CIOT_MISSING (perfil não exigiu — antes da NT/não remunerado) → pass', () => {
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE')];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-MDFE-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+});
+
+describe('compliance-gates — GATE_FISCAL / TR-CIOT-005 (CIOT vinculado ao MDF-e quando aplicável)', () => {
+  it('CIOT ainda não registrado → not_applicable CIOT_NOT_REGISTERED', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-005'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, undefined, []);
+    assert.equal(outcome.status, 'not_applicable');
+    assert.equal(outcome.reasonCode, 'CIOT_NOT_REGISTERED');
+  });
+
+  it('CIOT registrado, mas sem MDF-e vinculado ainda → warn CIOT_MDFE_LINK_PENDING', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'registered', ciotNumber: '999' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-005'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation, undefined, []);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'CIOT_MDFE_LINK_PENDING');
+  });
+
+  it('CIOT registrado presente no infCIOT do MDF-e → pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'registered', ciotNumber: '999' });
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { ciotNumbers: ['999'] })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-005'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('CIOT registrado AUSENTE do infCIOT do MDF-e vinculado → warn CIOT_MDFE_LINK_PENDING', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'registered', ciotNumber: '999' });
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { ciotNumbers: ['000'] })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-005'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation, undefined, fiscalDocuments);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'CIOT_MDFE_LINK_PENDING');
+  });
+});
+
+describe('compliance-gates — GATE_FISCAL / TR-VPO-004 (referência do VPO no MDF-e quando exigida)', () => {
+  it('allocation not_applicable → not_applicable (dispensa evidenciada)', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'not_applicable', applicable: false, applicabilityReasonCode: 'VPO_NO_TOLL_ON_ROUTE' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-004'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation, []);
+    assert.equal(outcome.status, 'not_applicable');
+  });
+
+  it('allocation applicable mas AINDA NÃO acquired → warn VPO_NOT_ACQUIRED', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'applicable' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-004'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation, []);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'VPO_NOT_ACQUIRED');
+  });
+
+  it('acquired + MDF-e com valePed + mdfeReference preenchida → pass', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: 'vpoprov_x', mdfeReference: '35260000000000000000000000000000000000000000' });
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { hasValePedagio: true })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-004'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation, fiscalDocuments);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('acquired SEM valePed no MDF-e vinculado → warn VPO_MDFE_REFERENCE_MISSING', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: 'vpoprov_x' });
+    const fiscalDocuments = [buildFiscalDocumentFixture('MDFE', { hasValePedagio: false })];
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-004'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation, fiscalDocuments);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'VPO_MDFE_REFERENCE_MISSING');
   });
 });
 
