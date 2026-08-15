@@ -238,33 +238,48 @@ Invoke-Check -Name 'Console: HTTP /devops responde (200 ou 302 do SSO)' -Test {
     Write-Output ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 302)
 }
 
-# 9) Sample app aplicacao1 (deploy + HTTP /aplicacao1 e /aplicacao1/api/health)
-Invoke-Check -Name 'Sample app: deployments em apps' -Test {
+# 9) App de referencia (deploy + HTTP frontend/api) — valida a regra de ouro do
+# roteamento por path (frontend SEM strip + api COM strip) num app REAL.
+# O sample "aplicacao1" so existe num bootstrap recem-criado; num cluster vivo o
+# probe cai no sicat (flagship). Sem nenhum dos dois: SKIP, nao FAIL — o check
+# mede a PLATAFORMA, e um relatorio 14/17 cronico polui o sinal.
+Invoke-Check -Name 'Apps: deployments em apps' -Test {
     if (-not $hasKubectl) { throw 'SKIP: kubectl ausente' }
     $deps = kubectl get deploy -n apps -o name 2>$null
     Write-Output ("{0} deployment(s)" -f (@($deps).Count))
     Write-Output ($LASTEXITCODE -eq 0 -and $deps)
 } -AllowSkip
 
-Invoke-Check -Name 'Sample app: HTTP /aplicacao1 responde 200' -Test {
-    $resp = Invoke-PlatformHttp -Path '/aplicacao1'
-    Write-Output ("HTTP {0}" -f $resp.StatusCode)
+$script:ProbeApp = $null
+if ($hasKubectl) {
+    $depNames = @(kubectl get deploy -n apps -o name 2>$null)
+    foreach ($candidate in @('aplicacao1', 'sicat')) {
+        if ($depNames -match "deployment\.apps/$candidate-") { $script:ProbeApp = $candidate; break }
+    }
+}
+
+Invoke-Check -Name 'App de referencia: frontend responde 200' -Test {
+    if (-not $script:ProbeApp) { throw 'SKIP: nenhum app de referencia (aplicacao1/sicat) no cluster' }
+    $resp = Invoke-PlatformHttp -Path "/$($script:ProbeApp)/"
+    Write-Output ("/{0}/ HTTP {1}" -f $script:ProbeApp, $resp.StatusCode)
     Write-Output ($resp.StatusCode -eq 200)
 }
 
-Invoke-Check -Name 'Sample app: HTTP /aplicacao1/api/health responde 200' -Test {
-    $resp = Invoke-PlatformHttp -Path '/aplicacao1/api/health'
-    Write-Output ("HTTP {0}" -f $resp.StatusCode)
+Invoke-Check -Name 'App de referencia: api/health responde 200' -Test {
+    if (-not $script:ProbeApp) { throw 'SKIP: nenhum app de referencia (aplicacao1/sicat) no cluster' }
+    $resp = Invoke-PlatformHttp -Path "/$($script:ProbeApp)/api/health"
+    Write-Output ("/{0}/api/health HTTP {1}" -f $script:ProbeApp, $resp.StatusCode)
     Write-Output ($resp.StatusCode -eq 200)
 }
 
-# 10) Roteamento por path funcionando (frontend != api)
-Invoke-Check -Name 'Roteamento por path (/aplicacao1 vs /aplicacao1/api/health)' -Test {
-    $front = Invoke-PlatformHttp -Path '/aplicacao1'
-    $api   = Invoke-PlatformHttp -Path '/aplicacao1/api/health'
+# 10) Roteamento por path funcionando (frontend != api no MESMO prefixo)
+Invoke-Check -Name 'Roteamento por path (frontend vs api do app de referencia)' -Test {
+    if (-not $script:ProbeApp) { throw 'SKIP: nenhum app de referencia (aplicacao1/sicat) no cluster' }
+    $front = Invoke-PlatformHttp -Path "/$($script:ProbeApp)/"
+    $api   = Invoke-PlatformHttp -Path "/$($script:ProbeApp)/api/health"
     # Ambos devem responder 200; o teste confirma que os dois prefixos roteiam.
     $ok = ($front.StatusCode -eq 200 -and $api.StatusCode -eq 200)
-    Write-Output ("front={0} api={1}" -f $front.StatusCode, $api.StatusCode)
+    Write-Output ("app={0} front={1} api={2}" -f $script:ProbeApp, $front.StatusCode, $api.StatusCode)
     Write-Output $ok
 }
 
