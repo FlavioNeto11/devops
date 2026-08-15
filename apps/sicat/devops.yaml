@@ -19,6 +19,8 @@ services:
       context: frontend
       args:
         VITE_API_BASE_URL: /sicat/api
+        # Vertical Transporte visivel no lab (menu + rotas sao flag-gated em build-time).
+        VITE_FEATURE_TRANSPORTE: "true"
     health:
       path: /healthz
   api:
