@@ -48,7 +48,12 @@ const RETRYABLE_ERROR_CODES = new Set([
   'VPO_RECONCILE_QUERY_FAILED',
   // Erro do reconciliador da emissão de DF-e (PR-G) ao consultar o gateway — INCONCLUSIVO, mesmo
   // racional de `CIOT_RECONCILE_QUERY_FAILED`/`VPO_RECONCILE_QUERY_FAILED`.
-  'TRANSPORTE_DFE_ISSUANCE_RECONCILE_QUERY_FAILED'
+  'TRANSPORTE_DFE_ISSUANCE_RECONCILE_QUERY_FAILED',
+  // Regulatory Watch (PR-H1) — timeout/rede também classificados por status (>=500/504/502 via
+  // `classifyRetryabilityFromStatus`); registrados aqui também para clareza e redundância, mesmo
+  // molde de `RNTRC_GATEWAY_TIMEOUT`/`RNTRC_GATEWAY_NETWORK_ERROR`.
+  'REGULATORY_WATCH_GATEWAY_TIMEOUT',
+  'REGULATORY_WATCH_GATEWAY_NETWORK_ERROR'
 ]);
 
 const NON_RETRYABLE_ERROR_CODES = new Set([
@@ -149,7 +154,8 @@ type RetryableOperation =
   | 'transporte.vpo.reconcile'
   | 'transporte.dfe.issue'
   | 'transporte.dfe.issue.cancel'
-  | 'transporte.dfe.issue.reconcile';
+  | 'transporte.dfe.issue.reconcile'
+  | 'transporte.regulatory.watch_check';
 
 type JobLike = {
   attempts: number;
@@ -425,7 +431,11 @@ export function calculateJobPriority(operation: string): number {
     // segurança, mesmo racional do CIOT/VPO).
     'transporte.dfe.issue': 4,
     'transporte.dfe.issue.cancel': 4,
-    'transporte.dfe.issue.reconcile': 3
+    'transporte.dfe.issue.reconcile': 3,
+    // Varredura do Regulatory Watch (PR-H1) — housekeeping de fundo, mesmo nível de `catalog.sync`
+    // (3): nenhum operador está esperando na tela por este job (a leitura humana só acontece depois,
+    // em `human_review`), e nenhuma operação CETESB/CIOT/VPO/DF-e pode ser preemptada por ele.
+    'transporte.regulatory.watch_check': 3
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -687,6 +697,17 @@ export function getRetryConfig(operation: string): RetryConfig {
       strategy: 'exponential',
       baseDelayMs: 5000,
       maxDelayMs: 60000
+    },
+    // Varredura do Regulatory Watch (PR-H1) — cada fonte é isolada em try/catch DENTRO do job (uma
+    // fonte fora do ar nunca derruba as outras nem o job inteiro), então o retry AQUI só existe para
+    // falha catastrófica em torno do laço (ex.: banco fora no meio da varredura). Orçamento curto:
+    // 3 tentativas, exponencial 10s→120s — a próxima varredura periódica (24h) já é a rede de
+    // segurança natural, não vale insistir agressivamente.
+    'transporte.regulatory.watch_check': {
+      maxAttempts: 3,
+      strategy: 'exponential',
+      baseDelayMs: 10000,
+      maxDelayMs: 120000
     }
   };
 

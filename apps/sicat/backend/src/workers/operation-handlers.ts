@@ -77,6 +77,7 @@ import {
   runDfeIssuanceCancelJob,
   runDfeIssuanceReconcileJob
 } from '../services/transport-dfe-issuance-service.js';
+import { runRegulatoryWatchCheckJob } from '../services/transport-regulatory-watch-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -1203,6 +1204,20 @@ async function handleTransporteDfeIssueReconcile(job: JobEntity) {
 // `repositories/dfe-issuance-repo.ts`, já importado lá.
 export { applyTransporteDfeIssuanceTerminalFailureSideEffect } from '../services/transport-dfe-issuance-service.js';
 
+/**
+ * Regulatory Watch (PR-H1) — varredura das fontes normativas monitoradas. SEM parâmetro `gateway`,
+ * mesmo molde de `handleTransporteRntrcVerify`: o corpo vive em
+ * `transport-regulatory-watch-service.ts` (`runRegulatoryWatchCheckJob`). SEM side-effect terminal:
+ * o job não cria nenhum estado `pending` que precise ser reconciliado numa falha — cada
+ * `regulatory_watch_items` só nasce DEPOIS de um fetch bem-sucedido, dentro do próprio corpo do job
+ * (cada fonte isolada em `try/catch`), então uma falha TERMINAL do job inteiro (infra, nunca uma
+ * fonte específica) não deixa nada pela metade para desfazer.
+ */
+async function handleTransporteRegulatoryWatchCheck(job: JobEntity) {
+  const result = await runRegulatoryWatchCheckJob({ correlationId: job.correlationId ?? null });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1420,6 +1435,9 @@ export async function processJob(job: JobEntity, gateway: {
       return handleTransporteDfeIssueCancel(job);
     case 'transporte.dfe.issue.reconcile':
       return handleTransporteDfeIssueReconcile(job);
+    // Regulatory Watch (PR-H1) — SEM o parâmetro `gateway`, mesmo molde do CIOT/VPO/DF-e.
+    case 'transporte.regulatory.watch_check':
+      return handleTransporteRegulatoryWatchCheck(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

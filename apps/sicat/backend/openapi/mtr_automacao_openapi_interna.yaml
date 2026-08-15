@@ -222,6 +222,19 @@ tags:
     Fase E (`transport-fiscal-service.importarDocumentoFiscal`, reuso interno, sem lógica nova) —
     vira um `fiscal_documents` comum, avaliado pelos evaluators TR-NFE/CTE/MDFE já existentes.
     `cancelar` é sandbox only (sem chamada remota — o kit não tem operação de cancelamento).'
+- name: Transporte - Regulatory Watch
+  description: 'Acompanhamento de fontes normativas (PR-H1) — fluxo DETECTED → INGESTED →
+    AI_ANALYZED/AI_SKIPPED → HUMAN_REVIEW → APPROVED/REJECTED → ACTIVE_APPLIED. REGRA DE OURO DO
+    PROGRAMA: a máquina NUNCA ativa regra bloqueante sozinha — a varredura periódica do worker
+    (`REGULATORY_WATCH_MODE=live`, default `off`) só DETECTA mudança de hash numa `source_url`
+    monitorada e, opcionalmente, resume o conteúdo baixado via IA (`ai_analyzed`; sem
+    `OPENAI_API_KEY`/`AI_CONTROL_ENABLED`, ou em qualquer falha da chamada, o item pula para
+    `ai_skipped` — NUNCA falha o job por causa disso). A partir de `human_review`, toda transição
+    é humana: `revisar` decide `approved`/`rejected`; `aplicar` (só sobre item `approved`) cria uma
+    NOVA `regulatory_rule_version` SEMPRE `blocking=false` (o campo nem existe no request). O ÚNICO
+    caminho para `blocking=true` é a promoção administrativa (tag "Transporte - Regras",
+    `POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`). SEM tenancy — o catálogo
+    regulatório e seu monitoramento são GLOBAIS neste operador único.'
 security:
 - bearerAuth: []
 paths:
@@ -6778,6 +6791,82 @@ paths:
         required: true
         description: 'Código estável da regra (ex.: TR-CIOT-001).'
         schema: { type: string }
+  /v1/transporte/regras/{code}/versoes/{versionLabel}/promover:
+    post:
+      operationId: transporteRegraVersaoPromover
+      summary: Promover (ou rebaixar) uma versão de regra a bloqueante
+      description: 'Promoção administrativa (PR-H1) — o ÚNICO caminho para `blocking=true` no
+        catálogo (a rota também aceita `blocking: false` para REVERTER uma promoção anterior; os
+        dois sentidos exigem `reviewNotes` e revisão humana registrada). Exige que a versão esteja
+        `ACTIVE` (`409 REGULATORY_RULE_VERSION_NOT_ACTIVE` caso contrário) e `version` correto
+        (locking otimista, `409 REGULATORY_RULE_VERSION_CONFLICT` caso divergente). Grava
+        `reviewedBy` (usuário da sessão SICAT) + `reviewedAt` + `blocking` na MESMA linha de
+        `regulatory_rule_versions` — a trava `chk_regrulev_blocking_reviewed` (migration 021) é a
+        garantia de banco por trás disto. Quando a versão nasceu de um item do Regulatory Watch
+        (`POST .../watch/{itemId}/aplicar`), a promoção também gera um evento em
+        `regulatory_watch_events`; senão, fica só a auditoria técnica (componente
+        `regulatory-admin`).'
+      tags:
+      - Transporte - Regras
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteRegraPromoverRequest'
+            examples:
+              promover:
+                summary: Promove a bloqueante
+                value:
+                  blocking: true
+                  reviewNotes: Confirmado com jurídico em 2026-08-15 — TR-PMF-002 vira bloqueante
+                    após publicação da Tabela A revisada.
+                  version: 1
+      responses:
+        '200':
+          description: Versão promovida (ou rebaixada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteRegraPromocaoResource'
+              example:
+                ruleCode: TR-PMF-002
+                versionLabel: v2026-08-baseline
+                implementationState: ACTIVE
+                blocking: true
+                reviewNotes: Confirmado com jurídico em 2026-08-15 — TR-PMF-002 vira bloqueante
+                  após publicação da Tabela A revisada.
+                reviewedBy: usr_operador_exemplo
+                reviewedAt: '2026-08-15T12:30:00Z'
+                version: 2
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Versão não-ACTIVE, ou `version` divergente (locking otimista)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: code
+        in: path
+        required: true
+        description: 'Código estável da regra (ex.: TR-PMF-002).'
+        schema: { type: string }
+      - name: versionLabel
+        in: path
+        required: true
+        description: 'Rótulo da versão (ex.: v2026-08-baseline).'
+        schema: { type: string }
   /v1/transporte/transportadores:
     post:
       operationId: transporteTransportadoresCreate
@@ -9306,6 +9395,261 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/transporte/watch:
+    get:
+      operationId: transporteWatchList
+      summary: Listar itens do Regulatory Watch
+      description: 'Lista `regulatory_watch_items` — mudanças detectadas em fontes normativas
+        monitoradas, filtráveis por `status`. SEM tenancy: o Regulatory Watch é GLOBAL neste
+        operador único (mesmo racional do catálogo regulatório).'
+      tags:
+      - Transporte - Regulatory Watch
+      responses:
+        '200':
+          description: Página de itens do Regulatory Watch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteWatchListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - in: query
+        name: status
+        description: Filtra pelo status do item.
+        schema:
+          $ref: '#/components/schemas/TransporteWatchItemStatus'
+      - in: query
+        name: page
+        schema: { type: integer, minimum: 1, default: 1 }
+      - in: query
+        name: pageSize
+        schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  /v1/transporte/watch/{itemId}:
+    get:
+      operationId: transporteWatchGet
+      summary: Detalhe de um item do Regulatory Watch (com trilha de eventos)
+      description: Detalhe do item + `events` (`regulatory_watch_events`, APPEND-ONLY, ordem
+        cronológica) — a trilha completa da transição DETECTED → ... do item.
+      tags:
+      - Transporte - Regulatory Watch
+      responses:
+        '200':
+          description: Item com trilha de eventos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteWatchItemDetailResource'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/watch/{itemId}/revisar:
+    post:
+      operationId: transporteWatchRevisar
+      summary: Revisar (aprovar/rejeitar) um item em human_review
+      description: 'Único endpoint que decide `approved`/`rejected` — só aceita itens em
+        `human_review` (`409 REGULATORY_WATCH_ITEM_NOT_REVIEWABLE` caso contrário). Grava
+        `reviewedBy` (usuário da sessão SICAT) + `reviewedAt` na linha do item. `version` é
+        obrigatório (locking otimista).'
+      tags:
+      - Transporte - Regulatory Watch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteWatchRevisarRequest'
+            examples:
+              approved:
+                summary: Aprova o item para prosseguir a `aplicar`
+                value:
+                  decision: approved
+                  notes: Mudança confirmada contra o DOU — texto igual ao publicado.
+                  version: 1
+              rejected:
+                summary: Rejeita — não vira versão de regra
+                value:
+                  decision: rejected
+                  notes: Falso positivo — mudança cosmética no portal, sem alteração normativa.
+                  version: 1
+      responses:
+        '200':
+          description: Item revisado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteWatchItemResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Item não está em `human_review`, ou `version` divergente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/watch/{itemId}/aplicar:
+    post:
+      operationId: transporteWatchAplicar
+      summary: Aplicar um item aprovado — cria nova versão da regra (sempre não-bloqueante)
+      description: 'Só aceita itens `approved` (`409 REGULATORY_WATCH_ITEM_NOT_APPLICABLE` caso
+        contrário). Cria uma NOVA `regulatory_rule_version` para `ruleCode` — `blocking` NÃO É
+        campo do request (a versão nasce SEMPRE `blocking=false`; o único caminho para
+        `blocking=true` é `POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`).
+        Uma vigência sobreposta a outra versão da mesma regra responde `409
+        REGULATORY_RULE_VERSION_OVERLAP`. Também atualiza `regulatory_sources.source_hash` da
+        fonte para o hash detectado neste item.'
+      tags:
+      - Transporte - Regulatory Watch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteWatchAplicarRequest'
+            example:
+              ruleCode: TR-PMF-002
+              versionLabel: v2026-09-tabela-a-revisada
+              effectiveFrom: '2026-09-01'
+              implementationState: ACTIVE
+              summary: Tabela A revisada pela Res. ANTT 6.090/2026 (coeficientes atualizados).
+              legalBasisAdditions:
+              - reference: Res. ANTT 6.090/2026
+      responses:
+        '200':
+          description: Versão criada e item aplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteWatchAplicarResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: 'Item não está `approved`, `version` divergente, ou vigência sobreposta'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/watch/verificar-agora:
+    post:
+      operationId: transporteWatchVerificarAgora
+      summary: Disparar a varredura do Regulatory Watch sob demanda
+      description: 'ENFILEIRA `transporte.regulatory.watch_check` (idempotente via
+        `Idempotency-Key`; dedupe por `(entityType, entityId, operation)` — no máximo UMA
+        varredura ativa por vez, mesmo com a varredura periódica do worker também rodando quando
+        `REGULATORY_WATCH_MODE=live`). Com `REGULATORY_WATCH_MODE=off` (default), o job ainda é
+        aceito e enfileirado, mas o worker o conclui como NO-OP LIMPO — nunca falha por causa do
+        modo desligado.'
+      tags:
+      - Transporte - Regulatory Watch
+      responses:
+        '202':
+          description: Varredura enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+              example:
+                commandId: cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                correlationId: corr_9c8a7b6d5e4f3a2b1c0d9e8f7a6b
+                entityType: regulatory_watch_sweep
+                entityId: global
+                operation: transporte.regulatory.watch_check
+                status: queued
+                submittedAt: '2026-08-15T12:30:00Z'
+                links:
+                  job: /v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                  entity: /v1/transporte/watch
+                  audit: /v1/audit/corr_9c8a7b6d5e4f3a2b1c0d9e8f7a6b
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/transporte/operations/overview:
+    get:
+      operationId: transporteOperationsOverview
+      summary: Centro Operacional da vertical Transporte — visão consolidada
+      description: 'Agregados de compliance/integrações da vertical Transporte para UMA conta
+        (`integrationAccountId` obrigatório): operações por status, top regras que mais bloqueiam
+        (avaliação mais recente por operação+gate), ofertas abaixo do piso, CIOT por status +
+        pendentes de confirmação, VPO aplicável sem aquisição, documentos fiscais inválidos/com
+        avisos, apólices vencendo/vencidas em até 30 dias (reusa `GET .../seguros/vencimentos`),
+        verificações RNTRC stale (> 90 dias, mesmo limite do motor de compliance), jobs
+        `transporte.*` em retry/DLQ. `watch.pendingHumanReviewGlobal` é a ÚNICA métrica GLOBAL
+        (não filtrada por conta) — o Regulatory Watch é compartilhado neste operador único. NÃO
+        confundir com `GET /v1/operations/overview` (genérico, jobs/manifestos) nem com `GET
+        /v1/dashboard/overview` (ambiental) — nenhum dos dois é alterado por esta rota.'
+      tags:
+      - Transporte - Operações
+      responses:
+        '200':
+          description: Visão consolidada da vertical Transporte para a conta informada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperationsOverviewResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
 components:
   securitySchemes:
     bearerAuth:
@@ -17107,3 +17451,452 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TransporteEmissaoResource'
+    TransporteRegraPromoverRequest:
+      type: object
+      description: Promoção administrativa (PR-H1) — o ÚNICO caminho para `blocking=true`.
+      required:
+      - blocking
+      - reviewNotes
+      - version
+      properties:
+        blocking:
+          type: boolean
+          description: 'Novo valor de `blocking` — `true` promove, `false` reverte uma promoção
+            anterior.'
+        reviewNotes:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Justificativa da revisão humana — obrigatória nos dois sentidos.
+        version:
+          type: integer
+          minimum: 1
+          description: Versão atual de `regulatory_rule_versions` (locking otimista).
+    TransporteRegraPromocaoResource:
+      type: object
+      required:
+      - ruleCode
+      - versionLabel
+      - implementationState
+      - blocking
+      - reviewNotes
+      - reviewedBy
+      - reviewedAt
+      - version
+      properties:
+        ruleCode:
+          type: string
+        versionLabel:
+          type: string
+        implementationState:
+          type: string
+          enum:
+          - DRAFT
+          - UNDER_REVIEW
+          - ACTIVE
+          - FUTURE
+          - SUPERSEDED
+          - REVOKED
+          - AWAITING_REGULATION
+        blocking:
+          type: boolean
+        reviewNotes:
+          type: string
+        reviewedBy:
+          type: string
+        reviewedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+    TransporteWatchItemStatus:
+      type: string
+      enum:
+      - detected
+      - ingested
+      - ai_analyzed
+      - ai_skipped
+      - human_review
+      - approved
+      - rejected
+      - tested
+      - scheduled
+      - active_applied
+    TransporteWatchDetectedChange:
+      type: object
+      description: Fato bruto da detecção — NUNCA uma interpretação.
+      properties:
+        previousHash:
+          oneOf:
+          - type: string
+          - type: 'null'
+        newHash:
+          type: string
+        httpStatus:
+          type: integer
+        etag:
+          oneOf:
+          - type: string
+          - type: 'null'
+        lastModified:
+          oneOf:
+          - type: string
+          - type: 'null'
+    TransporteWatchAiAnalysis:
+      type: object
+      description: Resumo mínimo opcional da IA — nunca uma decisão. Objeto vazio quando `ai_skipped`.
+      properties:
+        summary:
+          type: string
+        model:
+          type: string
+        analyzedAt:
+          type: string
+          format: date-time
+    TransporteWatchItemResource:
+      type: object
+      required:
+      - id
+      - sourceId
+      - status
+      - detectedChange
+      - ingestedContentRef
+      - aiAnalysis
+      - humanReviewNotes
+      - reviewedBy
+      - reviewedAt
+      - appliedRuleVersionId
+      - correlationId
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        status:
+          $ref: '#/components/schemas/TransporteWatchItemStatus'
+        detectedChange:
+          $ref: '#/components/schemas/TransporteWatchDetectedChange'
+        ingestedContentRef:
+          oneOf:
+          - type: string
+          - type: 'null'
+          description: Ponteiro para `STORAGE_DIR/regulatory-watch/` — NUNCA o conteúdo inteiro.
+        aiAnalysis:
+          $ref: '#/components/schemas/TransporteWatchAiAnalysis'
+        humanReviewNotes:
+          oneOf:
+          - type: string
+          - type: 'null'
+        reviewedBy:
+          oneOf:
+          - type: string
+          - type: 'null'
+        reviewedAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        appliedRuleVersionId:
+          oneOf:
+          - type: string
+          - type: 'null'
+        correlationId:
+          type: string
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteWatchEventResource:
+      type: object
+      required:
+      - id
+      - eventType
+      - detail
+      - correlationId
+      - createdAt
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+          enum:
+          - detected
+          - ingested
+          - ai_analyzed
+          - ai_skipped
+          - human_review
+          - approved
+          - rejected
+          - tested
+          - scheduled
+          - active_applied
+          - check_run_no_change
+        detail:
+          type: object
+        correlationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    TransporteWatchItemDetailResource:
+      allOf:
+      - $ref: '#/components/schemas/TransporteWatchItemResource'
+      - type: object
+        required:
+        - events
+        properties:
+          events:
+            type: array
+            description: Trilha APPEND-ONLY, ordem cronológica crescente.
+            items:
+              $ref: '#/components/schemas/TransporteWatchEventResource'
+    TransporteWatchListResponse:
+      type: object
+      required:
+      - items
+      - page
+      - pageSize
+      - totalItems
+      - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteWatchItemResource'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+    TransporteWatchRevisarRequest:
+      type: object
+      required:
+      - decision
+      - version
+      properties:
+        decision:
+          type: string
+          enum:
+          - approved
+          - rejected
+        notes:
+          oneOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+        version:
+          type: integer
+          minimum: 1
+          description: Versão atual do item (locking otimista).
+    TransporteWatchAplicarRequest:
+      type: object
+      required:
+      - ruleCode
+      - versionLabel
+      - effectiveFrom
+      - implementationState
+      - summary
+      properties:
+        ruleCode:
+          type: string
+        versionLabel:
+          type: string
+        effectiveFrom:
+          type: string
+          format: date
+        implementationState:
+          type: string
+          enum:
+          - DRAFT
+          - UNDER_REVIEW
+          - ACTIVE
+          - FUTURE
+          - SUPERSEDED
+          - REVOKED
+          - AWAITING_REGULATION
+        summary:
+          type: string
+        legalBasisAdditions:
+          type: array
+          items:
+            type: object
+            required:
+            - reference
+            properties:
+              reference:
+                type: string
+      description: '`blocking` NÃO é campo deste request — a versão criada nasce SEMPRE
+        `blocking=false` (regra de ouro do programa).'
+    TransporteWatchAplicarResponse:
+      type: object
+      required:
+      - watchItem
+      - ruleVersion
+      properties:
+        watchItem:
+          $ref: '#/components/schemas/TransporteWatchItemResource'
+        ruleVersion:
+          type: object
+          required:
+          - id
+          - ruleCode
+          - versionLabel
+          - implementationState
+          - blocking
+          - effectiveFrom
+          - effectiveUntil
+          properties:
+            id:
+              type: string
+            ruleCode:
+              type: string
+            versionLabel:
+              type: string
+            implementationState:
+              type: string
+            blocking:
+              type: boolean
+              description: SEMPRE `false` — invariante garantida em código, não só documentada.
+            effectiveFrom:
+              type: string
+              format: date
+            effectiveUntil:
+              oneOf:
+              - type: string
+                format: date
+              - type: 'null'
+    TransporteOperationsOverviewResource:
+      type: object
+      description: Centro Operacional da vertical Transporte — agregados de compliance/integrações
+        para UMA conta, exceto `watch.pendingHumanReviewGlobal` (GLOBAL, ver descrição da rota).
+      required:
+      - generatedAt
+      - operationsByStatus
+      - compliance
+      - ciot
+      - vpo
+      - fiscalDocuments
+      - insurance
+      - rntrc
+      - jobs
+      - watch
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        operationsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+          description: 'Contagem de `transport_operations` por `status` (ex.: `draft`, `blocked`,
+            `completed`).'
+        compliance:
+          type: object
+          required:
+          - topBlockedRules
+          - belowFloorOffers
+          properties:
+            topBlockedRules:
+              type: array
+              description: Top 10 regras que mais bloqueiam, considerando só a avaliação MAIS
+                RECENTE de cada (operação, gate) desta conta.
+              items:
+                type: object
+                required:
+                - ruleCode
+                - blockCount
+                - rawBlockCount
+                properties:
+                  ruleCode:
+                    type: string
+                  blockCount:
+                    type: integer
+                    description: Contagem de `status='block'` (após o clamp de enforcement).
+                  rawBlockCount:
+                    type: integer
+                    description: Contagem de `rawStatus='block'` (antes do clamp — inclui blocks
+                      que o catálogo ainda não aplica de verdade).
+            belowFloorOffers:
+              type: integer
+              description: Operações cujo cálculo de piso MAIS RECENTE é `compliant=false`.
+        ciot:
+          type: object
+          required:
+          - byStatus
+          - unconfirmedPending
+          properties:
+            byStatus:
+              type: object
+              additionalProperties:
+                type: integer
+            unconfirmedPending:
+              type: integer
+              description: 'Atalho para `byStatus.request_unconfirmed` (DL-102).'
+        vpo:
+          type: object
+          required:
+          - applicableNotAcquired
+          properties:
+            applicableNotAcquired:
+              type: integer
+        fiscalDocuments:
+          type: object
+          required:
+          - invalid
+          - warnings
+          properties:
+            invalid:
+              type: integer
+            warnings:
+              type: integer
+        insurance:
+          type: object
+          required:
+          - expiringOrExpiredCount
+          - windowDays
+          properties:
+            expiringOrExpiredCount:
+              type: integer
+              description: 'Reusa `GET /v1/transporte/seguros/vencimentos` (mesma janela).'
+            windowDays:
+              type: integer
+        rntrc:
+          type: object
+          required:
+          - staleCarriers
+          - freshnessDays
+          properties:
+            staleCarriers:
+              type: integer
+              description: Transportadores `carrier` em operação não-terminal cuja última
+                verificação RNTRC bem-sucedida está stale (ou nunca aconteceu).
+            freshnessDays:
+              type: integer
+        jobs:
+          type: object
+          required:
+          - retryWait
+          - dlq
+          properties:
+            retryWait:
+              type: integer
+            dlq:
+              type: integer
+        watch:
+          type: object
+          required:
+          - pendingHumanReviewGlobal
+          properties:
+            pendingHumanReviewGlobal:
+              type: integer
+              description: GLOBAL — itens do Regulatory Watch em `human_review` (não filtrado por conta).

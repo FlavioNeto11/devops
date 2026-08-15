@@ -28,10 +28,15 @@ import type {
 } from '../lib/transport/regulatory-types.js';
 import {
   getRuleByCode,
+  getRuleVersionByCodeAndLabel,
   listRulesWithVersionAt,
   listRuleVersions,
+  promoteRuleVersionBlocking,
   resolveRuleVersionAt
 } from '../repositories/regulatory-repo.js';
+import { findWatchItemByAppliedRuleVersionId, insertWatchEvent } from '../repositories/regulatory-watch-repo.js';
+import { insertAuditEntry } from '../repositories/audit-repo.js';
+import { createPrefixedId } from '../lib/ids.js';
 
 type LooseRecord = Record<string, unknown>;
 
@@ -196,4 +201,142 @@ export async function getTransportRuleHistoryService(
 
   const versions = await listRuleVersions({ ruleId: rule.id });
   return { code: rule.code, versions: versions.map(toVersionResource) };
+}
+
+// =============================================================================
+// POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover (PR-H1)
+// =============================================================================
+
+/**
+ * Promoção administrativa — o ÚNICO caminho para `blocking=true` (ou para REVERTER uma promoção
+ * anterior, com `blocking=false`; a rota aceita os dois sentidos). Regra de ouro do programa: exige
+ * `reviewNotes` não-vazio (400) e a versão tem de estar `ACTIVE` (409) — a mesma trava que
+ * `chk_regrulev_blocking_reviewed` (migration 021) sustenta no banco.
+ */
+export type PromoteTransportRuleVersionContext = { correlationId: string | null; evaluatedBy: string | null };
+
+export type TransportRulePromotionResource = {
+  ruleCode: string;
+  versionLabel: string;
+  implementationState: RuleImplementationState;
+  blocking: boolean;
+  reviewNotes: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  version: number;
+};
+
+export async function promoteTransportRuleVersionService(
+  code: string,
+  versionLabel: string,
+  body: LooseRecord,
+  ctx: PromoteTransportRuleVersionContext
+): Promise<TransportRulePromotionResource> {
+  if (typeof body.blocking !== 'boolean') {
+    throw new AppError(400, 'Bad Request', 'blocking é obrigatório e deve ser boolean.', {
+      code: 'REGULATORY_RULE_PROMOTION_BLOCKING_REQUIRED'
+    });
+  }
+  const reviewNotes = typeof body.reviewNotes === 'string' ? body.reviewNotes.trim() : '';
+  if (!reviewNotes) {
+    throw new AppError(400, 'Bad Request', 'reviewNotes é obrigatório para promover/rebaixar uma versão.', {
+      code: 'REGULATORY_RULE_PROMOTION_REVIEW_NOTES_REQUIRED'
+    });
+  }
+  const expectedVersion = Number(body.version);
+  if (!Number.isFinite(expectedVersion)) {
+    throw new AppError(400, 'Bad Request', 'version é obrigatório (locking otimista).', {
+      code: 'REGULATORY_RULE_PROMOTION_VERSION_REQUIRED'
+    });
+  }
+  const reviewedBy = ctx.evaluatedBy;
+  if (!reviewedBy) {
+    throw new AppError(401, 'Unauthorized', 'Sessão SICAT sem usuário identificável para promover.', {
+      code: 'REGULATORY_RULE_PROMOTION_REVIEWER_REQUIRED'
+    });
+  }
+
+  const current = await getRuleVersionByCodeAndLabel(code, versionLabel);
+  if (!current) {
+    throw new AppError(404, 'Not Found', `Versão não encontrada: ${code}/${versionLabel}.`, {
+      code: 'TRANSPORT_RULE_VERSION_NOT_FOUND'
+    });
+  }
+  if (current.implementationState !== 'ACTIVE') {
+    throw new AppError(
+      409,
+      'Conflict',
+      `${code}/${versionLabel} está em '${current.implementationState}' — só é possível promover versões 'ACTIVE'.`,
+      { code: 'REGULATORY_RULE_VERSION_NOT_ACTIVE' }
+    );
+  }
+  if (current.version !== expectedVersion) {
+    throw new AppError(
+      409,
+      'Conflict',
+      `${code}/${versionLabel} foi alterado por outra operação (version divergente) — recarregue e tente de novo.`,
+      { code: 'REGULATORY_RULE_VERSION_CONFLICT' }
+    );
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const promoted = await promoteRuleVersionBlocking({
+    id: current.id,
+    blocking: body.blocking,
+    reviewedBy,
+    reviewedAt
+  });
+  if (!promoted) {
+    // Corrida rara entre a checagem acima e o UPDATE (outra promoção concorrente mudou o estado).
+    throw new AppError(
+      409,
+      'Conflict',
+      `${code}/${versionLabel} não pôde ser promovida — o estado mudou entre a leitura e a escrita.`,
+      { code: 'REGULATORY_RULE_VERSION_CONFLICT' }
+    );
+  }
+
+  const correlationId = ctx.correlationId || createPrefixedId('corr');
+
+  // Registra em `regulatory_watch_events` quando esta versão nasceu de um item do Watch (o item já
+  // é terminal — `active_applied` — e o novo evento fica ligado a ele); senão, apenas auditoria
+  // técnica. Nenhum dos dois é caminho crítico: falha aqui não desfaz a promoção já persistida.
+  try {
+    const linkedItem = await findWatchItemByAppliedRuleVersionId(current.id);
+    if (linkedItem) {
+      await insertWatchEvent({
+        id: createPrefixedId('regwev'),
+        watchItemId: linkedItem.id,
+        sourceId: linkedItem.sourceId,
+        eventType: 'active_applied',
+        detail: { promoted: true, ruleCode: code, versionLabel, blocking: body.blocking, reviewedBy, reviewNotes },
+        correlationId
+      });
+    } else {
+      await insertAuditEntry({
+        correlationId,
+        entityType: 'regulatory_rule_version',
+        entityId: current.id,
+        direction: 'inbound',
+        component: 'regulatory-admin',
+        httpMethod: 'POST',
+        endpoint: `/v1/transporte/regras/${code}/versoes/${versionLabel}/promover`,
+        httpStatus: 200,
+        sanitizedBody: { blocking: body.blocking, reviewedBy, reviewNotes }
+      });
+    }
+  } catch (auditError) {
+    console.warn(`[transporte-regras] registro de auditoria da promoção de ${code}/${versionLabel} falhou: ${auditError instanceof Error ? auditError.message : String(auditError)}`);
+  }
+
+  return {
+    ruleCode: code,
+    versionLabel,
+    implementationState: promoted.implementationState,
+    blocking: promoted.blocking,
+    reviewNotes,
+    reviewedBy,
+    reviewedAt: promoted.reviewedAt ?? reviewedAt,
+    version: promoted.version
+  };
 }

@@ -2,9 +2,15 @@
  * Repositório do catálogo regulatório TRANSPORTE (PR-A1, DL-103).
  *
  * Leitura do catálogo temporal (`regulatory_rules` + `regulatory_rule_versions` +
- * `regulatory_sources`, migration 021). SEM escrita aqui: o único escritor do catálogo é o
- * seed (`bootstrap/regulatory-rules-seed.ts`, que monta SQL direto no molde do
- * access-control-seed) e, no futuro, a superfície administrativa com revisão humana.
+ * `regulatory_sources`, migration 021). O único escritor do catálogo era o seed
+ * (`bootstrap/regulatory-rules-seed.ts`, que monta SQL direto no molde do access-control-seed) até
+ * o PR-H1, que abre a superfície administrativa com revisão humana ANUNCIADA aqui desde o PR-A1:
+ * `insertRuleVersion` (nova versão nascida de um item do Regulatory Watch, SEMPRE `blocking=false` —
+ * o parâmetro nem existe na assinatura) e `promoteRuleVersionBlocking` (o ÚNICO caminho para
+ * `blocking=true`, chamado por `POST /v1/transporte/regras/{code}/versoes/{versionLabel}/promover`).
+ * Nenhuma das duas contorna as travas de banco da migration 021
+ * (`excl_regrulev_no_temporal_overlap`/`chk_regrulev_blocking_reviewed`) — ambas propagam a
+ * exceção do Postgres para o chamador decidir o HTTP status.
  *
  * A regra de vigência NÃO é duplicada em SQL: as consultas carregam as versões da regra e
  * DELEGAM para `resolveVersionFromList` (lib/transport/regulatory-temporal.ts) — um único
@@ -285,4 +291,107 @@ export async function listRulesWithVersionAt(
   return resolved.filter(
     (entry) => entry.resolvedVersion?.implementationState === filters.implementationState
   );
+}
+
+/** Uma versão específica por (code, versionLabel) — usado pela promoção administrativa (PR-H1). */
+export async function getRuleVersionByCodeAndLabel(
+  code: string,
+  versionLabel: string,
+  client: DbClient = null
+): Promise<RegulatoryRuleVersion | null> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<RuleVersionRow>(
+    `select v.* from regulatory_rule_versions v
+       inner join regulatory_rules r on r.id = v.rule_id
+      where r.code = $1 and v.version_label = $2`,
+    [code, versionLabel]
+  );
+  return mapVersionRow(result.rows[0]);
+}
+
+// =============================================================================
+// Escrita (PR-H1) — ver o header do arquivo. `insertRuleVersion` é chamada pelo fluxo `aplicar` do
+// Regulatory Watch; `promoteRuleVersionBlocking`, pela promoção administrativa.
+// =============================================================================
+
+export type InsertRuleVersionInput = {
+  id: string;
+  ruleId: string;
+  versionLabel: string;
+  legalBasis: LegalBasisEntry[];
+  summary: string;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  implementationState: RuleImplementationState;
+  severity: RuleSeverity;
+  sourceHash?: string | null;
+};
+
+/**
+ * Cria uma NOVA versão da regra a partir de um item aprovado do Regulatory Watch. `blocking` NÃO É
+ * PARÂMETRO — o insert grava o literal `false` (regra de ouro do programa: nenhuma versão nasce
+ * bloqueante). `reviewed_by`/`reviewed_at` também ficam de fora — pertencem exclusivamente à
+ * promoção administrativa (`promoteRuleVersionBlocking`). Uma janela de vigência sobreposta à de
+ * outra versão da MESMA regra é rejeitada pelo Postgres (`excl_regrulev_no_temporal_overlap`,
+ * 23P01) — o chamador (`transporte-regras-service`/`transport-regulatory-watch-service`) traduz
+ * isso para `409`.
+ */
+export async function insertRuleVersion(
+  input: InsertRuleVersionInput,
+  client: DbClient = null
+): Promise<RegulatoryRuleVersion> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<RuleVersionRow>(
+    `insert into regulatory_rule_versions (
+       id, rule_id, version_label, legal_basis, summary, effective_from, effective_until,
+       implementation_state, blocking, severity, source_hash
+     ) values ($1, $2, $3, $4::jsonb, $5, $6::date, $7::date, $8, false, $9, $10)
+     returning *`,
+    [
+      input.id,
+      input.ruleId,
+      input.versionLabel,
+      JSON.stringify(input.legalBasis || []),
+      input.summary,
+      input.effectiveFrom,
+      input.effectiveUntil ?? null,
+      input.implementationState,
+      input.severity,
+      input.sourceHash ?? null
+    ]
+  );
+  const mapped = mapVersionRow(result.rows[0]);
+  if (!mapped) throw new Error('insertRuleVersion: insert não retornou linha');
+  return mapped;
+}
+
+export type PromoteRuleVersionInput = {
+  id: string;
+  blocking: boolean;
+  reviewedBy: string;
+  reviewedAt: string;
+};
+
+/**
+ * O ÚNICO caminho para `blocking=true` no catálogo (ou para reverter uma promoção anterior, com
+ * `blocking=false` — a rota HTTP aceita os dois sentidos, sempre com revisão humana registrada).
+ * Exige `implementation_state = 'ACTIVE'` (verificado AQUI, não só pelo check de banco, para poder
+ * devolver `null` — o chamador traduz para `409` — em vez de deixar a UPDATE simplesmente não achar
+ * a linha por um motivo que o SQL sozinho não distingue de "id inexistente"). O check
+ * `chk_regrulev_blocking_reviewed` (migration 021) é a garantia de banco que sustenta isto mesmo se
+ * este filtro de estado um dia for removido por engano.
+ */
+export async function promoteRuleVersionBlocking(
+  input: PromoteRuleVersionInput,
+  client: DbClient = null
+): Promise<RegulatoryRuleVersion | null> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<RuleVersionRow>(
+    `update regulatory_rule_versions
+        set blocking = $2, reviewed_by = $3, reviewed_at = $4::timestamptz
+      where id = $1 and implementation_state = 'ACTIVE'
+      returning *`,
+    [input.id, input.blocking, input.reviewedBy, input.reviewedAt]
+  );
+  return mapVersionRow(result.rows[0]);
 }

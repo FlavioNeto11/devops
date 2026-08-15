@@ -123,7 +123,10 @@ type ConfigKey =
   | 'ciotProviderMode'
   | 'vpoProviderMode'
   | 'insuranceProviderMode'
-  | 'dfeIssuanceMode';
+  | 'dfeIssuanceMode'
+  | 'regulatoryWatchMode'
+  | 'regulatoryWatchGatewayTimeoutMs'
+  | 'regulatoryWatchUserAgent';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -247,6 +250,22 @@ function resolveDfeIssuanceMode(): DfeIssuanceMode {
   const raw = String(process.env.DFE_ISSUANCE_MODE || 'off').trim().toLowerCase();
   if (raw === 'off' || raw === 'sandbox') return raw;
   throw new Error(`DFE_ISSUANCE_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
+}
+
+export type RegulatoryWatchMode = 'off' | 'live';
+
+/**
+ * Modo do Regulatory Watch (PR-H1). `off` (DEFAULT — nunca omitir em produção sem decisão do
+ * operador) faz o job `transporte.regulatory.watch_check` terminar como NO-OP LIMPO (nunca falha) e
+ * a varredura periódica do worker nem chega a enfileirar o job. `live` liga o HTTP REAL às
+ * `source_url` de `regulatory_sources` (`monitoring_status='monitored'`) — mesma postura "opt-in
+ * explícito" de `RNTRC_GATEWAY_MODE=open_data`/`CIOT_PROVIDER_MODE=real`. Valor desconhecido lança no
+ * boot, mesmo molde de `resolveCetesbGatewayMode`.
+ */
+function resolveRegulatoryWatchMode(): RegulatoryWatchMode {
+  const raw = String(process.env.REGULATORY_WATCH_MODE || 'off').trim().toLowerCase();
+  if (raw === 'off' || raw === 'live') return raw;
+  throw new Error(`REGULATORY_WATCH_MODE inválido: ${raw}. Valores aceitos: off, live.`);
 }
 
 export const config = {
@@ -541,5 +560,17 @@ export const config = {
    * `gateways/dfe-issuance-gateway.ts`. */
   get dfeIssuanceMode(): DfeIssuanceMode {
     return getConfigValue<DfeIssuanceMode>('dfeIssuanceMode', resolveDfeIssuanceMode());
-  }
+  },
+
+  /* ── Regulatory Watch (PR-H1) ─────────────────────────────────────────────────────────────────
+   * `off` é o ÚNICO default seguro (mesma postura de `dfeIssuanceMode`) — verificação REAL de fonte
+   * normativa é opt-in explícito do operador. Ver `gateways/regulatory-watch-gateway.ts`. */
+  get regulatoryWatchMode(): RegulatoryWatchMode {
+    return getConfigValue<RegulatoryWatchMode>('regulatoryWatchMode', resolveRegulatoryWatchMode());
+  },
+  /** Teto de UMA chamada HTTP a uma `source_url` — conservador: são páginas/documentos de portais
+   * governamentais, não uma API dedicada. */
+  get regulatoryWatchGatewayTimeoutMs() { return getConfigValue('regulatoryWatchGatewayTimeoutMs', Number(process.env.REGULATORY_WATCH_GATEWAY_TIMEOUT_MS || 20000)); },
+  /** User-Agent identificado — portais governamentais costumam bloquear/registrar clientes anônimos. */
+  get regulatoryWatchUserAgent() { return getConfigValue('regulatoryWatchUserAgent', process.env.REGULATORY_WATCH_USER_AGENT || 'SICAT-Transporte-RegulatoryWatch/1.0 (+https://dev.nvit.com.br/sicat; contato: devops@nvit.com.br)'); }
 };

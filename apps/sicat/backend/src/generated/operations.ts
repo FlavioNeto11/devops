@@ -1045,6 +1045,15 @@ const operationsData = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_transporte_regras_code_versoes_versionLabel_promover",
+    "method": "post",
+    "specPath": "/v1/transporte/regras/{code}/versoes/{versionLabel}/promover",
+    "expressPath": "/v1/transporte/regras/:code/versoes/:versionLabel/promover",
+    "summary": "Promover (ou rebaixar) uma versão de regra a bloqueante",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_transportadores",
     "method": "post",
     "specPath": "/v1/transporte/transportadores",
@@ -1511,6 +1520,60 @@ const operationsData = [
     "summary": "Cancelar emissão de DF-e (assíncrono, sandbox only)",
     "tag": "Transporte - Emissao Fiscal",
     "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_watch",
+    "method": "get",
+    "specPath": "/v1/transporte/watch",
+    "expressPath": "/v1/transporte/watch",
+    "summary": "Listar itens do Regulatory Watch",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_watch_itemId",
+    "method": "get",
+    "specPath": "/v1/transporte/watch/{itemId}",
+    "expressPath": "/v1/transporte/watch/:itemId",
+    "summary": "Detalhe de um item do Regulatory Watch (com trilha de eventos)",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_itemId_revisar",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/{itemId}/revisar",
+    "expressPath": "/v1/transporte/watch/:itemId/revisar",
+    "summary": "Revisar (aprovar/rejeitar) um item em human_review",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_itemId_aplicar",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/{itemId}/aplicar",
+    "expressPath": "/v1/transporte/watch/:itemId/aplicar",
+    "summary": "Aplicar um item aprovado — cria nova versão da regra (sempre não-bloqueante)",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_verificar_agora",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/verificar-agora",
+    "expressPath": "/v1/transporte/watch/verificar-agora",
+    "summary": "Disparar a varredura do Regulatory Watch sob demanda",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operations_overview",
+    "method": "get",
+    "specPath": "/v1/transporte/operations/overview",
+    "expressPath": "/v1/transporte/operations/overview",
+    "summary": "Centro Operacional da vertical Transporte — visão consolidada",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
 

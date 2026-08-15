@@ -1079,6 +1079,109 @@ Contrato: tag nova `Transporte - Emissao Fiscal`, 3 endpoints (`POST .../emissoe
 ⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
 primeiro, worker só depois de Ready.
 
+## Migration 033 — Regulatory Watch Transporte + 1 job type (PR-H1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). É o SEXTO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts`/`ciot-provider-gateway.ts`/
+`vpo-gateway.ts`/`insurance-verification-provider.ts`/`dfe-issuance-gateway.ts`), mas o PRIMEIRO
+com uma postura de falha DIFERENTE dos outros cinco: em vez de fail-closed (`mode: off/mock` recusa
+a chamada), `regulatory-watch-gateway.ts` em `mode: 'off'` (default, `REGULATORY_WATCH_MODE`)
+devolve `{ skipped: true }` sem tocar rede nem lançar — NO-OP LIMPO. Verificar uma fonte é LEITURA
+sem efeito colateral em produção; desligar o modo não devia transformar um disparo manual
+(`POST .../watch/verificar-agora`) num erro 5xx. É também o PRIMEIRO job type da vertical com
+dedupe em **entidade GLOBAL** (`regulatory_watch_sweep:global`) em vez de uma linha por
+operação/tentativa — o job processa TODAS as fontes monitoradas dentro de UMA execução (mesmo
+racional de `catalog.sync`, não do CIOT/VPO/DF-e), e o índice parcial
+`ux_jobs_active_entity_operation` garante no máximo UMA varredura em voo por vez, seja disparada
+pela sweep periódica ou pelo comando manual.
+
+- **`033_transport_regulatory_watch.sql`** — `regulatory_watch_items` (PK `text` via
+  `createPrefixedId` (`regwatch_`), `version` + trigger `increment_version()`) e
+  `regulatory_watch_events` (`regwev_`, APPEND-ONLY, sem `version`). Uma linha de item por MUDANÇA
+  DETECTADA (não por fonte — uma fonte pode acumular vários itens ao longo do tempo). `detected_
+  change` (jsonb: `previousHash`/`newHash`/`httpStatus`/`etag`/`lastModified`) guarda só o FATO
+  bruto da detecção; o conteúdo baixado nunca entra em coluna — `ingested_content_ref` aponta para
+  `STORAGE_DIR/regulatory-watch/<hash>.bin` (molde `xml_storage_ref` da Fase E/G). Check
+  `chk_regwatch_reviewed_when_decided` espelha `chk_regrulev_blocking_reviewed` (migration 021): um
+  item só pode estar `approved`/`rejected`/`active_applied` com `reviewed_by`/`reviewed_at`
+  preenchidos. `regulatory_watch_events.watch_item_id` é NULLABLE — o ÚNICO evento sem item é
+  `check_run_no_change` (a varredura confirmou "sem mudança"; não há mudança para acompanhar), que
+  por isso carrega `source_id` direto (toda linha da tabela carrega `source_id`, ligada ou não a um
+  item, para consulta uniforme "últimas verificações desta fonte" sem join).
+
+**Fila — 4 pontos tocados, 1 job type novo** (`transporte.regulatory.watch_check`):
+
+1. `src/workers/operation-handlers.ts` — 1 novo `case` no switch de `processJob`, delegando a
+   `handleTransporteRegulatoryWatchCheck(job)` **sem** o parâmetro `gateway` (mesmo molde do CIOT/
+   VPO/DF-e); o corpo do job vive em `transport-regulatory-watch-service.ts`
+   (`runRegulatoryWatchCheckJob`). SEM side-effect terminal: o job não cria nenhum estado `pending`
+   fora de uma transação bem-sucedida — cada `regulatory_watch_items` só nasce DEPOIS de um fetch
+   OK, dentro do próprio corpo do job (cada fonte isolada em `try/catch` — uma fonte fora do ar
+   nunca derruba as demais nem o job inteiro), então uma falha TERMINAL do job inteiro (só infra:
+   Postgres fora no meio da varredura) não deixa nada pela metade para reconciliar.
+2. `src/lib/retry.ts` — a operação entra em `RetryableOperation`, `calculateJobPriority`
+   (nível 3, mesmo de `catalog.sync` — housekeeping de fundo, nunca preempta CETESB/CIOT/VPO/DF-e)
+   e `getRetryConfig` (3 tentativas, exponencial 10s→120s — orçamento curto: a próxima varredura
+   periódica de 24h já é a rede de segurança natural). `REGULATORY_WATCH_GATEWAY_TIMEOUT`/
+   `REGULATORY_WATCH_GATEWAY_NETWORK_ERROR` entram em `RETRYABLE_ERROR_CODES` por clareza/
+   redundância (também cobertos por status via `classifyRetryabilityFromStatus`) — mas na prática
+   nunca escapam do `try/catch` por-fonte dentro do job, então a classificação só importa se o
+   job um dia for redesenhado para um job por fonte.
+3. `src/services/transport-regulatory-watch-service.ts` — `triggerRegulatoryWatchCheckNowService`
+   (comando manual, `entityType 'regulatory_watch_sweep'`/`entityId 'global'`) e
+   `enqueueRegulatoryWatchSweep` (chamada pela sweep periódica) usam o MESMO `insertJobDeduplicated`
+   com a MESMA entidade — é isso que garante no máximo uma varredura ativa, disparada por qualquer
+   um dos dois caminhos.
+4. Contrato: 1 endpoint de comando novo (`POST /v1/transporte/watch/verificar-agora`, `202`) entrou
+   em `commandEndpoints` de `scripts/validate-openapi.js` e do teste irmão
+   (`tests/integration/openapi-queue-contract.test.js`).
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteRegulatoryWatchSweepIfNeeded`) — molde ESTRUTURAL das sweeps de reconciliação
+(relógio próprio, env var própria `TRANSPORTE_REGULATORY_WATCH_SWEEP_MS`, default 24h — bem mais
+espaçado que os 5 min das sweeps de reconciliação, porque fonte normativa não muda de hora em hora),
+mas com uma GUARDA A MAIS que nenhuma sweep anterior tinha: só enfileira quando
+`config.regulatoryWatchMode === 'live'` — em `off` (default), nem chega a criar o job (o job SERIA
+um no-op limpo se rodasse, mas não vale gastar um slot de fila com isso).
+
+Gateway `src/gateways/regulatory-watch-gateway.ts` (TS): `fetchSource({ url, previousHash })` —
+`mode: 'off'` devolve `{ skipped: true, reason: 'watch_mode_off' }` (ver acima); `mode: 'live'` faz
+GET real com timeout curto (`REGULATORY_WATCH_GATEWAY_TIMEOUT_MS`, default 20s) e User-Agent
+identificado (`REGULATORY_WATCH_USER_AGENT` — portais governamentais costumam bloquear/registrar
+clientes anônimos), calcula sha256 do corpo e compara com `previousHash`; só GRAVA o corpo em
+`STORAGE_DIR/regulatory-watch/` quando o hash MUDOU (hash igual não persiste nada — a fonte não
+mudou, não há conteúdo novo a preservar). Resposta não-2xx vira erro retryable
+(`REGULATORY_WATCH_GATEWAY_HTTP_ERROR`); timeout/rede também.
+
+Passo de IA (opcional, dentro de `transport-regulatory-watch-service.ts`, NÃO no gateway): reusa a
+infraestrutura de IA já existente do SICAT (`services/conversation/ai-config.ts`
+`hasOpenAiApiKey`/`getAiConfig`/`createChatModel`, `services/ai-control/ai-control-config.ts`
+`getAiControlConfig`) — sem chave, ou com `AI_CONTROL_ENABLED=false`, ou em QUALQUER falha da
+chamada (leitura do conteúdo, erro do modelo, resposta vazia), o item pula para `ai_skipped` sem
+lançar. Prompt FIXO minimalista: resume o que o conteúdo baixado PARECE tratar — a IA NÃO tem a
+versão anterior para comparar (não pode afirmar "o que mudou") e é instruída a NUNCA sugerir uma
+decisão. Nenhum modelo/prompt novo registrado no AI Control Center (chamada direta, molde
+`conversation-evidence-verifier.ts`, não uma tool do catálogo conversacional).
+
+Escrita nova em `regulatory-repo.ts` (histórico de ser SÓ leitura desde o PR-A1, anunciado no
+header do arquivo): `insertRuleVersion` (chamada por `aplicar` — `blocking` não é parâmetro, o
+INSERT grava o literal `false`) e `promoteRuleVersionBlocking` (chamada por `promover` — o ÚNICO
+caminho para `blocking=true`, `UPDATE ... where implementation_state='ACTIVE'`, propagando exclusion/
+check violations do Postgres para o chamador traduzir em `409`).
+
+3 evaluators NOVOS: NENHUM (o Regulatory Watch não avalia compliance, só monitora fontes). Nenhuma
+regra TR-* nova — `aplicar` só permite criar NOVA VERSÃO de uma regra já existente no catálogo.
+
+Contrato: tag nova `Transporte - Regulatory Watch` (5 endpoints: `GET .../watch`,
+`GET .../watch/{itemId}`, `POST .../watch/{itemId}/revisar`, `POST .../watch/{itemId}/aplicar`,
+`POST .../watch/verificar-agora` 202), mais `POST /v1/transporte/regras/{code}/versoes/
+{versionLabel}/promover` (tag `Transporte - Regras`) e `GET /v1/transporte/operations/overview`
+(tag `Transporte - Operações`, reusa a infraestrutura do Centro Operacional da fase 04 — sem tocar
+`/v1/operations/overview` nem `/v1/dashboard/overview`).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
 ---
 
 **Referências**:
