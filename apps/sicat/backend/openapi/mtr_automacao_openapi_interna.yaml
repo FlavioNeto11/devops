@@ -132,6 +132,18 @@ tags:
     catálogo). Coeficientes REAIS da Tabela A (Res. ANTT 6.084/2026), carregados via
     `npm run load:freight-floor` como `review_status=pending_review` — a conferência jurídica
     contra o DOU é pendência P3 do guia; Tabelas B/C/D pendentes de transcrição.'
+- name: Transporte - CIOT
+  description: 'Ciclo completo do CIOT (PR-C2) com PROVEDOR ABSTRAÍDO — pré-validação síncrona
+    (200) → solicitação (202) → registro → retificação → cancelamento → encerramento, com
+    rejeição/bloqueio. NÃO existe provedor CIOT contratado/homologado ([EXTERNAL DEPENDENCY] P5):
+    a implementação concreta hoje é `mock` (sandbox determinístico); `CIOT_PROVIDER_MODE=real`
+    recusa com `CIOT_PROVIDER_NOT_CONFIGURED`. Padrão DL-102 aplicado desde o início: o número do
+    CIOT nasce na RESPOSTA do provedor — um marcador de correlação é gravado ANTES de qualquer
+    chamada, e uma resposta perdida vira `request_unconfirmed` (NUNCA `failed`), resolvido por um
+    reconciliador que pergunta ao provedor. Rejeição de uma tentativa NÃO cancela a operação
+    (`ciot_pending` permanece; um novo `solicitar` cria uma nova tentativa); cancelar o CIOT
+    (`.../ciot/cancelar`) é um ciclo DISTINTO de cancelar a operação
+    (`.../operacoes/{id}/cancelar`) — `REGISTERED ≠ COMPLIANT` (FAQ ANTT).'
 security:
 - bearerAuth: []
 paths:
@@ -7910,6 +7922,316 @@ paths:
                 $ref: '#/components/schemas/UnauthorizedProblem'
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
+  /v1/transporte/operacoes/{operationId}/ciot/pre-validar:
+    post:
+      operationId: transporteOperacaoCiotPreValidar
+      summary: Pré-validar o CIOT (síncrono, sem transição)
+      description: Roda `GATE_CIOT` (`triggeredBy=user`) e devolve a avaliação — NÃO cria
+        `ciot_operations` nem enfileira nada. Uso típico antes de `solicitar`, para o operador ver
+        cedo o que bloquearia/avisaria (TR-CIOT-001/003/004).
+      tags:
+      - Transporte - CIOT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteCiotPreValidarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '200':
+          description: Avaliação de GATE_CIOT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteConformidadeAvaliacaoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/ciot/solicitar:
+    post:
+      operationId: transporteOperacaoCiotSolicitar
+      summary: Solicitar CIOT (assíncrono)
+      description: |-
+        Exige `transport_operations.status` em `contracted` (primeira solicitação — aplica a
+        transição `request_ciot`, `GATE_CIOT`) ou `ciot_pending` (uma tentativa ANTERIOR foi
+        rejeitada e este `solicitar` cria uma NOVA `ciot_operations`, sem repetir a transição —
+        `409 TRANSPORTE_CIOT_OPERATION_NOT_READY` em qualquer outro status). Cria a linha
+        `ciot_operations` (`pre_validation`, com marcador de correlação DL-102 já gravado) e
+        ENFILEIRA `transporte.ciot.register` (idempotente via `Idempotency-Key`; dedupe por
+        `(entityType=ciot_operation, entityId=operationId, operation)`).
+      tags:
+      - Transporte - CIOT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteCiotSolicitarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              responsibleParty: contractor
+      responses:
+        '202':
+          description: Solicitação de CIOT enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+              example:
+                commandId: cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                correlationId: corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f55
+                entityType: ciot_operation
+                entityId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                operation: transporte.ciot.register
+                status: queued
+                submittedAt: '2026-08-14T12:30:00Z'
+                links:
+                  job: /v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                  entity: /v1/transporte/operacoes/trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b/ciot
+                  audit: /v1/audit/corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f55
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/ciot/retificar:
+    post:
+      operationId: transporteOperacaoCiotRetificar
+      summary: Retificar CIOT (assíncrono)
+      description: Exige um `ciot_operations` em `registered` (`409 TRANSPORTE_CIOT_MUTATION_NOT_ALLOWED`
+        fora disso). ENFILEIRA `transporte.ciot.rectify`.
+      tags:
+      - Transporte - CIOT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteCiotRetificarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '202':
+          description: Retificação de CIOT enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/ciot/cancelar:
+    post:
+      operationId: transporteOperacaoCiotCancelar
+      summary: Cancelar CIOT (assíncrono)
+      description: Exige um `ciot_operations` em `registered` (`409 TRANSPORTE_CIOT_MUTATION_NOT_ALLOWED`
+        fora disso). ENFILEIRA `transporte.ciot.cancel`. **NÃO cancela a operação de
+        transporte** — para isso use `POST /v1/transporte/operacoes/{operationId}/cancelar`
+        (ciclo distinto).
+      tags:
+      - Transporte - CIOT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteCiotCancelarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              reason: Operação renegociada com outro transportador.
+      responses:
+        '202':
+          description: Cancelamento de CIOT enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/ciot/encerrar:
+    post:
+      operationId: transporteOperacaoCiotEncerrar
+      summary: Encerrar CIOT (assíncrono)
+      description: Exige um `ciot_operations` em `registered` OU `rectified`
+        (`409 TRANSPORTE_CIOT_MUTATION_NOT_ALLOWED` fora disso). ENFILEIRA `transporte.ciot.close`.
+      tags:
+      - Transporte - CIOT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteCiotEncerrarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '202':
+          description: Encerramento de CIOT enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/ciot:
+    get:
+      operationId: transporteOperacaoCiotGet
+      summary: Ciot atual + eventos paginados
+      description: 'Devolve a tentativa de CIOT MAIS RECENTE da operação (`ciot: null` quando
+        nenhum `solicitar` foi feito ainda) e o histórico paginado de eventos daquela tentativa
+        (`ciot_events`, APPEND-ONLY — pré-validação, dispatch, registro/rejeição/reconciliação,
+        retificação, cancelamento, encerramento).'
+      tags:
+      - Transporte - CIOT
+      responses:
+        '200':
+          description: Estado atual do ciclo do CIOT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteCiotStateResponse'
+              example:
+                ciot:
+                  id: ciot_7a2b3c4d5e6f7a8b9c0d1e2f
+                  operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  provider: mock
+                  status: registered
+                  ciotNumber: '1234567890'
+                  externalStatus: REGISTERED
+                  rejectionReasonCode: null
+                  requestedAt: '2026-08-14T12:30:00Z'
+                  registeredAt: '2026-08-14T12:30:05Z'
+                  closedAt: null
+                  cancelledAt: null
+                  createdAt: '2026-08-14T12:30:00Z'
+                  updatedAt: '2026-08-14T12:30:05Z'
+                events:
+                  items:
+                  - id: ciotev_1a2b3c4d5e6f7a8b9c0d1e2f
+                    eventType: pre_validated
+                    detail: { gate: GATE_CIOT, overallStatus: WARN }
+                    createdAt: '2026-08-14T12:30:00Z'
+                  - id: ciotev_2b3c4d5e6f7a8b9c0d1e2f3a
+                    eventType: request_dispatched
+                    detail: {}
+                    createdAt: '2026-08-14T12:30:01Z'
+                  - id: ciotev_3c4d5e6f7a8b9c0d1e2f3a4b
+                    eventType: registered
+                    detail: { ciotNumber: '1234567890', externalStatus: REGISTERED }
+                    createdAt: '2026-08-14T12:30:05Z'
+                  total: 3
+                  page: 1
+                  pageSize: 20
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
 components:
   securitySchemes:
     bearerAuth:
@@ -13612,6 +13934,206 @@ components:
         pageSize:
           type: integer
           minimum: 1
+    TransporteCiotPreValidarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+        referenceDate:
+          type: string
+          format: date
+          description: Default hoje — mesma semântica de `TransporteValidarConformidadeRequest`.
+    TransporteCiotSolicitarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+        responsibleParty:
+          type: string
+          enum: [contractor, subcontractor]
+          default: contractor
+          description: 'Papel responsável pela declaração do CIOT (enquadramento — Lei 15.485/2026):
+            `contractor` por default; `subcontractor` quando a operação é uma subcontratação (quem
+            contratou o TAC). Precisa corresponder a uma parte já vinculada à operação.'
+    TransporteCiotRetificarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+    TransporteCiotCancelarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+        reason:
+          type: string
+          description: Motivo do cancelamento do CIOT (opcional) — NÃO cancela a operação de
+            transporte, ciclos distintos.
+    TransporteCiotEncerrarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId:
+          type: string
+    TransporteCiotOperationResource:
+      type: object
+      description: 'UMA tentativa de ciclo do CIOT (`ciot_operations`) — cada `solicitar` cria uma
+        linha NOVA (histórico preservado; rejeição de uma tentativa nunca reescreve/apaga). O
+        número do CIOT (`ciotNumber`) só nasce na resposta do provedor — `null` até `registered`.'
+      required:
+      - id
+      - operationId
+      - provider
+      - status
+      - ciotNumber
+      - externalStatus
+      - rejectionReasonCode
+      - requestedAt
+      - registeredAt
+      - closedAt
+      - cancelledAt
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        operationId:
+          type: string
+        provider:
+          type: string
+          enum: [mock, real]
+          description: '`real` não tem implementação nesta fase ([EXTERNAL DEPENDENCY] P5) — hoje
+            sempre `mock`.'
+        status:
+          type: string
+          enum:
+          - pre_validation
+          - requested
+          - request_unconfirmed
+          - registered
+          - rectified
+          - cancelled
+          - closed
+          - rejected
+          - blocked
+          description: '`request_unconfirmed` = DL-102: a resposta do provedor se perdeu depois do
+            dispatch — NUNCA confundir com `rejected` (decisão definitiva do provedor).'
+        ciotNumber:
+          type:
+          - string
+          - 'null'
+        externalStatus:
+          type:
+          - string
+          - 'null'
+          description: Último status bruto devolvido pelo provedor (ex. `REGISTERED`/`RECTIFIED`).
+        rejectionReasonCode:
+          type:
+          - string
+          - 'null'
+        requestedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        registeredAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        closedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        cancelledAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteCiotEventResource:
+      type: object
+      description: UM evento da trilha APPEND-ONLY (`ciot_events`) do ciclo do CIOT.
+      required:
+      - id
+      - eventType
+      - detail
+      - createdAt
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+          enum:
+          - pre_validated
+          - request_dispatched
+          - request_confirmed
+          - request_unconfirmed
+          - registered
+          - rectify_requested
+          - rectified
+          - cancel_requested
+          - cancelled
+          - close_requested
+          - closed
+          - rejected
+          - blocked
+          - reconciled
+        detail:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+    TransporteCiotEventListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteCiotEventResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteCiotStateResponse:
+      type: object
+      description: 'Ciot ATUAL da operação (a tentativa mais recente, `null` quando nenhum
+        `solicitar` foi feito ainda) + o histórico paginado de eventos daquela tentativa.'
+      required:
+      - ciot
+      - events
+      properties:
+        ciot:
+          oneOf:
+          - $ref: '#/components/schemas/TransporteCiotOperationResource'
+          - type: 'null'
+        events:
+          $ref: '#/components/schemas/TransporteCiotEventListResponse'
     TransporteOperacaoFrete:
       type: object
       description: Frete DECOMPOSTO — cada componente é independente; VPO NUNCA é somado ao frete.

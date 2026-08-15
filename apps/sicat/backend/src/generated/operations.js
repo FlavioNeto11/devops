@@ -1258,5 +1258,59 @@ export const operations = [
     "summary": "Tabelas de piso carregadas (admin read-only)",
     "tag": "Transporte - Piso Mínimo",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_pre_validar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/pre-validar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/pre-validar",
+    "summary": "Pré-validar o CIOT (síncrono, sem transição)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_solicitar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/solicitar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/solicitar",
+    "summary": "Solicitar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_retificar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/retificar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/retificar",
+    "summary": "Retificar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/cancelar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/cancelar",
+    "summary": "Cancelar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_encerrar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/encerrar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/encerrar",
+    "summary": "Encerrar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_ciot",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot",
+    "summary": "Ciot atual + eventos paginados",
+    "tag": "Transporte - CIOT",
+    "successStatus": 200
   }
 ];

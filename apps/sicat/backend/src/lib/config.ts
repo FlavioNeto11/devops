@@ -119,7 +119,8 @@ type ConfigKey =
   | 'rntrcGatewayBaseUrl'
   | 'rntrcGatewayTimeoutMs'
   | 'rntrcGatewayCsvDownloadTimeoutMs'
-  | 'rntrcGatewayCsvMaxBytes';
+  | 'rntrcGatewayCsvMaxBytes'
+  | 'ciotProviderMode';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -177,6 +178,22 @@ function resolveRntrcGatewayMode(): RntrcGatewayMode {
   const raw = String(process.env.RNTRC_GATEWAY_MODE || 'mock').trim().toLowerCase();
   if (raw === 'mock' || raw === 'open_data') return raw;
   throw new Error(`RNTRC_GATEWAY_MODE inválido: ${raw}. Valores aceitos: mock, open_data.`);
+}
+
+export type CiotProviderMode = 'mock' | 'real';
+
+/**
+ * Modo do provedor de CIOT (PR-C2). `mock` (default) é o único modo com implementação — sandbox
+ * determinístico e stateful em memória (`gateways/ciot-provider-gateway.ts`), suficiente para o
+ * ciclo completo sem depender de [EXTERNAL DEPENDENCY] P5 (nenhum provedor CIOT contratado/
+ * homologado ainda). `real` é aceito aqui (não lança no boot) mas o gateway recusa criar a
+ * instância com `CIOT_PROVIDER_NOT_CONFIGURED` — mesma postura "aceita o valor, falha no uso" que
+ * `resolveRntrcGatewayMode` adotaria para `antt`, se existisse.
+ */
+function resolveCiotProviderMode(): CiotProviderMode {
+  const raw = String(process.env.CIOT_PROVIDER_MODE || 'mock').trim().toLowerCase();
+  if (raw === 'mock' || raw === 'real') return raw;
+  throw new Error(`CIOT_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, real.`);
 }
 
 export const config = {
@@ -441,5 +458,12 @@ export const config = {
    */
   get rntrcGatewayCsvDownloadTimeoutMs() { return getConfigValue('rntrcGatewayCsvDownloadTimeoutMs', Number(process.env.RNTRC_GATEWAY_CSV_DOWNLOAD_TIMEOUT_MS || 120000)); },
   /** Teto de bytes do CSV baixado — acima disso o gateway aborta com `RNTRC_GATEWAY_CSV_TOO_LARGE` em vez de esgotar memória/disco do worker. */
-  get rntrcGatewayCsvMaxBytes() { return getConfigValue('rntrcGatewayCsvMaxBytes', Number(process.env.RNTRC_GATEWAY_CSV_MAX_BYTES || 262144000)); }
+  get rntrcGatewayCsvMaxBytes() { return getConfigValue('rntrcGatewayCsvMaxBytes', Number(process.env.RNTRC_GATEWAY_CSV_MAX_BYTES || 262144000)); },
+
+  /* ── Provedor de CIOT (PR-C2) ─────────────────────────────────────────────────────────────────
+   * `mock` é o único modo implementado — nenhum provedor CIOT contratado/homologado ainda
+   * (pendência [EXTERNAL DEPENDENCY] P5). Ver `gateways/ciot-provider-gateway.ts`. */
+  get ciotProviderMode(): CiotProviderMode {
+    return getConfigValue<CiotProviderMode>('ciotProviderMode', resolveCiotProviderMode());
+  }
 };

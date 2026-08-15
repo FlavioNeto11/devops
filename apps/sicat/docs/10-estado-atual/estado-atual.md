@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C parte 1 (verificação RNTRC) entregue (PR-C1)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -716,6 +716,78 @@ transporte-conformidade.test.js` ajustado: o carrier de setup nunca passou por
 `verificar-rntrc`, então TR-RNTRC-001 no ciclo `contratar` passou de `PASS` (comportamento antigo,
 baseado só no `rntrcStatus` declarado) para `WARN RNTRC_NOT_VERIFIED` (comportamento correto agora)
 — não bloqueia o fluxo, só o reasonCode mudou.
+
+O PR-C2 (Fase C parte 2, Onda 3) entregou o **ciclo completo do CIOT** com PROVEDOR ABSTRAÍDO —
+pré-validação → solicitação → registro → retificação → cancelamento → encerramento, com rejeição/
+bloqueio, e o padrão **DL-102 replicado** (não reaproveitado do MTR — bounded context próprio)
+DESDE O INÍCIO. NÃO existe provedor CIOT contratado ([EXTERNAL DEPENDENCY] P5): migration
+[`028`](../../backend/src/sql/028_transport_ciot.sql) cria `ciot_operations` (`version`+trigger,
+UMA linha por TENTATIVA — rejeição nunca reescreve, um novo `solicitar` cria linha nova) e
+`ciot_events` (append-only, trilha completa do ciclo). Gateway
+[`ciot-provider-gateway.ts`](../../backend/src/gateways/ciot-provider-gateway.ts) só implementa
+`mode: 'mock'` (`CIOT_PROVIDER_MODE`, default) — sandbox determinístico e STATEFUL EM MEMÓRIA POR
+PROCESSO (`Map` module-level chaveado pelo marcador de correlação, para sobreviver a novas
+instâncias do gateway entre retries e para o reconciliador "achar" o que uma tentativa anterior
+registrou); `mode: 'real'` recusa a instância com `CIOT_PROVIDER_NOT_CONFIGURED`. Regras do mock:
+freight abaixo de 100 → rejeita com `CIOT_PROVIDER_REJECTED_TEST` (não-retryable, testa o caminho
+de rejeição definitiva); `testFlags.simulateLostResponse` aplica a operação no Map mas LANÇA
+timeout (`CIOT_PROVIDER_LOST_RESPONSE_TEST`, retryable) — o cenário DL-102 por excelência: o
+"provedor" processou, só a resposta se perdeu; retries com o MESMO marcador são IDEMPOTENTES
+(nunca duplicam o registro). Marcador de correlação (`[sicat:<ciotId>]`,
+[`ciot-correlation.ts`](../../backend/src/lib/transport/ciot-correlation.ts), réplica deliberada
+dos princípios de `lib/manifest-correlation.ts`) gravado na CRIAÇÃO da `ciot_operations`, ANTES de
+qualquer chamada. Reconciliador
+[`ciot-reconciler.ts`](../../backend/src/services/ciot-reconciler.ts) (réplica de
+`manifest-submit-reconciler.ts`) pergunta ao provedor via `queryCiotByMarker`, com o MESMO padrão
+de polling (5 tentativas, 2s/5s/10s/15s/20s), e devolve `found|not-found-after-polling|error`
+tipado. Serviço [`transport-ciot-service.ts`](../../backend/src/services/transport-ciot-service.ts)
+combina a metade HTTP-facing (`preValidateCiot`/`requestCiot`/`rectifyCiot`/`cancelCiot`/
+`closeCiot`/`getCiotForOperationService`) com a worker-facing (`runCiot*Job`, SEM parâmetro
+`gateway` — molde `runRntrcVerificationJob`). Fluxo `solicitar`: exige `transport_operations.status`
+`contracted` (aplica `request_ciot`, `GATE_CIOT`) OU `ciot_pending` (uma tentativa anterior foi
+rejeitada — cria NOVA `ciot_operations` sem repetir a transição); qualquer outro status → `409
+TRANSPORTE_CIOT_OPERATION_NOT_READY`. Worker `handleTransporteCiotRegister` grava o evento
+`request_dispatched` ANTES de chamar o gateway (intenção persistida); sucesso confirma
+`ciot_pending → ciot_registered` (`confirm_ciot`, CAS); rejeição/resposta-perdida NÃO são tratadas
+no handler — propagam e são interpretadas pelo side-effect terminal
+`applyTransporteCiotTerminalFailureSideEffect` (registrado nos MESMOS dois pontos de
+`job-runner.ts` que os side-effects do MTR/RNTRC), que distingue `CIOT_PROVIDER_REJECTED_TEST`
+(→ `rejected`, `transport_operations` PERMANECE `ciot_pending`) de qualquer outro terminal
+(→ `request_unconfirmed`, NUNCA `failed`, com tentativa best-effort de enfileirar
+`transporte.ciot.reconcile`). Varredura periódica própria
+(`enqueueTransporteCiotReconcileSweepIfNeeded`, molde EXATO da varredura do MTR, relógio/env var
+próprios, default 5 min) é a rede de segurança para reconciliações que não puderam ser enfileiradas
+no momento do terminal. Cancelar o CIOT (`.../ciot/cancelar`) é um ciclo DISTINTO de cancelar a
+operação — não se tocam. `entityType 'ciot_operation'` usa `entityId = operationId` (dedupe e link
+por operação; o id da tentativa ativa vai em `payload.ciotOperationId`), com link explícito via o
+novo parâmetro `entityLink` de `buildCommandAccepted` (`command-response.ts`) — a primeira vez que
+esse builder precisou de um link que não é derivável só de `entityType`/`entityId`. `lib/retry.ts`
+ganhou 5 operações (`transporte.ciot.register/rectify/cancel/close` prioridade 4, `.reconcile`
+prioridade 3) e 3 códigos de erro novos (`CIOT_PROVIDER_REJECTED_TEST`/`CIOT_PROVIDER_NOT_CONFIGURED`/
+`TRANSPORTE_CIOT_ALREADY_TERMINAL` não-retryable). Três evaluators novos saíram de
+`RULES_WITHOUT_EVALUATOR_YET` (`rule-evaluators.ts`): **TR-CIOT-001** (obrigatoriedade — operação
+remunerada sem CIOT → `warn CIOT_NOT_REGISTERED` no `GATE_CIOT`; com `registered`/`rectified` →
+`pass` com a nota `REGISTERED ≠ COMPLIANT`); **TR-CIOT-002** (CIOT antes da liberação, `GATE_RELEASE`
+— ausente/`unconfirmed`/`rejected` → `block` bruto `CIOT_MISSING_FOR_RELEASE`, clamp mantém `warn`
+com o seed `blocking=false`); **TR-CIOT-003** (responsável declarado — `requestPayloadSnapshot.
+responsibleParty`, `contractor` por default ou `subcontractor` em subcontratação, → `pass`/`warn
+CIOT_RESPONSIBLE_UNDECLARED`). `ctx.ciotOperation` (a tentativa mais recente) carregado por
+`transport-compliance-service.ts` via `ciot-repo.findLatestCiotOperationForOperation`, mesmo molde
+de `ctx.carrierRntrcVerification`. TR-CIOT-005 (vínculo MDF-e) permanece em
+`RULES_WITHOUT_EVALUATOR_YET`, Fase E. Contrato: tag nova `Transporte - CIOT`, 5 endpoints (4
+comandos 202 + 1 GET) + `POST .../ciot/pre-validar` (200 síncrono); `commandEndpoints` de
+`scripts/validate-openapi.js` e do teste gêmeo `openapi-queue-contract.test.js` ganharam os 4
+comandos. Cobertura: `tests/unit/ciot-provider-gateway.test.js` (mock determinístico, idempotência
+de retry, rejeição, resposta perdida, mode `real`), `tests/worker/transporte-ciot.test.js`
+(skip-if-no-DB: register sucesso com auditoria, rejeição sem tocar a operação, resposta perdida →
+`request_unconfirmed` → reconcile encontra e completa — o teste DL-102 do domínio —, reconcile
+not-found → `rejected CIOT_REQUEST_NOT_FOUND_REMOTE`, ciclos de retificar/cancelar/encerrar),
+`tests/api/transporte-ciot.test.js` (409 fora de `contracted`, 202 + dedupe via Idempotency-Key,
+pre-validar 200, GET do ciclo, tenancy, 401). `tests/regulatory/compliance-gates.test.js` ganhou
+casos dedicados para os 3 evaluators novos; `tests/api/transporte-conformidade.test.js` ajustado:
+o teste de fronteira temporal de TR-CIOT-001 (23/24-05-2026) passou de `NOT_APPLICABLE
+EVALUATOR_NOT_IMPLEMENTED` (comportamento antigo) para `WARN CIOT_NOT_REGISTERED` nos dois lados
+(comportamento correto agora — só a `ruleVersionLabel` resolvida muda na fronteira).
 
 ## 4. Riscos e limites conhecidos
 

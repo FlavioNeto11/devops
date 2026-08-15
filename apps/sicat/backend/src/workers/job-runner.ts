@@ -18,8 +18,10 @@ import {
   applyManifestCancelTerminalFailureSideEffect,
   applyManifestSubmitTerminalFailureSideEffect,
   applyTransporteRntrcVerifyTerminalFailureSideEffect,
+  applyTransporteCiotTerminalFailureSideEffect,
   applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
+import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/ciot-repo.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
 
@@ -373,6 +375,82 @@ async function enqueueManifestSubmitReconcileSweepIfNeeded() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Varredura periódica do CIOT sem confirmação (PR-C2, DL-102 aplicado ao domínio CIOT) — molde
+// EXATO de `enqueueManifestSubmitReconcileSweepIfNeeded` acima: mesmo racional (estado preso que
+// ninguém mais vai destravar), mesmo desenho (relógio próprio, `0`/negativo desliga, falha nunca
+// derruba o loop do worker).
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_CIOT_RECONCILE_SWEEP_DEFAULT_MS = 5 * 60 * 1000;
+// Mesma janela de atividade de `MANIFEST_SUBMIT_RECONCILE_LOOKBACK_MS` — sem recorte a varredura
+// do repositório degenera em full scan.
+const TRANSPORTE_CIOT_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function resolveTransporteCiotReconcileSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_CIOT_RECONCILE_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_CIOT_RECONCILE_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteCiotReconcileSweepAt = 0;
+
+export function resetTransporteCiotReconcileSweepClockForTests() {
+  lastTransporteCiotReconcileSweepAt = 0;
+}
+
+async function enqueueTransporteCiotReconcileSweepIfNeeded() {
+  const intervalMs = resolveTransporteCiotReconcileSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteCiotReconcileSweepAt && (now - lastTransporteCiotReconcileSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteCiotReconcileSweepAt = now;
+
+  const updatedSince = new Date(now - TRANSPORTE_CIOT_RECONCILE_LOOKBACK_MS).toISOString();
+
+  try {
+    const candidates = await listUnconfirmedCiotOperationsForReconciliation({ updatedSince });
+    for (const candidate of candidates) {
+      // `insertJobDeduplicated` tem alvo de conflito `(entity_type, entity_id, operation) where
+      // status in ('queued','running','retry_wait')`: no máximo UMA reconciliação ativa por
+      // operação — o `applyTransporteCiotTerminalFailureSideEffect` já tenta enfileirar no momento
+      // do terminal; esta varredura é a rede de segurança para quando aquele enfileiramento falhou
+      // (ou o processo caiu entre marcar `request_unconfirmed` e enfileirar).
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'ciot_operation',
+        entityId: candidate.operationId,
+        operation: 'transporte.ciot.reconcile',
+        payload: {
+          ciotOperationId: candidate.id,
+          operationId: candidate.operationId,
+          integrationAccountId: candidate.integrationAccountId,
+          correlationMarker: candidate.correlationMarker
+        },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: candidate.correlationId,
+        priority: 3,
+        retryStrategy: 'exponential',
+        baseDelayMs: 5000,
+        maxDelayMs: 60000,
+        tags: extractJobTags({ operation: 'transporte.ciot.reconcile', entityType: 'ciot_operation', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker — mesma postura da varredura de manifesto.
+    console.warn(`[worker] varredura de reconciliação de CIOT não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
 function startClaimHeartbeat(jobId: string, workerName: string) {
   if (config.workerClaimHeartbeatMs <= 0) {
     return null;
@@ -420,6 +498,9 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
   // Par obrigatório do PR-C1: marca a verificação RNTRC `pending` como `failed` (nunca toca o party).
   await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
+  // Par obrigatório do PR-C2 (DL-102 aplicado ao CIOT): resposta perdida DEPOIS do dispatch vira
+  // `request_unconfirmed`, NUNCA `failed`; rejeição definitiva do provedor vira `rejected`.
+  await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -464,6 +545,7 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     // Par obrigatório da chamada em `handleDlqTransition` — ver comentário lá.
     await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
+    await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;
@@ -515,6 +597,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
 
   await requeueStaleJobsIfNeeded();
   await enqueueManifestSubmitReconcileSweepIfNeeded();
+  await enqueueTransporteCiotReconcileSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {

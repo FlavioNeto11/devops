@@ -9,6 +9,13 @@ type BuildCommandAcceptedInput = {
   entityType: CommandEntityType;
   entityId: string;
   operation: string;
+  /**
+   * Link explícito do recurso — usado quando o link do contrato NÃO é derivável só de
+   * `entityType`/`entityId` (ex.: `ciot_operation`: `entityId` é o id da `transport_operations` pai
+   * — para o job dedupar por operação — mas o GET do ciclo do CIOT vive em
+   * `/v1/transporte/operacoes/{operationId}/ciot`). Quando informado, sobrepõe o ternário abaixo.
+   */
+  entityLink?: string;
 };
 
 type CommandAcceptedResponse = {
@@ -33,7 +40,8 @@ export function buildCommandAccepted({
   correlationId,
   entityType,
   entityId,
-  operation
+  operation,
+  entityLink
 }: BuildCommandAcceptedInput): CommandAcceptedResponse {
   return {
     commandId,
@@ -47,17 +55,18 @@ export function buildCommandAccepted({
     links: {
       job: `/v1/jobs/${jobId}`,
       entity:
-        entityType === 'manifest'
-          ? `/v1/manifestos/${entityId}`
-          : entityType === 'cadastro'
-            ? `/v1/cadastros/${entityId}`
-            : entityType === 'dmr'
-              ? `/v1/dmr/${entityId}`
-              : entityType === 'mtr_provisorio'
-                ? `/v1/mtr-provisorio/${entityId}`
-                : entityType === 'transport_party'
-                  ? `/v1/transporte/transportadores/${entityId}`
-                  : `/v1/jobs/${jobId}`,
+        entityLink
+          ?? (entityType === 'manifest'
+            ? `/v1/manifestos/${entityId}`
+            : entityType === 'cadastro'
+              ? `/v1/cadastros/${entityId}`
+              : entityType === 'dmr'
+                ? `/v1/dmr/${entityId}`
+                : entityType === 'mtr_provisorio'
+                  ? `/v1/mtr-provisorio/${entityId}`
+                  : entityType === 'transport_party'
+                    ? `/v1/transporte/transportadores/${entityId}`
+                    : `/v1/jobs/${jobId}`),
       audit: `/v1/audit/${correlationId}`
     }
   };

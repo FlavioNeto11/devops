@@ -68,6 +68,19 @@ export type CarrierRntrcVerificationContext = {
   completedAt: string;
 };
 
+/**
+ * Recorte da tentativa de CIOT MAIS RECENTE da operação (PR-C2, `ciot_operations`), montado por
+ * `transport-compliance-service.ts` a partir de `ciot-repo.findLatestCiotOperationForOperation`.
+ * `undefined`/`null` = nenhum `solicitar` foi feito ainda (operação nunca entrou no ciclo do CIOT).
+ * Recorte deliberadamente MÍNIMO — os evaluators só precisam saber "o que aconteceu", nunca o
+ * payload/resposta crus do provedor.
+ */
+export type CiotOperationEvaluationContext = {
+  status: 'pre_validation' | 'requested' | 'request_unconfirmed' | 'registered' | 'rectified' | 'cancelled' | 'closed' | 'rejected' | 'blocked';
+  ciotNumber: string | null;
+  requestPayloadSnapshot: Record<string, unknown>;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
@@ -82,6 +95,8 @@ export type RuleEvaluatorContext = {
    * vínculo — TR-RNTRC-002 distingue os dois casos olhando `operation.vehicles` diretamente.
    */
   carrierTractionVehicleLinkType?: string | null;
+  /** Tentativa de CIOT mais recente da operação (PR-C2) — `undefined`/`null` = nunca solicitado. */
+  ciotOperation?: CiotOperationEvaluationContext | null;
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -569,6 +584,133 @@ function evaluateVpo003(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
+// TR-CIOT-001/002/003 — ciclo do CIOT (PR-C2). `ctx.ciotOperation` é a tentativa MAIS RECENTE
+// (`ciot_operations`), montada por `transport-compliance-service.ts` a partir de
+// `ciot-repo.findLatestCiotOperationForOperation`. `undefined`/`null` = nenhum `solicitar` ainda.
+// =================================================================================================
+
+/** Frete declarado (ofertado OU contratado) > 0 — mesmo critério dos dois evaluators de obrigatoriedade/liberação. */
+function isOperationRemunerated(operation: TransportOperationAggregate): boolean {
+  const { freightOfferedAmount, freightContractedAmount } = operation.operation;
+  return (freightOfferedAmount != null && freightOfferedAmount > 0) || (freightContractedAmount != null && freightContractedAmount > 0);
+}
+
+/** CIOT considerado "vigente" para fins de obrigatoriedade/liberação — `registered` ou `rectified` (retificação não invalida o registro). */
+function isCiotConsideredRegistered(ciot: CiotOperationEvaluationContext | null | undefined): boolean {
+  return ciot?.status === 'registered' || ciot?.status === 'rectified';
+}
+
+/**
+ * TR-CIOT-001 — Obrigatoriedade do CIOT (GATE_CIOT). CIOT universal desde 24/05/2026 (Res. ANTT
+ * 6.078/2026): toda operação REMUNERADA exige CIOT. Neste gate a ausência é `warn` (não `block`) —
+ * quem de fato IMPEDE a liberação sem CIOT é TR-CIOT-002 (GATE_RELEASE); aqui o gate só sinaliza
+ * cedo, antes de a operação avançar. `REGISTERED ≠ COMPLIANT` (FAQ ANTT, recusa registrada no
+ * DL-103): o `pass` deixa isso explícito na mensagem — o motor nunca afirma "conforme" a partir só
+ * do registro do CIOT.
+ */
+function evaluateCiot001(ctx: RuleEvaluatorContext): RuleOutcome {
+  const remunerated = isOperationRemunerated(ctx.operation);
+  const inputs = { remunerated };
+
+  if (!remunerated) {
+    return outcome('not_applicable', 'Operação sem frete remunerado declarado — CIOT não é obrigatório (Res. ANTT 6.078/2026 incide sobre transporte remunerado de cargas).', {
+      reasonCode: 'CIOT_NOT_APPLICABLE_UNPAID',
+      inputs
+    });
+  }
+
+  const ciot = ctx.ciotOperation ?? null;
+  const checkInputs = { ...inputs, ciotStatus: ciot?.status ?? null };
+
+  if (isCiotConsideredRegistered(ciot)) {
+    return outcome(
+      'pass',
+      `CIOT registrado (número ${ciot?.ciotNumber ?? 'desconhecido'}) — REGISTRADO não é o mesmo que `
+        + 'CONFORME (FAQ ANTT): o registro não substitui as demais obrigações do ciclo.',
+      { inputs: checkInputs, result: { ciotNumber: ciot?.ciotNumber ?? null, ciotStatus: ciot?.status ?? null } }
+    );
+  }
+
+  return outcome('warn', 'Operação remunerada exige CIOT (Res. ANTT 6.078/2026) e ainda não tem um registrado.', {
+    reasonCode: 'CIOT_NOT_REGISTERED',
+    inputs: checkInputs
+  });
+}
+
+/**
+ * TR-CIOT-002 — CIOT antes do início da operação (GATE_RELEASE). Diferente de TR-CIOT-001: aqui a
+ * ausência é `block` BRUTO — este é o gate que de fato impede `ready_for_release` sem CIOT vigente.
+ * O clamp de enforcement (`applyEnforcementClamp`) rebaixa para `warn` enquanto a versão do seed
+ * não estiver `ACTIVE`+`blocking=true` revisada — hoje `blocking=false` (regra de ouro da Fase A/B),
+ * então o `block` bruto sobrevive só em `raw_status` (`RULE_NOT_ENFORCEABLE`).
+ */
+function evaluateCiot002(ctx: RuleEvaluatorContext): RuleOutcome {
+  const remunerated = isOperationRemunerated(ctx.operation);
+  const inputs = { remunerated };
+
+  if (!remunerated) {
+    return outcome('not_applicable', 'Operação sem frete remunerado declarado — CIOT não é pré-requisito de liberação.', {
+      reasonCode: 'CIOT_NOT_APPLICABLE_UNPAID',
+      inputs
+    });
+  }
+
+  const ciot = ctx.ciotOperation ?? null;
+  const checkInputs = { ...inputs, ciotStatus: ciot?.status ?? null };
+
+  if (isCiotConsideredRegistered(ciot)) {
+    return outcome('pass', 'CIOT registrado antes da liberação da operação.', {
+      inputs: checkInputs,
+      result: { ciotNumber: ciot?.ciotNumber ?? null, ciotStatus: ciot?.status ?? null }
+    });
+  }
+
+  const label = ciot?.status === 'request_unconfirmed'
+    ? 'a última solicitação ainda não teve resposta confirmada pelo provedor'
+    : ciot?.status === 'rejected'
+      ? 'a última solicitação foi rejeitada pelo provedor'
+      : 'nenhuma solicitação de CIOT foi concluída';
+  return outcome('block', `CIOT ausente para a liberação da operação — ${label} (Res. ANTT 6.078/2026, obrigatório ANTES do início).`, {
+    reasonCode: 'CIOT_MISSING_FOR_RELEASE',
+    inputs: checkInputs
+  });
+}
+
+/**
+ * TR-CIOT-003 — Responsável pelo CIOT conforme enquadramento (GATE_CIOT). Declarativo (Fase A/C
+ * deste PR): a solicitação (`requestCiot`) grava `responsibleParty` no `request_payload_snapshot`
+ * (default `contractor`; `subcontractor` quando a operação é uma subcontratação — "quem contratou o
+ * TAC" no enquadramento da Lei 15.485/2026). O evaluator só confere que o campo foi DECLARADO e é
+ * coerente com um papel vinculado à operação — a checagem estrutural de vínculo já acontece em
+ * `transport-ciot-service.ts#resolveResponsibleParty` no momento da solicitação.
+ */
+function evaluateCiot003(ctx: RuleEvaluatorContext): RuleOutcome {
+  const ciot = ctx.ciotOperation ?? null;
+
+  if (!ciot) {
+    return outcome('warn', 'Operação ainda não solicitou CIOT — responsável pela declaração ainda não foi definido.', {
+      reasonCode: 'CIOT_RESPONSIBLE_UNDECLARED',
+      inputs: {}
+    });
+  }
+
+  const responsibleParty = ciot.requestPayloadSnapshot?.responsibleParty;
+  const inputs = { responsibleParty: typeof responsibleParty === 'string' ? responsibleParty : null };
+
+  if (typeof responsibleParty === 'string' && responsibleParty.trim().length > 0) {
+    return outcome('pass', `Responsável pela declaração do CIOT informado na solicitação (papel "${responsibleParty}").`, {
+      inputs,
+      result: { responsibleParty }
+    });
+  }
+
+  return outcome('warn', 'Responsável pela declaração do CIOT (enquadramento — contratante ou quem contratou o TAC em subcontratação) não foi declarado na solicitação.', {
+    reasonCode: 'CIOT_RESPONSIBLE_UNDECLARED',
+    inputs
+  });
+}
+
+// =================================================================================================
 // TR-CIOT-004 — dados obrigatórios do CIOT completos (GATE_CIOT)
 // =================================================================================================
 
@@ -633,6 +775,9 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-PAY-001': evaluatePay001,
   'TR-VPO-001': evaluateVpo001,
   'TR-VPO-003': evaluateVpo003,
+  'TR-CIOT-001': evaluateCiot001,
+  'TR-CIOT-002': evaluateCiot002,
+  'TR-CIOT-003': evaluateCiot003,
   'TR-CIOT-004': evaluateCiot004,
   'TR-COMP-001': evaluateComp001
 };
@@ -652,12 +797,12 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * `implementationState: 'AWAITING_REGULATION'`). Sem uma norma que diga COMO a revalidação anual
  * deve ser checada, não há o que um evaluator avaliaria — permanece `EVALUATOR_NOT_IMPLEMENTED`
  * até a regulamentação existir, mesmo a versão da regra já estando vigente por data.
+ * TR-CIOT-001/002/003 SAÍRAM deste mapa no PR-C2 (evaluators declarativos com o ciclo completo do
+ * CIOT, `evaluateCiot001/002/003` acima). TR-CIOT-005 CONTINUA aqui — depende do vínculo CIOT↔MDF-e
+ * (Fase E, NT MDF-e 2026.001 em revisão — pendência P7 do guia).
  */
 export const RULES_WITHOUT_EVALUATOR_YET: Partial<Record<RuleCode, { targetPhase: string }>> = {
   'TR-RNTRC-003': { targetPhase: 'C' },
-  'TR-CIOT-001': { targetPhase: 'C' },
-  'TR-CIOT-002': { targetPhase: 'C' },
-  'TR-CIOT-003': { targetPhase: 'C' },
   'TR-CIOT-005': { targetPhase: 'E' },
   'TR-VPO-002': { targetPhase: 'D' },
   'TR-VPO-004': { targetPhase: 'E' },

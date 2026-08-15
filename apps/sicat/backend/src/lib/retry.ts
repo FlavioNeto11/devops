@@ -30,7 +30,15 @@ const RETRYABLE_ERROR_CODES = new Set([
   // `classifyRetryabilityFromStatus`); registrados aqui também para clareza e redundância, no
   // mesmo molde de `CETESB_NETWORK_ERROR`/`CETESB_TIMEOUT` acima.
   'RNTRC_GATEWAY_TIMEOUT',
-  'RNTRC_GATEWAY_NETWORK_ERROR'
+  'RNTRC_GATEWAY_NETWORK_ERROR',
+  // Provedor de CIOT (PR-C2) — "resposta perdida" simulada pelo mock (DL-102: dispatch aconteceu,
+  // resposta não chegou). Também coberto por status (504) via `classifyRetryabilityFromStatus`;
+  // registrado aqui para clareza/redundância, mesmo molde acima.
+  'CIOT_PROVIDER_LOST_RESPONSE_TEST',
+  // Erro do reconciliador de CIOT ao consultar o provedor — INCONCLUSIVO, nunca "não existe"
+  // (mesmo racional de `SUBMIT_RECONCILE_SEARCH_FAILED`, que não precisa de entrada aqui porque
+  // sempre chega embrulhado como AppError 502 sem `code` próprio reconhecido — este JÁ tem code).
+  'CIOT_RECONCILE_QUERY_FAILED'
 ]);
 
 const NON_RETRYABLE_ERROR_CODES = new Set([
@@ -52,7 +60,20 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   // Verificação RNTRC (PR-C1): linha `pending` já resolvida por uma tentativa anterior que
   // commitou mas não chegou a `finishJob` (queda do worker). Reter não desfaz o passado — a
   // condição some sozinha na PRÓXIMA verificação (nova linha), não numa nova tentativa desta.
-  'RNTRC_VERIFICATION_ALREADY_TERMINAL'
+  'RNTRC_VERIFICATION_ALREADY_TERMINAL',
+  // Provedor de CIOT (PR-C2): recusa DEFINITIVA do provedor (ex.: frete abaixo do mínimo aceito) —
+  // decisão de negócio, não falha transitória. O side-effect terminal (`applyTransporteCiotTerminal
+  // FailureSideEffect`) lê justamente ESTE código para distinguir "o provedor respondeu recusando"
+  // (→ `rejected`) de "a resposta se perdeu" (→ `request_unconfirmed`, DL-102) — por isso precisa
+  // chegar a `failed` numa ÚNICA tentativa, nunca esgotar retries primeiro.
+  'CIOT_PROVIDER_REJECTED_TEST',
+  // Configuração ausente (`CIOT_PROVIDER_MODE=real`, [EXTERNAL DEPENDENCY] P5 sem provedor
+  // contratado) — retentar não resolve, é decisão do operador trocar de modo.
+  'CIOT_PROVIDER_NOT_CONFIGURED',
+  // Mesma classe de `RNTRC_VERIFICATION_ALREADY_TERMINAL`, para os 5 job types do CIOT: a linha já
+  // não está no status esperado para a transição — resultado provavelmente já aplicado por uma
+  // tentativa anterior que não chegou a `finishJob`.
+  'TRANSPORTE_CIOT_ALREADY_TERMINAL'
 ]);
 
 type ErrorLike = {
@@ -84,7 +105,12 @@ type RetryableOperation =
   | 'conversation.bundle_documents'
   | 'whatsapp.inbound_message'
   | 'whatsapp.outbound_notice'
-  | 'transporte.rntrc.verify';
+  | 'transporte.rntrc.verify'
+  | 'transporte.ciot.register'
+  | 'transporte.ciot.rectify'
+  | 'transporte.ciot.cancel'
+  | 'transporte.ciot.close'
+  | 'transporte.ciot.reconcile';
 
 type JobLike = {
   attempts: number;
@@ -335,7 +361,17 @@ export function calculateJobPriority(operation: string): number {
     // ANTT), sem prazo de parede apertado como o canal WhatsApp. Prioridade baixa-média: abaixo de
     // qualquer operação CETESB (5+) e de `catalog.sync` (3, sincronização de catálogo), acima do
     // turno conversacional (2) — não é interativo, mas também não é housekeeping de fundo.
-    'transporte.rntrc.verify': 4
+    'transporte.rntrc.verify': 4,
+    // Ciclo do CIOT (PR-C2) — comandos MUTANTES (register/rectify/cancel/close) ficam no mesmo
+    // nível de `cadastro.submit`/`transporte.rntrc.verify`: acima de housekeeping (`catalog.sync`,
+    // conversa), abaixo das operações CETESB críticas (5+ — o CIOT é outro provedor, não disputa
+    // fila com o MTR). `reconcile` fica ABAIXO das mutações: ele resolve um estado indeterminado
+    // que já tem uma rede de segurança (varredura periódica) — não é o caminho do usuário esperando.
+    'transporte.ciot.register': 4,
+    'transporte.ciot.rectify': 4,
+    'transporte.ciot.cancel': 4,
+    'transporte.ciot.close': 4,
+    'transporte.ciot.reconcile': 3
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -513,6 +549,45 @@ export function getRetryConfig(operation: string): RetryConfig {
       strategy: 'exponential',
       baseDelayMs: 5000,
       maxDelayMs: 120000
+    },
+    // Ciclo do CIOT via provedor abstraído (PR-C2, mock — sem provedor real contratado, P5). Mesmo
+    // orçamento do RNTRC: 4 tentativas, exponencial 5s→120s. `CIOT_PROVIDER_REJECTED_TEST` é
+    // NON-retryable (registrado em `NON_RETRYABLE_ERROR_CODES`) — só a resposta PERDIDA
+    // (`CIOT_PROVIDER_LOST_RESPONSE_TEST`) de fato percorre este backoff antes de declarar
+    // `request_unconfirmed` no terminal.
+    'transporte.ciot.register': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.ciot.rectify': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.ciot.cancel': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.ciot.close': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    // Reconciliador (DL-102): já faz polling PRÓPRIO contra o provedor (`ciot-reconciler.ts`,
+    // 5 tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
+    // INFRAESTRUTURA em torno desse polling (ex.: erro ao gravar o resultado), por isso é mais
+    // curto que os comandos mutantes.
+    'transporte.ciot.reconcile': {
+      maxAttempts: 3,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 60000
     }
   };
 
