@@ -72,6 +72,11 @@ import {
   runVpoAcquireJob,
   runVpoReconcileJob
 } from '../services/transport-vpo-service.js';
+import {
+  runDfeIssuanceJob,
+  runDfeIssuanceCancelJob,
+  runDfeIssuanceReconcileJob
+} from '../services/transport-dfe-issuance-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -1154,6 +1159,50 @@ async function handleTransporteVpoReconcile(job: JobEntity) {
 // `repositories/vpo-repo.ts`, já importado lá.
 export { applyTransporteVpoTerminalFailureSideEffect } from '../services/transport-vpo-service.js';
 
+/**
+ * Emissão de DF-e SANDBOX-READY (PR-G) — 3 handlers, SEM parâmetro `gateway` (mesmo molde de
+ * `handleTransporteCiotRegister`): o corpo de cada um vive em `transport-dfe-issuance-service.ts`
+ * (`runDfeIssuance*Job`); aqui só a costura com a fila — `{ outcome, ...patch }` → `finishJob`.
+ * Falha local (dados incompletos, tipo não suportado, flag desligada) e resposta perdida DEPOIS do
+ * dispatch (DL-102) NÃO são tratadas aqui — propagam e são interpretadas pelo side-effect terminal
+ * `applyTransporteDfeIssuanceTerminalFailureSideEffect` (re-exportado abaixo, chamado pelos DOIS
+ * pontos de `workers/job-runner.ts`).
+ */
+async function handleTransporteDfeIssue(job: JobEntity) {
+  const result = await runDfeIssuanceJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteDfeIssueCancel(job: JobEntity) {
+  const result = await runDfeIssuanceCancelJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteDfeIssueReconcile(job: JobEntity) {
+  const result = await runDfeIssuanceReconcileJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+// Re-exportado (não redefinido) — mesmo racional de `applyTransporteCiotTerminalFailureSideEffect`:
+// a implementação mora em `transport-dfe-issuance-service.ts` porque depende profundamente de
+// `repositories/dfe-issuance-repo.ts`, já importado lá.
+export { applyTransporteDfeIssuanceTerminalFailureSideEffect } from '../services/transport-dfe-issuance-service.js';
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1364,6 +1413,13 @@ export async function processJob(job: JobEntity, gateway: {
       return handleTransporteVpoAcquire(job);
     case 'transporte.vpo.reconcile':
       return handleTransporteVpoReconcile(job);
+    // Emissão de DF-e sandbox-ready (PR-G) — SEM o parâmetro `gateway`, mesmo molde do CIOT/VPO.
+    case 'transporte.dfe.issue':
+      return handleTransporteDfeIssue(job);
+    case 'transporte.dfe.issue.cancel':
+      return handleTransporteDfeIssueCancel(job);
+    case 'transporte.dfe.issue.reconcile':
+      return handleTransporteDfeIssueReconcile(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

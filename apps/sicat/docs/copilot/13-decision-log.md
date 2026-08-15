@@ -68,6 +68,21 @@ este DL + ADR-010/011. A implementação começa pela Onda 1 (PR `sicat/transpor
 - DL-093 — gateway CETESB permanece em `.js` e intocado
 - DL-022 — fila transacional única (sem broker externo)
 
+### Adendo (PR-G — emissão de DF-e sandbox-ready, 15/08/2026)
+A Fase G (D9) chegou condicionada a P9 (go/no-go comercial + certificado digital + credenciamento
+SEFAZ, [LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY]) — decisão sem novidade normativa, só a
+constatação de que arquitetura e decisão comercial/legal são coisas DIFERENTES e podem se separar.
+O PR-G entrega a primeira 100% pronta, deliberadamente atrás da segunda: pipeline completo
+`build→sign→submit` via `@flavioneto11/fiscal-kit` REAL (`mode: sandbox`, sem certificado, sem
+SEFAZ), padrão DL-102 desde o dia 1 (marcador `[sicat-dfe:...]`, `submit_unconfirmed`,
+reconciliador), reimportação automática da emissão autorizada ao acervo da Fase E — SEM evaluator
+novo. O bloqueio de produção é `DFE_ISSUANCE_MODE=off` (config, default em todo ambiente), não
+constraint de schema nem feature flag de deploy: `dfe_issuances.environment` aceita `production` por
+desenho (a coluna não vai mudar quando a decisão vier), mas nenhum código deste PR grava esse valor.
+Ativar emissão real — trocar `mode: sandbox` por um emissor de verdade, aceitar `DFE_ISSUANCE_MODE`
+além de `off`/`sandbox` — permanece decisão comercial+legal futura do operador, não uma question de
+código pronto esperando um `if`.
+
 ## DL-102
 **Tema:** Correlação pré-submit de manifesto — identidade de idempotência que a CETESB não oferece, gravada em campo livre, e a opção deliberada de entregar o mecanismo INERTE
 **Data:** 2026-08-08

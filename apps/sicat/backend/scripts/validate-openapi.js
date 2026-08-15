@@ -39,7 +39,9 @@ function validateQueueContract(doc) {
     '/v1/transporte/operacoes/{operationId}/ciot/retificar',
     '/v1/transporte/operacoes/{operationId}/ciot/cancelar',
     '/v1/transporte/operacoes/{operationId}/ciot/encerrar',
-    '/v1/transporte/operacoes/{operationId}/vpo/adquirir'
+    '/v1/transporte/operacoes/{operationId}/vpo/adquirir',
+    '/v1/transporte/operacoes/{operationId}/emissoes',
+    '/v1/transporte/emissoes/{issuanceId}/cancelar'
   ];
 
   for (const endpoint of commandEndpoints) {

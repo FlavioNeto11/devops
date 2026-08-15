@@ -202,6 +202,26 @@ tags:
     vinculada ao mesmo transportador como carrier. LGPD: `evidence` é sempre um objeto MÍNIMO
     (número/vigência/tipo/nota curta) — nunca condições comerciais completas (franquia, cláusulas,
     prêmio).'
+- name: Transporte - Emissao Fiscal
+  description: 'Emissão de DF-e SANDBOX-READY (PR-G) — pipeline assíncrono `build → sign → submit`
+    via `@flavioneto11/fiscal-kit` REAL em `mode: sandbox` (sem certificado, sem SEFAZ real,
+    determinístico). A Fase G é CONDICIONAL a go/no-go comercial + certificado digital +
+    credenciamento SEFAZ ([LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY], pendência P9 do guia do
+    programa): `DFE_ISSUANCE_MODE=off` é o DEFAULT e `POST .../emissoes` recusa com
+    `409 DFE_ISSUANCE_FEATURE_DISABLED` enquanto a flag estiver desligada — NENHUM ambiente
+    `production` é exposto por este PR. `DFE_ISSUANCE_MODE=sandbox` liga o pipeline só para NF-e
+    (mapeamento mínimo honesto: emitente = parte `contractor`, destinatário = parte `consignee`,
+    itens a partir da carga — dado faltante vira `422 DFE_ISSUANCE_INCOMPLETE_DATA`, nunca um XML
+    fabricado); CT-e/MDF-e recusam com `501 DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit não cobre esses
+    tipos — aguardam emissor dedicado, também P9). Padrão DL-102 aplicado à emissão fiscal: o
+    protocolo de autorização nasce na RESPOSTA do gateway — o marcador de correlação é gravado ANTES
+    de qualquer chamada, o status vira `submitting` IMEDIATAMENTE ANTES do dispatch remoto, e uma
+    falha DEPOIS desse ponto vira `submit_unconfirmed` (NUNCA `failed_validation`), resolvida só
+    pelo reconciliador (`transporte.dfe.issue.reconcile`). Emissão AUTORIZADA grava o XML em
+    `STORAGE_DIR/transporte-dfe-issuance/<hash>.xml` e é REIMPORTADA automaticamente ao acervo da
+    Fase E (`transport-fiscal-service.importarDocumentoFiscal`, reuso interno, sem lógica nova) —
+    vira um `fiscal_documents` comum, avaliado pelos evaluators TR-NFE/CTE/MDFE já existentes.
+    `cancelar` é sandbox only (sem chamada remota — o kit não tem operação de cancelamento).'
 security:
 - bearerAuth: []
 paths:
@@ -9111,6 +9131,181 @@ paths:
       - in: query
         name: windowDays
         schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+  /v1/transporte/operacoes/{operationId}/emissoes:
+    post:
+      operationId: transporteOperacaoEmissaoSolicitar
+      summary: Solicitar emissão de DF-e (assíncrono, sandbox-ready)
+      description: |-
+        Cria `dfe_issuances` (`draft`, marcador de correlação DL-102 já gravado) e ENFILEIRA
+        `transporte.dfe.issue` (pipeline `build → sign → submit` via `@flavioneto11/fiscal-kit`).
+        Recusa `409 DFE_ISSUANCE_FEATURE_DISABLED` quando `DFE_ISSUANCE_MODE=off` (default) — a
+        flag é CONFIGURAÇÃO, nunca expõe emissão em `production`. `documentType: CTE|MDFE` é
+        aceito no request (202) mas falha ASSÍNCRONA no worker com `DFE_ISSUANCE_TYPE_NOT_SUPPORTED`
+        (visível via `GET .../emissoes`, evento `failed`) — o kit só cobre NF-e.
+      tags:
+      - Transporte - Emissao Fiscal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteEmissaoSolicitarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              documentType: NFE
+      responses:
+        '202':
+          description: Emissão de DF-e enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+              example:
+                commandId: cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                correlationId: corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f66
+                entityType: dfe_issuance
+                entityId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                operation: transporte.dfe.issue
+                status: queued
+                submittedAt: '2026-08-15T12:30:00Z'
+                links:
+                  job: /v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T9
+                  entity: /v1/transporte/operacoes/trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b/emissoes
+                  audit: /v1/audit/corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f66
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Operação cancelada, ou `DFE_ISSUANCE_MODE=off` (`DFE_ISSUANCE_FEATURE_DISABLED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/CodedProblem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                detail: Emissão de DF-e está desligada (DFE_ISSUANCE_MODE=off) — pendência P9 do guia do programa.
+                code: DFE_ISSUANCE_FEATURE_DISABLED
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteOperacaoEmissaoList
+      summary: Lista as emissões de DF-e da operação, com a trilha de eventos de cada uma
+      description: Uma linha por TENTATIVA de emissão (uma operação pode ter mais de uma —
+        ex.- NFE + tentativas anteriores rejeitadas); `events` é a trilha APPEND-ONLY completa de
+        cada emissão (created/built/signed/submitted/submit_unconfirmed/authorized/rejected/
+        failed/cancelled/reconciled/imported_to_registry).
+      tags:
+      - Transporte - Emissao Fiscal
+      responses:
+        '200':
+          description: Emissões da operação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteEmissaoListResponse'
+              example:
+                items:
+                - id: dfeiss_7a2b3c4d5e6f7a8b9c0d1e2f
+                  operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  documentType: NFE
+                  status: authorized
+                  environment: sandbox
+                  accessKey: '35260811222333000181550013586097761382840447'
+                  protocol: NFefcba4b517ce5
+                  rejectionReason: null
+                  fiscalDocumentId: dfe_9c0d1e2f3a4b5c6d7e8f9a0b
+                  lastErrorCode: null
+                  version: 4
+                  createdAt: '2026-08-15T12:30:00Z'
+                  updatedAt: '2026-08-15T12:30:02Z'
+                  events:
+                  - id: dfeissev_1a2b3c4d5e6f7a8b9c0d1e2f
+                    eventType: created
+                    detail: { documentType: NFE, environment: sandbox }
+                    createdAt: '2026-08-15T12:30:00Z'
+                  - id: dfeissev_2b3c4d5e6f7a8b9c0d1e2f3a
+                    eventType: authorized
+                    detail: { protocol: NFefcba4b517ce5 }
+                    createdAt: '2026-08-15T12:30:02Z'
+                  - id: dfeissev_3c4d5e6f7a8b9c0d1e2f3a4b
+                    eventType: imported_to_registry
+                    detail: { fiscalDocumentId: dfe_9c0d1e2f3a4b5c6d7e8f9a0b }
+                    createdAt: '2026-08-15T12:30:02Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/emissoes/{issuanceId}/cancelar:
+    post:
+      operationId: transporteEmissaoCancelar
+      summary: Cancelar emissão de DF-e (assíncrono, sandbox only)
+      description: ENFILEIRA `transporte.dfe.issue.cancel` — sem chamada remota (o
+        `@flavioneto11/fiscal-kit` não tem operação de cancelamento). `409
+        TRANSPORTE_DFE_ISSUANCE_ALREADY_CANCELLED` quando a emissão já está `cancelled`.
+      tags:
+      - Transporte - Emissao Fiscal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteEmissaoCancelarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '202':
+          description: Cancelamento de emissão enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: issuanceId
+        in: path
+        required: true
+        schema: { type: string }
 components:
   securitySchemes:
     bearerAuth:
@@ -16813,3 +17008,102 @@ components:
         total: { type: integer }
         windowDays: { type: integer }
         referenceDate: { type: string, format: date }
+    TransporteEmissaoSolicitarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - documentType
+      properties:
+        integrationAccountId: { type: string }
+        documentType:
+          type: string
+          enum: [NFE, CTE, MDFE]
+          description: Só `NFE` tem implementação em `DFE_ISSUANCE_MODE=sandbox` — `CTE`/`MDFE`
+            são aceitos no request (202) mas falham ASSÍNCRONO no worker com
+            `DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o `@flavioneto11/fiscal-kit` não os cobre).
+    TransporteEmissaoCancelarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+    TransporteEmissaoEventResource:
+      type: object
+      required:
+      - id
+      - eventType
+      - detail
+      - createdAt
+      properties:
+        id: { type: string }
+        eventType:
+          type: string
+          enum: [created, built, signed, submitted, submit_unconfirmed, authorized, rejected, failed, cancelled, reconciled, imported_to_registry]
+        detail: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    TransporteEmissaoResource:
+      type: object
+      required:
+      - id
+      - operationId
+      - documentType
+      - status
+      - environment
+      - accessKey
+      - protocol
+      - rejectionReason
+      - fiscalDocumentId
+      - lastErrorCode
+      - version
+      - createdAt
+      - updatedAt
+      properties:
+        id: { type: string }
+        operationId: { type: string }
+        documentType:
+          type: string
+          enum: [NFE, CTE, MDFE]
+        status:
+          type: string
+          description: 'Máquina de estados do pipeline sandbox-ready: `draft` → `building` →
+            `built` → `signing` → `signed` → `submitting` (ponto de dispatch remoto, DL-102) →
+            `authorized`|`rejected`; `submitting` sem confirmação vira `submit_unconfirmed`
+            (NUNCA `failed_validation` — só o reconciliador tem autoridade para provar
+            ausência/presença); falha ANTES de `submitting` vira `failed_validation`; `cancelled`
+            por comando explícito (sandbox only).'
+          enum: [draft, building, built, signing, signed, submitting, submit_unconfirmed, authorized, rejected, failed_validation, cancelled]
+        environment:
+          type: string
+          enum: [sandbox, production]
+          description: SEMPRE `sandbox` neste PR — `production` existe no schema para quando P9
+            for resolvida pelo operador, mas nenhum código deste PR grava esse valor.
+        accessKey:
+          type: string
+          nullable: true
+          description: Chave de acesso de 44 dígitos SINTETIZADA para o sandbox (dígito
+            verificador válido, layout SEFAZ) — NUNCA uma chave real emitida por uma SEFAZ.
+        protocol: { type: string, nullable: true }
+        rejectionReason: { type: string, nullable: true }
+        fiscalDocumentId:
+          type: string
+          nullable: true
+          description: Preenchido quando a emissão AUTORIZADA é reimportada ao acervo da Fase E
+            (`fiscal_documents.id`) — a emissão vira um documento validável pelos evaluators
+            TR-NFE/CTE/MDFE já existentes.
+        lastErrorCode: { type: string, nullable: true }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteEmissaoEventResource'
+    TransporteEmissaoListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteEmissaoResource'

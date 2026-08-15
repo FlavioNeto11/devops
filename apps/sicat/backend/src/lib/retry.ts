@@ -45,7 +45,10 @@ const RETRYABLE_ERROR_CODES = new Set([
   'VPO_PROVIDER_LOST_RESPONSE_TEST',
   // Erro do reconciliador de VPO ao consultar o provedor — INCONCLUSIVO, mesmo racional de
   // `CIOT_RECONCILE_QUERY_FAILED`.
-  'VPO_RECONCILE_QUERY_FAILED'
+  'VPO_RECONCILE_QUERY_FAILED',
+  // Erro do reconciliador da emissão de DF-e (PR-G) ao consultar o gateway — INCONCLUSIVO, mesmo
+  // racional de `CIOT_RECONCILE_QUERY_FAILED`/`VPO_RECONCILE_QUERY_FAILED`.
+  'TRANSPORTE_DFE_ISSUANCE_RECONCILE_QUERY_FAILED'
 ]);
 
 const NON_RETRYABLE_ERROR_CODES = new Set([
@@ -94,7 +97,17 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   // Mesma classe de `TRANSPORTE_CIOT_ALREADY_TERMINAL`, para os 2 job types do VPO: a linha já não
   // está no status esperado para a transição — resultado provavelmente já aplicado por uma
   // tentativa anterior que não chegou a `finishJob`.
-  'TRANSPORTE_VPO_ALREADY_TERMINAL'
+  'TRANSPORTE_VPO_ALREADY_TERMINAL',
+  // Emissão de DF-e (PR-G): dados incompletos para montar a NF-e (parte/carga faltante) — decisão
+  // de negócio local, nunca chegou perto do gateway remoto. Retentar não resolve sem o operador
+  // completar o cadastro da operação.
+  'DFE_ISSUANCE_INCOMPLETE_DATA',
+  // Tipo de documento não coberto pelo `@flavioneto11/fiscal-kit` (só NF-e) — decisão de capacidade,
+  // não falha transitória (mesma classe de `CIOT_PROVIDER_NOT_CONFIGURED`).
+  'DFE_ISSUANCE_TYPE_NOT_SUPPORTED',
+  // `DFE_ISSUANCE_MODE=off` — retentar não resolve, é decisão do operador ligar o sandbox
+  // (mesma classe de `CIOT_PROVIDER_NOT_CONFIGURED`/`VPO_PROVIDER_NOT_CONFIGURED`).
+  'DFE_ISSUANCE_DISABLED'
 ]);
 
 type ErrorLike = {
@@ -133,7 +146,10 @@ type RetryableOperation =
   | 'transporte.ciot.close'
   | 'transporte.ciot.reconcile'
   | 'transporte.vpo.acquire'
-  | 'transporte.vpo.reconcile';
+  | 'transporte.vpo.reconcile'
+  | 'transporte.dfe.issue'
+  | 'transporte.dfe.issue.cancel'
+  | 'transporte.dfe.issue.reconcile';
 
 type JobLike = {
   attempts: number;
@@ -401,7 +417,15 @@ export function calculateJobPriority(operation: string): number {
     // `reconcile` fica ABAIXO da mutação, mesmo racional do CIOT (rede de segurança, não o
     // caminho do usuário esperando).
     'transporte.vpo.acquire': 4,
-    'transporte.vpo.reconcile': 3
+    'transporte.vpo.reconcile': 3,
+    // Emissão de DF-e sandbox-ready via `@flavioneto11/fiscal-kit` (PR-G). Mesmo nível de
+    // `transporte.ciot.register`/`transporte.vpo.acquire` (4): acima de housekeeping, abaixo das
+    // operações CETESB críticas — outro "provedor" (sandbox local), não disputa fila com o MTR.
+    // `cancel` no mesmo nível (comando explícito do operador); `reconcile` ABAIXO (rede de
+    // segurança, mesmo racional do CIOT/VPO).
+    'transporte.dfe.issue': 4,
+    'transporte.dfe.issue.cancel': 4,
+    'transporte.dfe.issue.reconcile': 3
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -634,6 +658,31 @@ export function getRetryConfig(operation: string): RetryConfig {
     // tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
     // INFRAESTRUTURA em torno desse polling, mesmo racional de `transporte.ciot.reconcile`.
     'transporte.vpo.reconcile': {
+      maxAttempts: 3,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 60000
+    },
+    // Emissão de DF-e sandbox-ready (PR-G, `@flavioneto11/fiscal-kit` em modo sandbox — determinístico
+    // e sem rede real). Mesmo orçamento do CIOT/VPO: 4 tentativas, exponencial 5s→120s — folga para
+    // uma instabilidade transitória de infraestrutura em torno do pipeline local (nunca da SEFAZ
+    // real, que este PR não implementa).
+    'transporte.dfe.issue': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.dfe.issue.cancel': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    // Reconciliador (DL-102): já faz polling PRÓPRIO contra o gateway (`dfe-issuance-reconciler.ts`,
+    // 5 tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
+    // INFRAESTRUTURA em torno desse polling, mesmo racional de `transporte.ciot.reconcile`.
+    'transporte.dfe.issue.reconcile': {
       maxAttempts: 3,
       strategy: 'exponential',
       baseDelayMs: 5000,

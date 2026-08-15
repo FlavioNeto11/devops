@@ -1474,5 +1474,32 @@ export const operations = [
     "summary": "Alertas de vencimento de seguros (Centro Operacional)",
     "tag": "Transporte - Seguros",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_emissoes",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/emissoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/emissoes",
+    "summary": "Solicitar emissão de DF-e (assíncrono, sandbox-ready)",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_emissoes",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/emissoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/emissoes",
+    "summary": "Lista as emissões de DF-e da operação, com a trilha de eventos de cada uma",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_emissoes_issuanceId_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/emissoes/{issuanceId}/cancelar",
+    "expressPath": "/v1/transporte/emissoes/:issuanceId/cancelar",
+    "summary": "Cancelar emissão de DF-e (assíncrono, sandbox only)",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 202
   }
 ];

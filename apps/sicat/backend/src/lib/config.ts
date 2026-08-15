@@ -122,7 +122,8 @@ type ConfigKey =
   | 'rntrcGatewayCsvMaxBytes'
   | 'ciotProviderMode'
   | 'vpoProviderMode'
-  | 'insuranceProviderMode';
+  | 'insuranceProviderMode'
+  | 'dfeIssuanceMode';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -227,6 +228,25 @@ function resolveInsuranceProviderMode(): InsuranceProviderMode {
   const raw = String(process.env.INSURANCE_PROVIDER_MODE || 'mock').trim().toLowerCase();
   if (raw === 'mock' || raw === 'antt' || raw === 'real') return raw;
   throw new Error(`INSURANCE_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, antt, real.`);
+}
+
+export type DfeIssuanceMode = 'off' | 'sandbox';
+
+/**
+ * Modo da emissão de DF-e (PR-G). `off` (DEFAULT — nunca omitir em produção) recusa TODA chamada ao
+ * gateway (`DFE_ISSUANCE_DISABLED`) e a rota `POST .../emissoes` nem chega a criar `dfe_issuances`
+ * (`409 DFE_ISSUANCE_FEATURE_DISABLED`) — a Fase G é CONDICIONAL a go/no-go comercial + certificado
+ * digital + credenciamento SEFAZ ([LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY], pendência P9 do
+ * guia do programa). `sandbox` liga o pipeline REAL de build→sign→submit→queryStatus via
+ * `@flavioneto11/fiscal-kit` em `mode: 'sandbox'` (sem certificado, sem SEFAZ real) — só para NF-e;
+ * CT-e/MDF-e recusam com `DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit não cobre esses tipos). Nenhum
+ * valor `production`/`real` é aceito aqui: a emissão real fica para quando P9 for resolvida pelo
+ * operador — pedir isso no boot lança, mesmo molde de `resolveCetesbGatewayMode`.
+ */
+function resolveDfeIssuanceMode(): DfeIssuanceMode {
+  const raw = String(process.env.DFE_ISSUANCE_MODE || 'off').trim().toLowerCase();
+  if (raw === 'off' || raw === 'sandbox') return raw;
+  throw new Error(`DFE_ISSUANCE_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
 }
 
 export const config = {
@@ -513,5 +533,13 @@ export const config = {
    * `gateways/insurance-verification-provider.ts`. */
   get insuranceProviderMode(): InsuranceProviderMode {
     return getConfigValue<InsuranceProviderMode>('insuranceProviderMode', resolveInsuranceProviderMode());
+  },
+
+  /* ── Emissão de DF-e (PR-G) ───────────────────────────────────────────────────────────────────
+   * `off` é o ÚNICO default seguro — pendência [LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY] P9
+   * (go/no-go comercial + certificado digital + credenciamento SEFAZ). Ver
+   * `gateways/dfe-issuance-gateway.ts`. */
+  get dfeIssuanceMode(): DfeIssuanceMode {
+    return getConfigValue<DfeIssuanceMode>('dfeIssuanceMode', resolveDfeIssuanceMode());
   }
 };

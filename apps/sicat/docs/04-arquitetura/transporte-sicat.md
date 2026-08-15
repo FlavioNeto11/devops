@@ -105,6 +105,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `029_transport_vpo.sql` | `vpo_providers` (cadastro de referência, `version`+trigger), `vpo_allocations` (`version`+trigger, MUTÁVEL — uma linha por operação), `vpo_events` (append-only) — ✅ entregue (PR-D1, provedor `mock`) | D1 |
 | `030_transport_fiscal_documents.sql` | `dfe_schema_registry` (`version`+trigger, SEM tenancy), `fiscal_documents` (`version`+trigger), `fiscal_document_links` (append-only), `fiscal_document_events` (append-only) — ✅ entregue (PR-E1) | E1 |
 | `031_transport_insurance.sql` | `insurance_policies` (`version`+trigger), `risk_management_plans`/PGR (`version`+trigger), `insurance_verifications` (append-only) — ✅ entregue (PR-F2, provider `mock`) | F2 |
+| `032_transport_dfe_issuance.sql` | `dfe_issuances` (`version`+trigger), `dfe_issuance_events` (append-only) — ⚠️ entregue SANDBOX-READY (PR-G, atrás de `DFE_ISSUANCE_MODE=off`) | G |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -310,6 +311,63 @@ apólice/PGR que MELHOR cobre a `referenceDate` do gate, nunca a "mais recente" 
 exige o PGR quando o carrier tem apólice RCTR-C OU RC-DC REGISTRADA (independente da vigência
 daquelas — assunto de TR-SEG-001/002); RC-V isolado não aciona a exigência.
 
+**PR-G (Fase G, emissão de DF-e SANDBOX-READY — condicional a go/no-go comercial, pendência P9):**
+
+```text
+POST /v1/transporte/operacoes/{id}/emissoes             (202 — cria dfe_issuances + enfileira transporte.dfe.issue)
+GET  /v1/transporte/operacoes/{id}/emissoes              (200 — lista de emissões da operação + eventos)
+POST /v1/transporte/emissoes/{issuanceId}/cancelar       (202 — sandbox only, sem chamada remota)
+```
+
+Tag `Transporte - Emissao Fiscal`. A Fase G é CONDICIONAL a go/no-go comercial + certificado digital
++ credenciamento SEFAZ ([LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY], pendência P9) — este PR
+entrega a ARQUITETURA completa, sandbox-ready, atrás da flag de CONFIGURAÇÃO `DFE_ISSUANCE_MODE`
+(`off` por default; `POST .../emissoes` recusa com `409 DFE_ISSUANCE_FEATURE_DISABLED` enquanto
+desligada — a flag é checada NA ROTA, antes de criar qualquer `dfe_issuances`, para uma feature
+desligada não deixar rastro de tentativas). `gateways/dfe-issuance-gateway.ts` embrulha o
+`@flavioneto11/fiscal-kit` REAL (pacote novo, `packages/fiscal-kit`, vendorizado em
+`vendor/flavioneto11-fiscal-kit-0.1.0.tgz` — mesmo mecanismo de `oidc-kit`): `mode: 'sandbox'` chama
+de verdade `buildNfeXml`/`signXml`/`submit`/`queryStatus` do kit (determinístico, sem certificado,
+sem rede — comportamento REAL observado: `submit`/`queryStatus` respondem IMEDIATAMENTE
+`authorized`, o sandbox do kit nunca rejeita); `mode: 'off'` recusa TODA chamada com
+`DFE_ISSUANCE_DISABLED`. Só `documentType: 'NFE'` tem implementação — `CTE`/`MDFE` recusam com
+`DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit não cobre; aguardam emissor dedicado, também P9).
+
+O XML do kit (formato PRÓPRIO minimalista, incompatível com o parser real da SEFAZ da Fase E) NUNCA
+é o que persiste: o gateway tece o resultado REAL do kit (digest da assinatura, recibo, protocolo)
+dentro de um envelope no layout real da SEFAZ (`lib/transport/dfe-issuance-nfe-mapper.ts`, PURO —
+`infNFe`/`ide`/`emit`/`dest`/`total`/`protNFe`, com uma chave de acesso de 44 dígitos SANDBOX
+sintetizada mas estruturalmente VÁLIDA — DV/modelo/CNPJ coerentes), para a emissão autorizada poder
+ser reimportada ao acervo da Fase E (`transport-fiscal-service.importarDocumentoFiscal`, reuso
+interno) SEM alterar uma linha de `dfe-parser.ts`/`dfe-validator.ts`. Mapeamento mínimo honesto:
+emitente = parte `contractor`, destinatário = parte `consignee`, itens a partir da `cargo` (valor
+declarado) — campo faltante vira `422 DFE_ISSUANCE_INCOMPLETE_DATA`, nunca um XML fabricado.
+
+Padrão **DL-102 aplicado à emissão fiscal**: `correlation_marker` (`[sicat-dfe:<issuanceId>]`,
+prefixo distinto do CIOT) gravado na CRIAÇÃO de `dfe_issuances`, ANTES de qualquer chamada; o status
+vira `submitting` IMEDIATAMENTE ANTES do dispatch remoto (`gateway.submitDocument`) — falha DEPOIS
+desse ponto vira `submit_unconfirmed` (NUNCA `failed_validation`), resolvida só pelo reconciliador
+(`transporte.dfe.issue.reconcile`, `services/dfe-issuance-reconciler.ts`, molde exato de
+`ciot-reconciler.ts`, enfileirado pelo side-effect terminal e por uma varredura periódica própria,
+`enqueueTransporteDfeIssuanceReconcileSweepIfNeeded`). Diferente do CIOT/VPO: a classificação
+LOCAL-vs-DL-102 não depende de código de erro — é 100% pelo STATUS da linha no momento do terminal
+(`markDfeIssuanceSubmitUnconfirmed` tentado primeiro, guardado por `status='submitting'`; se não
+aplicar, cai para `markDfeIssuanceFailedValidation`, guardado pelos estados pré-`submitting`) — mais
+robusto a esquecer um código novo na lista. AUTORIZADA: grava o XML em
+`STORAGE_DIR/transporte-dfe-issuance/<hash>.xml` e reimporta automaticamente ao acervo — a emissão
+vira um `fiscal_documents` comum, avaliado pelos evaluators TR-NFE/CTE/MDFE JÁ EXISTENTES (nenhum
+evaluator novo, `RULES_WITHOUT_EVALUATOR_YET` intocado). `cancelar` é sandbox only (o kit não tem
+operação de cancelamento) mas ainda 202/job, por consistência com o resto da fila.
+
+Migration `032_transport_dfe_issuance.sql`: `dfe_issuances` (`version`+trigger, uma linha por
+TENTATIVA — molde `ciot_operations`, não `vpo_allocations`) + `dfe_issuances_events` (append-only).
+3 job types novos (`transporte.dfe.issue{,.cancel,.reconcile}`), registrados em `lib/retry.ts`
+(prioridade/backoff mesmo nível do CIOT/VPO) e em `workers/operation-handlers.ts`/`job-runner.ts`
+(handlers sem parâmetro `gateway`, terminal side-effect nos dois pontos de `job-runner.ts`, sweep
+periódico). Lockstep: OpenAPI (tag `Transporte - Emissao Fiscal`) → `gen:operations` +
+`sync-operations-ts.mjs` → rotas → `tests/unit/dfe-issuance-gateway.test.js` +
+`tests/worker/transporte-dfe-issuance.test.js` + `tests/api/transporte-emissoes.test.js`.
+
 ## 7. Motor de compliance
 
 `TransportComplianceService` (worker-callable desde o nascimento): resolve regras do gate → versão
@@ -340,6 +398,14 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 `transporte.fiscal_issuance`, `transporte.regulatory_watch`) + enforcement por regra no catálogo
 (dado, não deploy). Migrations inéditas ⇒ **rollout escalonado api → Ready → worker** (armadilha
 13). Ondas: ver [guia, seção "Ondas do programa"](../30-transporte/transporte-guia.md).
+
+**PR-G acrescenta um TERCEIRO nível, específico da emissão fiscal**: `DFE_ISSUANCE_MODE` é uma
+variável de CONFIGURAÇÃO do backend (`off`|`sandbox`, `lib/config.ts`), não um deploy flag do
+frontend — controla se `gateways/dfe-issuance-gateway.ts` aceita chamadas, independente de
+`transporte.fiscal_issuance` (flag de capacidade, ainda não conectada a nenhuma tela). Default
+`off` em TODO ambiente até decisão comercial+legal (P9); ligar `DFE_ISSUANCE_MODE=sandbox` habilita
+só o pipeline sandbox (build→sign→submit via `@flavioneto11/fiscal-kit`, sem certificado, sem SEFAZ
+real) — nunca emissão real, que exigiria um modo/configuração ainda não implementados.
 
 ## 10. Riscos e suposições
 
