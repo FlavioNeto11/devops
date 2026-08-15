@@ -34,6 +34,7 @@ import {
   RULES_WITHOUT_EVALUATOR_YET,
   applyEnforcementClamp,
   type CarrierRntrcVerificationContext,
+  type CiotOperationEvaluationContext,
   type ComplianceCheckStatus,
   type FreightFloorCalculationContext
 } from '../lib/transport/rule-evaluators.js';
@@ -43,6 +44,8 @@ import type { FreightFloorCalculationRecord } from '../repositories/freight-floo
 import { findLatestSucceededRntrcVerificationForParty } from '../repositories/rntrc-verification-repo.js';
 import { findVehiclePartyLinkType } from '../repositories/transport-vehicle-repo.js';
 import type { RntrcVerification } from '../lib/transport/rntrc-verification-types.js';
+import { findLatestCiotOperationForOperation } from '../repositories/ciot-repo.js';
+import type { CiotOperation } from '../lib/transport/ciot-types.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -185,13 +188,24 @@ function toCarrierRntrcVerificationContext(record: RntrcVerification | null): Ca
   };
 }
 
+/** `CiotOperation` (repo) → recorte que `rule-evaluators.ts` conhece (PR-C2, TR-CIOT-001/002/003). */
+function toCiotOperationEvaluationContext(record: CiotOperation | null): CiotOperationEvaluationContext | null {
+  if (!record) return null;
+  return {
+    status: record.status,
+    ciotNumber: record.ciotNumber,
+    requestPayloadSnapshot: record.requestPayloadSnapshot
+  };
+}
+
 async function buildCheckForRule(
   rule: RegulatoryRuleWithVersion,
   aggregate: TransportOperationAggregate,
   referenceDate: string,
   floorCalculation: FreightFloorCalculationContext | null,
   carrierRntrcVerification: CarrierRntrcVerificationContext | null,
-  carrierTractionVehicleLinkType: string | null
+  carrierTractionVehicleLinkType: string | null,
+  ciotOperation: CiotOperationEvaluationContext | null
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -241,7 +255,8 @@ async function buildCheckForRule(
     referenceDate,
     floorCalculation,
     carrierRntrcVerification,
-    carrierTractionVehicleLinkType
+    carrierTractionVehicleLinkType,
+    ciotOperation
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -331,6 +346,11 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
     ? await findVehiclePartyLinkType(tractionVehicle.vehicleId, carrierParty.partyId)
     : null;
 
+  // Carregado UMA vez por avaliação (não por regra) — só TR-CIOT-001/002/003 consomem, mesmo
+  // racional de `floorCalculation`/`carrierRntrcVerification` acima (PR-C2).
+  const ciotOperationRecord = await findLatestCiotOperationForOperation(input.operationId, input.integrationAccountId);
+  const ciotOperation = toCiotOperationEvaluationContext(ciotOperationRecord);
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
     checkBuilds.push(await buildCheckForRule(
@@ -339,7 +359,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       referenceDate,
       floorCalculation,
       carrierRntrcVerification,
-      carrierTractionVehicleLinkType
+      carrierTractionVehicleLinkType,
+      ciotOperation
     ));
   }
 

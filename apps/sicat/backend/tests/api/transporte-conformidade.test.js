@@ -255,10 +255,13 @@ describe('Conformidade — validar-conformidade ad-hoc', { concurrency: 1 }, () 
 
     assert.equal(ciot001Before?.ruleVersionLabel, 'v2019-baseline');
     assert.equal(ciot001After?.ruleVersionLabel, 'v2026-05-universal');
-    // Nenhum dos dois tem evaluator ainda — not_applicable nos dois lados, só a versão muda.
-    assert.equal(ciot001Before?.status, 'NOT_APPLICABLE');
-    assert.equal(ciot001After?.status, 'NOT_APPLICABLE');
-    assert.equal(ciot001Before?.reasonCode, 'EVALUATOR_NOT_IMPLEMENTED');
+    // PR-C2: TR-CIOT-001 ganhou evaluator — nos dois lados a operação é remunerada e nunca
+    // solicitou CIOT, então o resultado é WARN CIOT_NOT_REGISTERED em AMBAS as versões (a
+    // fronteira temporal muda a VERSÃO resolvida, não o resultado — nenhuma delas é `blocking`).
+    assert.equal(ciot001Before?.status, 'WARN');
+    assert.equal(ciot001After?.status, 'WARN');
+    assert.equal(ciot001Before?.reasonCode, 'CIOT_NOT_REGISTERED');
+    assert.equal(ciot001After?.reasonCode, 'CIOT_NOT_REGISTERED');
   });
 
   it('tenancy: conta B não avalia operação da conta A', async (t) => {

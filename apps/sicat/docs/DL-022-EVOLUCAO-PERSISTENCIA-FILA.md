@@ -683,9 +683,82 @@ primeiro, worker só depois de Ready.
 
 ---
 
+## Migration 028 — Ciclo do CIOT Transporte + 5 job types (PR-C2, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — o SEGUNDO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts` no PR-C1), e o primeiro a aplicar o
+padrão **DL-102** (marcador de correlação + `*_unconfirmed` + reconciliador) DESDE A CRIAÇÃO da
+entidade, não como reparo posterior. NÃO existe provedor CIOT contratado
+([EXTERNAL DEPENDENCY] P5 do guia do programa) — `provider` só implementa `mock`.
+
+- **`028_transport_ciot.sql`** — `ciot_operations` (PK `text` via `createPrefixedId` (`ciot_`),
+  `version` + trigger `increment_version()` — ao contrário de `rntrc_verifications`/
+  `compliance_evaluations`, esta tabela TEM locking otimista porque sofre `update`s legítimos
+  fora da criação: `pre_validation → requested → registered|rejected|request_unconfirmed`, depois
+  `registered → rectified|cancelled|closed`) e `ciot_events` (APPEND-ONLY, sem `version`, trilha
+  completa do ciclo — `pre_validated`, `request_dispatched`, `registered`, `rectify_requested`,
+  `rectified`, `cancel_requested`, `cancelled`, `close_requested`, `closed`, `rejected`,
+  `reconciled`, entre outros). `correlation_marker` é `unique` desde a criação da linha — gravado
+  ANTES de qualquer chamada ao provedor, mesmo princípio de `manifest-correlation.ts` (réplica
+  deliberada em `lib/transport/ciot-correlation.ts`, NÃO reuso — bounded context próprio).
+
+**Fila — 4 pontos tocados, 5 job types novos** (`transporte.ciot.register|rectify|cancel|close|
+reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 5 novos `case`s no switch de `processJob`, cada um
+   delegando a um handler `handleTransporteCiot*(job)` **sem** o parâmetro `gateway` (mesmo molde
+   de `transporte.rntrc.verify`); o corpo de cada job vive em `transport-ciot-service.ts`
+   (`runCiot*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteCiotTerminalFailureSideEffect` (também definido em `transport-ciot-service.ts`
+   e re-exportado por `operation-handlers.ts`, para `job-runner.ts` importar de UM lugar só, no
+   mesmo molde dos outros `apply*TerminalFailureSideEffect`), registrado em `workers/job-runner.ts`
+   nos dois pontos de despacho — distingue rejeição DEFINITIVA do provedor
+   (`CIOT_PROVIDER_REJECTED_TEST` → `rejected`, operação permanece `ciot_pending`) de qualquer
+   outro terminal DEPOIS do dispatch (→ `request_unconfirmed`, NUNCA `failed` — DL-102).
+2. `src/lib/retry.ts` — as 5 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (mutações: 4; `reconcile`: 3 — ele já faz polling próprio contra o provedor, o orçamento de
+   retry da fila cobre só infraestrutura em volta) e `getRetryConfig` (mutações: 4 tentativas
+   exponencial 5s→120s, mesmo orçamento do RNTRC; `reconcile`: 3 tentativas, 5s→60s).
+   `CIOT_PROVIDER_REJECTED_TEST`/`CIOT_PROVIDER_NOT_CONFIGURED`/`TRANSPORTE_CIOT_ALREADY_TERMINAL`
+   entram em `NON_RETRYABLE_ERROR_CODES` (decisão definitiva/config ausente/retry tardio pós-commit
+   — nenhum deles se beneficia de retentar); `CIOT_PROVIDER_LOST_RESPONSE_TEST`/
+   `CIOT_RECONCILE_QUERY_FAILED` entram em `RETRYABLE_ERROR_CODES` (também cobertos por status
+   504/502, redundância defensiva, mesmo molde do RNTRC).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) ganhou um parâmetro NOVO, `entityLink`
+   — a primeira vez que o link do contrato não é derivável só de `entityType`/`entityId`:
+   `entityType 'ciot_operation'` usa `entityId = operationId` (a `transport_operations` PAI, para
+   dedupe e dono do link fazerem sentido — a tentativa ativa vai em `payload.ciotOperationId`), e o
+   GET do ciclo vive sob a operação (`/v1/transporte/operacoes/{operationId}/ciot`, sem rota por id
+   de tentativa). O espelho em `src/services/job-service.ts` (`getJob`) ganhou o mesmo ramo no
+   ternário (sem precisar de `entityLink` — `job.entityId` já É o `operationId`).
+4. Contrato: 4 endpoints de comando novos (`solicitar`/`retificar`/`cancelar`/`encerrar`, todos
+   `202`) entraram em `commandEndpoints` de `scripts/validate-openapi.js` **e** do teste gêmeo
+   `tests/integration/openapi-queue-contract.test.js`.
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteCiotReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueManifestSubmitReconcileSweepIfNeeded` (relógio próprio, env var própria
+`TRANSPORTE_CIOT_RECONCILE_SWEEP_MS`, default 5 min, `0`/negativo desliga, falha nunca derruba o
+loop do worker) — é a rede de segurança para `ciot_operations` em `request_unconfirmed` cujo
+enfileiramento de `reconcile` pelo side-effect terminal falhou ou nunca aconteceu (processo caiu
+entre marcar unconfirmed e enfileirar).
+
+Gateway `src/gateways/ciot-provider-gateway.ts` (TS): `mode: 'mock'` (default,
+`CIOT_PROVIDER_MODE`) é STATEFUL EM MEMÓRIA POR PROCESSO — um `Map` module-level chaveado pelo
+`correlationMarker`, para sobreviver à criação de novas instâncias do gateway a cada retry (e para
+`queryCiotByMarker`, chamado pelo reconciliador `services/ciot-reconciler.ts`, "achar" o que uma
+tentativa anterior registrou). `mode: 'real'` recusa `createCiotProviderGateway` com
+`CIOT_PROVIDER_NOT_CONFIGURED` — mesma postura "aceita o valor, falha no uso" de
+`resolveRntrcGatewayMode` para `antt`.
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`
 - Worker: `src/workers/job-runner.js`
 - Rotas: `src/routes/health-routes.js`
-- Decision log: `docs/copilot/13-decision-log.md` (DL-022)
+- Decision log: `docs/copilot/13-decision-log.md` (DL-022, DL-102, DL-103)

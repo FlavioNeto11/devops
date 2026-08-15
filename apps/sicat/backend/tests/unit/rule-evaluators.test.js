@@ -193,8 +193,8 @@ describe('rule-evaluators — registro', () => {
       assert.ok(union.has(code), `${code} não está em nenhum dos dois registros`);
     }
 
-    assert.strictEqual(withEvaluator.size, 11, 'Fase A (10) + TR-RNTRC-002 (PR-C1) = 11 evaluators implementados');
-    assert.strictEqual(withoutEvaluator.size, 15, '15 codes aguardam evaluator de fase futura (TR-RNTRC-002 saiu no PR-C1)');
+    assert.strictEqual(withEvaluator.size, 14, 'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) = 14 evaluators implementados');
+    assert.strictEqual(withoutEvaluator.size, 12, '12 codes aguardam evaluator de fase futura (TR-RNTRC-002 saiu no PR-C1; TR-CIOT-001/002/003 saíram no PR-C2)');
   });
 
   it('toda entrada de RULES_WITHOUT_EVALUATOR_YET declara targetPhase', () => {

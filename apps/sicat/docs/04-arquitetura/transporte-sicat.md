@@ -67,7 +67,10 @@ qualquer não-terminal → cancelled (exige cancelledReason)
 - Grafo completo declarado em `lib/transport-state-machine.ts` (puro), com `phase` por transição;
   **só transições da fase corrente têm endpoint** — na Fase A: `submit_validation`,
   `approve_validation` (GATE_PROPOSAL), `reject_validation`, `reopen`, `contract` (GATE_CONTRACT),
-  `cancel`. Estados de `ciot_pending` em diante são inalcançáveis por API até as fases C+.
+  `cancel`. **PR-C2 ATIVOU** `request_ciot` (`contracted → ciot_pending`, `GATE_CIOT`) e
+  `confirm_ciot` (`ciot_pending → ciot_registered`, sem gate — CAS aplicado pelo worker no sucesso
+  do registro/reconciliação do CIOT). Estados de `fiscal_pending` em diante seguem inalcançáveis
+  por API até a Fase E.
 - Anti-transição arbitrária em 3 camadas: `PATCH` rejeita campo `status` (422); repo transiciona
   por compare-and-swap (`where status=$from and version=$v`, 0 linhas ⇒ 409); service exige
   `assertTransition` + gate sem BLOCK.
@@ -97,6 +100,8 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `024_transport_operations.sql` | `transport_operations` + `_parties`, `_vehicles`, `_cargo`, `_routes` | A4 |
 | `025_transport_compliance.sql` | `compliance_evaluations` (append-only), `compliance_checks`, `compliance_evidence` | A5 |
 | `026_transport_freight_floor_calculations.sql` | `freight_floor_calculations` (append-only) — ✅ entregue (PR-B1, modo shadow) | B1 |
+| `027_transport_rntrc_verifications.sql` | `rntrc_verifications` (append-only) — ✅ entregue (PR-C1) | C1 |
+| `028_transport_ciot.sql` | `ciot_operations` (`version`+trigger), `ciot_events` (append-only) — ✅ entregue (PR-C2, provedor `mock`) | C2 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -138,8 +143,39 @@ Tag `Transporte - RNTRC`. `manual` grava direto (sem fila); `open_data` enfileir
 'transport_party'` entra no ternário de `links.entity` de `command-response.ts`/`job-service.ts`
 (→ `/v1/transporte/transportadores/{id}`).
 
-Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` → `gen:operations` **+
-`sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de
+**PR-C2 (Fase C, ciclo completo do CIOT — provedor ABSTRAÍDO):**
+
+```text
+POST /v1/transporte/operacoes/{id}/ciot/pre-validar   (200 síncrono — GATE_CIOT ad-hoc, sem transição)
+POST /v1/transporte/operacoes/{id}/ciot/solicitar      (202 — cria ciot_operations + CAS ciot_pending)
+POST /v1/transporte/operacoes/{id}/ciot/retificar       (202 — exige ciot registered)
+POST /v1/transporte/operacoes/{id}/ciot/cancelar        (202 — exige ciot registered; NÃO cancela a operação)
+POST /v1/transporte/operacoes/{id}/ciot/encerrar        (202 — exige ciot registered/rectified)
+GET  /v1/transporte/operacoes/{id}/ciot                 (ciot atual + eventos paginados)
+```
+
+Tag `Transporte - CIOT`. NÃO existe provedor CIOT contratado/homologado ([EXTERNAL DEPENDENCY] P5)
+— `gateways/ciot-provider-gateway.ts` só implementa `mode: 'mock'` (sandbox determinístico e
+stateful em memória por processo); `CIOT_PROVIDER_MODE=real` recusa com
+`CIOT_PROVIDER_NOT_CONFIGURED`. Padrão **DL-102 replicado** (não reaproveitado do MTR — bounded
+context próprio, `lib/transport/ciot-correlation.ts` + `services/ciot-reconciler.ts`): marcador de
+correlação (`[sicat:<ciotId>]`) gravado na CRIAÇÃO da `ciot_operations`, ANTES de qualquer chamada
+ao provedor; resposta perdida DEPOIS do dispatch vira `request_unconfirmed` (NUNCA `failed`),
+resolvido pelo job `transporte.ciot.reconcile` (enfileirado pelo side-effect terminal e por uma
+varredura periódica própria, `enqueueTransporteCiotReconcileSweepIfNeeded`, molde da varredura do
+MTR). Rejeição DEFINITIVA do provedor (`CIOT_PROVIDER_REJECTED_TEST` no mock) vira `rejected` —
+`transport_operations` PERMANECE `ciot_pending` (rejeição de UMA tentativa não cancela a operação) e
+um novo `solicitar` cria uma NOVA `ciot_operations`. `entityType 'ciot_operation'` usa `entityId =
+operationId` (a `transport_operations` PAI, não o id da tentativa — dedupe e link por operação; o
+id da tentativa ativa vai em `payload.ciotOperationId`), com link explícito via o novo parâmetro
+`entityLink` de `buildCommandAccepted` (`command-response.ts`) apontando para
+`/v1/transporte/operacoes/{operationId}/ciot`. 3 evaluators novos (TR-CIOT-001/002/003,
+`rule-evaluators.ts`) saíram de `RULES_WITHOUT_EVALUATOR_YET`; `ctx.ciotOperation` (a tentativa mais
+recente) é carregado por `transport-compliance-service.ts` a partir de
+`ciot-repo.findLatestCiotOperationForOperation`, mesmo molde de `ctx.carrierRntrcVerification` (PR-C1).
+
+Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` (ou exemplo inline no YAML, molde RNTRC) →
+`gen:operations` **+ `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de
 `sicatAuthMiddleware`; RBAC `transporte.read`/`transporte.write` + papel `sicat.transporte.operator`
 (nunca alargar `sicat.reader`). **Nota (decisão do PR-A2):** as chaves RBAC entram quando houver
 mecanismo de enforcement por rota HTTP ou tools conversacionais da vertical — hoje o enforcement
@@ -201,6 +237,9 @@ Dois níveis: flag por capacidade (`transporte.core`, `transporte.freight_floor`
 | A4 | migration 024, `transport-state-machine.ts`, repo/service de operações, registry operacional | CRUD operações + cancelar | estado-atual, guia |
 | A5 | migration 025, `transport-compliance-service.ts`, `rule-evaluators.ts` | conformidade + submeter-validacao + contratar | estado-atual, guia |
 | A6 | `tests/regulatory/` + fixtures + meta-guardas | — | fechamento Fase A (este doc + estado-atual + guia) |
+| B1 | migration 026, `freight-floor-service.ts` (modo shadow) | cálculo de piso + histórico | estado-atual, guia |
+| C1 | migration 027, `antt-rntrc-gateway.ts`, `transport-rntrc-verification-service.ts`, TR-RNTRC-002 | verificação RNTRC (manual 200 + open_data 202) | estado-atual, guia |
+| C2 | migration 028, `ciot-provider-gateway.ts`, `ciot-correlation.ts`, `ciot-reconciler.ts`, `ciot-repo.ts`, `transport-ciot-service.ts`, TR-CIOT-001/002/003 | ciclo do CIOT (pre-validar 200 + solicitar/retificar/cancelar/encerrar 202 + GET) | este doc, DL-022 doc, estado-atual, guia |
 
 ## 12. Critérios de pronto da Fase A
 

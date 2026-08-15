@@ -64,6 +64,14 @@ import {
   listRntrcVerificationsService,
   requestRntrcVerificationService
 } from '../services/transport-rntrc-verification-service.js';
+import {
+  cancelCiot,
+  closeCiot,
+  getCiotForOperationService,
+  preValidateCiot,
+  rectifyCiot,
+  requestCiot
+} from '../services/transport-ciot-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -305,6 +313,73 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Overview: a avaliação mais recente de cada um dos 8 gates.
   router.get('/v1/transporte/operacoes/:operationId/conformidade', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getTransportOperationComplianceOverviewService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // CIOT — ciclo completo com provedor ABSTRAÍDO (PR-C2, DL-102 aplicado ao domínio CIOT)
+  // ===========================================================================================
+
+  // SÍNCRONO (200) — avaliação ad-hoc de GATE_CIOT, sem transição nem criação de ciot_operations.
+  router.post('/v1/transporte/operacoes/:operationId/ciot/pre-validar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await preValidateCiot(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // ASSÍNCRONO (202) — cria ciot_operations + CAS contracted→ciot_pending + enfileira transporte.ciot.register.
+  router.post('/v1/transporte/operacoes/:operationId/ciot/solicitar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await requestCiot(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  router.post('/v1/transporte/operacoes/:operationId/ciot/retificar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await rectifyCiot(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Cancelar o CIOT NÃO cancela a operação de transporte — ciclos distintos (ver comentário de
+  // `transport-ciot-service.ts#cancelCiot`).
+  router.post('/v1/transporte/operacoes/:operationId/ciot/cancelar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await cancelCiot(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  router.post('/v1/transporte/operacoes/:operationId/ciot/encerrar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await closeCiot(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Ciot atual + eventos paginados (histórico completo do ciclo — pré-validação, dispatch,
+  // registro/rejeição/reconciliação, retificação, cancelamento, encerramento).
+  router.get('/v1/transporte/operacoes/:operationId/ciot', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getCiotForOperationService(
       String(req.params.operationId || ''),
       (req.query || {}) as LooseRecord
     );

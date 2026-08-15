@@ -6,6 +6,7 @@ import { resolveVersionFromList } from '../../src/lib/transport/regulatory-tempo
 import { COMPLIANCE_GATES } from '../../src/lib/transport/regulatory-types.js';
 import { RULE_EVALUATORS, applyEnforcementClamp } from '../../src/lib/transport/rule-evaluators.js';
 import {
+  buildCtcSubcontratadaOperation,
   buildEtcFracionadaOperation,
   buildIncompleteDraftOperation,
   buildTacLotacaoOperation
@@ -49,8 +50,8 @@ function toClampableVersion(seedVersion) {
   };
 }
 
-/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). */
-function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE) {
+/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). `ciotOperation` (PR-C2) é opcional. */
+function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, ciotOperation = undefined) {
   const seedVersion = resolveVersionFromList(rule.versions, referenceDate);
   if (!seedVersion) return { version: null, outcome: null, clamped: null };
 
@@ -58,9 +59,19 @@ function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE) {
   if (!evaluator) return { version: seedVersion, outcome: null, clamped: null };
 
   const clampableVersion = toClampableVersion(seedVersion);
-  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate });
+  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate, ciotOperation });
   const clamped = applyEnforcementClamp(outcome, clampableVersion);
   return { version: seedVersion, outcome, clamped };
+}
+
+/** Fixture mínima de `ctx.ciotOperation` (PR-C2) — recorte que os evaluators TR-CIOT-001/002/003 consomem. */
+function buildCiotOperationFixture(overrides = {}) {
+  return {
+    status: 'registered',
+    ciotNumber: '1234567890',
+    requestPayloadSnapshot: { responsibleParty: 'contractor' },
+    ...overrides
+  };
 }
 
 function ruleByCode(code) {
@@ -112,6 +123,83 @@ describe('compliance-gates — GATE_CIOT / TR-CIOT-004 (dados obrigatórios do C
     const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-004'), buildIncompleteDraftOperation());
     assert.equal(outcome.status, 'block');
     assert.equal(outcome.reasonCode, 'CIOT_DATA_INCOMPLETE');
+  });
+});
+
+describe('compliance-gates — GATE_CIOT / TR-CIOT-001 (obrigatoriedade do CIOT)', () => {
+  it('operação remunerada SEM ciot solicitado → warn CIOT_NOT_REGISTERED', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-001'), buildTacLotacaoOperation());
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'CIOT_NOT_REGISTERED');
+  });
+
+  it('operação remunerada com ciot registered → pass (REGISTERED ≠ COMPLIANT na mensagem)', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'registered' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-001'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'pass');
+    assert.match(outcome.humanMessage, /REGISTRADO não é o mesmo que CONFORME/);
+  });
+
+  it('operação SEM frete declarado → not_applicable CIOT_NOT_APPLICABLE_UNPAID', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-001'), buildIncompleteDraftOperation());
+    assert.equal(outcome.status, 'not_applicable');
+    assert.equal(outcome.reasonCode, 'CIOT_NOT_APPLICABLE_UNPAID');
+  });
+});
+
+describe('compliance-gates — GATE_RELEASE / TR-CIOT-002 (CIOT antes do início da operação)', () => {
+  it('operação remunerada SEM ciot registered → block (raw) CIOT_MISSING_FOR_RELEASE', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-002'), buildTacLotacaoOperation());
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'CIOT_MISSING_FOR_RELEASE');
+  });
+
+  it('operação remunerada com ciot registered → pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'registered' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-002'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('ciot rectified TAMBÉM conta como vigente para a liberação → pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'rectified' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-002'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('ciot rejected → block (raw) CIOT_MISSING_FOR_RELEASE, nunca confundido com pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ status: 'rejected', ciotNumber: null });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-002'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'CIOT_MISSING_FOR_RELEASE');
+  });
+});
+
+describe('compliance-gates — GATE_CIOT / TR-CIOT-003 (responsável pelo CIOT conforme enquadramento)', () => {
+  it('sem ciot solicitado ainda → warn CIOT_RESPONSIBLE_UNDECLARED', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-003'), buildTacLotacaoOperation());
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'CIOT_RESPONSIBLE_UNDECLARED');
+  });
+
+  it('responsibleParty declarado (contractor, default) → pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ requestPayloadSnapshot: { responsibleParty: 'contractor' } });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-003'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'pass');
+    assert.equal(outcome.result.responsibleParty, 'contractor');
+  });
+
+  it('subcontratação: responsibleParty=subcontractor (quem contratou o TAC) → pass', () => {
+    const ciotOperation = buildCiotOperationFixture({ requestPayloadSnapshot: { responsibleParty: 'subcontractor' } });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-003'), buildCtcSubcontratadaOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'pass');
+    assert.equal(outcome.result.responsibleParty, 'subcontractor');
+  });
+
+  it('ciot existe mas responsibleParty não foi declarado → warn CIOT_RESPONSIBLE_UNDECLARED', () => {
+    const ciotOperation = buildCiotOperationFixture({ requestPayloadSnapshot: {} });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-003'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'CIOT_RESPONSIBLE_UNDECLARED');
   });
 });
 

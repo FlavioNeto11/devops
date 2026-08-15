@@ -61,6 +61,13 @@ import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsa
 import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
 import { runRntrcVerificationJob } from '../services/transport-rntrc-verification-service.js';
 import { completeVerificationFailed } from '../repositories/rntrc-verification-repo.js';
+import {
+  runCiotRegisterJob,
+  runCiotRectifyJob,
+  runCiotCancelJob,
+  runCiotCloseJob,
+  runCiotReconcileJob
+} from '../services/transport-ciot-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -1045,6 +1052,71 @@ export async function applyTransporteRntrcVerifyTerminalFailureSideEffect(
   }
 }
 
+/**
+ * Ciclo do CIOT com provedor ABSTRAÍDO (PR-C2) — 5 handlers, todos SEM parâmetro `gateway` (mesmo
+ * molde de `handleTransporteRntrcVerify`): o corpo de cada um vive em
+ * `transport-ciot-service.ts` (`runCiot*Job`); aqui só a costura com a fila —
+ * `{ outcome, ...patch }` → `finishJob`. Rejeição do provedor e resposta perdida (DL-102) NÃO são
+ * tratadas aqui — propagam e são interpretadas pelo side-effect terminal
+ * `applyTransporteCiotTerminalFailureSideEffect` (re-exportado abaixo, chamado pelos DOIS pontos
+ * de `workers/job-runner.ts`).
+ */
+async function handleTransporteCiotRegister(job: JobEntity) {
+  const result = await runCiotRegisterJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteCiotRectify(job: JobEntity) {
+  const result = await runCiotRectifyJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteCiotCancel(job: JobEntity) {
+  const result = await runCiotCancelJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteCiotClose(job: JobEntity) {
+  const result = await runCiotCloseJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteCiotReconcile(job: JobEntity) {
+  const result = await runCiotReconcileJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+// Re-exportado (não redefinido) para `workers/job-runner.ts` importar de UM lugar só, no mesmo
+// molde dos outros `apply*TerminalFailureSideEffect` — a implementação mora em
+// `transport-ciot-service.ts` porque depende profundamente de `repositories/ciot-repo.ts`, já
+// importado lá.
+export { applyTransporteCiotTerminalFailureSideEffect } from '../services/transport-ciot-service.js';
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1239,6 +1311,17 @@ export async function processJob(job: JobEntity, gateway: {
     // comentário de `handleTransporteRntrcVerify`.
     case 'transporte.rntrc.verify':
       return handleTransporteRntrcVerify(job);
+    // Ciclo do CIOT (PR-C2) — SEM o parâmetro `gateway`, mesmo molde de `transporte.rntrc.verify`.
+    case 'transporte.ciot.register':
+      return handleTransporteCiotRegister(job);
+    case 'transporte.ciot.rectify':
+      return handleTransporteCiotRectify(job);
+    case 'transporte.ciot.cancel':
+      return handleTransporteCiotCancel(job);
+    case 'transporte.ciot.close':
+      return handleTransporteCiotClose(job);
+    case 'transporte.ciot.reconcile':
+      return handleTransporteCiotReconcile(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }
