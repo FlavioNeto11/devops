@@ -16,8 +16,12 @@ COPY . .
 # As VITE_* sao embutidas no bundle em build-time.
 ARG VITE_API_BASE_URL=/sicat/api
 ARG VITE_REQUIRE_REAL_AUTH=true
+# Vertical Transporte (DL-103): flag de BUILD; default desligada (lib/feature-flags.js).
+# O lab liga via devops.yaml > services.frontend.build.args.
+ARG VITE_FEATURE_TRANSPORTE=false
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_REQUIRE_REAL_AUTH=$VITE_REQUIRE_REAL_AUTH
+    VITE_REQUIRE_REAL_AUTH=$VITE_REQUIRE_REAL_AUTH \
+    VITE_FEATURE_TRANSPORTE=$VITE_FEATURE_TRANSPORTE
 # base=/sicat/ -> assets em /sicat/assets e import.meta.env.BASE_URL=/sicat/ (router).
 RUN npm run build -- --base=/sicat/
 
