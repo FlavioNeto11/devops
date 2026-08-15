@@ -97,13 +97,22 @@ tags:
     Fase C (rotas `/regularidade`/`/verificar` não existem neste contrato).
 - name: Transporte - Operações
   description: Agregado central `TransportOperation` — máquina de estados explícita (13 estados)
-    com transições guardadas. Este contrato só expõe as transições SEM gate de compliance
-    (`submeter-validacao`, `cancelar`); as demais (`aprovar`, `contratar`, CIOT, fiscal, liberação,
-    viagem, conclusão) estão declaradas no grafo de `transport-state-machine.ts` mas SEM rota até o
-    motor de compliance (fase futura). Frete sempre DECOMPOSTO (`offeredAmount`/`contractedAmount`/
-    `floorAmount`/`tollAmount`/`vpoAmount`/`otherComponentsAmount`/`totalContractValue` — VPO nunca
-    somado ao frete). Tenancy por `integrationAccountId`, síncrono (sem 202/job), locking otimista
-    (`version`).
+    com transições guardadas. `submeter-validacao` ORQUESTRA a avaliação do `GATE_PROPOSAL` e a
+    transição resultante (`approve_validation`/`reject_validation`) no mesmo request; `contratar`
+    ATIVA `GATE_CONTRACT`; `reabrir` é a transição SEM gate `blocked → draft`. As transições de
+    fases C+ (CIOT, fiscal, liberação, viagem, conclusão) continuam declaradas no grafo de
+    `transport-state-machine.ts` mas SEM rota. Frete sempre DECOMPOSTO (`offeredAmount`/
+    `contractedAmount`/`floorAmount`/`tollAmount`/`vpoAmount`/`otherComponentsAmount`/
+    `totalContractValue` — VPO nunca somado ao frete). Tenancy por `integrationAccountId`, síncrono
+    (sem 202/job), locking otimista (`version`).
+- name: Transporte - Conformidade
+  description: Motor de compliance (`TransportComplianceService`) — avaliação síncrona de UM gate
+    sobre UMA operação contra o catálogo regulatório temporal, com persistência APPEND-ONLY de
+    avaliações/checks/evidências (`compliance_evaluations`/`_checks`/`_evidence`). `overallStatus`/
+    `status` dos checks em MAIÚSCULO (`PASS`/`WARN`/`BLOCK`/`NOT_APPLICABLE`) — o banco/motor usam
+    minúsculo internamente. `rawStatus` só aparece quando o clamp de enforcement mudou o status
+    (`block` não-ACTIVE/não-`blocking` vira `warn` com `RULE_NOT_ENFORCEABLE`). Sem chamada externa
+    e sem job nesta fase do programa.
 security:
 - bearerAuth: []
 paths:
@@ -7258,10 +7267,115 @@ paths:
   /v1/transporte/operacoes/{operationId}/submeter-validacao:
     post:
       operationId: transporteOperacaoSubmeterValidacao
-      summary: Submeter operação para validação (draft → validating)
-      description: Única transição de saída de `draft` exposta neste PR — SEM gate e SEM
-        auto-aprovação (o motor de compliance que decide `approve_validation`/`reject_validation`
-        chega em uma fase futura). Compare-and-swap por `version`; comando fora do grafo a partir
+      summary: Submeter operação para validação (draft → validating → ready_for_contract|blocked)
+      description: |-
+        ORQUESTRA a transição de saída de `draft`. Compare-and-swap `draft --submit_validation-->
+        validating` e, no mesmo request, avalia `GATE_PROPOSAL` (triggeredBy=transition): sem
+        bloqueio ⇒ `validating --approve_validation--> ready_for_contract`; com bloqueio ⇒
+        `validating --reject_validation--> blocked` (`blockedReasonCode` = motivo do primeiro
+        check bloqueante). Transição composta deliberada — cada CAS é atômico por si; se a
+        avaliação falhar de forma inesperada depois do primeiro CAS, a operação fica retida em
+        `validating` (`reabrir`/`cancelar` resolvem). Comando fora do grafo a partir do status
+        atual responde 409 `TRANSPORT_INVALID_TRANSITION`.
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoTransicaoRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 2
+      responses:
+        '200':
+          description: Operação em `ready_for_contract` (sem bloqueio) ou `blocked` (com
+            bloqueio), com a avaliação de `GATE_PROPOSAL` que decidiu a transição
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoComAvaliacaoResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Transição inválida a partir do status atual, ou version defasada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/contratar:
+    post:
+      operationId: transporteOperacaoContratar
+      summary: Contratar operação (ready_for_contract → contracted)
+      description: ATIVA a transição guardada por `GATE_CONTRACT`. `contractedAmount`, quando
+        informado, atualiza `freight_contracted_amount` ANTES do gate (os evaluators de piso/VPO
+        do gate enxergam o valor atualizado). Exige status `ready_for_contract` — comando fora do
+        grafo responde 409 `TRANSPORT_INVALID_TRANSITION`. Bloqueio no gate ⇒ 409
+        `TRANSPORT_GATE_BLOCKED` (a operação permanece em `ready_for_contract`; nenhuma transição
+        é tentada nesse caso).
+      tags:
+      - Transporte - Operações
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteContratarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 3
+              contractedAmount: 3800.00
+      responses:
+        '200':
+          description: Operação em `contracted`, com a avaliação de `GATE_CONTRACT` que aprovou a transição
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoComAvaliacaoResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Transição inválida a partir do status atual, version defasada, ou gate
+            bloqueado (`TRANSPORT_GATE_BLOCKED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/reabrir:
+    post:
+      operationId: transporteOperacaoReabrir
+      summary: Reabrir operação bloqueada (blocked → draft)
+      description: Transição SEM gate — limpa `blockedReasonCode` e devolve a operação a `draft`
+        para correção dos dados. Compare-and-swap por `version`; comando fora do grafo a partir
         do status atual responde 409 `TRANSPORT_INVALID_TRANSITION`.
       tags:
       - Transporte - Operações
@@ -7271,9 +7385,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TransporteOperacaoTransicaoRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 3
       responses:
         '200':
-          description: Operação em `validating` (agregado)
+          description: Operação em `draft` (agregado)
           content:
             application/json:
               schema:
@@ -7345,6 +7462,115 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/validar-conformidade:
+    post:
+      operationId: transporteOperacaoValidarConformidade
+      summary: Avaliar conformidade de UM gate (ad-hoc, sem transição)
+      description: Roda o motor de compliance (`TransportComplianceService`) para o `gate`
+        informado, com `triggeredBy=user`, e persiste a avaliação (append-only) — SEM aplicar
+        transição alguma na operação, independente do resultado. `referenceDate` default = hoje.
+      tags:
+      - Transporte - Conformidade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteValidarConformidadeRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              gate: GATE_CIOT
+              referenceDate: '2026-08-13'
+      responses:
+        '200':
+          description: Avaliação do gate persistida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteConformidadeAvaliacaoResource'
+              example:
+                evaluationId: cmpeval_7a2b3c4d5e6f7a8b9c0d1e2f
+                operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                gate: GATE_CIOT
+                overallStatus: WARN
+                referenceDate: '2026-08-13'
+                evaluatedAt: '2026-08-13T12:30:00Z'
+                checks:
+                - ruleCode: TR-CIOT-001
+                  ruleVersionLabel: v2026-05-universal
+                  status: NOT_APPLICABLE
+                  rawStatus: null
+                  reasonCode: EVALUATOR_NOT_IMPLEMENTED
+                  humanMessage: Avaliação automática de TR-CIOT-001 chega na Fase C do programa — sem evaluator ainda (não é erro).
+                  legalBasis:
+                  - reference: Res. ANTT 5.862/2019
+                  - reference: Res. ANTT 6.078/2026
+                  - reference: Lei 15.485/2026
+                  - reference: Portaria SUROC 6/2026
+                  evidenceRefs:
+                  - cmpevd_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                - ruleCode: TR-CIOT-004
+                  ruleVersionLabel: v2026-08-baseline
+                  status: WARN
+                  rawStatus: BLOCK
+                  reasonCode: RULE_NOT_ENFORCEABLE
+                  humanMessage: 'Dados mínimos para o CIOT incompletos: contractor, cargo.'
+                  legalBasis:
+                  - reference: Res. ANTT 5.862/2019
+                  - reference: Res. ANTT 6.078/2026
+                  - reference: Lei 15.485/2026
+                  - reference: Portaria SUROC 6/2026
+                  evidenceRefs:
+                  - cmpevd_2b3c4d5e6f7a8b9c0d1e2f3a4b5c
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/conformidade:
+    get:
+      operationId: transporteOperacaoConformidade
+      summary: Overview de conformidade da operação (última avaliação por gate)
+      description: Devolve, para cada um dos 8 gates do programa, a avaliação MAIS RECENTE já
+        persistida para a operação (`null` quando o gate nunca foi avaliado) — não roda o motor;
+        é leitura pura do histórico append-only.
+      tags:
+      - Transporte - Conformidade
+      responses:
+        '200':
+          description: Overview de conformidade por gate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteConformidadeOverviewResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
 components:
   securitySchemes:
     bearerAuth:
@@ -13555,3 +13781,197 @@ components:
         reason:
           type: string
           description: Obrigatório — motivo do cancelamento (vira `cancelledReason` no banco).
+    TransporteContratarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        contractedAmount:
+          type: number
+          description: Quando informado, atualiza `freight.contractedAmount` ANTES da avaliação
+            de `GATE_CONTRACT` — deve ser >= 0.
+    TransporteConformidadeCheckResource:
+      type: object
+      description: Resultado de UMA regra TR-* dentro de uma avaliação de gate.
+      required:
+      - ruleCode
+      - ruleVersionLabel
+      - status
+      - rawStatus
+      - reasonCode
+      - humanMessage
+      - legalBasis
+      - evidenceRefs
+      properties:
+        ruleCode:
+          type: string
+          description: 'Código estável da regra do catálogo (ex.: TR-PMF-002).'
+        ruleVersionLabel:
+          type: string
+          description: Vazio quando a regra não tinha versão vigente na data de referência.
+        status:
+          type: string
+          description: Status PÓS-CLAMP de enforcement (o que de fato vale para a decisão da transição).
+          enum:
+          - PASS
+          - WARN
+          - BLOCK
+          - NOT_APPLICABLE
+        rawStatus:
+          type:
+          - string
+          - 'null'
+          description: Status ANTES do clamp — só preenchido quando o clamp de enforcement mudou
+            o status (regra não-ACTIVE ou não-`blocking` que teria dado `BLOCK`); `null` quando
+            não houve clamp.
+          enum:
+          - PASS
+          - WARN
+          - BLOCK
+          - NOT_APPLICABLE
+          - null
+        reasonCode:
+          type:
+          - string
+          - 'null'
+          description: 'Ex.: FLOOR_NOT_CALCULATED, RULE_NOT_ENFORCEABLE, EVALUATOR_NOT_IMPLEMENTED.'
+        humanMessage:
+          type: string
+        legalBasis:
+          type: array
+          items:
+            type: object
+            required:
+            - reference
+            properties:
+              reference:
+                type: string
+              article:
+                type:
+                - string
+                - 'null'
+        evidenceRefs:
+          type: array
+          description: Ids de `compliance_evidence` que sustentam este check.
+          items:
+            type: string
+    TransporteConformidadeAvaliacaoResource:
+      type: object
+      description: UMA avaliação de UM gate sobre UMA operação — persistida append-only
+        (`compliance_evaluations`); reavaliar o mesmo gate cria uma linha NOVA, nunca sobrescreve.
+      required:
+      - evaluationId
+      - operationId
+      - gate
+      - overallStatus
+      - referenceDate
+      - evaluatedAt
+      - checks
+      properties:
+        evaluationId:
+          type: string
+        operationId:
+          type: string
+        gate:
+          type: string
+          enum:
+          - GATE_PROPOSAL
+          - GATE_CONTRACT
+          - GATE_CIOT
+          - GATE_FISCAL
+          - GATE_PRE_BOARDING
+          - GATE_RELEASE
+          - GATE_IN_TRANSIT
+          - GATE_COMPLETION
+        overallStatus:
+          type: string
+          description: Pior status dos checks pós-clamp (`BLOCK` > `WARN` > `PASS`;
+            `NOT_APPLICABLE` não conta).
+          enum:
+          - PASS
+          - WARN
+          - BLOCK
+        referenceDate:
+          type: string
+          format: date
+        evaluatedAt:
+          type: string
+          format: date-time
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteConformidadeCheckResource'
+    TransporteConformidadeOverviewResponse:
+      type: object
+      required:
+      - operationId
+      - gates
+      properties:
+        operationId:
+          type: string
+        gates:
+          type: array
+          items:
+            type: object
+            required:
+            - gate
+            - latestEvaluation
+            properties:
+              gate:
+                type: string
+                enum:
+                - GATE_PROPOSAL
+                - GATE_CONTRACT
+                - GATE_CIOT
+                - GATE_FISCAL
+                - GATE_PRE_BOARDING
+                - GATE_RELEASE
+                - GATE_IN_TRANSIT
+                - GATE_COMPLETION
+              latestEvaluation:
+                oneOf:
+                - $ref: '#/components/schemas/TransporteConformidadeAvaliacaoResource'
+                - type: 'null'
+    TransporteValidarConformidadeRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - gate
+      properties:
+        integrationAccountId:
+          type: string
+        gate:
+          type: string
+          enum:
+          - GATE_PROPOSAL
+          - GATE_CONTRACT
+          - GATE_CIOT
+          - GATE_FISCAL
+          - GATE_PRE_BOARDING
+          - GATE_RELEASE
+          - GATE_IN_TRANSIT
+          - GATE_COMPLETION
+        referenceDate:
+          type: string
+          format: date
+          description: Default = hoje.
+    TransporteOperacaoComAvaliacaoResponse:
+      type: object
+      description: Resposta das transições ATIVADAS por gate (`submeter-validacao`/`contratar`) —
+        a operação já refletindo a transição aplicada (ou não, em bloqueio de `contratar`) + a
+        avaliação que decidiu.
+      required:
+      - operation
+      - evaluation
+      properties:
+        operation:
+          $ref: '#/components/schemas/TransporteOperacaoResource'
+        evaluation:
+          $ref: '#/components/schemas/TransporteConformidadeAvaliacaoResource'

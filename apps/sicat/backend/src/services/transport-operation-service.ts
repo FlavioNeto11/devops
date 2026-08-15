@@ -9,12 +9,18 @@
  * middleware de "conta ativa da sessão", o chamador informa explicitamente (body no POST/PATCH/
  * transições, query no GET).
  *
- * Máquina de estados: este PR só expõe `submitValidation`/`cancelTransportOperation` (as
- * transições SEM gate de `transport-state-machine.ts`). `approve_validation`/`contract`/... NÃO
- * são expostas — dependem do motor de compliance do PR-A5. Toda transição passa por
- * `assertTransition` (grafo) + `transitionStatus` (compare-and-swap no banco); o CAS é quem
- * decide de verdade sob concorrência, `assertTransition` só dá o 409 rápido/amigável usando o
- * último status lido.
+ * Máquina de estados (PR-A5 — ATIVAÇÃO das transições guardadas): `submitTransportOperationValidation`
+ * agora ORQUESTRA — `draft --submit_validation--> validating` (CAS) seguido da avaliação do
+ * `GATE_PROPOSAL` (`triggeredBy: 'transition'`) e, no mesmo request, `validating
+ * --approve_validation--> ready_for_contract` (sem block) ou `validating --reject_validation-->
+ * blocked` (com block). Cada CAS é atômico e independente — se a avaliação lançar um erro
+ * INESPERADO depois do primeiro CAS, a operação FICA em `validating` (nenhum rollback automático
+ * entre os dois passos); `reopen`/`cancel` resolvem manualmente. `contractTransportOperation`
+ * (`GATE_CONTRACT`) segue o mesmo padrão de ativação, num único passo (`ready_for_contract -->
+ * contracted`). `reopenTransportOperation` é a transição SEM gate `blocked --reopen--> draft`, que
+ * faltava rota desde o PR-A4. Toda transição passa por `assertTransition` (grafo) +
+ * `transitionStatus` (compare-and-swap no banco); o CAS é quem decide de verdade sob concorrência,
+ * `assertTransition` só dá o 409 rápido/amigável usando o último status lido.
  */
 
 import { AppError } from '../lib/problem.js';
@@ -50,6 +56,12 @@ import type {
   TransportOperation,
   TransportOperationAggregate
 } from '../lib/transport/transport-operation-types.js';
+import {
+  assertGatePassesForTransition,
+  evaluateGateService,
+  toComplianceEvaluationResource,
+  type ComplianceEvaluationResource
+} from './transport-compliance-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type HeaderMap = Record<string, string | undefined>;
@@ -464,19 +476,140 @@ export async function updateTransportOperation(operationId: string, body: LooseR
   return toOperationResource(aggregate);
 }
 
+export type OperationWithEvaluationResource = {
+  operation: OperationResource;
+  evaluation: ComplianceEvaluationResource;
+};
+
+export type OperationCommandContext = {
+  correlationId: string;
+  evaluatedBy: string | null;
+};
+
 // =============================================================================
 // POST /v1/transporte/operacoes/{operationId}/submeter-validacao
 // =============================================================================
 
-export async function submitTransportOperationValidation(operationId: string, body: LooseRecord): Promise<OperationResource> {
+/**
+ * ORQUESTRA a transição de saída de `draft` (PR-A5): `draft --submit_validation--> validating`
+ * (CAS) e, na sequência, avalia `GATE_PROPOSAL` (`triggeredBy: 'transition'`) para decidir entre
+ * `validating --approve_validation--> ready_for_contract` (sem block) e `validating
+ * --reject_validation--> blocked` (com block, `blockedReasonCode` = motivo do primeiro check
+ * bloqueante). Transição composta deliberada: cada CAS é atômico por si — se a avaliação lançar um
+ * erro INESPERADO depois do primeiro CAS ter comitado, a operação fica retida em `validating` (sem
+ * rollback automático entre os dois passos); `reopen`/`cancel` resolvem manualmente esse estado.
+ */
+export async function submitTransportOperationValidation(
+  operationId: string,
+  body: LooseRecord,
+  ctx: OperationCommandContext
+): Promise<OperationWithEvaluationResource> {
   const integrationAccountId = requireIntegrationAccountId(body);
   const expectedVersion = requireVersion(body);
 
   const current = await getOperationHeaderById(operationId, integrationAccountId);
   if (!current) throw operationNotFound(operationId);
 
-  const transition = assertTransition(current.status, 'submit_validation');
-  await transitionStatus(operationId, integrationAccountId, transition.from, transition.to, expectedVersion);
+  const toValidating = assertTransition(current.status, 'submit_validation');
+  const validatingOperation = await transitionStatus(
+    operationId,
+    integrationAccountId,
+    toValidating.from,
+    toValidating.to,
+    expectedVersion
+  );
+
+  // A partir daqui a operação JÁ está persistida em `validating` — ver o comentário do cabeçalho
+  // do arquivo sobre o que acontece se o passo abaixo lançar um erro inesperado.
+  const evaluation = await evaluateGateService({
+    operationId,
+    integrationAccountId,
+    gate: 'GATE_PROPOSAL',
+    triggeredBy: 'transition',
+    evaluatedBy: ctx.evaluatedBy,
+    correlationId: ctx.correlationId
+  });
+
+  if (evaluation.overallStatus === 'block') {
+    const blockingCheck = evaluation.checks.find((check) => check.status === 'block');
+    const toBlocked = assertTransition(validatingOperation.status, 'reject_validation');
+    await transitionStatus(operationId, integrationAccountId, toBlocked.from, toBlocked.to, validatingOperation.version, {
+      blockedReasonCode: blockingCheck?.reasonCode ?? blockingCheck?.ruleCode ?? 'GATE_PROPOSAL_BLOCKED'
+    });
+  } else {
+    const toReady = assertTransition(validatingOperation.status, 'approve_validation');
+    await transitionStatus(operationId, integrationAccountId, toReady.from, toReady.to, validatingOperation.version);
+  }
+
+  const aggregate = await getOperationAggregateById(operationId, integrationAccountId);
+  if (!aggregate) throw operationNotFound(operationId);
+  return { operation: toOperationResource(aggregate), evaluation: toComplianceEvaluationResource(evaluation) };
+}
+
+// =============================================================================
+// POST /v1/transporte/operacoes/{operationId}/contratar
+// =============================================================================
+
+/**
+ * ATIVA a transição `ready_for_contract --contract--> contracted` (PR-A5), guardada por
+ * `GATE_CONTRACT`. `contractedAmount`, quando informado, atualiza `freight_contracted_amount`
+ * ANTES do gate (o valor contratado precisa estar gravado para os evaluators de piso/VPO
+ * enxergarem-no). Bloqueio ⇒ 409 `TRANSPORT_GATE_BLOCKED` (via `assertGatePassesForTransition`) —
+ * a operação PERMANECE em `ready_for_contract` (nenhuma transição é tentada nesse caso).
+ */
+export async function contractTransportOperation(
+  operationId: string,
+  body: LooseRecord,
+  ctx: OperationCommandContext
+): Promise<OperationWithEvaluationResource> {
+  const integrationAccountId = requireIntegrationAccountId(body);
+  const expectedVersion = requireVersion(body);
+  const contractedAmount = body.contractedAmount === undefined
+    ? undefined
+    : validateAmount('contractedAmount', body.contractedAmount);
+
+  const current = await getOperationHeaderById(operationId, integrationAccountId);
+  if (!current) throw operationNotFound(operationId);
+
+  // 409 rápido/amigável ANTES de gastar um gate, se o comando não é permitido dali.
+  const transition = assertTransition(current.status, 'contract');
+
+  let workingVersion = expectedVersion;
+  if (contractedAmount !== undefined) {
+    const updated = await updateOperationById(operationId, integrationAccountId, expectedVersion, {
+      freightContractedAmount: contractedAmount
+    });
+    workingVersion = updated.version;
+  }
+
+  const evaluation = await assertGatePassesForTransition(operationId, integrationAccountId, 'GATE_CONTRACT', {
+    correlationId: ctx.correlationId,
+    evaluatedBy: ctx.evaluatedBy
+  });
+
+  await transitionStatus(operationId, integrationAccountId, transition.from, transition.to, workingVersion);
+
+  const aggregate = await getOperationAggregateById(operationId, integrationAccountId);
+  if (!aggregate) throw operationNotFound(operationId);
+  return { operation: toOperationResource(aggregate), evaluation: toComplianceEvaluationResource(evaluation) };
+}
+
+// =============================================================================
+// POST /v1/transporte/operacoes/{operationId}/reabrir
+// =============================================================================
+
+/** Transição SEM gate `blocked --reopen--> draft` — faltava rota desde o PR-A4. Limpa `blockedReasonCode`. */
+export async function reopenTransportOperation(operationId: string, body: LooseRecord): Promise<OperationResource> {
+  const integrationAccountId = requireIntegrationAccountId(body);
+  const expectedVersion = requireVersion(body);
+
+  const current = await getOperationHeaderById(operationId, integrationAccountId);
+  if (!current) throw operationNotFound(operationId);
+
+  const transition = assertTransition(current.status, 'reopen');
+  await transitionStatus(operationId, integrationAccountId, transition.from, transition.to, expectedVersion, {
+    blockedReasonCode: null
+  });
 
   const aggregate = await getOperationAggregateById(operationId, integrationAccountId);
   if (!aggregate) throw operationNotFound(operationId);

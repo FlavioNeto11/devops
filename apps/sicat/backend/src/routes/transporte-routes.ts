@@ -1,22 +1,26 @@
 /**
  * Rotas da vertical TRANSPORTE — PR-A2 (catálogo regulatório read-only) + PR-A3 (cadastro-base de
- * transportadores/veículos) + PR-A4 (agregado `TransportOperation` + máquina de estados, DL-103).
+ * transportadores/veículos) + PR-A4 (agregado `TransportOperation` + máquina de estados) + PR-A5
+ * (motor de compliance + ativação das transições guardadas, DL-103).
  *
  * HTTP mapping only, no molde de `dmr-routes.ts`: cada handler delega ao service. Sem SQL, sem
  * gateway, sem regra de negócio. Erros propagam como `AppError` para `error-handler.ts`
  * (problem+json). Toda rota nasce FECHADA atrás de `sicatAuthMiddleware` — a catraca de
  * `tests/api/v1-auth-coverage.test.js` cobre o registro.
  *
- * Cadastros (PR-A3) e operações (PR-A4) são TODOS síncronos (201/200) — sem 202/job neste PR (a
- * verificação externa de regularidade RNTRC via ANTT é Fase C; rotas `/regularidade`/`/verificar`
- * não existem aqui). As transições `submeter-validacao`/`cancelar` são as ÚNICAS expostas da
- * máquina de estados neste PR — as transições com gate (`aprovar`, `contratar`, ...) ficam
- * declaradas em `transport-state-machine.ts` mas sem rota até o motor de compliance (PR-A5).
+ * Cadastros (PR-A3), operações (PR-A4) e conformidade (PR-A5) são TODOS síncronos (201/200) — sem
+ * 202/job nesta vertical na Fase A (a verificação externa de regularidade RNTRC via ANTT é Fase C;
+ * rotas `/regularidade`/`/verificar` não existem aqui). `submeter-validacao` ORQUESTRA a avaliação
+ * do `GATE_PROPOSAL` e a transição resultante (`approve_validation`/`reject_validation`) no mesmo
+ * request; `contratar` ATIVA `GATE_CONTRACT`; `validar-conformidade`/`conformidade` são consulta/
+ * avaliação ad-hoc SEM transição. As transições de fases C+ (CIOT, fiscal, liberação, viagem,
+ * conclusão) continuam declaradas em `transport-state-machine.ts` mas sem rota.
  */
 
 import express from 'express';
 import type { IncomingHttpHeaders } from 'node:http';
 import { asyncHandler } from '../lib/http.js';
+import { createPrefixedId } from '../lib/ids.js';
 import { sicatAuthMiddleware } from '../middlewares/sicat-auth.js';
 import {
   getTransportRuleHistoryService,
@@ -39,19 +43,41 @@ import {
 } from '../services/transport-vehicle-service.js';
 import {
   cancelTransportOperation,
+  contractTransportOperation,
   createTransportOperation,
   getTransportOperationById,
   listTransportOperationsService,
+  reopenTransportOperation,
   submitTransportOperationValidation,
   updateTransportOperation
 } from '../services/transport-operation-service.js';
+import {
+  getTransportOperationComplianceOverviewService,
+  validateTransportOperationComplianceService
+} from '../services/transport-compliance-service.js';
 
 type LooseRecord = Record<string, unknown>;
-type RequestWithContext = express.Request & { correlationId?: string | null };
+type RequestWithContext = express.Request & {
+  correlationId?: string | null;
+  sicatUser?: { userId: string };
+};
 
 function getCorrelationId(req: express.Request): string | null {
   const correlationId = (req as RequestWithContext).correlationId;
   return typeof correlationId === 'string' && correlationId.length > 0 ? correlationId : null;
+}
+
+function getSicatUserId(req: express.Request): string | null {
+  const userId = (req as RequestWithContext).sicatUser?.userId;
+  return typeof userId === 'string' && userId.length > 0 ? userId : null;
+}
+
+/** `correlationId`/`evaluatedBy` explícitos para o motor de compliance (worker-callable, não lê `req`). */
+function getOperationCommandContext(req: express.Request): { correlationId: string; evaluatedBy: string | null } {
+  return {
+    correlationId: getCorrelationId(req) || createPrefixedId('corr'),
+    evaluatedBy: getSicatUserId(req)
+  };
 }
 
 function toHeaderMap(headers: IncomingHttpHeaders): Record<string, string | undefined> {
@@ -192,9 +218,29 @@ export function registerTransporteRoutes(router: express.Router): void {
     res.json(response);
   }));
 
-  // Só as transições SEM gate ganham rota neste PR — ver o cabeçalho do arquivo.
+  // ORQUESTRA: avalia GATE_PROPOSAL e aplica approve_validation/reject_validation no mesmo request.
   router.post('/v1/transporte/operacoes/:operationId/submeter-validacao', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await submitTransportOperationValidation(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // ATIVA GATE_CONTRACT: 409 TRANSPORT_GATE_BLOCKED em bloqueio, senão CAS para `contracted`.
+  router.post('/v1/transporte/operacoes/:operationId/contratar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await contractTransportOperation(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // Transição SEM gate `blocked --reopen--> draft` — faltava rota desde o PR-A4.
+  router.post('/v1/transporte/operacoes/:operationId/reabrir', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await reopenTransportOperation(
       String(req.params.operationId || ''),
       (req.body || {}) as LooseRecord
     );
@@ -205,6 +251,29 @@ export function registerTransporteRoutes(router: express.Router): void {
     const response = await cancelTransportOperation(
       String(req.params.operationId || ''),
       (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Conformidade — motor de compliance (PR-A5)
+  // ===========================================================================================
+
+  // Avaliação ad-hoc de UM gate (`triggeredBy: 'user'`) — SEM transição.
+  router.post('/v1/transporte/operacoes/:operationId/validar-conformidade', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await validateTransportOperationComplianceService(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // Overview: a avaliação mais recente de cada um dos 8 gates.
+  router.get('/v1/transporte/operacoes/:operationId/conformidade', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getTransportOperationComplianceOverviewService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
     );
     res.json(response);
   }));

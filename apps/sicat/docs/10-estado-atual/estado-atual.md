@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1..PR-A4 entregues)
+### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1..PR-A5 entregues; backend completo, falta PR-A6/PR-F1)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -479,13 +479,7 @@ regularidade via ANTT (`/regularidade`/`/verificar`) é Fase C. Cobertura em
 `transport_operations`/`transport_operation_parties`/`transport_operation_vehicles`/
 `transport_operation_cargo`/`transport_operation_routes`) e a **máquina de estados explícita**
 (13 estados, 23 transições — [`transport-state-machine.ts`](../../backend/src/lib/transport/transport-state-machine.ts),
-módulo puro, zero I/O). Os GATES de compliance chegam no PR-A5; até lá, só as transições SEM gate
-ganham rota — `submit_validation` (draft → validating) e `cancel` (de qualquer estado
-não-terminal) —, tag `Transporte - Operações` no contrato:
-`POST`/`GET`/`PATCH /v1/transporte/operacoes{,/{operationId}}` e
-`POST /v1/transporte/operacoes/{operationId}/{submeter-validacao,cancelar}`. `approve_validation`/
-`reject_validation`/`reopen`/`contract`/CIOT/fiscal/liberação/viagem/conclusão estão declaradas no
-grafo (com `requiredGate`/`phase`) mas SEM rota. Draft mínimo exige só `route` (origem/destino:
+módulo puro, zero I/O). Draft mínimo exige só `route` (origem/destino:
 município + UF) e `cargoRegime` — partes/veículos/carga são opcionais nesta fase. Frete sempre
 **DECOMPOSTO** (`offeredAmount`/`contractedAmount`/`floorAmount`/`tollAmount`/`vpoAmount`/
 `otherComponentsAmount`/`totalContractValue` — VPO nunca somado ao frete). `party_snapshot`/
@@ -498,6 +492,48 @@ compare-and-swap por `status`+`version` no repositório. Centro Operacional este
 [`operational-status.ts`](../../backend/src/lib/operational-status.ts)). Cobertura em
 `tests/unit/transport-state-machine.test.js` (matriz exaustiva 13×13),
 `tests/unit/transport-operation-validator.test.js` e `tests/api/transporte-operacoes.test.js`.
+
+O PR-A5 entregou o **motor de compliance** (migration
+[`025`](../../backend/src/sql/025_transport_compliance.sql):
+`compliance_evaluations`/`compliance_checks`/`compliance_evidence`, as três tabelas **APPEND-ONLY**
+por desenho — sem coluna `version`, sem `update`/`delete` no código; reprodutibilidade/auditoria,
+NFR-0009/0010) e a **ATIVAÇÃO** das transições guardadas declaradas desde o PR-A4.
+`TransportComplianceService` ([`transport-compliance-service.ts`](../../backend/src/services/transport-compliance-service.ts),
+worker-callable — recebe `correlationId`/`evaluatedBy` explícitos, nunca lê `req`) resolve as
+regras do gate vigentes na `referenceDate` (`regulatory-repo.listRulesWithVersionAt`) → evaluator
+PURO por `ruleCode` ([`rule-evaluators.ts`](../../backend/src/lib/transport/rule-evaluators.ts): 10
+regras com evaluator Fase A — `TR-RNTRC-001`, `TR-PMF-001..004`, `TR-PAY-001`, `TR-VPO-001`/`003`,
+`TR-CIOT-004`, `TR-COMP-001` —, as demais 16 devolvem `not_applicable`
+`EVALUATOR_NOT_IMPLEMENTED`, não é erro) → **clamp de enforcement**
+(`applyEnforcementClamp`, função pura: um `block` só sobrevive quando a versão da regra está
+`ACTIVE` + `blocking=true` — o par que a migration 021 trava em DDL com revisão humana; qualquer
+outro caso vira `warn` com `rawStatus=block` e `reasonCode=RULE_NOT_ENFORCEABLE`, motivo original
+preservado em `result_snapshot`) → persiste avaliação + checks + evidências numa transação
+([`transport-compliance-repo.ts`](../../backend/src/repositories/transport-compliance-repo.ts)).
+**Como o seed nasce 100% `blocking=false`** (regra de ouro do PR-A1), nenhum `block` sobrevive ao
+clamp com o catálogo real — `submeter-validacao` SEMPRE aprova na Fase A; o caminho `blocked` só é
+demonstrável forçando uma versão no banco (coberto por teste dedicado, não pela operação normal).
+`submitTransportOperationValidation` passou a ORQUESTRAR: `draft --submit_validation-->
+validating` (CAS) seguido da avaliação de `GATE_PROPOSAL` e, no mesmo request,
+`--approve_validation--> ready_for_contract` ou `--reject_validation--> blocked`
+(`blockedReasonCode` = motivo do primeiro check bloqueante); transição composta deliberada — se a
+avaliação falhar de forma inesperada após o primeiro CAS, a operação fica retida em `validating`
+(`reabrir`/`cancelar` resolvem). Três rotas NOVAS na tag `Transporte - Operações`:
+`POST .../contratar` (ativa `GATE_CONTRACT`; `contractedAmount` opcional atualiza
+`freight.contractedAmount` ANTES do gate; 409 `TRANSPORT_GATE_BLOCKED` em bloqueio) e
+`POST .../reabrir` (`blocked → draft`, transição sem gate que faltava rota desde o PR-A4) — e duas
+na tag NOVA `Transporte - Conformidade`: `POST .../validar-conformidade` (avaliação ad-hoc de UM
+gate, `triggeredBy=user`, sem transição) e `GET .../conformidade` (overview: última avaliação de
+cada um dos 8 gates, leitura pura do histórico). `overallStatus`/`status` dos checks em
+MAIÚSCULO no contrato (`PASS`/`WARN`/`BLOCK`/`NOT_APPLICABLE`) — conversão isolada no service, o
+motor/banco usam minúsculo. `availableCommands` do agregado já refletia dinamicamente os comandos
+de gate desde o PR-A4 (fase 'A' já incluía `approve_validation`/`reject_validation`/`contract` no
+grafo) — nenhuma mudança adicional foi necessária ali. Cobertura em
+`tests/unit/rule-evaluators.test.js` (35 casos, um por evaluator + registro completo dos 26
+codes), `tests/unit/transport-compliance-clamp.test.js` (clamp isolado) e
+`tests/api/transporte-conformidade.test.js` (skip-if-no-DB: ciclo feliz completo, append-only,
+fronteira temporal 23/24-05-2026 refletida em `TR-CIOT-001`, tenancy A×B, e o caminho `blocked`
+com versão forçada `blocking=true`+revisada, restaurada em `finally`).
 
 ## 4. Riscos e limites conhecidos
 

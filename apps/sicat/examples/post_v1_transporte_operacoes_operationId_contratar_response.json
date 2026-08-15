@@ -1,16 +1,16 @@
 {
   "operation": {
     "id": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
-    "version": 4,
+    "version": 6,
     "integrationAccountId": "acc_exemplo_prod",
     "sessionContextId": null,
     "referenceCode": "PED-2026-000123",
-    "status": "ready_for_contract",
+    "status": "contracted",
     "cargoRegime": "lotacao",
     "operationClassification": null,
     "freight": {
       "offeredAmount": 3800.00,
-      "contractedAmount": null,
+      "contractedAmount": 3800.00,
       "floorAmount": null,
       "tollAmount": null,
       "vpoAmount": null,
@@ -69,36 +69,34 @@
       "createdAt": "2026-08-13T12:15:00Z"
     },
     "availableCommands": [
-      "contract",
       "cancel"
     ],
     "createdAt": "2026-08-13T12:15:00Z",
-    "updatedAt": "2026-08-13T12:26:00Z"
+    "updatedAt": "2026-08-13T12:30:00Z"
   },
   "evaluation": {
-    "evaluationId": "cmpeval_3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+    "evaluationId": "cmpeval_7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
     "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
-    "gate": "GATE_PROPOSAL",
+    "gate": "GATE_CONTRACT",
     "overallStatus": "WARN",
     "referenceDate": "2026-08-13",
-    "evaluatedAt": "2026-08-13T12:25:30Z",
+    "evaluatedAt": "2026-08-13T12:29:45Z",
     "checks": [
       {
-        "ruleCode": "TR-PMF-001",
+        "ruleCode": "TR-RNTRC-001",
         "ruleVersionLabel": "v2026-08-baseline",
         "status": "PASS",
         "rawStatus": null,
         "reasonCode": null,
-        "humanMessage": "Regime de carga \"lotacao\" — piso mínimo de frete aplicável.",
+        "humanMessage": "RNTRC do transportador regular (\"active\").",
         "legalBasis": [
-          { "reference": "Lei 13.703/2018" },
-          { "reference": "Res. ANTT 5.867/2020" },
-          { "reference": "Lei 15.485/2026" }
+          { "reference": "Lei 11.442/2007" },
+          { "reference": "Res. ANTT 5.982/2022" }
         ],
-        "evidenceRefs": ["cmpevd_4b5c6d7e8f9a0b1c2d3e4f5a6b7c"]
+        "evidenceRefs": ["cmpevd_8d9e0f1a2b3c4d5e6f7a8b9c0d1e"]
       },
       {
-        "ruleCode": "TR-PMF-002",
+        "ruleCode": "TR-PMF-003",
         "ruleVersionLabel": "v2026-08-baseline",
         "status": "WARN",
         "rawStatus": null,
@@ -109,21 +107,32 @@
           { "reference": "Res. ANTT 5.867/2020" },
           { "reference": "Lei 15.485/2026" }
         ],
-        "evidenceRefs": ["cmpevd_5c6d7e8f9a0b1c2d3e4f5a6b7c8d"]
+        "evidenceRefs": ["cmpevd_9e0f1a2b3c4d5e6f7a8b9c0d1e2f"]
       },
       {
-        "ruleCode": "TR-PMF-004",
+        "ruleCode": "TR-PAY-001",
         "ruleVersionLabel": "v2026-08-baseline",
-        "status": "WARN",
+        "status": "PASS",
         "rawStatus": null,
-        "reasonCode": "FLOOR_VERSION_UNAVAILABLE",
-        "humanMessage": "Piso aplicável, mas nenhuma tabela de coeficientes está disponível ainda (pendência P3 do guia).",
+        "reasonCode": null,
+        "humanMessage": "Prazo de pagamento declarado (30 dias) dentro do limite legal.",
         "legalBasis": [
-          { "reference": "Lei 13.703/2018" },
-          { "reference": "Res. ANTT 5.867/2020" },
           { "reference": "Lei 15.485/2026" }
         ],
-        "evidenceRefs": ["cmpevd_6d7e8f9a0b1c2d3e4f5a6b7c8d9e"]
+        "evidenceRefs": ["cmpevd_0f1a2b3c4d5e6f7a8b9c0d1e2f3a"]
+      },
+      {
+        "ruleCode": "TR-VPO-003",
+        "ruleVersionLabel": "v2026-08-baseline",
+        "status": "NOT_APPLICABLE",
+        "rawStatus": null,
+        "reasonCode": "VPO_NOT_DECLARED",
+        "humanMessage": "VPO não declarado para esta operação.",
+        "legalBasis": [
+          { "reference": "Lei 10.209/2001" },
+          { "reference": "Res. ANTT 6.024/2023" }
+        ],
+        "evidenceRefs": ["cmpevd_1a2b3c4d5e6f7a8b9c0d1e2f3a4c"]
       }
     ]
   }

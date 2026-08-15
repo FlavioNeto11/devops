@@ -1175,7 +1175,25 @@ const operationsData = [
     "method": "post",
     "specPath": "/v1/transporte/operacoes/{operationId}/submeter-validacao",
     "expressPath": "/v1/transporte/operacoes/:operationId/submeter-validacao",
-    "summary": "Submeter operação para validação (draft → validating)",
+    "summary": "Submeter operação para validação (draft → validating → ready_for_contract|blocked)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_contratar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/contratar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/contratar",
+    "summary": "Contratar operação (ready_for_contract → contracted)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_reabrir",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/reabrir",
+    "expressPath": "/v1/transporte/operacoes/:operationId/reabrir",
+    "summary": "Reabrir operação bloqueada (blocked → draft)",
     "tag": "Transporte - Operações",
     "successStatus": 200
   },
@@ -1186,6 +1204,24 @@ const operationsData = [
     "expressPath": "/v1/transporte/operacoes/:operationId/cancelar",
     "summary": "Cancelar operação de transporte",
     "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_validar_conformidade",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/validar-conformidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/validar-conformidade",
+    "summary": "Avaliar conformidade de UM gate (ad-hoc, sem transição)",
+    "tag": "Transporte - Conformidade",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_conformidade",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/conformidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/conformidade",
+    "summary": "Overview de conformidade da operação (última avaliação por gate)",
+    "tag": "Transporte - Conformidade",
     "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
