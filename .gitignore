@@ -64,3 +64,6 @@ diagnostics/
 
 # Staging local do preview do Reqhub (baseline copiada p/ servir estático; é assada na imagem)
 /apps/reqhub/frontend/data/
+
+# artefatos de runtime dos testes do SICAT (documentos gerados pelo worker)
+apps/sicat/backend/storage/documents/
