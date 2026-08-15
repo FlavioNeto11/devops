@@ -84,12 +84,12 @@ jobs:
       run:
         working-directory: apps/gymops
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with: { version: 9 }
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: pnpm
@@ -150,25 +150,25 @@ jobs:
       run:
         working-directory: apps/gymops
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with: { version: 9 }
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: pnpm
           cache-dependency-path: apps/gymops/pnpm-lock.yaml
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('apps/gymops/pnpm-lock.yaml') }}
 
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/gymops/apps/web/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('apps/gymops/pnpm-lock.yaml') }}-${{ hashFiles('apps/gymops/apps/web/**/*.ts', 'apps/gymops/apps/web/**/*.tsx') }}
@@ -228,7 +228,7 @@ jobs:
       # Report sempre; traces/screenshots so existem em falha (config do app).
       - name: Upload Playwright artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gymops-playwright-report
           path: |
