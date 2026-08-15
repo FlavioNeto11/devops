@@ -20,10 +20,12 @@ import {
   applyTransporteRntrcVerifyTerminalFailureSideEffect,
   applyTransporteCiotTerminalFailureSideEffect,
   applyTransporteVpoTerminalFailureSideEffect,
+  applyTransporteDfeIssuanceTerminalFailureSideEffect,
   applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
 import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/ciot-repo.js';
 import { listUnconfirmedVpoAllocationsForReconciliation } from '../repositories/vpo-repo.js';
+import { listUnconfirmedDfeIssuancesForReconciliation } from '../repositories/dfe-issuance-repo.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
 
@@ -524,6 +526,80 @@ async function enqueueTransporteVpoReconcileSweepIfNeeded() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Varredura periódica da emissão de DF-e sem confirmação (PR-G, DL-102 aplicado à emissão fiscal) —
+// molde EXATO de `enqueueTransporteCiotReconcileSweepIfNeeded`/`enqueueTransporteVpoReconcileSweepIfNeeded`
+// acima: rede de segurança para `dfe_issuances` em `submit_unconfirmed` cujo enfileiramento direto
+// (`applyTransporteDfeIssuanceTerminalFailureSideEffect`) falhou, ou cujo processo caiu entre marcar
+// unconfirmed e enfileirar.
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_DFE_ISSUANCE_RECONCILE_SWEEP_DEFAULT_MS = 5 * 60 * 1000;
+const TRANSPORTE_DFE_ISSUANCE_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function resolveTransporteDfeIssuanceReconcileSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_DFE_ISSUANCE_RECONCILE_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_DFE_ISSUANCE_RECONCILE_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteDfeIssuanceReconcileSweepAt = 0;
+
+export function resetTransporteDfeIssuanceReconcileSweepClockForTests() {
+  lastTransporteDfeIssuanceReconcileSweepAt = 0;
+}
+
+async function enqueueTransporteDfeIssuanceReconcileSweepIfNeeded() {
+  const intervalMs = resolveTransporteDfeIssuanceReconcileSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteDfeIssuanceReconcileSweepAt && (now - lastTransporteDfeIssuanceReconcileSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteDfeIssuanceReconcileSweepAt = now;
+
+  const updatedSince = new Date(now - TRANSPORTE_DFE_ISSUANCE_RECONCILE_LOOKBACK_MS).toISOString();
+
+  try {
+    const candidates = await listUnconfirmedDfeIssuancesForReconciliation({ updatedSince });
+    for (const candidate of candidates) {
+      // `insertJobDeduplicated` tem alvo de conflito `(entity_type, entity_id, operation) where
+      // status in ('queued','running','retry_wait')`: no máximo UMA reconciliação ativa por
+      // operação — mesmo racional de `enqueueTransporteCiotReconcileSweepIfNeeded`.
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'dfe_issuance',
+        entityId: candidate.operationId,
+        operation: 'transporte.dfe.issue.reconcile',
+        payload: {
+          issuanceId: candidate.id,
+          operationId: candidate.operationId,
+          integrationAccountId: candidate.integrationAccountId,
+          documentType: candidate.documentType,
+          correlationMarker: candidate.correlationMarker
+        },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: candidate.correlationId,
+        priority: 3,
+        retryStrategy: 'exponential',
+        baseDelayMs: 5000,
+        maxDelayMs: 60000,
+        tags: extractJobTags({ operation: 'transporte.dfe.issue.reconcile', entityType: 'dfe_issuance', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker — mesma postura da varredura de manifesto/CIOT/VPO.
+    console.warn(`[worker] varredura de reconciliação de emissão de DF-e não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
 function startClaimHeartbeat(jobId: string, workerName: string) {
   if (config.workerClaimHeartbeatMs <= 0) {
     return null;
@@ -578,6 +654,10 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   // `acquisition_unconfirmed`, NUNCA falha definitiva; rejeição definitiva do provedor volta a
   // `applicable`.
   await applyTransporteVpoTerminalFailureSideEffect(effectJob, transition, error);
+  // Par obrigatório do PR-G (DL-102 aplicado à emissão de DF-e): resposta perdida DEPOIS de
+  // `submitting` vira `submit_unconfirmed`, NUNCA `failed_validation`; falha ANTES disso (dados
+  // incompletos, tipo não suportado, flag desligada) vira `failed_validation` diretamente.
+  await applyTransporteDfeIssuanceTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -624,6 +704,7 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteVpoTerminalFailureSideEffect(effectJob, transition, error);
+    await applyTransporteDfeIssuanceTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;
@@ -677,6 +758,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   await enqueueManifestSubmitReconcileSweepIfNeeded();
   await enqueueTransporteCiotReconcileSweepIfNeeded();
   await enqueueTransporteVpoReconcileSweepIfNeeded();
+  await enqueueTransporteDfeIssuanceReconcileSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {

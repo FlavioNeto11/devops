@@ -96,6 +96,11 @@ import {
   updateInsurancePolicyService,
   verifyCarrierInsuranceService
 } from '../services/transport-insurance-service.js';
+import {
+  cancelDfeIssuance,
+  listDfeIssuancesForOperationService,
+  requestDfeIssuance
+} from '../services/transport-dfe-issuance-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -616,5 +621,42 @@ export function registerTransporteRoutes(router: express.Router): void {
   router.get('/v1/transporte/seguros/vencimentos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listInsuranceExpirationAlertsService((req.query || {}) as LooseRecord);
     res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Emissão de DF-e SANDBOX-READY (PR-G) — pipeline assíncrono build→sign→submit via
+  // `@flavioneto11/fiscal-kit` (mode: sandbox), atrás de `DFE_ISSUANCE_MODE` (off por default —
+  // 409 DFE_ISSUANCE_FEATURE_DISABLED). NF-e via kit; CT-e/MDF-e aguardam emissor dedicado (P9).
+  // ===========================================================================================
+
+  // ASSÍNCRONO (202) — cria dfe_issuances (marcador DL-102 já gravado) + enfileira transporte.dfe.issue.
+  router.post('/v1/transporte/operacoes/:operationId/emissoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await requestDfeIssuance(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Lista todas as emissões da operação (uma por documentType tentado), cada uma com sua trilha de eventos.
+  router.get('/v1/transporte/operacoes/:operationId/emissoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listDfeIssuancesForOperationService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ASSÍNCRONO (202) — sandbox only (sem chamada remota; enfileira transporte.dfe.issue.cancel).
+  router.post('/v1/transporte/emissoes/:issuanceId/cancelar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await cancelDfeIssuance(
+      String(req.params.issuanceId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
   }));
 }

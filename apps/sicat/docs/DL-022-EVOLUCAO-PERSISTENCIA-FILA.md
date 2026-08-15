@@ -984,6 +984,101 @@ demais, incluindo `apolices/verificar` que responde 200 OU 501, nunca 202). NENH
 primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
 processos).
 
+## Migration 032 — Emissão de DF-e SANDBOX-READY Transporte + 3 job types (PR-G, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). É o QUINTO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts`/`ciot-provider-gateway.ts`/
+`vpo-gateway.ts`/`insurance-verification-provider.ts`) e a TERCEIRA aplicação do padrão **DL-102**
+sobre um recurso append-por-tentativa (molde `ciot_operations`, não `vpo_allocations`) — mas o
+PRIMEIRO gateway desta lista que fala com uma dependência REAL de outro pacote do monorepo
+(`@flavioneto11/fiscal-kit`, não um mock local): o "provedor" é o kit sandbox de verdade, chamado
+de ponta a ponta (`buildNfeXml`/`signXml`/`submit`/`queryStatus`), não uma simulação escrita só para
+este PR. A Fase G é CONDICIONAL a go/no-go comercial + certificado + credenciamento SEFAZ
+([LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY], pendência P9) — a fila/gateway nascem atrás de
+`DFE_ISSUANCE_MODE=off` (config, default em todo ambiente).
+
+- **`032_transport_dfe_issuance.sql`** — `dfe_issuances` (PK `text` via `createPrefixedId`
+  (`dfeiss_`), `version` + trigger `increment_version()`) e `dfe_issuance_events` (`dfeissev_`,
+  APPEND-ONLY, sem `version`). Uma linha por TENTATIVA de emissão (molde `ciot_operations`: uma
+  emissão rejeitada/falha não apaga histórico nem trava uma nova tentativa). `correlation_marker`
+  (`[sicat-dfe:<issuanceId>]`, prefixo distinto do CIOT para nunca colidir em log/auditoria
+  compartilhados) é `unique`, gravado na CRIAÇÃO — ANTES de qualquer chamada ao gateway.
+  `fiscal_document_id` (FK para `fiscal_documents`, nullable) só é preenchido quando a emissão
+  AUTORIZADA é reimportada ao acervo da Fase E. `environment` aceita `sandbox|production` por
+  DESENHO de schema (a coluna não muda quando P9 for resolvida), mas nenhum código deste PR grava
+  `production` — o bloqueio real é a config `DFE_ISSUANCE_MODE`, não uma CHECK constraint.
+
+**Fila — 4 pontos tocados, 3 job types novos** (`transporte.dfe.issue|.cancel|.reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 3 novos `case`s no switch de `processJob`, delegando a
+   `handleTransporteDfeIssue|DfeIssueCancel|DfeIssueReconcile(job)` **sem** o parâmetro `gateway`
+   (mesmo molde do CIOT/VPO); o corpo de cada job vive em `transport-dfe-issuance-service.ts`
+   (`runDfeIssuance*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteDfeIssuanceTerminalFailureSideEffect` (definido em
+   `transport-dfe-issuance-service.ts`, re-exportado por `operation-handlers.ts`), registrado em
+   `workers/job-runner.ts` nos dois pontos de despacho — mas com uma DIVERGÊNCIA deliberada do
+   CIOT/VPO: a classificação local-vs-DL-102 não lê nenhum código de erro, é 100% pelo STATUS da
+   linha no momento do terminal (`submitting` → `submit_unconfirmed`; qualquer status pré-
+   `submitting` → `failed_validation`) — mais robusto a esquecer um código novo numa lista.
+2. `src/lib/retry.ts` — as 3 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (`issue`/`cancel`: 4; `reconcile`: 3, mesmo racional do CIOT/VPO — já faz polling próprio) e
+   `getRetryConfig` (`issue`/`cancel`: 4 tentativas exponencial 5s→120s; `reconcile`: 3 tentativas,
+   5s→60s). `DFE_ISSUANCE_INCOMPLETE_DATA`/`DFE_ISSUANCE_TYPE_NOT_SUPPORTED`/`DFE_ISSUANCE_DISABLED`
+   entram em `NON_RETRYABLE_ERROR_CODES`; `TRANSPORTE_DFE_ISSUANCE_RECONCILE_QUERY_FAILED` entra em
+   `RETRYABLE_ERROR_CODES` (mesmo molde do CIOT/VPO — ⚠️ nota: como os três primeiros carregam
+   status HTTP `>=500`, `isRetryableJobError` os classifica RETRYABLE pela via do STATUS antes de
+   chegar no código, mesmo comportamento pré-existente de `CIOT_PROVIDER_NOT_CONFIGURED`/
+   `VPO_PROVIDER_NOT_CONFIGURED` — não é regressão deste PR, é uma precedência status-antes-de-código
+   que já existia; registrado no NON_RETRYABLE por paridade de intenção com os outros domínios).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) — `entityType 'dfe_issuance'` usa
+   `entityId = operationId` (mesmo padrão de `ciot_operation`/`vpo_allocation`, via o parâmetro
+   `entityLink` já existente desde o PR-C2 — nenhuma mudança de assinatura foi necessária aqui).
+4. Contrato: 2 endpoints de comando novos (`POST .../emissoes` e `POST .../emissoes/{id}/cancelar`,
+   ambos `202`) entraram em `commandEndpoints` de `scripts/validate-openapi.js` e do teste irmão
+   (`tests/integration/openapi-queue-contract.test.js`, que também ganhou a entrada pré-existente
+   `vpo/adquirir` que faltava lá — drift de um PR anterior, corrigido de passagem).
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteDfeIssuanceReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueTransporteCiotReconcileSweepIfNeeded`/`enqueueTransporteVpoReconcileSweepIfNeeded` (relógio
+próprio, env var própria `TRANSPORTE_DFE_ISSUANCE_RECONCILE_SWEEP_MS`, default 5 min) — rede de
+segurança para `dfe_issuances` em `submit_unconfirmed` cujo enfileiramento de `reconcile` pelo
+side-effect terminal falhou.
+
+Gateway `src/gateways/dfe-issuance-gateway.ts` (TS): `mode: 'off'` (default, `DFE_ISSUANCE_MODE`)
+recusa TODA chamada com `DFE_ISSUANCE_DISABLED`; `mode: 'sandbox'` + `documentType: 'NFE'` chama de
+verdade `@flavioneto11/fiscal-kit` (`createFiscalGateway({mode:'sandbox'})`) — comportamento REAL
+observado (lido no código do kit): `buildNfeXml`/`signXml` são puros e determinísticos,
+`submit`/`queryStatus` respondem IMEDIATAMENTE `authorized`, sem espera nem rejeição — o sandbox do
+kit nunca deixa uma emissão pendente nem a recusa. `documentType: 'CTE'/'MDFE'` recusa com
+`DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit só cobre NF-e). O XML cru do kit (formato PRÓPRIO
+minimalista, sem chave de acesso de 44 dígitos) NUNCA é o que persiste: `lib/transport/
+dfe-issuance-nfe-mapper.ts` (PURO) tece o resultado real do kit (digest, recibo, protocolo) dentro
+de um envelope no layout REAL da SEFAZ, com uma chave de acesso sandbox SINTETIZADA mas
+estruturalmente VÁLIDA (DV/modelo/CNPJ coerentes) — o documento final é reimportado ao acervo da
+Fase E via `transport-fiscal-service.importarDocumentoFiscal` (reuso interno, zero linha alterada
+naquele parser/validador).
+
+Dependência nova do monorepo: `@flavioneto11/fiscal-kit` (`packages/fiscal-kit`) vendorizada em
+`vendor/flavioneto11-fiscal-kit-0.1.0.tgz` — mesmo mecanismo de `@flavioneto11/oidc-kit`
+(`scripts/vendor-packages.ps1` → `npm pack` → `file:vendor/<tgz>` no `package.json` do backend, ver
+`docs/standards/shared-libraries-and-versioning.md`). Achado de empacotamento (reportado, NÃO
+corrigido — o kit é só consumido): `packages/fiscal-kit/package.json` declara `"exports"` sem
+condição `"types"`, e sob `moduleResolution: "NodeNext"` o TypeScript não resolve `index.d.ts` da
+raiz do pacote por esse mapa — contornado com um shim de tipos LOCAL do backend
+(`src/types/fiscal-kit.d.ts`, réplica documentada do `index.d.ts` do kit) em vez de tocar o pacote.
+
+3 evaluators NOVOS: NENHUM. A emissão autorizada reimportada vira um `fiscal_documents` comum,
+avaliado pelos evaluators TR-NFE-001/TR-CTE-001/TR-MDFE-001/002 JÁ EXISTENTES desde o PR-E1 —
+`RULES_WITHOUT_EVALUATOR_YET` permanece intocado (só `TR-RNTRC-003`, aguardando regulamentação
+ANTT), confirmado pela meta-guarda 2 de `tests/regulatory/rule-catalog-invariants.test.js`.
+
+Contrato: tag nova `Transporte - Emissao Fiscal`, 3 endpoints (`POST .../emissoes` 202,
+`GET .../emissoes` 200, `POST .../emissoes/{id}/cancelar` 202 sandbox only).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
 ---
 
 **Referências**:

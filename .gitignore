@@ -68,3 +68,5 @@ diagnostics/
 # artefatos de runtime dos testes do SICAT (documentos gerados pelo worker)
 apps/sicat/backend/storage/documents/
 apps/sicat/backend/storage/transporte-dfe/
+apps/sicat/backend/storage/transporte-dfe-issuance/
+apps/sicat/backend/docs/copilot/auditoria-links-quebrados.md

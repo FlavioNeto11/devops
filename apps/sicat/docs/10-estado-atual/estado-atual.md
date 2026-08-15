@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1); Fase E (importação/validação de DF-e) entregue com XMLs sintéticos (PR-E1); Fase F (seguros obrigatórios do transportador + PGR) entregue com evidência manual + provider `mock` (PR-F2); Fase G (emissão de DF-e) entregue SANDBOX-READY atrás de `DFE_ISSUANCE_MODE=off` (PR-G)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -975,6 +975,53 @@ transporte-seguros.test.js` (skip-if-no-DB: CRUD de apólices/PGR, verificar pop
 PATCH de vigência gerando `insurance_verifications` nova, locking otimista 409, vencimentos com
 janela configurável + controle negativo — apólice vencida sem operação em aberto não gera alerta,
 tenancy, 401).
+
+O PR-G (Fase G, Onda 7) entregou a emissão de DF-e **SANDBOX-READY** — a fase é CONDICIONAL a
+go/no-go comercial + certificado digital + credenciamento SEFAZ ([LEGAL REVIEW REQUIRED]+
+[EXTERNAL DEPENDENCY], pendência P9 do guia), então este PR entrega a ARQUITETURA completa,
+testável hoje SEM certificado e SEM SEFAZ real, atrás da flag de CONFIGURAÇÃO `DFE_ISSUANCE_MODE`
+(`off` por default; `POST .../emissoes` recusa com `409 DFE_ISSUANCE_FEATURE_DISABLED` — checado NA
+ROTA, antes de criar qualquer linha). Dependência nova: `@flavioneto11/fiscal-kit`
+(`packages/fiscal-kit`, vendorizado em `vendor/flavioneto11-fiscal-kit-0.1.0.tgz`, mesmo mecanismo
+de `oidc-kit`) — kit de emissão de NF-e sandbox-first e fail-closed, zero deps de runtime.
+`gateways/dfe-issuance-gateway.ts` chama o kit REAL (`buildNfeXml`/`signXml`/`submit`/`queryStatus`)
+em `mode: 'sandbox'`; comportamento REAL observado (lido no código do kit, não suposto): as quatro
+chamadas são síncronas e determinísticas — `submit`/`queryStatus` respondem IMEDIATAMENTE
+`authorized`, o sandbox do kit NUNCA rejeita e nunca fica pendente. Migration
+`032_transport_dfe_issuance.sql` cria `dfe_issuances` (`version`+trigger, uma linha por TENTATIVA —
+molde `ciot_operations`) e `dfe_issuance_events` (append-only); 3 job types novos
+(`transporte.dfe.issue{,.cancel,.reconcile}`) em `lib/retry.ts`/`workers/operation-handlers.ts`/
+`workers/job-runner.ts` (terminal side-effect nos dois pontos + varredura periódica própria).
+
+O XML cru do kit (formato PRÓPRIO minimalista, sem chave de acesso de 44 dígitos, incompatível com
+o parser real da SEFAZ da Fase E) NUNCA é persistido: o gateway tece o resultado REAL do kit
+(digest da assinatura, recibo, protocolo) dentro de um envelope no layout real da SEFAZ
+(`lib/transport/dfe-issuance-nfe-mapper.ts`, PURO), com uma chave de acesso de 44 dígitos SANDBOX
+sintetizada mas estruturalmente VÁLIDA (dígito verificador/modelo/CNPJ coerentes — provado em teste:
+o XML final passa por `dfe-validator.ts` SEM nenhum `DFE_ACCESS_KEY_MISMATCH`). Mapeamento mínimo
+honesto (emitente = parte `contractor`, destinatário = parte `consignee`, itens a partir da `cargo`
+com valor declarado) — campo faltante vira `422 DFE_ISSUANCE_INCOMPLETE_DATA`, nunca um XML
+fabricado; `documentType: CTE`/`MDFE` recusa com `501 DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit só
+cobre NF-e). Padrão DL-102 aplicado à emissão fiscal (marcador `[sicat-dfe:<issuanceId>]` gravado
+ANTES de qualquer chamada; status `submitting` IMEDIATAMENTE ANTES do dispatch remoto; falha DEPOIS
+desse ponto vira `submit_unconfirmed`, NUNCA `failed_validation`, resolvida pelo reconciliador
+`transporte.dfe.issue.reconcile`) — mas, diferente do CIOT/VPO, a classificação local-vs-DL-102 é
+100% pelo STATUS da linha no momento do terminal, não por lista de códigos de erro. AUTORIZADA:
+grava o XML em `STORAGE_DIR/transporte-dfe-issuance/<hash>.xml` e REIMPORTA automaticamente ao
+acervo da Fase E (`transport-fiscal-service.importarDocumentoFiscal`, reuso interno) — a emissão
+vira um `fiscal_documents` comum, avaliado pelos evaluators TR-NFE/CTE/MDFE JÁ EXISTENTES (nenhum
+evaluator novo, `RULES_WITHOUT_EVALUATOR_YET` intocado). Contrato: tag nova
+`Transporte - Emissao Fiscal`, 3 endpoints (`POST .../emissoes` 202, `GET .../emissoes` 200,
+`POST .../emissoes/{id}/cancelar` 202 sandbox only) — os dois 202 entraram em `commandEndpoints`
+de `scripts/validate-openapi.js`/`tests/integration/openapi-queue-contract.test.js` (que também
+ganhou a entrada pré-existente omitida de `vpo/adquirir`, drift de um PR anterior). Cobertura:
+`tests/unit/dfe-issuance-gateway.test.js` (pipeline completo contra o kit real, `mode: off`,
+`documentType` não suportado, dados incompletos, determinismo, `queryByMarker`),
+`tests/worker/transporte-dfe-issuance.test.js` (skip-if-no-DB: autorização + import automático +
+idempotência de retry, falha local → `failed_validation`, resposta perdida → `submit_unconfirmed` →
+reconcile encontra → autoriza+importa, reconcile not-found, cancelar), `tests/api/
+transporte-emissoes.test.js` (skip-if-no-DB: 202/flag off 409/operação cancelada 409/documentType
+ausente 400/listagem+eventos/idempotência/tenancy/401).
 
 ## 4. Riscos e limites conhecidos
 

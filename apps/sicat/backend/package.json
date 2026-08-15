@@ -72,6 +72,7 @@
     "@flavioneto11/ai-ingest-middleware": "file:vendor/flavioneto11-ai-ingest-middleware-0.1.0.tgz",
     "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
     "@flavioneto11/file-ingest-kit": "file:vendor/flavioneto11-file-ingest-kit-0.1.0.tgz",
+    "@flavioneto11/fiscal-kit": "file:vendor/flavioneto11-fiscal-kit-0.1.0.tgz",
     "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "@langchain/core": "^1.1.41",
     "@langchain/langgraph": "^1.2.9",

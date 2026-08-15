@@ -8,6 +8,7 @@ coverage
 storage/temp/**/*
 storage/documents/**/*
 storage/transporte-dfe/**/*
+storage/transporte-dfe-issuance/**/*
 tests/manual/*.json
 tests/manual/*.txt
 tests/manual/test-output.txt
