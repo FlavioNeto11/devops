@@ -1,0 +1,16 @@
+{
+  "params": {
+    "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "version": 1,
+    "rntrcNumber": "12345678",
+    "rntrcCategory": "TAC",
+    "rntrcStatus": "active",
+    "rntrcVerifiedAt": "2026-08-10T00:00:00Z"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_transportador_update"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "plate": "abc-1d23",
+    "renavam": "12345678901",
+    "vehicleType": "truck",
+    "axlesCount": 3,
+    "cargoBodyType": "baú",
+    "ownerPartyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_veiculo_create"
+  }
+}

@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1 e PR-A2 entregues)
+### 3.9 🕓 Vertical Transporte — Fase A em andamento (PR-A1, PR-A2 e PR-A3 entregues)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -458,7 +458,22 @@ rotas atrás de `sicatAuthMiddleware` ([`transporte-routes.ts`](../../backend/sr
 ids internos no DTO; chaves RBAC adiadas — ver nota no §6 de
 [`transporte-sicat.md`](../04-arquitetura/transporte-sicat.md)), cobertas por
 `tests/api/transporte-regras.test.js`. 📋 Tabelas de piso criadas **vazias** por desenho
-(coeficiente real só com revisão humana — pendência P3 do guia).
+(coeficiente real só com revisão humana — pendência P3 do guia). O PR-A3 entregou o
+**cadastro-base** de transportadores e veículos (migration
+[`023`](../../backend/src/sql/023_transport_parties_vehicles.sql):
+`transport_parties`/`transport_party_roles`/`transport_vehicles`/`transport_vehicle_links`),
+tag `Transporte - Cadastros` no contrato — `POST`/`GET`/`PATCH`
+`/v1/transporte/transportadores{,/{partyId}}` e `/v1/transporte/veiculos{,/{vehicleId}}`, mais o
+vínculo veículo↔transportador (`/v1/transporte/transportadores/{partyId}/veiculos`), tudo síncrono
+(201/200, sem job) com **tenancy obrigatória** (`integrationAccountId`, sem conta "ativa da
+sessão" — o chamador informa explicitamente, molde `manifest-service.listManifests`) e locking
+otimista por `version` (409 em conflito). Validação declaratória de CNPJ/CPF (dígito verificador
+completo) e placa (formato antigo e Mercosul) em
+[`transport-party-validator.ts`](../../backend/src/lib/validators/transport-party-validator.ts).
+**SEM verificação externa**: os campos `rntrc*` guardam o estado DECLARADO pelo operador — a
+regularidade via ANTT (`/regularidade`/`/verificar`) é Fase C. Cobertura em
+`tests/unit/transport-party-validator.test.js` e `tests/api/transporte-cadastros.test.js`
+(inclui teste de isolamento entre contas).
 
 ## 4. Riscos e limites conhecidos
 

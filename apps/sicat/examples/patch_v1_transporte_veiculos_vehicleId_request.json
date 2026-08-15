@@ -1,0 +1,14 @@
+{
+  "params": {
+    "vehicleId": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "version": 1,
+    "axlesCount": 5,
+    "cargoBodyType": "graneleiro"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_veiculo_update"
+  }
+}

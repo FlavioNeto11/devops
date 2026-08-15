@@ -1,0 +1,11 @@
+{
+  "query": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "vehicleType": "truck",
+    "page": 1,
+    "pageSize": 20
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_veiculos_list"
+  }
+}
