@@ -15,9 +15,17 @@ export default defineConfig({
   },
 
   projects: [
+    // Logs in once per role and saves storageState + LoginContext under
+    // e2e/.auth (see e2e/auth.setup.ts). Runs automatically before chromium —
+    // `--project=chromium` still triggers it (project dependencies always run).
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
 

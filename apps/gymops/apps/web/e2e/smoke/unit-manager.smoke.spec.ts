@@ -1,19 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs, type LoginContext } from './fixtures';
+import { authStatePath, loadLoginContext, type LoginContext } from './fixtures';
 
-const P = PROFILES.unit_manager;
+// Auth via storageState produced by e2e/auth.setup.ts (1 login per role for the
+// whole suite) — keeps the suite under the real /auth/login rate limit (10/min).
+test.use({ storageState: authStatePath('unit_manager') });
 
 test.describe('Smoke — unit_manager', () => {
   let ctx: LoginContext;
 
-  test.beforeEach(async ({ page }) => {
-    ctx = await loginAs(page, P);
+  test.beforeEach(() => {
+    ctx = loadLoginContext('unit_manager');
   });
 
-  test('lands on own unit page after login', async ({ page }) => {
-    // App truth (resolveRedirect, login/page.tsx): unit_manager lands on
-    // /units/<primaryUnitId> — NOT /dashboard (owner/org_manager only).
+  test('lands on own unit page (role-based redirect)', async ({ page }) => {
+    // App truth (resolveRedirect + auth-bootstrap): an authenticated unit_manager
+    // hitting /login is redirected to /units/<primaryUnitId> — NOT /dashboard
+    // (owner/org_manager only).
     expect(ctx.primaryUnitId, 'login must resolve primaryUnitId for unit-scoped member').toBeTruthy();
+    await page.goto('/login');
     await expect(page).toHaveURL(new RegExp(`/units/${ctx.primaryUnitId}`), { timeout: 10_000 });
   });
 

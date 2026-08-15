@@ -109,6 +109,18 @@ pnpm --filter @gymops/api test
 - `import.spec.ts` — wizard básico
 - `dashboard.spec.ts` — KPIs
 - `tutorial.spec.ts` — modo tutorial (smoke)
+- `smoke/{owner,org-manager,unit-manager,area-leader,executor,viewer}.smoke.spec.ts` — jornada mínima por papel (OPS-004, entregue)
+
+### Autenticação da suíte (`auth.setup.ts`)
+
+O project `setup` do Playwright (`e2e/auth.setup.ts`) roda como *dependency* antes do `chromium`:
+loga **1× por papel** pela UI real e persiste em `e2e/.auth/` o `storageState` (cookie httpOnly
+`refresh_token` + localStorage do zustand) e o `LoginContext` (role/organizationId/primaryUnitId).
+Os specs reutilizam a sessão via `test.use({ storageState })` — a suíte inteira faz ~6 logins em vez
+de ~50, cabendo no rate limit real de `POST /auth/login` (10/min por IP). Specs que exercitam o
+próprio fluxo de login (`auth`, `rbac`, `dashboard`, `tutorial`) continuam logando pela UI, com
+retry de 429 embutido no `loginAs`. Tokens de API são renovados por `freshAccessToken()`
+(`POST /auth/refresh`) — o access token expira em 15min.
 
 ### A adicionar (Sprints 18–21)
 - `activities-central.full-flow.spec.ts` — filtros + paginação + bulk + export + drill-down (FEAT-003)
@@ -119,7 +131,6 @@ pnpm --filter @gymops/api test
 - `integrations.trello-health.spec.ts` — diagnóstico (FEAT-005)
 - `integrations.whatsapp-status.spec.ts` — diagnóstico (FEAT-005)
 - `import.real-units.spec.ts` — wizard com áreas reais (FEAT-006)
-- `smoke-by-role/owner.spec.ts` ... `viewer.spec.ts` — 6 perfis (OPS-004)
 
 ### Padrão (uso de `page.getByTestId`)
 
@@ -158,7 +169,7 @@ pnpm --filter @gymops/web exec playwright test e2e/auth.spec.ts
 
 ## Camada 4 — Smoke por perfil
 
-**Onde**: [`docs/qa-release-checklist.md`](qa-release-checklist.md) + (futuro) `apps/web/e2e/smoke-by-role/*.spec.ts`.  
+**Onde**: [`docs/qa-release-checklist.md`](qa-release-checklist.md) + `apps/web/e2e/smoke/*.smoke.spec.ts` (automatizado no gate `ci-gymops-e2e`).  
 **Cobre**: cada papel (owner / org_manager / unit_manager / area_leader / executor / viewer) percorrendo as principais rotas em local e público.
 
 **Cadência**: antes de cada release.

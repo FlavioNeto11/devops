@@ -1,15 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs } from './fixtures';
+import { authStatePath } from './fixtures';
 
-const P = PROFILES.viewer;
+// Auth via storageState produced by e2e/auth.setup.ts (1 login per role for the
+// whole suite) — keeps the suite under the real /auth/login rate limit (10/min).
+test.use({ storageState: authStatePath('viewer') });
 
 test.describe('Smoke — viewer', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAs(page, P);
-  });
-
-  test('reaches app (shared activity view) after login', async ({ page }) => {
-    // viewer has access via activity_permissions — may land on dashboard or shared activity
+  test('reaches app (role-based redirect away from /login)', async ({ page }) => {
+    // viewer has access via activity_permissions — may land on /me or dashboard
+    await page.goto('/login');
     await expect(page).not.toHaveURL(/login/, { timeout: 10_000 });
   });
 

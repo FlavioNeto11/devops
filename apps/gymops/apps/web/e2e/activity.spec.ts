@@ -1,21 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs, type LoginContext } from './smoke/fixtures';
+import { API_URL, authStatePath, freshAccessToken, loadLoginContext, type LoginContext } from './smoke/fixtures';
 
-const API_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+// Auth via storageState produced by e2e/auth.setup.ts — no per-test UI login
+// (keeps the suite under the real /auth/login rate limit, 10/min per IP).
+test.use({ storageState: authStatePath('owner') });
 
 test.describe('Activity creation', () => {
   let ctx: LoginContext;
 
-  test.beforeEach(async ({ page }) => {
-    ctx = await loginAs(page, PROFILES.owner);
+  test.beforeEach(() => {
+    ctx = loadLoginContext('owner');
   });
 
   test('can create an activity and it appears in the list', async ({ page, request }) => {
     // App truth: creation lives on the UNIT page (units/[id], behind canCreate());
     // the Central de Atividades (/activities) is browse/filter-only. Owner is
     // org-scoped (no primaryUnitId) — resolve a unit via the API.
+    const token = await freshAccessToken(request);
     const res = await request.get(`${API_URL}/units?organizationId=${ctx.organizationId}`, {
-      headers: { Authorization: `Bearer ${ctx.accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.ok()).toBeTruthy();
     const body = (await res.json()) as { data?: Array<{ id: string }> };
