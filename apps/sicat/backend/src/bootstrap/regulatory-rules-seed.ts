@@ -198,6 +198,23 @@ const SEEDED_SOURCES: RegulatorySourceSeed[] = [
     title: 'Pisos mínimos de frete — metodologia e tabelas A/B/C/D'
   },
   {
+    reference: 'Res. ANTT 6.076/2026',
+    sourceType: 'antt_resolution',
+    issuer: 'ANTT',
+    title: 'Altera a metodologia de cálculo dos pisos mínimos de frete (Res. ANTT 5.867/2020)',
+    publishedAt: '2026-01-19',
+    effectiveFrom: '2026-01-19'
+  },
+  {
+    reference: 'Res. ANTT 6.084/2026',
+    sourceType: 'antt_resolution',
+    issuer: 'ANTT',
+    title: 'Atualiza as tabelas de coeficientes do piso mínimo de frete (PR-B1: Tabela A carregada'
+      + ' como pending_review — pendência P3 do guia)',
+    publishedAt: '2026-07-17',
+    effectiveFrom: '2026-07-17'
+  },
+  {
     reference: 'Res. ANTT 5.982/2022',
     sourceType: 'antt_resolution',
     issuer: 'ANTT',
@@ -249,6 +266,17 @@ const LEGAL_PMF = [
   { reference: 'Lei 13.703/2018' },
   { reference: 'Res. ANTT 5.867/2020' },
   { reference: 'Lei 15.485/2026' }
+];
+/**
+ * TR-PMF-002/003/004 (não TR-PMF-001, que só classifica aplicabilidade) citam também as normas
+ * que sustentam o CÁLCULO efetivo entregue no PR-B1: Res. ANTT 6.076/2026 (nova metodologia,
+ * 19/01/2026) e Res. ANTT 6.084/2026 (tabelas de coeficientes atualizadas, vigência 17/07/2026 —
+ * a mesma tabela carregada por `npm run load:freight-floor` como `pending_review`).
+ */
+const LEGAL_PMF_FLOOR_TABLES = [
+  ...LEGAL_PMF,
+  { reference: 'Res. ANTT 6.076/2026' },
+  { reference: 'Res. ANTT 6.084/2026' }
 ];
 const LEGAL_CIOT = [
   { reference: 'Res. ANTT 5.862/2019' },
@@ -335,7 +363,7 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
     defaultGate: 'GATE_PROPOSAL',
     displayOrder: 50,
     versions: [baselineVersion({
-      legalBasis: LEGAL_PMF,
+      legalBasis: LEGAL_PMF_FLOOR_TABLES,
       summary: 'Oferta/publicação de frete não pode ficar abaixo do piso vigente quando aplicável.',
       effectiveFrom: '2018-08-09',
       implementationState: 'ACTIVE',
@@ -349,7 +377,7 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
     defaultGate: 'GATE_CONTRACT',
     displayOrder: 60,
     versions: [baselineVersion({
-      legalBasis: LEGAL_PMF,
+      legalBasis: LEGAL_PMF_FLOOR_TABLES,
       summary: 'Contratação de frete não pode ficar abaixo do piso vigente quando aplicável.',
       effectiveFrom: '2018-08-09',
       implementationState: 'ACTIVE',
@@ -363,7 +391,7 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
     defaultGate: 'GATE_PROPOSAL',
     displayOrder: 70,
     versions: [baselineVersion({
-      legalBasis: LEGAL_PMF,
+      legalBasis: LEGAL_PMF_FLOOR_TABLES,
       summary: 'Cálculo do piso usa a versão da tabela vigente na data da operação '
         + '(freight_floor_versions), nunca coeficiente hardcoded.',
       effectiveFrom: '2018-08-09',

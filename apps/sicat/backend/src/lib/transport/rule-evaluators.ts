@@ -31,10 +31,33 @@ export type RuleOutcome = {
   result: Record<string, unknown>;
 };
 
+/** Referência (SEM id interno) da versão de tabela de piso usada num cálculo — espelha `freight-floor-repo.ts`. */
+export type FreightFloorCalculationVersionRef = {
+  normativeReference: string;
+  tableCode: string;
+  reviewStatus: 'pending_review' | 'reviewed' | 'rejected';
+  effectiveFrom: string;
+};
+
+/**
+ * Recorte do cálculo de piso mais recente da operação (`freight_floor_calculations`, PR-B1) — só
+ * os campos que os evaluators TR-PMF-002/003/004 precisam, montado pelo motor de compliance
+ * (`transport-compliance-service.ts`) a partir de `freight-floor-repo.findLatestFreightFloorCalculation`.
+ * `null` quando a operação nunca teve `calcular-piso` rodado.
+ */
+export type FreightFloorCalculationContext = {
+  outcome: 'calculated' | 'not_applicable' | 'missing_coefficients' | 'missing_inputs';
+  referenceDate: string;
+  minimumAmount: number | null;
+  floorVersion: FreightFloorCalculationVersionRef | null;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
   referenceDate: string;
+  /** Cálculo de piso mais recente da operação (PR-B1) — `undefined`/`null` tratados iguais (nenhum cálculo ainda). */
+  floorCalculation?: FreightFloorCalculationContext | null;
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -154,6 +177,33 @@ function evaluatePmf001(ctx: RuleEvaluatorContext): RuleOutcome {
 // TR-PMF-002 — não permitir oferta abaixo do piso (GATE_PROPOSAL)
 // =================================================================================================
 
+/**
+ * Quando o piso é compatível (oferta/contratação >= piso), decide entre `pass` "limpo" e `warn
+ * FLOOR_TABLE_PENDING_REVIEW` — a tabela de coeficientes usada no cálculo mais recente ainda não
+ * foi conferida contra o DOU (pendência P3 do guia): um `pass` nessas condições estaria afirmando
+ * conformidade com um dado ainda não revisado por humano, então o motor rebaixa para `warn` e
+ * registra o motivo em `humanMessage`/`result.floorVersionRef`.
+ */
+function evaluateFloorComplianceOutcome(
+  ctx: RuleEvaluatorContext,
+  inputs: Record<string, unknown>,
+  result: Record<string, unknown>,
+  passMessage: string
+): RuleOutcome {
+  const floorVersion = ctx.floorCalculation?.floorVersion ?? null;
+  if (floorVersion && floorVersion.reviewStatus === 'pending_review') {
+    return outcome(
+      'warn',
+      `${passMessage} Porém a tabela de coeficientes usada no cálculo (${floorVersion.normativeReference}, `
+        + `Tabela ${floorVersion.tableCode}) ainda não foi revisada juridicamente contra o DOU — `
+        + 'confirme antes de considerar a operação aprovada.',
+      { reasonCode: 'FLOOR_TABLE_PENDING_REVIEW', inputs, result: { ...result, floorVersionRef: floorVersion } }
+    );
+  }
+
+  return outcome('pass', passMessage, { inputs, result: { ...result, floorVersionRef: floorVersion } });
+}
+
 function evaluatePmf002(ctx: RuleEvaluatorContext): RuleOutcome {
   const { cargoRegime, freightFloorAmount, freightOfferedAmount } = ctx.operation.operation;
   const inputs = { cargoRegime, freightFloorAmount, freightOfferedAmount };
@@ -174,10 +224,12 @@ function evaluatePmf002(ctx: RuleEvaluatorContext): RuleOutcome {
 
   const compliant = freightOfferedAmount != null && freightOfferedAmount >= freightFloorAmount;
   if (compliant) {
-    return outcome('pass', 'Frete ofertado igual ou acima do piso vigente.', {
+    return evaluateFloorComplianceOutcome(
+      ctx,
       inputs,
-      result: { freightFloorAmount, freightOfferedAmount }
-    });
+      { freightFloorAmount, freightOfferedAmount },
+      'Frete ofertado igual ou acima do piso vigente.'
+    );
   }
 
   return outcome('block', 'Frete ofertado abaixo do piso mínimo vigente.', {
@@ -211,10 +263,12 @@ function evaluatePmf003(ctx: RuleEvaluatorContext): RuleOutcome {
 
   const compliant = freightContractedAmount != null && freightContractedAmount >= freightFloorAmount;
   if (compliant) {
-    return outcome('pass', 'Frete contratado igual ou acima do piso vigente.', {
+    return evaluateFloorComplianceOutcome(
+      ctx,
       inputs,
-      result: { freightFloorAmount, freightContractedAmount }
-    });
+      { freightFloorAmount, freightContractedAmount },
+      'Frete contratado igual ou acima do piso vigente.'
+    );
   }
 
   return outcome('block', 'Frete contratado abaixo do piso mínimo vigente.', {
@@ -239,12 +293,45 @@ function evaluatePmf004(ctx: RuleEvaluatorContext): RuleOutcome {
     });
   }
 
-  // Fase A: `freight_floor_versions`/`coefficients` (migration 022) nascem SEM coeficiente
-  // semeado (pendência P3 do guia) — nenhuma versão de tabela está disponível ainda.
-  return outcome('warn', 'Piso aplicável, mas nenhuma tabela de coeficientes está disponível ainda (pendência P3 do guia).', {
-    reasonCode: 'FLOOR_VERSION_UNAVAILABLE',
-    inputs
-  });
+  const calculation = ctx.floorCalculation ?? null;
+  const floorVersion = calculation?.floorVersion ?? null;
+
+  // Fase B: sem cálculo ainda, ou cálculo que não resolveu nenhuma versão de tabela vigente
+  // (`missing_coefficients` sem `floorVersion`) — mesmo reasonCode da Fase A, agora coberto pelo
+  // caminho real do `FreightFloorEngine`, não mais "nasce sempre vazio" (pendência P3 do guia).
+  if (!calculation || !floorVersion) {
+    return outcome(
+      'warn',
+      'Piso aplicável, mas nenhum cálculo recente resolveu uma tabela de coeficientes vigente '
+        + '(rode `calcular-piso`, ou verifique se há tabela carregada para a data de referência).',
+      { reasonCode: 'FLOOR_VERSION_UNAVAILABLE', inputs, result: { floorVersion: null } }
+    );
+  }
+
+  if (floorVersion.effectiveFrom > ctx.referenceDate) {
+    return outcome(
+      'warn',
+      `A tabela usada no último cálculo (${floorVersion.normativeReference}) só entra em vigor em `
+        + `${floorVersion.effectiveFrom} — posterior à data de referência ${ctx.referenceDate}.`,
+      { reasonCode: 'FLOOR_VERSION_UNAVAILABLE', inputs, result: { floorVersionRef: floorVersion } }
+    );
+  }
+
+  if (floorVersion.reviewStatus === 'pending_review') {
+    return outcome(
+      'warn',
+      `O cálculo do piso usou a versão vigente da tabela (${floorVersion.normativeReference}, `
+        + `Tabela ${floorVersion.tableCode}), mas ela ainda não foi revisada juridicamente contra o DOU.`,
+      { reasonCode: 'FLOOR_TABLE_PENDING_REVIEW', inputs, result: { floorVersionRef: floorVersion } }
+    );
+  }
+
+  return outcome(
+    'pass',
+    `Cálculo do piso usou a tabela vigente na data de referência (${floorVersion.normativeReference}, `
+      + `Tabela ${floorVersion.tableCode}, revisada).`,
+    { inputs, result: { floorVersionRef: floorVersion } }
+  );
 }
 
 // =================================================================================================

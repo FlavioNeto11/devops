@@ -113,6 +113,15 @@ tags:
     minúsculo internamente. `rawStatus` só aparece quando o clamp de enforcement mudou o status
     (`block` não-ACTIVE/não-`blocking` vira `warn` com `RULE_NOT_ENFORCEABLE`). Sem chamada externa
     e sem job nesta fase do programa.
+- name: Transporte - Piso Mínimo
+  description: 'MODO SHADOW (PR-B1): `FreightFloorEngine` calcula o piso mínimo de frete
+    (`minimum = CCD*km + CC`, Lei 13.703/2018 + Res. ANTT 5.867/2020, metodologia alterada pela
+    Res. ANTT 6.076/2026) e PERSISTE o resultado (APPEND-ONLY, `freight_floor_calculations`),
+    atualizando `freight.floorAmount` da operação quando `outcome=calculated` — mas nada aqui vira
+    bloqueante por si só (TR-PMF-002/003 seguem clampadas para WARN enquanto `blocking=false` no
+    catálogo). Coeficientes REAIS da Tabela A (Res. ANTT 6.084/2026), carregados via
+    `npm run load:freight-floor` como `review_status=pending_review` — a conferência jurídica
+    contra o DOU é pendência P3 do guia; Tabelas B/C/D pendentes de transcrição.'
 security:
 - bearerAuth: []
 paths:
@@ -7571,6 +7580,182 @@ paths:
         required: true
         schema: { type: string }
       - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/operacoes/{operationId}/calcular-piso:
+    post:
+      operationId: transporteOperacaoCalcularPiso
+      summary: Calcular e persistir o piso mínimo de frete (MODO SHADOW)
+      description: |-
+        Roda o `FreightFloorEngine` sobre a operação na `referenceDate` informada (default = hoje):
+        resolve a Tabela A (só carga `lotacao` nesta fase — `fracionada`/`unknown` respondem
+        `outcome=not_applicable`), deriva `cargoType` (primeira linha de `cargo[]`, mapeado para um
+        dos 11 slugs canônicos), `axlesCount` (soma dos veículos vinculados) e `distanceKm` (da
+        rota), resolve a versão de tabela VIGENTE e o par de coeficientes, calcula
+        (`minimum = CCD*km + CC`, arredondamento HALF-UP a 2 casas) e PERSISTE o resultado
+        (append-only, `freight_floor_calculations`) — SEMPRE grava uma linha, mesmo quando o
+        `outcome` não é `calculated` (motivo em `reason`). Quando `outcome=calculated`, atualiza
+        `freight.floorAmount` do cabeçalho (locking otimista por `version`, mesmo contrato do
+        `PATCH`). MODO SHADOW: nada aqui torna TR-PMF-002/003 bloqueantes — rode
+        `validar-conformidade`/`submeter-validacao` depois para ver o efeito nos gates.
+      tags:
+      - Transporte - Piso Mínimo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransportePisoCalcularRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 3
+              referenceDate: '2026-08-13'
+      responses:
+        '200':
+          description: Cálculo persistido (qualquer `outcome`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportePisoCalculoResource'
+              example:
+                id: ffcalc_7a2b3c4d5e6f7a8b9c0d1e2f
+                operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                outcome: calculated
+                reason: null
+                referenceDate: '2026-08-13'
+                cargoType: carga_geral
+                cargoFloorSlug: carga_geral
+                axlesCount: 6
+                distanceKm: 850
+                displacementCoefficient: 7.3547
+                loadUnloadCoefficient: 671.93
+                minimumAmount: 6923.43
+                offeredAmount: 7200
+                contractedAmount: null
+                compliant: true
+                floorVersionRef:
+                  normativeReference: Resolução ANTT nº 6.084/2026
+                  tableCode: A
+                  reviewStatus: pending_review
+                  effectiveFrom: '2026-07-17'
+                engineVersion: freight-floor-engine/1.0.0
+                trace:
+                  formula: CCD*km + CC
+                  components:
+                    cargoType: carga_geral
+                    axlesCount: 6
+                    distanceKm: 850
+                    displacementCoefficient: 7.3547
+                    loadUnloadCoefficient: 671.93
+                    displacementSubtotal: 6251.5
+                    loadUnloadSubtotal: 671.93
+                  cargoFloorSlug: carga_geral
+                  floorVersion:
+                    normativeReference: Resolução ANTT nº 6.084/2026
+                    tableCode: A
+                    reviewStatus: pending_review
+                    effectiveFrom: '2026-07-17'
+                createdAt: '2026-08-13T12:30:00Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/calculos-piso:
+    get:
+      operationId: transporteOperacaoCalculosPisoList
+      summary: Histórico paginado dos cálculos de piso da operação
+      description: Leitura pura do histórico append-only de `freight_floor_calculations` da
+        operação — mais recente primeiro. Recalcular a mesma operação (nova oferta, nova tabela
+        revisada, `referenceDate` diferente) sempre cria uma linha NOVA, nunca sobrescreve.
+      tags:
+      - Transporte - Piso Mínimo
+      responses:
+        '200':
+          description: Página de cálculos de piso da operação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportePisoCalculoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/piso/tabelas:
+    get:
+      operationId: transportePisoTabelasList
+      summary: Tabelas de piso carregadas (admin read-only)
+      description: Lista as versões de tabela de piso carregadas via `npm run load:freight-floor`
+        (`freight_floor_versions`), com `reviewStatus`, contagem de coeficientes e
+        `sourceUrl`/`sourceHash` — sem ids internos (identidade pública é
+        `normativeReference` + `tableCode`). Consulta local síncrona, catálogo GLOBAL (sem
+        tenancy — mesma natureza de `/v1/transporte/regras`).
+      tags:
+      - Transporte - Piso Mínimo
+      responses:
+        '200':
+          description: Tabelas de piso carregadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportePisoTabelaListResponse'
+              example:
+                items:
+                - normativeReference: Resolução ANTT nº 6.084/2026
+                  resolution: 6.084/2026
+                  tableCode: A
+                  publishedAt: '2026-07-17'
+                  effectiveFrom: '2026-07-17'
+                  effectiveUntil: null
+                  methodologyNotes: Atualização periódica das tabelas de piso mínimo da Res. ANTT
+                    5.867/2020 (metodologia alterada pela Res. ANTT 6.076/2026).
+                  sourceUrl: https://anttlegis.antt.gov.br/action/ActionDatalegis.php?acao=abrirTextoAto&tipo=RES&numeroAto=00006084&seqAto=000&valorAno=2026&orgao=DG/ANTT/MT&cod_modulo=623&cod_menu=9230
+                  sourceHash: c046633f318d2c05dfe5a0c3982f44698199bc118e9e541d7f20c28565b74471
+                  reviewStatus: pending_review
+                  reviewedBy: null
+                  reviewedAt: null
+                  coefficientsCount: 150
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
 components:
   securitySchemes:
     bearerAuth:
@@ -13975,3 +14160,247 @@ components:
           $ref: '#/components/schemas/TransporteOperacaoResource'
         evaluation:
           $ref: '#/components/schemas/TransporteConformidadeAvaliacaoResource'
+    TransportePisoCalcularRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Version atual do cabeçalho da operação (locking otimista) — usada no CAS
+            do update de `freight.floorAmount` quando `outcome=calculated`.
+        referenceDate:
+          type: string
+          format: date
+          description: Default = hoje.
+    TransportePisoTabelaVersaoRefResource:
+      type: object
+      description: Referência (SEM id interno) da versão de tabela usada num cálculo.
+      required:
+      - normativeReference
+      - tableCode
+      - reviewStatus
+      - effectiveFrom
+      properties:
+        normativeReference:
+          type: string
+        tableCode:
+          type: string
+          enum: [A, B, C, D]
+        reviewStatus:
+          type: string
+          enum: [pending_review, reviewed, rejected]
+        effectiveFrom:
+          type: string
+          format: date
+    TransportePisoCalculoResource:
+      type: object
+      description: UM cálculo do `FreightFloorEngine` sobre UMA operação — persistido append-only
+        (`freight_floor_calculations`); recalcular a mesma operação cria uma linha NOVA, nunca
+        sobrescreve. MODO SHADOW — nenhum campo aqui torna TR-PMF-002/003 bloqueantes por si só.
+      required:
+      - id
+      - operationId
+      - outcome
+      - reason
+      - referenceDate
+      - cargoType
+      - cargoFloorSlug
+      - axlesCount
+      - distanceKm
+      - displacementCoefficient
+      - loadUnloadCoefficient
+      - minimumAmount
+      - offeredAmount
+      - contractedAmount
+      - compliant
+      - floorVersionRef
+      - engineVersion
+      - trace
+      - createdAt
+      properties:
+        id:
+          type: string
+        operationId:
+          type: string
+        outcome:
+          type: string
+          description: '`calculated`: piso resolvido. `not_applicable`: regime não exige piso
+            (fracionada/unknown). `missing_inputs`: cargoType/axlesCount/distanceKm insuficientes.
+            `missing_coefficients`: nenhuma tabela vigente, ou tabela vigente sem o par
+            cargoType/axlesCount. O motivo textual vai em `reason`.'
+          enum: [calculated, not_applicable, missing_coefficients, missing_inputs]
+        reason:
+          type:
+          - string
+          - 'null'
+          description: Preenchido quando `outcome != calculated` — explica o que faltou.
+        referenceDate:
+          type: string
+          format: date
+        cargoType:
+          type:
+          - string
+          - 'null'
+          description: Valor bruto de `cargo[0].cargoType` da operação (texto livre do operador).
+        cargoFloorSlug:
+          type:
+          - string
+          - 'null'
+          description: Um dos 11 slugs canônicos da Tabela A, ou `null` quando `cargoType` não mapeou.
+        axlesCount:
+          type:
+          - integer
+          - 'null'
+          description: Soma dos `axlesCount` dos veículos vinculados à operação.
+        distanceKm:
+          type:
+          - number
+          - 'null'
+        displacementCoefficient:
+          type:
+          - number
+          - 'null'
+          description: CCD (R$/km) da tabela vigente, quando resolvido.
+        loadUnloadCoefficient:
+          type:
+          - number
+          - 'null'
+          description: CC (R$) da tabela vigente, quando resolvido.
+        minimumAmount:
+          type:
+          - number
+          - 'null'
+          description: '`displacementCoefficient * distanceKm + loadUnloadCoefficient`,
+            arredondado a 2 casas HALF-UP.'
+        offeredAmount:
+          type:
+          - number
+          - 'null'
+        contractedAmount:
+          type:
+          - number
+          - 'null'
+        compliant:
+          type:
+          - boolean
+          - 'null'
+          description: '`offeredAmount` (ou `contractedAmount`, se `offeredAmount` ausente) >=
+            `minimumAmount`; `null` quando `minimumAmount` ou os dois valores comparados são nulos.'
+        floorVersionRef:
+          oneOf:
+          - $ref: '#/components/schemas/TransportePisoTabelaVersaoRefResource'
+          - type: 'null'
+        engineVersion:
+          type: string
+        trace:
+          type: object
+          description: Traço completo do cálculo (fórmula, componentes, versão de tabela usada) —
+            free-form, reproduzível a partir dos insumos.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    TransportePisoCalculoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportePisoCalculoResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransportePisoTabelaResource:
+      type: object
+      description: Versão de tabela de piso carregada (`freight_floor_versions`) — SEM id interno;
+        identidade pública é `normativeReference` + `tableCode`.
+      required:
+      - normativeReference
+      - resolution
+      - tableCode
+      - publishedAt
+      - effectiveFrom
+      - effectiveUntil
+      - methodologyNotes
+      - sourceUrl
+      - sourceHash
+      - reviewStatus
+      - reviewedBy
+      - reviewedAt
+      - coefficientsCount
+      properties:
+        normativeReference:
+          type: string
+        resolution:
+          type:
+          - string
+          - 'null'
+        tableCode:
+          type: string
+          enum: [A, B, C, D]
+        publishedAt:
+          type:
+          - string
+          - 'null'
+          format: date
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveUntil:
+          type:
+          - string
+          - 'null'
+          format: date
+        methodologyNotes:
+          type: string
+        sourceUrl:
+          type:
+          - string
+          - 'null'
+        sourceHash:
+          type:
+          - string
+          - 'null'
+          description: SHA-256 do arquivo `.json` de referência carregado.
+        reviewStatus:
+          type: string
+          description: Sempre `pending_review` neste PR — promoção a `reviewed` é ato humano
+            futuro (rota admin ainda não existe nesta fase).
+          enum: [pending_review, reviewed, rejected]
+        reviewedBy:
+          type:
+          - string
+          - 'null'
+        reviewedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        coefficientsCount:
+          type: integer
+          minimum: 0
+    TransportePisoTabelaListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportePisoTabelaResource'

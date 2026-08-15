@@ -1223,6 +1223,33 @@ const operationsData = [
     "summary": "Overview de conformidade da operação (última avaliação por gate)",
     "tag": "Transporte - Conformidade",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_calcular_piso",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/calcular-piso",
+    "expressPath": "/v1/transporte/operacoes/:operationId/calcular-piso",
+    "summary": "Calcular e persistir o piso mínimo de frete (MODO SHADOW)",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_calculos_piso",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/calculos-piso",
+    "expressPath": "/v1/transporte/operacoes/:operationId/calculos-piso",
+    "summary": "Histórico paginado dos cálculos de piso da operação",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_piso_tabelas",
+    "method": "get",
+    "specPath": "/v1/transporte/piso/tabelas",
+    "expressPath": "/v1/transporte/piso/tabelas",
+    "summary": "Tabelas de piso carregadas (admin read-only)",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
   }
 ] as const satisfies readonly OperationDefinition[];
 

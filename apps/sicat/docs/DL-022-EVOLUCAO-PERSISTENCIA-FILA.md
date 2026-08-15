@@ -598,6 +598,34 @@ e derrubar os dois pods em CrashLoop simultâneo (armadilha 13 do `apps/sicat/CL
 
 ---
 
+## Migration 026 — Cálculos do piso mínimo de frete Transporte (PR-B1, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103):
+
+- **`026_transport_freight_floor_calculations.sql`** — `freight_floor_calculations`, a tabela que
+  o `FreightFloorEngine` grava a cada tentativa de cálculo do piso mínimo sobre uma operação
+  (**MODO SHADOW**: não torna nada bloqueante por si só). **APPEND-ONLY** — mesmo desvio
+  deliberado da migration 025 (`compliance_evaluations`): sem coluna `version`, sem trigger
+  `increment_version`, e o repositório (`freight-floor-repo.ts`) nunca emite `update`/`delete`
+  contra ela — recalcular a mesma operação é sempre uma linha NOVA (reprodutibilidade/auditoria,
+  NFR-0009/0010). Colunas `cargo_type`/`axles_count`/`distance_km` são `NOT NULL` por desenho —
+  sentinela `''`/`0` quando o insumo bruto está ausente, com o motivo em
+  `calculation_inputs_snapshot`/`calculation_trace` (nunca inferido da coluna sozinha). Índices
+  `(operation_id, created_at desc)` e `(integration_account_id, created_at desc)` — mesmo padrão
+  de leitura "mais recente primeiro" de `compliance_evaluations`.
+
+Coeficientes REAIS da Tabela A (Res. ANTT 6.084/2026) entram por um script **MANUAL** do operador
+(`npm run load:freight-floor`, `scripts/load-freight-floor-tables.js`) — nunca por seed de boot; a
+meta-guarda 4 de `tests/regulatory/rule-catalog-invariants.test.js` (PR-A6) continua verde,
+provando que `regulatory-rules-seed.ts` segue sem tocar `freight_floor_versions`/`_coefficients`.
+Toda versão carregada nasce `review_status='pending_review'` — promoção a `reviewed` é ato humano
+futuro (rota admin ainda não existe nesta fase).
+
+⚠️ Mesmo aviso de rollout escalonado da seção anterior se aplica: migration inédita, api primeiro,
+worker só depois de Ready.
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`
