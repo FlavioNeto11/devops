@@ -47,6 +47,38 @@ const submitReconcileDeps = {
   searchManifests: (args: GatewaySearchManifestsArgs) => gateway.searchManifests(args)
 };
 
+/**
+ * Superfície de E/S do laço do worker. Existe para que o teste possa dirigir uma fila em memória com
+ * relógio virtual: o defeito que este seam cobre (lote reivindicado de uma vez × heartbeat por job)
+ * só aparece na INTERAÇÃO entre claim, heartbeat e varredura de stale — nenhuma das três isolada.
+ */
+type JobRunnerDependencies = {
+  claimJobs: typeof claimJobs;
+  heartbeatJobClaim: typeof heartbeatJobClaim;
+  requeueStaleRunningJobs: typeof requeueStaleRunningJobs;
+  updateJobIfOwned: typeof updateJobIfOwned;
+  moveJobToDLQ: typeof moveJobToDLQ;
+  processJob: typeof processJob;
+  logSystemEvent: typeof logSystemEvent;
+};
+
+const defaultDependencies: JobRunnerDependencies = {
+  claimJobs,
+  heartbeatJobClaim,
+  requeueStaleRunningJobs,
+  updateJobIfOwned,
+  moveJobToDLQ,
+  processJob,
+  logSystemEvent
+};
+
+let dependencies: JobRunnerDependencies = defaultDependencies;
+
+/** Seam de teste. Os doubles são fontes de dado e espiões de argumento — nunca lógica de decisão. */
+export function setJobRunnerDependenciesForTests(overrides: Partial<JobRunnerDependencies> | null): void {
+  dependencies = overrides ? { ...defaultDependencies, ...overrides } : defaultDependencies;
+}
+
 type JobEntity = {
   jobId: string;
   commandId: string | null;
@@ -289,13 +321,13 @@ function attachWorkerProcessHandlers(cleanup: (signal: string) => Promise<void>)
 }
 
 async function requeueStaleJobsIfNeeded() {
-  const staleJobs = await requeueStaleRunningJobs(config.workerClaimStaleTimeoutMs, config.workerBatchSize);
+  const staleJobs = await dependencies.requeueStaleRunningJobs(config.workerClaimStaleTimeoutMs, config.workerBatchSize);
   if (staleJobs.length === 0) {
     return;
   }
 
   console.warn(`[worker] ${staleJobs.length} job(s) running stale reencaminhados para retry_wait`);
-  await logSystemEvent({
+  await dependencies.logSystemEvent({
     eventType: 'STALE_JOBS_REQUEUED',
     severity: 'warning',
     component: 'job-runner',
@@ -651,22 +683,103 @@ async function enqueueTransporteRegulatoryWatchSweepIfNeeded() {
   }
 }
 
-function startClaimHeartbeat(jobId: string, workerName: string) {
-  if (config.workerClaimHeartbeatMs <= 0) {
-    return null;
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Heartbeat de claim — POR LOTE, não por job.
+ *
+ * `claimJobs` marca os N jobs do lote como `running` e carimba `claim_heartbeat_at` no MESMO
+ * instante; o consumo é SERIAL. Enquanto o job 1 roda, os jobs 2..N ficam `running` com o carimbo
+ * congelado no claim — e `requeueStaleRunningJobs` (que varre a tabela inteira, de qualquer worker)
+ * os reenfileira assim que passam de `workerClaimStaleTimeoutMs`. O job volta para `retry_wait`,
+ * é reivindicado de novo e EXECUTA DE NOVO: `manifest.submit`, `manifest.cancel` e `cdf.generate`
+ * atingem a CETESB, que não é idempotente.
+ *
+ * `updateJobIfOwned` NÃO fecha esse buraco — ele protege o DESFECHO (a linha só muda com
+ * `claimed_by` e `status` batendo), não o EFEITO: quando o worker original termina, a chamada
+ * externa já saiu. A guarda transforma execução dupla silenciosa em execução dupla com log de
+ * "ownership perdido"; o pedido duplicado na CETESB continua lá.
+ *
+ * Correção: um único intervalo renova o lease de TODOS os jobs ainda pendentes do lote, do claim até
+ * o fim do último. Cada job sai do conjunto quando termina (`release`), e o intervalo morre com o
+ * lote (`stop`).
+ * ──────────────────────────────────────────────────────────────────────────────────────────────── */
+
+type ClaimHeartbeat = {
+  /** Tira o job do lease: já terminou, não faz sentido continuar renovando. */
+  release(jobId: string): void;
+  stop(): void;
+};
+
+const NOOP_CLAIM_HEARTBEAT: ClaimHeartbeat = { release() {}, stop() {} };
+
+function startBatchClaimHeartbeat(jobIds: string[], workerName: string): ClaimHeartbeat {
+  if (config.workerClaimHeartbeatMs <= 0 || jobIds.length === 0) {
+    return NOOP_CLAIM_HEARTBEAT;
   }
 
-  return setInterval(async () => {
+  const pending = new Set(jobIds);
+  // Uma rodada lenta não pode empilhar a próxima: sem esta trava, um Postgres em stress viraria N
+  // rodadas concorrentes de N updates cada.
+  let roundInFlight = false;
+
+  const interval = setInterval(async () => {
+    if (roundInFlight || pending.size === 0) {
+      return;
+    }
+
+    roundInFlight = true;
     try {
-      await heartbeatJobClaim(jobId, workerName);
-    } catch (error: unknown) {
-      console.warn(`[worker] heartbeat de claim falhou para job ${jobId}: ${getErrorMessage(error)}`);
+      // `allSettled` e não laço serial: um `update` pendurado num job não pode atrasar a renovação
+      // dos outros — seria o mesmo defeito de novo, só que dentro do heartbeat.
+      await Promise.allSettled([...pending].map(async (jobId) => {
+        try {
+          await dependencies.heartbeatJobClaim(jobId, workerName);
+        } catch (error: unknown) {
+          console.warn(`[worker] heartbeat de claim falhou para job ${jobId}: ${getErrorMessage(error)}`);
+        }
+      }));
+    } finally {
+      roundInFlight = false;
     }
   }, config.workerClaimHeartbeatMs);
+
+  return {
+    release(jobId: string) {
+      pending.delete(jobId);
+    },
+    stop() {
+      clearInterval(interval);
+      pending.clear();
+    }
+  };
+}
+
+/**
+ * O heartbeat do lote só segura o lease se ele couber MUITAS vezes dentro da janela de stale. Com
+ * `workerClaimHeartbeatMs` desligado (`<= 0`) ou próximo de `workerClaimStaleTimeoutMs`, os jobs
+ * 2..N voltam a ser candidatos a reenfileiramento — e o único sintoma em produção seria uma operação
+ * CETESB repetida. Avisa uma vez no boot em vez de falhar: derrubar o worker por configuração
+ * ruim pararia a emissão de MTR.
+ */
+export function warnIfClaimHeartbeatCannotHoldTheBatch() {
+  if (config.workerBatchSize <= 1) {
+    return;
+  }
+
+  const heartbeatMs = config.workerClaimHeartbeatMs;
+  const staleMs = config.workerClaimStaleTimeoutMs;
+
+  if (heartbeatMs <= 0) {
+    console.warn(`[worker] WORKER_CLAIM_HEARTBEAT_MS desligado com WORKER_BATCH_SIZE=${config.workerBatchSize}: jobs do lote ainda não processados podem ser reenfileirados e EXECUTADOS DUAS VEZES. Use WORKER_BATCH_SIZE=1 ou ligue o heartbeat.`);
+    return;
+  }
+
+  if (staleMs > 0 && heartbeatMs * 2 >= staleMs) {
+    console.warn(`[worker] WORKER_CLAIM_HEARTBEAT_MS=${heartbeatMs} é alto demais para WORKER_CLAIM_STALE_TIMEOUT_MS=${staleMs}: um heartbeat perdido já torna o lote candidato a reenfileiramento (execução dupla).`);
+  }
 }
 
 async function markJobSucceeded(job: JobEntity, workerName: string, startTime: number) {
-  const current = await updateJobIfOwned(job.jobId, workerName, {
+  const current = await dependencies.updateJobIfOwned(job.jobId, workerName, {
     status: 'succeeded',
     finishedAt: new Date().toISOString(),
     executionTimeMs: Date.now() - startTime,
@@ -710,14 +823,14 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   // incompletos, tipo não suportado, flag desligada) vira `failed_validation` diretamente.
   await applyTransporteDfeIssuanceTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
-  const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
+  const movedToDLQ = await dependencies.moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
     console.warn(`[worker] ownership perdido antes de mover job ${job.jobId} para DLQ; transição ignorada`);
     return;
   }
 
   updateWorkerStats('dlq');
-  await logSystemEvent({
+  await dependencies.logSystemEvent({
     eventType: 'JOB_DLQ_MOVED',
     severity: 'error',
     component: 'job-runner',
@@ -735,7 +848,7 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
 }
 
 async function handleFailedTransition(job: JobEntity, workerName: string, transition: Extract<FailureTransition, { action: 'failed' | 'retry_wait' }>, error: unknown, executionTimeMs: number) {
-  const transitioned = await updateJobIfOwned(job.jobId, workerName, transition.patch);
+  const transitioned = await dependencies.updateJobIfOwned(job.jobId, workerName, transition.patch);
   if (!transitioned) {
     console.warn(`[worker] ownership perdido antes de aplicar transição ${transition.action} no job ${job.jobId}`);
     return;
@@ -765,13 +878,12 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
   console.error(`[worker] job ${job.jobId} falhou (tentativa ${job.attempts}/${job.maxAttempts}). Próximo retry em ${Math.round(delayMs / 1000)}s usando estratégia ${job.retryStrategy}`);
 }
 
-async function processClaimedJob(job: JobEntity, workerName: string) {
+async function processClaimedJob(job: JobEntity, workerName: string, claimHeartbeat: ClaimHeartbeat) {
   const startTime = Date.now();
   updateWorkerStats('claimed');
-  const claimHeartbeatInterval = startClaimHeartbeat(job.jobId, workerName);
 
   try {
-    await processJob({ ...job, payload: job.payload ?? {} }, gateway);
+    await dependencies.processJob({ ...job, payload: job.payload ?? {} }, gateway);
     await markJobSucceeded(job, workerName, startTime);
   } catch (error: unknown) {
     if (isOwnershipError(error)) {
@@ -793,13 +905,11 @@ async function processClaimedJob(job: JobEntity, workerName: string) {
 
     await handleFailedTransition(job, workerName, transition, error, executionTimeMs);
   } finally {
-    if (claimHeartbeatInterval) {
-      clearInterval(claimHeartbeatInterval);
-    }
+    claimHeartbeat.release(job.jobId);
   }
 }
 
-async function processWorkerIteration({ once, shutdownRequested, workerName }: { once: boolean; shutdownRequested: () => boolean; workerName: string }) {
+export async function processWorkerIteration({ once, shutdownRequested, workerName }: { once: boolean; shutdownRequested: () => boolean; workerName: string }) {
   if (shutdownRequested()) {
     console.log('[worker] Shutdown detectado, interrompendo loop');
     return false;
@@ -812,7 +922,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   await enqueueTransporteDfeIssuanceReconcileSweepIfNeeded();
   await enqueueTransporteRegulatoryWatchSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
-  const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
+  const jobs = await dependencies.claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {
     if (once) {
       return false;
@@ -821,8 +931,15 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
     return true;
   }
 
-  for (const job of jobs) {
-    await processClaimedJob(job, workerName);
+  // O lease começa AQUI, para o lote inteiro — não quando cada job chega à sua vez. Ver o bloco de
+  // comentário de `startBatchClaimHeartbeat`.
+  const claimHeartbeat = startBatchClaimHeartbeat(jobs.map((job) => job.jobId), workerName);
+  try {
+    for (const job of jobs) {
+      await processClaimedJob(job, workerName, claimHeartbeat);
+    }
+  } finally {
+    claimHeartbeat.stop();
   }
 
   return !once;
@@ -831,6 +948,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
 export async function runWorkerLoop({ once = false } = {}) {
   const workerId = `worker-${process.pid}-${Date.now()}`;
   const workerName = process.env.WORKER_NAME || `worker-${process.pid}`;
+  warnIfClaimHeartbeatCannotHoldTheBatch();
   await registerWorkerLifecycle(workerId, workerName);
   const heartbeatInterval = startWorkerHeartbeat(workerId);
   const shutdownState = { requested: false };
