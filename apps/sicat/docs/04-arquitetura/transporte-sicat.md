@@ -2,7 +2,7 @@
 title: "Arquitetura alvo — SICAT Transporte (transporte rodoviário remunerado de cargas)"
 status: target-architecture
 applies_to: [sicat]
-updated: 2026-08-13
+updated: 2026-08-15
 language: pt-BR
 ---
 
@@ -102,6 +102,7 @@ Entidades: `regulatory_sources` (normas com hash/vigência/monitoramento), `regu
 | `026_transport_freight_floor_calculations.sql` | `freight_floor_calculations` (append-only) — ✅ entregue (PR-B1, modo shadow) | B1 |
 | `027_transport_rntrc_verifications.sql` | `rntrc_verifications` (append-only) — ✅ entregue (PR-C1) | C1 |
 | `028_transport_ciot.sql` | `ciot_operations` (`version`+trigger), `ciot_events` (append-only) — ✅ entregue (PR-C2, provedor `mock`) | C2 |
+| `029_transport_vpo.sql` | `vpo_providers` (cadastro de referência, `version`+trigger), `vpo_allocations` (`version`+trigger, MUTÁVEL — uma linha por operação), `vpo_events` (append-only) — ✅ entregue (PR-D1, provedor `mock`) | D1 |
 
 Padrões (molde `013_dmr_declarations.sql`): PK `text` via `createPrefixedId`, coluna `version` +
 trigger `increment_version()` (exceção: `compliance_evaluations`, append-only — desvio justificado
@@ -173,6 +174,50 @@ id da tentativa ativa vai em `payload.ciotOperationId`), com link explícito via
 `rule-evaluators.ts`) saíram de `RULES_WITHOUT_EVALUATOR_YET`; `ctx.ciotOperation` (a tentativa mais
 recente) é carregado por `transport-compliance-service.ts` a partir de
 `ciot-repo.findLatestCiotOperationForOperation`, mesmo molde de `ctx.carrierRntrcVerification` (PR-C1).
+
+**PR-D1 (Fase D, VPO — Vale-Pedágio Obrigatório):**
+
+```text
+POST /v1/transporte/operacoes/{id}/vpo/avaliar-aplicabilidade   (200 síncrono — VpoApplicabilityEngine, upsert em vpo_allocations)
+POST /v1/transporte/operacoes/{id}/vpo/registrar-aquisicao      (200 síncrono — aquisição MANUAL, exige applicable)
+POST /v1/transporte/operacoes/{id}/vpo/adquirir                 (202 — aquisição via provedor, exige applicable)
+GET  /v1/transporte/operacoes/{id}/vpo                          (allocation atual + eventos paginados)
+GET  /v1/transporte/vpo/fornecedoras                            (200 read-only — cadastro configurável)
+```
+
+Tag `Transporte - Vale-Pedagio`. Diferente do CIOT: `vpo_allocations` é um recurso MUTÁVEL — UMA
+linha por `operation_id` (`unique (operation_id)`), não uma linha por tentativa; `avaliar-
+aplicabilidade` faz upsert nessa linha via `lib/transport/vpo-applicability-engine.ts`
+(`determineVpoApplicability`, PURO), que decide `applicable: true|false|null` a partir de
+`route.tollExpected`/`cargoRegime`/múltiplos embarcadores (Res. ANTT 6.024/2023) — carga
+fracionada ou >1 parte `shipper` sempre cai em `applicable: null` (exige análise humana), mesmo com
+pedágio esperado. TODO desfecho `not_applicable` grava `applicability_reason_code` — constraint
+`chk_vpoalloc_not_applicable_reason` torna isso estrutural, não convenção de código.
+
+Aquisição em dois caminhos: `registrar-aquisicao` (síncrono, evidência declarada pelo operador,
+`evidenceSource=manual`) e `adquirir` (assíncrono, via `gateways/vpo-gateway.ts`, só `mode: 'mock'`
+— nenhuma fornecedora integrada tecnicamente, [EXTERNAL DEPENDENCY] P6; `VPO_PROVIDER_MODE=real`
+recusa com `VPO_PROVIDER_NOT_CONFIGURED`). Os dois caminhos atualizam `transport_operations.vpo_amount`
+via `updateOperationById` (CAS por `version`) **NUMA transação** com a escrita de `vpo_allocations`
+(`withTransaction`, `db/pool.ts`) — nunca somado a `freight_offered_amount`/`freight_contracted_amount`.
+
+Padrão **DL-102 replicado** (decisão do PR-D1, NÃO reuso do CIOT — bounded context próprio,
+`lib/transport/vpo-correlation.ts` + `services/vpo-reconciler.ts`, marcador determinístico a
+partir do `vpoAllocationId`, sem coluna própria — diferente de `ciot_operations.correlation_marker`,
+necessária lá porque o CIOT tem múltiplas tentativas por operação): a referência do provedor
+(`providerReference`) nasce na RESPOSTA do `acquireVpo`; resposta perdida DEPOIS do dispatch vira
+`acquisition_unconfirmed` (NUNCA falha definitiva), resolvido pelo job `transporte.vpo.reconcile`
+(enfileirado pelo side-effect terminal e por uma varredura periódica própria,
+`enqueueTransporteVpoReconcileSweepIfNeeded`, molde exato da varredura do CIOT). Rejeição
+DEFINITIVA do provedor (`VPO_PROVIDER_REJECTED_TEST` no mock — rota sem distância válida para
+calcular o pedágio) volta a `applicable` (libera novo `adquirir`/`registrar-aquisicao` sem esperar
+reconciliação). `entityType 'vpo_allocation'` usa `entityId = operationId` (mesmo molde do CIOT —
+dedupe e link por operação; `payload.vpoAllocationId` carrega o id da alocação).
+
+Evaluator TR-VPO-001 EVOLUÍDO (usa `ctx.vpoAllocation` em vez de só `route.tollExpected`) e
+TR-VPO-002 NOVO (saiu de `RULES_WITHOUT_EVALUATOR_YET`) em `rule-evaluators.ts`; `ctx.vpoAllocation`
+é carregado por `transport-compliance-service.ts` a partir de
+`vpo-repo.findVpoAllocationByOperationId`, mesmo molde de `ctx.ciotOperation` (PR-C2).
 
 Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` (ou exemplo inline no YAML, molde RNTRC) →
 `gen:operations` **+ `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de

@@ -50,8 +50,8 @@ function toClampableVersion(seedVersion) {
   };
 }
 
-/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). `ciotOperation` (PR-C2) é opcional. */
-function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, ciotOperation = undefined) {
+/** Resolve a versão vigente da regra na data e roda o evaluator puro (quando existe um). `ciotOperation` (PR-C2)/`vpoAllocation` (PR-D1) são opcionais. */
+function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, ciotOperation = undefined, vpoAllocation = undefined) {
   const seedVersion = resolveVersionFromList(rule.versions, referenceDate);
   if (!seedVersion) return { version: null, outcome: null, clamped: null };
 
@@ -59,7 +59,7 @@ function resolveAndEvaluate(rule, aggregate, referenceDate = REFERENCE_DATE, cio
   if (!evaluator) return { version: seedVersion, outcome: null, clamped: null };
 
   const clampableVersion = toClampableVersion(seedVersion);
-  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate, ciotOperation });
+  const outcome = evaluator({ operation: aggregate, ruleVersion: clampableVersion, referenceDate, ciotOperation, vpoAllocation });
   const clamped = applyEnforcementClamp(outcome, clampableVersion);
   return { version: seedVersion, outcome, clamped };
 }
@@ -70,6 +70,19 @@ function buildCiotOperationFixture(overrides = {}) {
     status: 'registered',
     ciotNumber: '1234567890',
     requestPayloadSnapshot: { responsibleParty: 'contractor' },
+    ...overrides
+  };
+}
+
+/** Fixture mínima de `ctx.vpoAllocation` (PR-D1) — recorte que os evaluators TR-VPO-001/002/003 consomem. */
+function buildVpoAllocationFixture(overrides = {}) {
+  return {
+    status: 'applicable',
+    applicable: true,
+    applicabilityReasonCode: 'VPO_REQUIRED_TOLL_ROUTE',
+    amount: null,
+    providerId: null,
+    evidenceSource: null,
     ...overrides
   };
 }
@@ -200,6 +213,78 @@ describe('compliance-gates — GATE_CIOT / TR-CIOT-003 (responsável pelo CIOT c
     const { outcome } = resolveAndEvaluate(ruleByCode('TR-CIOT-003'), buildTacLotacaoOperation(), REFERENCE_DATE, ciotOperation);
     assert.equal(outcome.status, 'warn');
     assert.equal(outcome.reasonCode, 'CIOT_RESPONSIBLE_UNDECLARED');
+  });
+});
+
+describe('compliance-gates — GATE_PRE_BOARDING / TR-VPO-001 (aplicabilidade do VPO)', () => {
+  it('sem avaliação (vpoAllocation ausente) → warn VPO_APPLICABILITY_NOT_EVALUATED', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-001'), buildTacLotacaoOperation());
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'VPO_APPLICABILITY_NOT_EVALUATED');
+  });
+
+  it('allocation not_applicable com reason → pass (justificativa evidenciada, nunca "block silencioso")', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'not_applicable', applicable: false, applicabilityReasonCode: 'VPO_NO_TOLL_ON_ROUTE' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'pass');
+    assert.equal(outcome.result.reasonCode, 'VPO_NO_TOLL_ON_ROUTE');
+  });
+
+  it('allocation applicable → pass vpoRequired=true', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'applicable' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'pass');
+    assert.equal(outcome.result.vpoRequired, true);
+  });
+
+  it('allocation pending (indeterminado — exceção regulatória) → warn com o reasonCode do engine', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'pending', applicable: null, applicabilityReasonCode: 'VPO_FRACTIONAL_CARGO_REVIEW' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-001'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'VPO_FRACTIONAL_CARGO_REVIEW');
+  });
+});
+
+describe('compliance-gates — GATE_PRE_BOARDING / TR-VPO-002 (VPO antecipado antes do embarque)', () => {
+  it('applicable SEM acquired → block (raw) VPO_NOT_ACQUIRED', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'applicable' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'block');
+    assert.equal(outcome.reasonCode, 'VPO_NOT_ACQUIRED');
+  });
+
+  it('applicable e acquired (amount>0 + provider) → pass', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: 'vpoprov_x', evidenceSource: 'provider' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('not_applicable → not_applicable com o reason evidenciado (nunca block)', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'not_applicable', applicable: false, applicabilityReasonCode: 'VPO_NO_TOLL_ON_ROUTE' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-002'), buildTacLotacaoOperation(), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'not_applicable');
+    assert.equal(outcome.reasonCode, 'VPO_NO_TOLL_ON_ROUTE');
+  });
+});
+
+describe('compliance-gates — GATE_CONTRACT / TR-VPO-003 (valor do VPO separado do frete)', () => {
+  it('vpoAmount ausente → not_applicable VPO_NOT_DECLARED', () => {
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-003'), buildTacLotacaoOperation({ operation: { vpoAmount: null } }));
+    assert.equal(outcome.status, 'not_applicable');
+    assert.equal(outcome.reasonCode, 'VPO_NOT_DECLARED');
+  });
+
+  it('vpoAmount preenchido e allocation acquired com amount IGUAL → pass (separação comprovada)', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'acquired', amount: 250.5, providerId: 'vpoprov_x' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-003'), buildTacLotacaoOperation({ operation: { vpoAmount: 250.5 } }), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'pass');
+  });
+
+  it('vpoAmount preenchido e allocation com amount DIVERGENTE → warn VPO_AMOUNT_MISMATCH', () => {
+    const vpoAllocation = buildVpoAllocationFixture({ status: 'acquired', amount: 300, providerId: 'vpoprov_x' });
+    const { outcome } = resolveAndEvaluate(ruleByCode('TR-VPO-003'), buildTacLotacaoOperation({ operation: { vpoAmount: 250.5 } }), REFERENCE_DATE, undefined, vpoAllocation);
+    assert.equal(outcome.status, 'warn');
+    assert.equal(outcome.reasonCode, 'VPO_AMOUNT_MISMATCH');
   });
 });
 

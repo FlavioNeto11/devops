@@ -81,6 +81,22 @@ export type CiotOperationEvaluationContext = {
   requestPayloadSnapshot: Record<string, unknown>;
 };
 
+/**
+ * Recorte da alocação de VPO da operação (PR-D1, `vpo_allocations` — recurso MUTÁVEL, uma linha
+ * por operação, ao contrário de `ciot_operations`), montado por `transport-compliance-service.ts`
+ * a partir de `vpo-repo.ts#findVpoAllocationByOperationId`. `undefined`/`null` = a operação nunca
+ * rodou `avaliar-aplicabilidade`. Recorte deliberadamente MÍNIMO — os evaluators só precisam saber
+ * "o que se sabe hoje", nunca o snapshot de rota/evidência crus.
+ */
+export type VpoAllocationEvaluationContext = {
+  status: 'pending' | 'applicable' | 'not_applicable' | 'acquisition_requested' | 'acquisition_unconfirmed' | 'acquired' | 'cancelled';
+  applicable: boolean | null;
+  applicabilityReasonCode: string | null;
+  amount: number | null;
+  providerId: string | null;
+  evidenceSource: string | null;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
@@ -97,6 +113,8 @@ export type RuleEvaluatorContext = {
   carrierTractionVehicleLinkType?: string | null;
   /** Tentativa de CIOT mais recente da operação (PR-C2) — `undefined`/`null` = nunca solicitado. */
   ciotOperation?: CiotOperationEvaluationContext | null;
+  /** Alocação de VPO da operação (PR-D1) — `undefined`/`null` = `avaliar-aplicabilidade` nunca rodou. */
+  vpoAllocation?: VpoAllocationEvaluationContext | null;
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -531,41 +549,124 @@ function evaluatePay001(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
-// TR-VPO-001 — determinar aplicabilidade do VPO (GATE_PRE_BOARDING)
+// TR-VPO-001 — determinar aplicabilidade do VPO (GATE_PRE_BOARDING). Evoluído no PR-D1: usa o
+// `VpoApplicabilityEngine` (via `ctx.vpoAllocation`, persistida por `avaliarAplicabilidade`), não
+// mais só `route.tollExpected` isolado — a exigência de ouro do programa é que ATÉ um
+// NOT_APPLICABLE deixe justificativa evidenciada, e isso só existe depois de o engine rodar.
 // =================================================================================================
 
+/** Status de `vpo_allocations` que implicam "aplicabilidade decidida como APLICÁVEL" (inclui o ciclo de aquisição em curso/concluído). */
+function isVpoConsideredApplicable(allocation: VpoAllocationEvaluationContext): boolean {
+  return allocation.status === 'applicable'
+    || allocation.status === 'acquisition_requested'
+    || allocation.status === 'acquisition_unconfirmed'
+    || allocation.status === 'acquired';
+}
+
 function evaluateVpo001(ctx: RuleEvaluatorContext): RuleOutcome {
-  const tollExpected = ctx.operation.route?.tollExpected ?? null;
-  const inputs = { tollExpected };
+  const allocation = ctx.vpoAllocation ?? null;
 
-  if (tollExpected === true) {
-    return outcome('pass', 'Rota com pedágio esperado — VPO provavelmente aplicável.', {
-      inputs,
-      result: { vpoLikelyApplicable: true }
+  if (!allocation) {
+    return outcome('warn', 'Aplicabilidade do VPO ainda não foi avaliada para esta operação (rode avaliar-aplicabilidade).', {
+      reasonCode: 'VPO_APPLICABILITY_NOT_EVALUATED',
+      inputs: {}
     });
   }
 
-  if (tollExpected === false) {
-    return outcome('pass', 'Rota sem pedágio esperado — VPO provavelmente não aplicável.', {
+  const inputs = { status: allocation.status, applicabilityReasonCode: allocation.applicabilityReasonCode };
+
+  if (allocation.status === 'not_applicable') {
+    return outcome(
+      'pass',
+      `VPO dispensado para esta operação — motivo evidenciado: ${allocation.applicabilityReasonCode ?? 'sem código'}.`,
+      { inputs, result: { vpoRequired: false, reasonCode: allocation.applicabilityReasonCode } }
+    );
+  }
+
+  if (isVpoConsideredApplicable(allocation)) {
+    return outcome('pass', 'VPO aplicável para esta operação (Res. ANTT 6.024/2023).', {
       inputs,
-      result: { vpoLikelyApplicable: false }
+      result: { vpoRequired: true, reasonCode: allocation.applicabilityReasonCode }
     });
   }
 
-  return outcome('warn', 'Expectativa de pedágio da rota não informada — aplicabilidade do VPO indeterminada.', {
-    reasonCode: 'TOLL_EXPECTATION_UNKNOWN',
-    inputs,
-    result: { vpoLikelyApplicable: null }
-  });
+  // `pending` (engine devolveu `applicable: null` — exceção regulatória exige análise humana) ou
+  // qualquer outro estado não mapeado acima (ex.: `cancelled`, reservado, sem rota nesta fase).
+  return outcome(
+    'warn',
+    `Aplicabilidade do VPO indeterminada — exige análise humana (motivo: ${allocation.applicabilityReasonCode ?? 'não informado'}).`,
+    { reasonCode: allocation.applicabilityReasonCode ?? 'VPO_APPLICABILITY_REVIEW_PENDING', inputs }
+  );
 }
 
 // =================================================================================================
-// TR-VPO-003 — valor do VPO separado do frete (GATE_CONTRACT)
+// TR-VPO-002 — VPO antecipado antes do embarque quando aplicável (GATE_PRE_BOARDING). NOVO
+// evaluator do PR-D1 (sai de `RULES_WITHOUT_EVALUATOR_YET`).
+// =================================================================================================
+
+function evaluateVpo002(ctx: RuleEvaluatorContext): RuleOutcome {
+  const allocation = ctx.vpoAllocation ?? null;
+
+  if (!allocation) {
+    return outcome('warn', 'Aplicabilidade do VPO ainda não foi avaliada para esta operação (rode avaliar-aplicabilidade).', {
+      reasonCode: 'VPO_APPLICABILITY_NOT_EVALUATED',
+      inputs: {}
+    });
+  }
+
+  const inputs = { status: allocation.status, amount: allocation.amount };
+
+  if (allocation.status === 'not_applicable') {
+    return outcome(
+      'not_applicable',
+      `VPO dispensado para esta operação — motivo evidenciado: ${allocation.applicabilityReasonCode ?? 'sem código'}.`,
+      { reasonCode: allocation.applicabilityReasonCode ?? undefined, inputs }
+    );
+  }
+
+  if (allocation.status === 'acquired') {
+    const hasEvidence = (allocation.amount ?? 0) > 0 && (Boolean(allocation.providerId) || allocation.evidenceSource === 'manual');
+    if (hasEvidence) {
+      return outcome('pass', `VPO antecipado antes do embarque (evidência: ${allocation.evidenceSource ?? 'desconhecida'}).`, {
+        inputs,
+        result: { amount: allocation.amount, evidenceSource: allocation.evidenceSource }
+      });
+    }
+    // Defensivo: `acquired` sem valor/evidência coerente não deveria acontecer (constraints do
+    // repositório garantem os dois juntos) — nunca afirma `pass` sobre um dado incompleto.
+    return outcome('warn', 'VPO marcado como adquirido, mas sem valor/evidência completos — revise antes do embarque.', {
+      reasonCode: 'VPO_ACQUISITION_DATA_INCOMPLETE',
+      inputs
+    });
+  }
+
+  if (isVpoConsideredApplicable(allocation)) {
+    // `applicable` (ainda não adquirido) ou em trânsito (`acquisition_requested`/`acquisition_unconfirmed`).
+    return outcome('block', 'VPO aplicável ainda NÃO foi antecipado ao transportador antes do embarque (Lei 10.209/2001).', {
+      reasonCode: 'VPO_NOT_ACQUIRED',
+      inputs
+    });
+  }
+
+  // `pending` — aplicabilidade indeterminada; GATE_PRE_BOARDING não pode afirmar exigência nem
+  // dispensa, mas também não bloqueia sobre uma incerteza que o motor já sinaliza em TR-VPO-001.
+  return outcome(
+    'warn',
+    `Aplicabilidade do VPO ainda indeterminada — exige análise antes do embarque (motivo: ${allocation.applicabilityReasonCode ?? 'não informado'}).`,
+    { reasonCode: allocation.applicabilityReasonCode ?? 'VPO_APPLICABILITY_REVIEW_PENDING', inputs }
+  );
+}
+
+// =================================================================================================
+// TR-VPO-003 — valor do VPO separado do frete (GATE_CONTRACT). Evoluído no PR-D1: além da separação
+// ESTRUTURAL (campo decomposto), agora confere se o valor bate com o que a alocação registrou como
+// efetivamente adquirido.
 // =================================================================================================
 
 function evaluateVpo003(ctx: RuleEvaluatorContext): RuleOutcome {
   const { vpoAmount, freightOfferedAmount, freightContractedAmount } = ctx.operation.operation;
-  const inputs = { vpoAmount, freightOfferedAmount, freightContractedAmount };
+  const allocation = ctx.vpoAllocation ?? null;
+  const inputs = { vpoAmount, freightOfferedAmount, freightContractedAmount, allocationStatus: allocation?.status ?? null, allocationAmount: allocation?.amount ?? null };
 
   if (vpoAmount == null || vpoAmount <= 0) {
     return outcome('not_applicable', 'VPO não declarado para esta operação.', {
@@ -574,13 +675,33 @@ function evaluateVpo003(ctx: RuleEvaluatorContext): RuleOutcome {
     });
   }
 
-  // Checagem possível na Fase A: `vpoAmount` é um campo DECOMPOSTO, nunca somado a
-  // `freightOfferedAmount`/`freightContractedAmount` no agregado (migration 024) — a garantia de
-  // que o valor não está "embutido" é estrutural (schema), não uma comparação numérica aqui.
-  return outcome('pass', 'Valor do VPO declarado em campo separado do frete (frete nunca inclui VPO no agregado).', {
-    inputs,
-    result: { vpoAmount, freightOfferedAmount, freightContractedAmount }
-  });
+  if (allocation?.status === 'acquired' && allocation.amount != null && allocation.amount === vpoAmount) {
+    return outcome('pass', 'Valor do VPO na operação bate com o valor efetivamente adquirido (separação comprovada, nunca somado ao frete).', {
+      inputs,
+      result: { vpoAmount, allocationAmount: allocation.amount }
+    });
+  }
+
+  if (allocation?.status === 'acquired') {
+    return outcome(
+      'warn',
+      `Valor do VPO na operação (${vpoAmount}) diverge do valor registrado na aquisição (${allocation.amount ?? 'desconhecido'}).`,
+      { reasonCode: 'VPO_AMOUNT_MISMATCH', inputs, result: { vpoAmount, allocationAmount: allocation.amount } }
+    );
+  }
+
+  // `vpoAmount` preenchido, mas a alocação não confirma uma aquisição — mesma divergência
+  // (o valor está no cabeçalho da operação sem lastro na aquisição rastreada).
+  // `vpoAmount` preenchido, mas a alocação não confirma uma aquisição — mesma divergência (o valor
+  // está no cabeçalho da operação sem lastro na aquisição rastreada). Checagem estrutural
+  // preservada da Fase A: `vpoAmount` é um campo DECOMPOSTO, nunca somado a `freightOfferedAmount`/
+  // `freightContractedAmount` no agregado (migration 024) — a garantia de que o valor não está
+  // "embutido" é estrutural (schema); esta divergência é sobre RASTREABILIDADE, não sobre o schema.
+  return outcome(
+    'warn',
+    `Valor do VPO declarado na operação (${vpoAmount}) sem aquisição confirmada na alocação (status: ${allocation?.status ?? 'nenhuma avaliação'}).`,
+    { reasonCode: 'VPO_AMOUNT_MISMATCH', inputs }
+  );
 }
 
 // =================================================================================================
@@ -774,6 +895,7 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-PMF-004': evaluatePmf004,
   'TR-PAY-001': evaluatePay001,
   'TR-VPO-001': evaluateVpo001,
+  'TR-VPO-002': evaluateVpo002,
   'TR-VPO-003': evaluateVpo003,
   'TR-CIOT-001': evaluateCiot001,
   'TR-CIOT-002': evaluateCiot002,
@@ -800,11 +922,13 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
  * TR-CIOT-001/002/003 SAÍRAM deste mapa no PR-C2 (evaluators declarativos com o ciclo completo do
  * CIOT, `evaluateCiot001/002/003` acima). TR-CIOT-005 CONTINUA aqui — depende do vínculo CIOT↔MDF-e
  * (Fase E, NT MDF-e 2026.001 em revisão — pendência P7 do guia).
+ * TR-VPO-002 SAIU deste mapa no PR-D1 (evaluator declarativo entregue, `evaluateVpo002` acima —
+ * ciclo de aquisição via `VpoApplicabilityEngine` + `vpo_allocations`). TR-VPO-004 CONTINUA aqui —
+ * depende do vínculo VPO↔MDF-e (Fase E, mesma NT MDF-e 2026.001 em revisão de TR-CIOT-005).
  */
 export const RULES_WITHOUT_EVALUATOR_YET: Partial<Record<RuleCode, { targetPhase: string }>> = {
   'TR-RNTRC-003': { targetPhase: 'C' },
   'TR-CIOT-005': { targetPhase: 'E' },
-  'TR-VPO-002': { targetPhase: 'D' },
   'TR-VPO-004': { targetPhase: 'E' },
   'TR-NFE-001': { targetPhase: 'E' },
   'TR-CTE-001': { targetPhase: 'E' },

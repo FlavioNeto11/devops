@@ -19,9 +19,11 @@ import {
   applyManifestSubmitTerminalFailureSideEffect,
   applyTransporteRntrcVerifyTerminalFailureSideEffect,
   applyTransporteCiotTerminalFailureSideEffect,
+  applyTransporteVpoTerminalFailureSideEffect,
   applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
 import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/ciot-repo.js';
+import { listUnconfirmedVpoAllocationsForReconciliation } from '../repositories/vpo-repo.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
 
@@ -451,6 +453,77 @@ async function enqueueTransporteCiotReconcileSweepIfNeeded() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Varredura periódica de reconciliação do VPO (PR-D1, DL-102) — molde EXATO de
+// `enqueueTransporteCiotReconcileSweepIfNeeded` acima: rede de segurança para `vpo_allocations` em
+// `acquisition_unconfirmed` cujo enfileiramento direto (`applyTransporteVpoTerminalFailureSideEffect`)
+// falhou, ou cujo processo caiu entre marcar unconfirmed e enfileirar.
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_VPO_RECONCILE_SWEEP_DEFAULT_MS = 5 * 60 * 1000;
+const TRANSPORTE_VPO_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function resolveTransporteVpoReconcileSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_VPO_RECONCILE_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_VPO_RECONCILE_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteVpoReconcileSweepAt = 0;
+
+export function resetTransporteVpoReconcileSweepClockForTests() {
+  lastTransporteVpoReconcileSweepAt = 0;
+}
+
+async function enqueueTransporteVpoReconcileSweepIfNeeded() {
+  const intervalMs = resolveTransporteVpoReconcileSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteVpoReconcileSweepAt && (now - lastTransporteVpoReconcileSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteVpoReconcileSweepAt = now;
+
+  const updatedSince = new Date(now - TRANSPORTE_VPO_RECONCILE_LOOKBACK_MS).toISOString();
+
+  try {
+    const candidates = await listUnconfirmedVpoAllocationsForReconciliation({ updatedSince });
+    for (const candidate of candidates) {
+      // `insertJobDeduplicated` tem alvo de conflito `(entity_type, entity_id, operation) where
+      // status in ('queued','running','retry_wait')`: no máximo UMA reconciliação ativa por
+      // operação — mesmo racional de `enqueueTransporteCiotReconcileSweepIfNeeded`.
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'vpo_allocation',
+        entityId: candidate.operationId,
+        operation: 'transporte.vpo.reconcile',
+        payload: {
+          vpoAllocationId: candidate.id,
+          operationId: candidate.operationId,
+          integrationAccountId: candidate.integrationAccountId
+        },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: candidate.correlationId,
+        priority: 3,
+        retryStrategy: 'exponential',
+        baseDelayMs: 5000,
+        maxDelayMs: 60000,
+        tags: extractJobTags({ operation: 'transporte.vpo.reconcile', entityType: 'vpo_allocation', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker — mesma postura da varredura de manifesto/CIOT.
+    console.warn(`[worker] varredura de reconciliação de VPO não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
 function startClaimHeartbeat(jobId: string, workerName: string) {
   if (config.workerClaimHeartbeatMs <= 0) {
     return null;
@@ -501,6 +574,10 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   // Par obrigatório do PR-C2 (DL-102 aplicado ao CIOT): resposta perdida DEPOIS do dispatch vira
   // `request_unconfirmed`, NUNCA `failed`; rejeição definitiva do provedor vira `rejected`.
   await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
+  // Par obrigatório do PR-D1 (DL-102 aplicado ao VPO): resposta perdida DEPOIS do dispatch vira
+  // `acquisition_unconfirmed`, NUNCA falha definitiva; rejeição definitiva do provedor volta a
+  // `applicable`.
+  await applyTransporteVpoTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -546,6 +623,7 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
+    await applyTransporteVpoTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;
@@ -598,6 +676,7 @@ async function processWorkerIteration({ once, shutdownRequested, workerName }: {
   await requeueStaleJobsIfNeeded();
   await enqueueManifestSubmitReconcileSweepIfNeeded();
   await enqueueTransporteCiotReconcileSweepIfNeeded();
+  await enqueueTransporteVpoReconcileSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
   if (jobs.length === 0) {

@@ -193,8 +193,8 @@ describe('rule-evaluators — registro', () => {
       assert.ok(union.has(code), `${code} não está em nenhum dos dois registros`);
     }
 
-    assert.strictEqual(withEvaluator.size, 14, 'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) = 14 evaluators implementados');
-    assert.strictEqual(withoutEvaluator.size, 12, '12 codes aguardam evaluator de fase futura (TR-RNTRC-002 saiu no PR-C1; TR-CIOT-001/002/003 saíram no PR-C2)');
+    assert.strictEqual(withEvaluator.size, 15, 'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) + TR-VPO-002 (PR-D1) = 15 evaluators implementados');
+    assert.strictEqual(withoutEvaluator.size, 11, '11 codes aguardam evaluator de fase futura (TR-RNTRC-002 saiu no PR-C1; TR-CIOT-001/002/003 saíram no PR-C2; TR-VPO-002 saiu no PR-D1)');
   });
 
   it('toda entrada de RULES_WITHOUT_EVALUATOR_YET declara targetPhase', () => {
@@ -474,37 +474,107 @@ describe('TR-PAY-001 — prazo/forma de pagamento conforme norma vigente', () =>
 });
 
 // ===================================================================================================
-// TR-VPO-001 — aplicabilidade do VPO
+// TR-VPO-001 — aplicabilidade do VPO (PR-D1: usa ctx.vpoAllocation, persistida pelo
+// VpoApplicabilityEngine — não mais só route.tollExpected isolado)
 // ===================================================================================================
 
+function buildVpoAllocationFixture(overrides = {}) {
+  return {
+    status: 'applicable',
+    applicable: true,
+    applicabilityReasonCode: 'VPO_REQUIRED_TOLL_ROUTE',
+    amount: null,
+    providerId: null,
+    evidenceSource: null,
+    ...overrides
+  };
+}
+
 describe('TR-VPO-001 — determinar aplicabilidade do VPO', () => {
-  it('route.tollExpected = true → pass vpoLikelyApplicable=true', () => {
-    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate({ route: buildRoute({ tollExpected: true }) }));
-    assert.strictEqual(outcome.status, 'pass');
-    assert.strictEqual(outcome.result.vpoLikelyApplicable, true);
-  });
-
-  it('route.tollExpected = false → pass vpoLikelyApplicable=false', () => {
-    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate({ route: buildRoute({ tollExpected: false }) }));
-    assert.strictEqual(outcome.status, 'pass');
-    assert.strictEqual(outcome.result.vpoLikelyApplicable, false);
-  });
-
-  it('route.tollExpected = null → warn TOLL_EXPECTATION_UNKNOWN', () => {
-    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate({ route: buildRoute({ tollExpected: null }) }));
+  it('sem vpoAllocation (nunca avaliado) → warn VPO_APPLICABILITY_NOT_EVALUATED', () => {
+    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: null });
     assert.strictEqual(outcome.status, 'warn');
-    assert.strictEqual(outcome.reasonCode, 'TOLL_EXPECTATION_UNKNOWN');
+    assert.strictEqual(outcome.reasonCode, 'VPO_APPLICABILITY_NOT_EVALUATED');
   });
 
-  it('sem rota vinculada → warn TOLL_EXPECTATION_UNKNOWN (mesmo tratamento de null)', () => {
-    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate({ route: null }));
+  it('allocation not_applicable com reason → pass (justificativa evidenciada)', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'not_applicable', applicable: false, applicabilityReasonCode: 'VPO_NO_TOLL_ON_ROUTE' });
+    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.vpoRequired, false);
+    assert.strictEqual(outcome.result.reasonCode, 'VPO_NO_TOLL_ON_ROUTE');
+  });
+
+  it('allocation applicable → pass vpoRequired=true', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'applicable' });
+    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.vpoRequired, true);
+  });
+
+  it('allocation acquired TAMBÉM conta como aplicável → pass vpoRequired=true', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: 'vpoprov_x' });
+    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.vpoRequired, true);
+  });
+
+  it('allocation pending (applicable=null — exceção regulatória) → warn com o reasonCode do engine', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'pending', applicable: null, applicabilityReasonCode: 'VPO_FRACTIONAL_CARGO_REVIEW' });
+    const outcome = evaluate('TR-VPO-001', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
     assert.strictEqual(outcome.status, 'warn');
-    assert.strictEqual(outcome.reasonCode, 'TOLL_EXPECTATION_UNKNOWN');
+    assert.strictEqual(outcome.reasonCode, 'VPO_FRACTIONAL_CARGO_REVIEW');
   });
 });
 
 // ===================================================================================================
-// TR-VPO-003 — valor do VPO separado do frete
+// TR-VPO-002 — VPO antecipado antes do embarque (PR-D1, NOVO evaluator)
+// ===================================================================================================
+
+describe('TR-VPO-002 — VPO antecipado antes do embarque quando aplicável', () => {
+  it('sem vpoAllocation → warn VPO_APPLICABILITY_NOT_EVALUATED', () => {
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: null });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'VPO_APPLICABILITY_NOT_EVALUATED');
+  });
+
+  it('allocation not_applicable → not_applicable com o reason evidenciado', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'not_applicable', applicable: false, applicabilityReasonCode: 'VPO_NO_TOLL_ON_ROUTE' });
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'VPO_NO_TOLL_ON_ROUTE');
+  });
+
+  it('applicable e status acquired (amount>0 + provider) → pass', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: 'vpoprov_x', evidenceSource: 'provider' });
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('applicable e status acquired (amount>0 + evidência manual, sem providerId) → pass', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquired', amount: 350.5, providerId: null, evidenceSource: 'manual' });
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('applicable SEM acquired → block bruto VPO_NOT_ACQUIRED', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'applicable' });
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'VPO_NOT_ACQUIRED');
+  });
+
+  it('em trânsito (acquisition_requested) → block bruto VPO_NOT_ACQUIRED (ainda não confirmado)', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquisition_requested' });
+    const outcome = evaluate('TR-VPO-002', buildCompleteTacAggregate(), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'VPO_NOT_ACQUIRED');
+  });
+});
+
+// ===================================================================================================
+// TR-VPO-003 — valor do VPO separado do frete (PR-D1: evoluído para conferir se o valor bate com a
+// aquisição rastreada, além da separação estrutural do campo decomposto)
 // ===================================================================================================
 
 describe('TR-VPO-003 — valor do VPO separado do frete', () => {
@@ -514,9 +584,23 @@ describe('TR-VPO-003 — valor do VPO separado do frete', () => {
     assert.strictEqual(outcome.reasonCode, 'VPO_NOT_DECLARED');
   });
 
-  it('vpoAmount declarado e > 0 → pass', () => {
-    const outcome = evaluate('TR-VPO-003', buildCompleteTacAggregate({ operation: { vpoAmount: 250.5 } }));
+  it('vpoAmount preenchido e allocation acquired com amount IGUAL → pass (separação comprovada)', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquired', amount: 250.5, providerId: 'vpoprov_x' });
+    const outcome = evaluate('TR-VPO-003', buildCompleteTacAggregate({ operation: { vpoAmount: 250.5 } }), {}, '2026-08-13', { vpoAllocation: allocation });
     assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('vpoAmount preenchido e allocation acquired com amount DIVERGENTE → warn VPO_AMOUNT_MISMATCH', () => {
+    const allocation = buildVpoAllocationFixture({ status: 'acquired', amount: 300, providerId: 'vpoprov_x' });
+    const outcome = evaluate('TR-VPO-003', buildCompleteTacAggregate({ operation: { vpoAmount: 250.5 } }), {}, '2026-08-13', { vpoAllocation: allocation });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'VPO_AMOUNT_MISMATCH');
+  });
+
+  it('vpoAmount preenchido SEM aquisição confirmada na alocação → warn VPO_AMOUNT_MISMATCH', () => {
+    const outcome = evaluate('TR-VPO-003', buildCompleteTacAggregate({ operation: { vpoAmount: 250.5 } }), {}, '2026-08-13', { vpoAllocation: null });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'VPO_AMOUNT_MISMATCH');
   });
 });
 

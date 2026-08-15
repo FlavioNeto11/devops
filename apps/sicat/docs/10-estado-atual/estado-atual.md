@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C partes 1-2 (verificação RNTRC + ciclo do CIOT) entregues (PR-C1, PR-C2); Fase D (VPO) entregue com cadastro configurável de fornecedoras (PR-D1)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -788,6 +788,72 @@ casos dedicados para os 3 evaluators novos; `tests/api/transporte-conformidade.t
 o teste de fronteira temporal de TR-CIOT-001 (23/24-05-2026) passou de `NOT_APPLICABLE
 EVALUATOR_NOT_IMPLEMENTED` (comportamento antigo) para `WARN CIOT_NOT_REGISTERED` nos dois lados
 (comportamento correto agora — só a `ruleVersionLabel` resolvida muda na fronteira).
+
+O PR-D1 (Fase D, Onda 4) entregou o **VPO** (Vale-Pedágio Obrigatório, Lei 10.209/2001 + Res. ANTT
+6.024/2023): VPO NÃO é checkbox universal — `VpoApplicabilityEngine`
+([`vpo-applicability-engine.ts`](../../backend/src/lib/transport/vpo-applicability-engine.ts),
+módulo PURO) decide `applicable: true|false|null` a partir de `route.tollExpected`/`cargoRegime`/
+múltiplos embarcadores (>1 parte `shipper` OU carga fracionada → `applicable: null`
+`VPO_FRACTIONAL_CARGO_REVIEW`, exceção regulatória que exige análise humana mesmo com pedágio
+esperado — checado ANTES da regra "toll+lotação → applicable", precedência corrigida durante o
+próprio PR depois de um teste pego a matriz completa). Migration
+[`029`](../../backend/src/sql/029_transport_vpo.sql) cria `vpo_providers` (cadastro de referência
+CONFIGURÁVEL, sem tenancy), `vpo_allocations` (`version`+trigger, recurso MUTÁVEL — **UMA linha por
+OPERAÇÃO**, `unique(operation_id)`, ao contrário de `ciot_operations` que nasce uma linha por
+TENTATIVA — decisão deliberada, a spec do PR pede "cria/atualiza") e `vpo_events` (append-only).
+TODO desfecho `not_applicable` grava `applicability_reason_code` — constraint
+`chk_vpoalloc_not_applicable_reason` torna a exigência "até NOT_APPLICABLE deixa justificativa"
+estrutural, não convenção de código. Cadastro de fornecedoras carregado por loader MANUAL e
+ADITIVO (`scripts/load-vpo-providers.js`, `npm run load:vpo-providers`, a partir de
+`reference-data/vpo/fornecedoras-habilitadas.json`) — 16 fornecedoras REAIS pesquisadas em
+gov.br/antt em 14/08/2026 (Sem Parar, Repom, Roadcard, Target, Move Mais, PagBem, Bradesco,
+nstech, Veloe, ConectCar, Logcard, Strada Pay, NDD Tech, Extratta, AuthPay, Ailog Bank); o loader
+NUNCA toca `is_active` de uma linha existente — desativar é ato manual do operador. Aquisição em
+dois caminhos: `registrar-aquisicao` (síncrono, 200, evidência declarada pelo operador,
+`evidenceSource=manual`) e `adquirir` (assíncrono, 202, via
+[`vpo-gateway.ts`](../../backend/src/gateways/vpo-gateway.ts), só `mode: 'mock'` — nenhuma
+fornecedora integrada tecnicamente, [EXTERNAL DEPENDENCY] P6; `VPO_PROVIDER_MODE=real` recusa com
+`VPO_PROVIDER_NOT_CONFIGURED`); os DOIS caminhos atualizam `transport_operations.vpo_amount` via
+`updateOperationById` (CAS por `version`) **NUMA transação** (`withTransaction`) com a escrita de
+`vpo_allocations` — nunca somado a `freight_offered_amount`/`freight_contracted_amount`. Padrão
+**DL-102 replicado** (decisão do PR-D1, NÃO reuso do CIOT — bounded context próprio,
+[`vpo-correlation.ts`](../../backend/src/lib/transport/vpo-correlation.ts) +
+[`vpo-reconciler.ts`](../../backend/src/services/vpo-reconciler.ts); marcador determinístico a
+partir do `vpoAllocationId`, sem coluna própria — dispensável porque, ao contrário do CIOT, só
+existe UMA alocação por operação): `providerReference` nasce na RESPOSTA de `acquireVpo`; resposta
+perdida DEPOIS do dispatch vira `acquisition_unconfirmed` (NUNCA falha definitiva), resolvido pelo
+job `transporte.vpo.reconcile` (enfileirado pelo side-effect terminal
+`applyTransporteVpoTerminalFailureSideEffect` e por uma varredura periódica própria,
+`enqueueTransporteVpoReconcileSweepIfNeeded`, molde EXATO da varredura do CIOT). Mock do gateway
+calcula o valor do VPO a partir da distância da rota (tarifa de SANDBOX, nunca real) — sem rota/
+distância válida, rejeita com `VPO_PROVIDER_REJECTED_TEST` (não-retryable; side-effect terminal
+volta a alocação para `applicable`, liberando novo `adquirir`/`registrar-aquisicao` sem esperar
+reconciliação — diferente do CIOT, que usa um status `rejected` dedicado porque preserva histórico
+de MÚLTIPLAS tentativas). `lib/retry.ts` ganhou 2 operações (`transporte.vpo.acquire` prioridade 4,
+`.reconcile` prioridade 3) e 4 códigos de erro novos (`VPO_PROVIDER_REJECTED_TEST`/
+`VPO_PROVIDER_NOT_CONFIGURED`/`TRANSPORTE_VPO_ALREADY_TERMINAL` não-retryable;
+`VPO_PROVIDER_LOST_RESPONSE_TEST`/`VPO_RECONCILE_QUERY_FAILED` retryable). Evaluators em
+`rule-evaluators.ts`: **TR-VPO-001** EVOLUÍDO (usava só `route.tollExpected`; agora usa
+`ctx.vpoAllocation` — `not_applicable` com reason → `pass` com a justificativa evidenciada;
+`applicable`/`acquired` → `pass vpoRequired=true`; sem avaliação → `warn
+VPO_APPLICABILITY_NOT_EVALUATED`; indeterminado → `warn`); **TR-VPO-002** NOVO (saiu de
+`RULES_WITHOUT_EVALUATOR_YET` — `applicable` sem `acquired` → `block` bruto `VPO_NOT_ACQUIRED`,
+clamp mantém `warn` com o seed `blocking=false`; `acquired` com `amount>0`+provider/evidência
+manual → `pass`); **TR-VPO-003** EVOLUÍDO (além da separação ESTRUTURAL do campo decomposto, Fase
+A, agora confere se `vpoAmount` bate com o valor efetivamente adquirido na alocação — divergência →
+`warn VPO_AMOUNT_MISMATCH`). `ctx.vpoAllocation` carregado por `transport-compliance-service.ts`
+via `vpo-repo.findVpoAllocationByOperationId`, mesmo molde de `ctx.ciotOperation`. Contrato: tag
+nova `Transporte - Vale-Pedagio`, 5 endpoints (2 síncronos 200, 1 comando 202, 1 GET, 1 read-only
+de fornecedoras); `commandEndpoints` de `scripts/validate-openapi.js` ganhou `.../vpo/adquirir`.
+Cobertura: `tests/unit/vpo-applicability-engine.test.js` (matriz de aplicabilidade),
+`tests/unit/vpo-gateway.test.js` (mock determinístico, idempotência, rejeição, resposta perdida,
+mode `real`), `tests/worker/transporte-vpo.test.js` (skip-if-no-DB: acquire sucesso com auditoria,
+rejeição volta a `applicable` sem tocar a operação, resposta perdida → `acquisition_unconfirmed` →
+reconcile encontra e completa, reconcile not-found → volta a `applicable`),
+`tests/api/transporte-vpo.test.js` (409 sem allocation `applicable`, not_applicable com reason
+obrigatório, registrar-aquisicao manual atualiza `vpoAmount` sem tocar `freightOfferedAmount`,
+adquirir 202 + dedupe via Idempotency-Key, fornecedoras lista as 16 reais, tenancy, 401).
+`tests/regulatory/compliance-gates.test.js` ganhou casos dedicados para os 3 evaluators.
 
 ## 4. Riscos e limites conhecidos
 

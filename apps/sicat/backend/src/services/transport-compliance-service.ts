@@ -36,7 +36,8 @@ import {
   type CarrierRntrcVerificationContext,
   type CiotOperationEvaluationContext,
   type ComplianceCheckStatus,
-  type FreightFloorCalculationContext
+  type FreightFloorCalculationContext,
+  type VpoAllocationEvaluationContext
 } from '../lib/transport/rule-evaluators.js';
 import type { TransportOperationAggregate } from '../lib/transport/transport-operation-types.js';
 import { findLatestFreightFloorCalculationForOperation } from './freight-floor-service.js';
@@ -46,6 +47,8 @@ import { findVehiclePartyLinkType } from '../repositories/transport-vehicle-repo
 import type { RntrcVerification } from '../lib/transport/rntrc-verification-types.js';
 import { findLatestCiotOperationForOperation } from '../repositories/ciot-repo.js';
 import type { CiotOperation } from '../lib/transport/ciot-types.js';
+import { findVpoAllocationByOperationId } from '../repositories/vpo-repo.js';
+import type { VpoAllocation } from '../lib/transport/vpo-types.js';
 import {
   getLatestEvaluationByGate,
   getEvaluationById as getEvaluationRecordById,
@@ -198,6 +201,19 @@ function toCiotOperationEvaluationContext(record: CiotOperation | null): CiotOpe
   };
 }
 
+/** `VpoAllocation` (repo) → recorte que `rule-evaluators.ts` conhece (PR-D1, TR-VPO-001/002/003). */
+function toVpoAllocationEvaluationContext(record: VpoAllocation | null): VpoAllocationEvaluationContext | null {
+  if (!record) return null;
+  return {
+    status: record.status,
+    applicable: record.applicable,
+    applicabilityReasonCode: record.applicabilityReasonCode,
+    amount: record.amount,
+    providerId: record.providerId,
+    evidenceSource: record.evidenceSource
+  };
+}
+
 async function buildCheckForRule(
   rule: RegulatoryRuleWithVersion,
   aggregate: TransportOperationAggregate,
@@ -205,7 +221,8 @@ async function buildCheckForRule(
   floorCalculation: FreightFloorCalculationContext | null,
   carrierRntrcVerification: CarrierRntrcVerificationContext | null,
   carrierTractionVehicleLinkType: string | null,
-  ciotOperation: CiotOperationEvaluationContext | null
+  ciotOperation: CiotOperationEvaluationContext | null,
+  vpoAllocation: VpoAllocationEvaluationContext | null
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -256,7 +273,8 @@ async function buildCheckForRule(
     floorCalculation,
     carrierRntrcVerification,
     carrierTractionVehicleLinkType,
-    ciotOperation
+    ciotOperation,
+    vpoAllocation
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -351,6 +369,11 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
   const ciotOperationRecord = await findLatestCiotOperationForOperation(input.operationId, input.integrationAccountId);
   const ciotOperation = toCiotOperationEvaluationContext(ciotOperationRecord);
 
+  // Carregado UMA vez por avaliação (não por regra) — só TR-VPO-001/002/003 consomem, mesmo
+  // racional de `ciotOperation` acima (PR-D1).
+  const vpoAllocationRecord = await findVpoAllocationByOperationId(input.operationId, input.integrationAccountId);
+  const vpoAllocation = toVpoAllocationEvaluationContext(vpoAllocationRecord);
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
     checkBuilds.push(await buildCheckForRule(
@@ -360,7 +383,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       floorCalculation,
       carrierRntrcVerification,
       carrierTractionVehicleLinkType,
-      ciotOperation
+      ciotOperation,
+      vpoAllocation
     ));
   }
 

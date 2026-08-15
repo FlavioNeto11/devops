@@ -72,6 +72,13 @@ import {
   rectifyCiot,
   requestCiot
 } from '../services/transport-ciot-service.js';
+import {
+  avaliarAplicabilidadeVpo,
+  getVpoForOperationService,
+  listVpoProvidersService,
+  registrarAquisicaoVpoManual,
+  solicitarAquisicaoVpo
+} from '../services/transport-vpo-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type RequestWithContext = express.Request & {
@@ -383,6 +390,57 @@ export function registerTransporteRoutes(router: express.Router): void {
       String(req.params.operationId || ''),
       (req.query || {}) as LooseRecord
     );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // VPO — Vale-Pedágio Obrigatório (PR-D1, DL-102 aplicado ao domínio VPO)
+  // ===========================================================================================
+
+  // SÍNCRONO (200) — roda VpoApplicabilityEngine e faz upsert na alocação (recurso mutável, uma
+  // linha por operação). SEM tocar frete.
+  router.post('/v1/transporte/operacoes/:operationId/vpo/avaliar-aplicabilidade', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await avaliarAplicabilidadeVpo(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // SÍNCRONO (200) — aquisição MANUAL (evidência declarada); exige allocation `applicable`.
+  router.post('/v1/transporte/operacoes/:operationId/vpo/registrar-aquisicao', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await registrarAquisicaoVpoManual(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // ASSÍNCRONO (202) — aquisição via provedor abstraído; enfileira transporte.vpo.acquire.
+  router.post('/v1/transporte/operacoes/:operationId/vpo/adquirir', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await solicitarAquisicaoVpo(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Allocation atual + eventos paginados.
+  router.get('/v1/transporte/operacoes/:operationId/vpo', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getVpoForOperationService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Cadastro CONFIGURÁVEL de fornecedoras habilitadas (read-only) — carregado via `npm run load:vpo-providers`.
+  router.get('/v1/transporte/vpo/fornecedoras', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
+    const response = await listVpoProvidersService();
     res.json(response);
   }));
 

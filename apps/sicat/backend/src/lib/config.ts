@@ -120,7 +120,8 @@ type ConfigKey =
   | 'rntrcGatewayTimeoutMs'
   | 'rntrcGatewayCsvDownloadTimeoutMs'
   | 'rntrcGatewayCsvMaxBytes'
-  | 'ciotProviderMode';
+  | 'ciotProviderMode'
+  | 'vpoProviderMode';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -194,6 +195,21 @@ function resolveCiotProviderMode(): CiotProviderMode {
   const raw = String(process.env.CIOT_PROVIDER_MODE || 'mock').trim().toLowerCase();
   if (raw === 'mock' || raw === 'real') return raw;
   throw new Error(`CIOT_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, real.`);
+}
+
+export type VpoProviderMode = 'mock' | 'real';
+
+/**
+ * Modo do provedor de VPO (PR-D1). `mock` (default) é o único modo com implementação — sandbox
+ * determinístico e stateful em memória (`gateways/vpo-gateway.ts`), mesmo molde de
+ * `resolveCiotProviderMode` (réplica deliberada, NÃO reuso — bounded context próprio). `real` é
+ * aceito aqui (não lança no boot) mas o gateway recusa criar a instância com
+ * `VPO_PROVIDER_NOT_CONFIGURED` — nenhuma fornecedora de VPO integrada ainda ([EXTERNAL DEPENDENCY] P6).
+ */
+function resolveVpoProviderMode(): VpoProviderMode {
+  const raw = String(process.env.VPO_PROVIDER_MODE || 'mock').trim().toLowerCase();
+  if (raw === 'mock' || raw === 'real') return raw;
+  throw new Error(`VPO_PROVIDER_MODE inválido: ${raw}. Valores aceitos: mock, real.`);
 }
 
 export const config = {
@@ -465,5 +481,12 @@ export const config = {
    * (pendência [EXTERNAL DEPENDENCY] P5). Ver `gateways/ciot-provider-gateway.ts`. */
   get ciotProviderMode(): CiotProviderMode {
     return getConfigValue<CiotProviderMode>('ciotProviderMode', resolveCiotProviderMode());
+  },
+
+  /* ── Provedor de VPO (PR-D1) ──────────────────────────────────────────────────────────────────
+   * `mock` é o único modo implementado — nenhuma fornecedora de VPO integrada ainda (pendência
+   * [EXTERNAL DEPENDENCY] P6). Ver `gateways/vpo-gateway.ts`. */
+  get vpoProviderMode(): VpoProviderMode {
+    return getConfigValue<VpoProviderMode>('vpoProviderMode', resolveVpoProviderMode());
   }
 };
