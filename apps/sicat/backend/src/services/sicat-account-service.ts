@@ -207,6 +207,14 @@ function toAccountCard(account: SicatAccountEntity | null | undefined) {
   };
 }
 
+// ⚠️ NÃO "corrija" o prefixo aparentemente duplicado sem migrar os dados.
+// `sicat_cetesb_accounts.id` JÁ nasce com o prefixo (`acc_046302…`), então este concat produz
+// `acc_acc_046302…` — que é exatamente o valor gravado em `integration_accounts.id` e referenciado
+// por `integration_account_id` em 12+ tabelas (599 manifestos reais em 2026-07). Os JOINs em
+// `operations-repo.ts` usam a mesma regra (`'acc_' || a.id`), então o sistema é consistente.
+// Remover o `acc_` daqui SEM uma migração que renomeie a PK e todas as FKs quebra o vínculo dos
+// manifestos com a conta CETESB. A limpeza cosmética dos ids está registrada como decisão pendente
+// no Plano Mestre de UX (§14.1.3, item 1.8 da auditoria externa).
 function buildIntegrationAccountId(account: Pick<SicatAccountEntity, 'id'>) {
   return `acc_${account.id}`;
 }
@@ -453,6 +461,41 @@ export async function removeSicatCetesbAccount(sicatUser: SicatUserInput, accoun
   return {
     removed: true,
     accountId
+  };
+}
+
+/**
+ * Contexto operacional CONFIÁVEL de um usuário: a conta CETESB ativa e a sessão CETESB corrente,
+ * lidas do banco a partir do `userId` já autenticado.
+ *
+ * Existe para que a camada conversacional pare de confiar em `context.integrationAccountId` /
+ * `context.sessionContextId` vindos do corpo da requisição (onde qualquer valor podia ser declarado,
+ * inclusive de outro usuário). Mantém a regra do prefixo `acc_` centralizada em
+ * `buildIntegrationAccountId` — ver o aviso acima daquela função.
+ *
+ * Devolve `null` quando o usuário não tem conta CETESB ativa (estado legítimo: logou no SICAT mas
+ * ainda não escolheu a conta).
+ */
+export async function resolveActiveAccountContext(userId: string): Promise<{
+  accountId: string;
+  accountType: string;
+  integrationAccountId: string;
+  sessionContextId: string | null;
+} | null> {
+  const accounts = (await listByUserId(userId)) as SicatAccountEntity[];
+  const active = accounts.find((item) => item.isActive) || null;
+  if (!active) return null;
+
+  const integrationAccountId = buildIntegrationAccountId(active);
+  const sessionContext = await findLatestActiveSessionContextByIntegrationAccount(
+    integrationAccountId
+  ) as SessionContextSummary | undefined;
+
+  return {
+    accountId: active.id,
+    accountType: active.accountType || 'unknown',
+    integrationAccountId,
+    sessionContextId: sessionContext?.id || null
   };
 }
 

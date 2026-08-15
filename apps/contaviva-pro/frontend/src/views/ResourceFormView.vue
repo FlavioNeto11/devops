@@ -5,7 +5,7 @@
         <UiFormSection title="Dados do registro" :columns="1">
           <UiFormField label="Título" :required="true" :error="f.errors.title">
             <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" :value="f.values.title" @input="f.setField('title', $event.target.value)" placeholder="Ex.: Meu registro" />
+              <UiInput :id="id" :described-by="describedBy" :error="!!f.errors.title" :model-value="f.values.title" placeholder="Ex.: Meu registro" @update:model-value="f.setField('title', $event)" />
             </template>
           </UiFormField>
         </UiFormSection>
@@ -20,7 +20,7 @@
 <script setup>
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { UiPageLayout, UiCard, UiFormSection, UiFormField, UiButton, useForm, useToast } from '../ui/index.js';
+import { UiPageLayout, UiCard, UiFormSection, UiFormField, UiInput, UiButton, useForm, useToast } from '../ui/index.js';
 import { validators } from '../ui/index.js';
 import { records } from '../api.js';
 const props = defineProps({ id: { type: String, default: null } });

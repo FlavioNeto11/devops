@@ -100,12 +100,15 @@ export const AI = {
   // truncado (encerrou sem `done`/`error` => erro, nunca falso-sucesso). `signal` cancela.
   async stream2(path, body, { onEvent, signal } = {}) {
     const tok = this.getToken();
+    // body pode ser JSON (objeto) OU FormData (multipart, quando há ARQUIVOS junto — IA multimodal
+    // sobre SSE). Com FormData NÃO definimos Content-Type: o browser põe o boundary do multipart.
+    const isForm = (typeof FormData !== 'undefined') && body instanceof FormData;
     let res;
     try {
       res = await fetch(this.BASE + path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
-        body: JSON.stringify(body || {}),
+        headers: { Accept: 'text/event-stream', ...(isForm ? {} : { 'Content-Type': 'application/json' }), ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
+        body: isForm ? body : JSON.stringify(body || {}),
         signal,
       });
     } catch (e) { throw new Error('Falha de rede: ' + (e && e.message ? e.message : e)); }

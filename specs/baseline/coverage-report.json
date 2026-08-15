@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 381,
-    "without_links": 305,
+    "total": 400,
+    "without_links": 306,
     "without_allocation": 325,
     "without_source_paths": 0,
-    "without_evidence": 381,
+    "without_evidence": 400,
     "without_verification_method": 363,
-    "without_refinement": 352,
+    "without_refinement": 371,
     "scopes": 21,
     "coverage_pct": {
-      "links": 19.9,
-      "allocation": 14.7,
+      "links": 23.5,
+      "allocation": 18.8,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 4.7,
-      "refinement": 7.6
+      "verification_method": 9.3,
+      "refinement": 7.3
     }
   },
   "by_scope": {
@@ -318,19 +318,19 @@
       }
     },
     "sicat": {
-      "total": 24,
-      "without_links": 4,
+      "total": 43,
+      "without_links": 5,
       "without_allocation": 15,
       "without_source_paths": 0,
-      "without_evidence": 24,
+      "without_evidence": 43,
       "without_verification_method": 24,
-      "without_refinement": 24,
+      "without_refinement": 43,
       "coverage_pct": {
-        "links": 83.3,
-        "allocation": 37.5,
+        "links": 88.4,
+        "allocation": 65.1,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0,
+        "verification_method": 44.2,
         "refinement": 0
       }
     },

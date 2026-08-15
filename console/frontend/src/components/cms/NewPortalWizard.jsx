@@ -264,6 +264,12 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
     cancelled.current = true;
     stopAiTimer();
     if (abortRef.current) abortRef.current.abort();
+    // O projeto pode já ter sido criado na 1ª etapa: avisa que ele permaneceu
+    // (como rascunho/pendente) em vez de sumir silenciosamente — o usuário o
+    // encontra e retoma/exclui na lista de Conteúdo.
+    if (createdRef.current?.project) {
+      toast.info(`O portal "${name.trim()}" já havia sido criado e permanece como rascunho — você pode retomá-lo ou excluí-lo em Conteúdo.`);
+    }
     onClose();
   };
 

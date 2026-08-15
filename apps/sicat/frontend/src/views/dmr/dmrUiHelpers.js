@@ -3,6 +3,8 @@
  * Detecção de pendência funcional do gateway DMR (Caminho B).
  */
 
+import { formatDateBr } from '../../utils/date-format.js';
+
 export const DMR_GATEWAY_PENDING_CODE = 'DMR_GATEWAY_PENDING_HAR';
 
 export const DMR_ROLE_OPTIONS = Object.freeze([
@@ -60,12 +62,16 @@ export function describeDmrError(error, fallback = 'Erro inesperado.') {
   return error.detail || error.title || error.message || fallback;
 }
 
+// Período em pt-BR (dd/mm/aaaa) — o ISO cru só aparecia aqui, destoando do
+// resto da UI, que sempre mostra data no formato brasileiro.
 export function formatDmrPeriodLabel(dmr) {
   if (!dmr) return '';
   if (dmr.periodLabel) return String(dmr.periodLabel);
   const start = String(dmr.periodStart || '').slice(0, 10);
   const end = String(dmr.periodEnd || '').slice(0, 10);
-  return start && end ? `${start} → ${end}` : start || end || '';
+  const startBr = start ? formatDateBr(start) : '';
+  const endBr = end ? formatDateBr(end) : '';
+  return startBr && endBr ? `${startBr} → ${endBr}` : startBr || endBr || '';
 }
 
 export function roleLabel(role) {

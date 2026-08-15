@@ -23,7 +23,7 @@
   >
     <template #actions>
       <UiButton variant="ghost" :loading="loading" @click="reload">Atualizar</UiButton>
-      <UiButton variant="subtle" to="/transactions">Ver transações</UiButton>
+      <UiButton variant="subtle" to="/payment-transactions">Ver transações</UiButton>
     </template>
 
     <!-- KPIs — sempre visíveis; placeholders enquanto carrega -->
@@ -150,7 +150,7 @@
       <template #empty-action>
         <div class="au-empty-actions">
           <UiButton v-if="hasActiveFilters" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-          <UiButton variant="primary" to="/transactions">Ver transações</UiButton>
+          <UiButton variant="primary" to="/payment-transactions">Ver transações</UiButton>
         </div>
       </template>
     </UiDataTable>
@@ -471,11 +471,11 @@ const ENTITY_ROUTES = {
   professionals: '/professionals/',
   'evolution-note': '/evolution-notes/',
   evolution_note: '/evolution-notes/',
-  report: '/reports/',
-  reports: '/reports/',
-  'patient-report': '/reports/',
-  'payment-transaction': '/transactions/',
-  transaction: '/transactions/',
+  report: '/patient-reports/',
+  reports: '/patient-reports/',
+  'patient-report': '/patient-reports/',
+  'payment-transaction': '/payment-transactions/',
+  transaction: '/payment-transactions/',
 };
 const detailLink = computed(() => {
   const s = selected.value;

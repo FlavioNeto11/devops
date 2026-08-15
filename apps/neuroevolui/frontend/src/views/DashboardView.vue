@@ -21,11 +21,11 @@
     subtitle="Receita do período, próximas consultas, pacientes ativos e status das filas."
     width="wide"
     :error="fatalError"
-    @retry="loadAll"
+    @retry="loadAll(true)"
   >
     <!-- Ações do topo -->
     <template #actions>
-      <UiButton variant="subtle" :loading="anyLoading" @click="loadAll">Atualizar</UiButton>
+      <UiButton variant="subtle" :loading="anyLoading" @click="loadAll(true)">Atualizar</UiButton>
       <UiButton to="/consultations/new">Novo agendamento</UiButton>
     </template>
 
@@ -48,7 +48,7 @@
         :hint="kpiRevenueHint"
         :loading="revenue.loading"
         clickable
-        @click="go('/revenue')"
+        @click="go('/financial')"
       />
       <UiMetricCard
         label="Pacientes ativos"
@@ -75,7 +75,7 @@
         :hint="kpiJobsHint"
         :loading="asyncJobs.loading"
         clickable
-        @click="go('/jobs')"
+        @click="go('/async-jobs')"
       />
     </section>
 
@@ -85,7 +85,7 @@
       <!-- Gráfico de receita por período -->
       <UiCard title="Receita por período" :subtitle="revenueChartSubtitle">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/revenue">Ver detalhes</UiButton>
+          <UiButton variant="ghost" size="sm" to="/financial">Ver detalhes</UiButton>
         </template>
 
         <UiErrorState
@@ -109,7 +109,7 @@
               icon="chart"
             >
               <template #action>
-                <UiButton variant="ghost" size="sm" to="/transactions">Ver transações</UiButton>
+                <UiButton variant="ghost" size="sm" to="/payment-transactions">Ver transações</UiButton>
               </template>
             </UiEmptyState>
           </template>
@@ -155,29 +155,28 @@
           :retryable="true"
           @retry="loadConsultations"
         />
-        <div v-else class="dash-calendar" role="grid" aria-label="Calendário semanal de consultas">
-          <!-- Cabeçalho dos dias da semana -->
-          <div class="dash-cal-header" role="row">
+        <div v-else class="dash-calendar">
+          <!-- Cabeçalho visual dos dias da semana (decorativo: a data completa
+               é anunciada no aria-label de cada item da lista abaixo) -->
+          <div class="dash-cal-header" aria-hidden="true">
             <div
               v-for="day in weekDays"
               :key="day.isoDate"
               class="dash-cal-day-head"
               :data-today="day.isToday ? 'true' : null"
-              role="columnheader"
-              :aria-label="day.fullLabel"
             >
               <span class="dash-cal-wday">{{ day.weekLabel }}</span>
               <span class="dash-cal-date">{{ day.dateLabel }}</span>
             </div>
           </div>
           <!-- Eventos por dia -->
-          <div class="dash-cal-body" role="row">
+          <div class="dash-cal-body" role="list" aria-label="Calendário semanal de consultas">
             <div
               v-for="day in weekDays"
               :key="day.isoDate + '-body'"
               class="dash-cal-cell"
               :data-today="day.isToday ? 'true' : null"
-              role="gridcell"
+              role="listitem"
               :aria-label="day.fullLabel + ': ' + (day.consultations.length || 'nenhuma') + ' consulta(s)'"
             >
               <div
@@ -191,10 +190,11 @@
                   :key="c.id"
                   class="dash-cal-event"
                   :data-status="c.status || 'scheduled'"
-                  @click="go('/consultations')"
+                  :aria-label="fmtTime(c.scheduled_at) + ' — ' + eventPatientLabel(c)"
+                  @click="go('/consultations/' + c.id)"
                 >
                   <span class="dash-cal-event-time">{{ fmtTime(c.scheduled_at) }}</span>
-                  <span class="dash-cal-event-label">{{ c.patient_id || 'Paciente' }}</span>
+                  <span class="dash-cal-event-label">{{ eventPatientLabel(c) }}</span>
                 </button>
                 <span
                   v-if="day.consultations.length > 3"
@@ -257,7 +257,7 @@
       <!-- Status das filas assíncronas -->
       <UiCard title="Filas assíncronas" subtitle="Status dos jobs em processamento (BullMQ).">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/jobs">Ver monitor</UiButton>
+          <UiButton variant="ghost" size="sm" to="/async-jobs">Ver monitor</UiButton>
         </template>
 
         <UiErrorState
@@ -512,12 +512,26 @@ const weekDays = computed(() => {
   return days;
 });
 const calendarSubtitle = computed(() => {
+  // Recorte fixo: este card mostra sempre a SEMANA ATUAL, independentemente do
+  // filtro de período que rege os KPIs — deixamos isso explícito no rótulo.
+  if (consultations.loading) return 'Semana atual · carregando…';
   const today = weekDays.value.find((d) => d.isToday);
-  if (!today) return 'Semana atual';
-  const n = today.consultations.length;
-  if (consultations.loading) return 'Carregando…';
-  return n ? `${n} consulta(s) hoje` : 'Nenhuma consulta hoje';
+  const n = today ? today.consultations.length : 0;
+  return `Semana atual · ${n ? `${n} consulta(s) hoje` : 'nenhuma consulta hoje'}`;
 });
+
+// Catálogo id→paciente (a partir dos pacientes já carregados no painel) para
+// rotular os eventos do calendário com o nome em vez do ID cru.
+const patientsById = computed(() => {
+  const map = {};
+  for (const p of patients.rows) if (p && p.id != null) map[p.id] = p;
+  return map;
+});
+function eventPatientLabel(c) {
+  if (c && c.patient_name) return c.patient_name;
+  const p = c && c.patient_id != null ? patientsById.value[c.patient_id] : null;
+  return (p && (p.full_name || p.name)) || 'Paciente';
+}
 
 // ── Derivados: pacientes ──────────────────────────────────────────────────────
 const patientsDenied = computed(() => isDenied(patients.error));
@@ -535,7 +549,7 @@ const kpiPatientsHint = computed(() => {
 const recentPatients = computed(() => patients.rows.slice(0, 8));
 const patientsColumns = [
   { key: 'name', label: 'Paciente', sortable: false },
-  { key: 'cpf', label: 'CPF' },
+  { key: 'document', label: 'CPF' },
   { key: 'created_at', label: 'Cadastro', format: 'date' },
   { key: 'status', label: 'Situação', format: 'badge' },
 ];
@@ -685,7 +699,10 @@ async function loadProfessionals() {
   }
 }
 
-async function loadAll() {
+// `manual` distingue o refresh acionado pelo usuário (botão Atualizar / filtros)
+// do carregamento inicial no mount. Só o refresh manual emite o toast de status —
+// o carregamento inicial é silencioso (erros por bloco já aparecem inline).
+async function loadAll(manual = false) {
   await Promise.allSettled([
     loadRevenue(),
     loadPatients(),
@@ -693,6 +710,7 @@ async function loadAll() {
     loadAsyncJobs(),
   ]);
   lastUpdated.value = new Date().toISOString();
+  if (!manual) return;
   const blockErrors = [revenue.error, patients.error, consultations.error, asyncJobs.error].filter(Boolean).length;
   if (blockErrors === 0) {
     toast.success('Painel atualizado');
@@ -704,12 +722,12 @@ async function loadAll() {
 }
 
 function applyFilters() {
-  loadAll();
+  loadAll(true);
 }
 
 onMounted(async () => {
   await loadProfessionals();
-  await loadAll();
+  await loadAll(false);
 });
 </script>
 

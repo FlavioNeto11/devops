@@ -1,6 +1,6 @@
 <script setup>
 import JSZip from 'jszip';
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ConfirmDialog from '../components/sicat/SicatConfirmDialog.vue';
 import SicatDateInput from '../components/shared/inputs/SicatDateInput.vue';
@@ -11,8 +11,14 @@ import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, listManifests as listManifestsApi, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useManifestsStore } from '../stores/manifests.js';
-import { brDateToIsoDate, getTodayBr, isoDateToBrDate, normalizeBrDateInput } from '../utils/date-format.js';
+import { brDateToIsoDate, getTodayBr, isoDateToBrDate, isoDaysAgo, normalizeBrDateInput } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
+import { pluralize } from '../lib/plural-pt.js';
+import { createFilterApplicationTracker, hasPendingFilterChanges, resolveSelectionState } from '../lib/filter-application-state.js';
+import { buildManifestUrlQuery, isSameManifestUrlQuery, parseManifestUrlFilters } from '../lib/manifest-url-filters.js';
+import { buildManifestSelectionLabel } from '../lib/manifest-selection-label.js';
+import { resolvePartnerSuggestionMenu } from '../lib/partner-suggestion-menu.js';
 import {
   buildBatchPrintZipFileName,
   buildFriendlyCancelFailureMessage,
@@ -28,6 +34,8 @@ import {
   describeCdfManifestRestriction,
   describePrintManifestRestriction,
   describeReceiveManifestRestriction,
+  describeReplicateManifestRestriction,
+  describeSubmitManifestRestriction,
   formatDate,
   formatDateTime,
   formatManifestBatchLabel,
@@ -35,11 +43,14 @@ import {
   formatPartnerLabel,
   isCancelledStatus,
   isErrorManifest,
+  isSubmitUnconfirmedManifest,
   normalizedStatusValue,
   parsePrintUrl,
   resolveManifestIdentifier,
+  resolveManifestRawStatus,
   resolveManifestSnapshot,
   resolveManifestStatusLabel,
+  resolveSituationFilterLabel,
   sanitizeDownloadFileName,
   sleep,
   toIntegerOrNull,
@@ -78,11 +89,14 @@ const {
   syncWithActiveOperationalContext
 } = store;
 
-const pageDescription = computed(() => {
-  const start = items.value.length ? (Number(page.value) - 1) * Number(filters.pageSize) + 1 : 0;
-  const end = items.value.length ? start + items.value.length - 1 : 0;
-  return { start, end };
-});
+// Contador ÚNICO do app: "Mostrando 1–20 de 38 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: page.value,
+  pageSize: filters.pageSize,
+  itemsOnPage: items.value.length,
+  total: totalItems.value,
+  singular: 'manifesto'
+}));
 
 const canGoPreviousPage = computed(() => Number(page.value) > 1 && !loadingList.value);
 const canGoNextPage = computed(() => {
@@ -224,6 +238,20 @@ const selectedPrintableManifests = computed(() => items.value
   .filter((manifest) => canPrintManifest(manifest)));
 const activeAccount = computed(() => authStore.activeAccount.value || null);
 const isReceiverOperationalMode = computed(() => String(activeAccount.value?.accountType || '').toLowerCase() === 'receiver');
+
+// Empty state por PERSONA: o Destinador e o Transportador não CRIAM manifestos
+// (recebem/transportam), então o texto do Gerador ("você ainda não criou nenhum")
+// mentia para eles. O filtro fica ACIMA da tabela — o texto diz "acima".
+const emptyStateHint = computed(() => {
+  const accountType = String(activeAccount.value?.accountType || '').toLowerCase();
+  if (accountType === 'receiver') {
+    return 'Pode ser por causa dos filtros acima, ou nenhum manifesto foi enviado para você neste período.';
+  }
+  if (accountType === 'carrier') {
+    return 'Pode ser por causa dos filtros acima, ou nenhum manifesto foi atribuído ao seu transporte neste período.';
+  }
+  return 'Pode ser por causa dos filtros acima, ou você ainda não criou nenhum.';
+});
 const receiverOperationalSelection = computed(() => items.value
   .filter((manifest) => selectedManifestIds.value.includes(resolveManifestIdentifier(manifest))));
 const selectedReceivableManifests = computed(() => receiverOperationalSelection.value.filter((manifest) => canReceiveOperationalManifest(manifest)));
@@ -283,17 +311,167 @@ const selectedResponsibleCode = computed({
   }
 });
 
-// Presets de período: um clique em vez de digitar duas datas.
-const activeDatePresetDays = computed(() => {
-  const fromIso = brDateToIsoDate(filters.dateFrom);
-  const toIso = brDateToIsoDate(filters.dateTo);
-  const todayIso = new Date().toISOString().slice(0, 10);
-  if (!fromIso || !toIso || toIso !== todayIso) {
-    return null;
+/*
+ * CHIP QUE ACENDE ANTES DE VALER.
+ *
+ * Os chips pintavam de primário no clique, mas o clique só ENFILEIRA a busca:
+ * enquanto ela não volta — e ela pode nem sair, se a validação de datas barrar —
+ * a lista continua sendo a de antes. Some-se a isso os campos de texto do mesmo
+ * painel, que só entram em vigor no "Aplicar filtros": o painel inteiro afirmava
+ * um estado que não estava valendo.
+ *
+ * Mantemos o modelo em LOTE (o botão explícito) porque as datas se beneficiam
+ * dele — o que muda é a honestidade do visual: `appliedFilters` guarda o que a
+ * última busca CONCLUÍDA levou, e cada chip se declara "aplicado" (preenchido,
+ * com ✓) ou "selecionado, ainda não aplicado" (contorno, com relógio). O botão
+ * "Aplicar filtros" avisa quando há mudança pendente; Enter dentro do painel
+ * aplica (ver `applyFiltersFromField`).
+ */
+const OBSERVED_FILTER_KEYS = Object.freeze([
+  'status',
+  'externalStatus',
+  'manifestNumber',
+  'carrierQuery',
+  'receiverQuery',
+  'dateFrom',
+  'dateTo',
+  'pageSize'
+]);
+
+/*
+ * CORRIDA ENTRE CLIQUES.
+ *
+ * Clicar "Recebidos" e, 250 ms depois, "Cancelados" deixava a tela travada: a
+ * tabela continuava na situação anterior, o chip novo ficava com o relógio de
+ * "pendente" para sempre e o botão só desatolava sozinho. Duas causas somadas:
+ *
+ *  1. o reconciliador só enxergava a transição de `loadingList` — a segunda
+ *     busca, disparada com a primeira ainda em voo, nunca era fotografada
+ *     (ver o cabeçalho de `createFilterApplicationTracker`);
+ *  2. duas chamadas concorrentes de `search()` escrevem `items` na ordem em que
+ *     as respostas chegam — a resposta ANTIGA podia ser a última a escrever.
+ *
+ * A saída é sequenciar: uma busca por vez, com re-execução no fim quando algo
+ * mudou durante o voo (os cliques intermediários colapsam numa só busca final,
+ * sempre com os filtros mais recentes), e um token por requisição para que só a
+ * resposta da mais recente promova o snapshot para "aplicado".
+ */
+const filterTracker = createFilterApplicationTracker(OBSERVED_FILTER_KEYS);
+const appliedFilters = ref(null);
+// Teto contra realimentação (algo que dispare busca a cada resposta). Se ele for
+// atingido a tela NÃO mente: o chip fica "pendente" e o aviso de filtro alterado
+// continua na tela até o operador aplicar de novo.
+const MAX_SEARCH_RERUNS = 4;
+let searchRunner = null;
+let rerunRequested = false;
+
+/*
+ * A URL É FONTE DE VERDADE DOS FILTROS (ver `lib/manifest-url-filters.js`).
+ *
+ * Antes ela não participava do estado: abrir a tela com `?externalStatus=...`
+ * mostrava o chip em "Todos" e parâmetros injetados (`groupId`, `search`, ...)
+ * sobreviviam a "Limpar filtros" e a novas buscas. Aqui a URL é reescrita na
+ * forma CANÔNICA a cada busca aplicada — só chave conhecida, só valor válido —
+ * e por isso a tela vira linkável: o endereço descreve exatamente a lista.
+ */
+function syncFiltersToUrl() {
+  // Busca que só terminou depois de o operador abrir um manifesto não pode
+  // arrastar a navegação de volta para a lista.
+  if (route.path !== '/manifestos') {
+    return;
   }
-  const span = Math.round((new Date(`${toIso}T12:00:00`) - new Date(`${fromIso}T12:00:00`)) / 86400000) + 1;
-  return [1, 7, 30].includes(span) ? span : null;
-});
+
+  const nextQuery = buildManifestUrlQuery(filters);
+  if (isSameManifestUrlQuery(route.query, nextQuery)) {
+    return;
+  }
+
+  router.replace({ path: '/manifestos', query: nextQuery }).catch(() => {});
+}
+
+async function runManifestSearch() {
+  syncFiltersToUrl();
+
+  if (searchRunner) {
+    // Já há busca em voo: em vez de disparar outra em paralelo, marca a
+    // re-execução — ela sai com os filtros que estiverem valendo ao final.
+    rerunRequested = true;
+    return searchRunner;
+  }
+
+  searchRunner = (async () => {
+    try {
+      let rounds = 0;
+      do {
+        rerunRequested = false;
+        const requestId = filterTracker.begin(filters);
+        try {
+          await search();
+        } catch {
+          // A store já traduz a falha para `error`; aqui o que não pode faltar
+          // é a liquidação do token (senão o chip fica pendente para sempre).
+        } finally {
+          if (filterTracker.settle(requestId)) {
+            appliedFilters.value = filterTracker.appliedFilters();
+          }
+        }
+        rounds += 1;
+      } while (rerunRequested && rounds < MAX_SEARCH_RERUNS);
+    } finally {
+      searchRunner = null;
+      rerunRequested = false;
+    }
+  })();
+
+  return searchRunner;
+}
+
+const hasPendingFilterEdits = computed(() =>
+  hasPendingFilterChanges(filters, appliedFilters.value, OBSERVED_FILTER_KEYS));
+
+function situationChipState(option) {
+  return resolveSelectionState(
+    { status: option.status, externalStatus: option.externalStatus },
+    filters,
+    appliedFilters.value,
+    ['status', 'externalStatus']
+  );
+}
+
+function datePresetTarget(days) {
+  const span = Math.max(1, Number(days) || 1);
+  return {
+    dateTo: getTodayBr(),
+    dateFrom: isoDateToBrDate(isoDaysAgo(span - 1)) || getTodayBr()
+  };
+}
+
+function datePresetState(days) {
+  return resolveSelectionState(datePresetTarget(days), filters, appliedFilters.value, ['dateFrom', 'dateTo']);
+}
+
+/** Aparência honesta do chip: aplicado ≠ pendente ≠ inativo. */
+function filterChipAttrs(state, label) {
+  if (state === 'applied') {
+    return {
+      variant: 'flat',
+      color: 'primary',
+      prependIcon: 'mdi-check',
+      title: `${label}: filtro aplicado nesta lista`
+    };
+  }
+
+  if (state === 'pending') {
+    return {
+      variant: 'outlined',
+      color: 'primary',
+      prependIcon: 'mdi-clock-outline',
+      title: `${label}: selecionado, ainda não aplicado — use “Aplicar filtros”`
+    };
+  }
+
+  return { variant: 'tonal', color: undefined, prependIcon: undefined, title: undefined };
+}
 
 // Resumo legível dos filtros ativos (usado no empty state para tirar o
 // mistério do "cadê meus manifestos?" causado por filtros persistidos).
@@ -304,9 +482,6 @@ const activeFiltersSummary = computed(() => {
   }
   if (String(filters.manifestNumber || '').trim()) {
     parts.push(`número "${filters.manifestNumber}"`);
-  }
-  if (String(filters.groupId || '').trim()) {
-    parts.push(`grupo "${filters.groupId}"`);
   }
   if (String(filters.carrierQuery || '').trim()) {
     parts.push(`transportador "${filters.carrierQuery}"`);
@@ -352,7 +527,7 @@ async function monitorCancelJob(jobId, manifestLabel) {
         continue;
       }
 
-      await search();
+      await runManifestSearch();
 
       if (status === 'succeeded') {
         cancelFeedbackError.value = '';
@@ -587,22 +762,48 @@ async function applyFilters(event) {
   if (!updateDateFilterFeedback()) {
     return;
   }
-  await search();
+  await runManifestSearch();
+}
+
+/*
+ * Enter dentro do painel de filtros.
+ *
+ * A dica embaixo do botão promete "clique em Aplicar filtros ou tecle Enter",
+ * mas o Enter só funcionava nos campos de data (input nativo dentro do <form>).
+ * Nas comboboxes (Número MTR, Transportador, Destinador) a própria Vuetify
+ * chama `e.preventDefault()` no Enter (VCombobox.onKeydown) para tratar a
+ * seleção da sugestão — e com isso mata o submit nativo do formulário. Aqui o
+ * Enter é reencaminhado à mão; o `nextTick` dá à combobox a chance de confirmar
+ * a sugestão destacada ANTES de a busca sair, para não filtrar pelo valor velho.
+ */
+async function applyFiltersFromField() {
+  await nextTick();
+  await applyFilters();
 }
 
 async function clearFilters() {
   const today = getTodayBr();
   filters.status = '';
   filters.externalStatus = '';
+  // Resíduo do filtro "Lote" (removido da UI — ver `manifest-list-query.js`):
+  // limpa o valor que ficou persistido em localStorage de versões anteriores.
   filters.groupId = '';
   filters.manifestNumber = '';
   filters.carrierQuery = '';
   filters.receiverQuery = '';
+  partnerSearchTerms.carrier = '';
+  partnerSearchTerms.receiver = '';
   filters.dateFrom = today;
   filters.dateTo = today;
   filters.page = 1;
   updateDateFilterFeedback({ showWideWindowInfo: false });
-  await search();
+  await runManifestSearch();
+}
+
+// Paginação também é estado linkável: a store busca, a URL acompanha.
+async function goToPage(nextPage) {
+  await changePage(nextPage);
+  syncFiltersToUrl();
 }
 
 function openManifest(id) {
@@ -652,6 +853,11 @@ function buildRequestedBy() {
 
   const userName = String(authStore.user.value?.name || '').trim().toLowerCase().replaceAll(/\s+/g, '.');
   return userName || 'frontend.user';
+}
+
+// Nome acessível da caixa de seleção da linha (lib/manifest-selection-label.js).
+function manifestSelectionAriaLabel(manifest) {
+  return buildManifestSelectionLabel(manifest);
 }
 
 function isManifestSelected(manifest) {
@@ -824,12 +1030,13 @@ function openReceiveModal(manifest = null) {
   }
 }
 
+// Atalhos de período: "N dias" INCLUI hoje (30 dias = hoje + 29 anteriores).
+// Data local via isoDaysAgo — `toISOString()` converte para UTC e, à noite no
+// fuso do Brasil, empurrava o início do período um dia para frente.
 function applyDatePreset(days) {
-  const today = new Date();
-  const from = new Date(today);
-  from.setDate(today.getDate() - (Number(days) - 1));
+  const span = Math.max(1, Number(days) || 1);
   filters.dateTo = getTodayBr();
-  filters.dateFrom = isoDateToBrDate(from.toISOString().slice(0, 10)) || getTodayBr();
+  filters.dateFrom = isoDateToBrDate(isoDaysAgo(span - 1)) || getTodayBr();
   applyFilters();
 }
 
@@ -866,14 +1073,65 @@ function applySituationChip(option) {
   applyFilters();
 }
 
+// Os CTAs do dashboard ("Resolver" as falhas e os cartões de métrica) chegam com
+// ?focus=<bucket> — os buckets de status do resumo (failed/pending/completed/draft/
+// cancelled). Aqui traduzimos cada bucket para um dos chips de situação JÁ existentes
+// desta lista, por persona, reusando as MESMAS opções de situationChipOptions para
+// garantir que o chip correspondente fique ativo (realçado) e a busca seja aplicada.
+// Nada de filtro novo: só reaproveitamos os filtros que a API já suporta.
+const DASHBOARD_FOCUS_TO_SITUATION_KEY = Object.freeze({
+  // Destinador raciocina por situação CETESB (Aguardando baixa/Recebidos).
+  receiver: { failed: 'failed', pending: 'awaiting', completed: 'received', draft: 'awaiting', cancelled: 'cancelled' },
+  // Gerador/Transportador raciocinam pelo pipeline (Rascunhos/Enviados).
+  default: { failed: 'failed', draft: 'draft', pending: 'submitted', completed: 'submitted', cancelled: 'cancelled' }
+});
+
+function applyDashboardFocus(focus) {
+  const normalized = String(focus || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  const personaMap = isReceiverOperationalMode.value
+    ? DASHBOARD_FOCUS_TO_SITUATION_KEY.receiver
+    : DASHBOARD_FOCUS_TO_SITUATION_KEY.default;
+  const chipKey = personaMap[normalized];
+  if (!chipKey) {
+    return false;
+  }
+  const option = situationChipOptions.value.find((item) => item.key === chipKey);
+  if (!option) {
+    return false;
+  }
+  filters.status = option.status;
+  filters.externalStatus = option.externalStatus;
+  return true;
+}
+
 const situationFilterLabel = computed(() => {
   const match = situationChipOptions.value.find((option) => option.key === activeSituationKey.value);
   if (match && match.key !== 'all') {
     return match.label;
   }
-  const raw = [String(filters.status || '').trim(), String(filters.externalStatus || '').trim()].filter(Boolean).join(' / ');
-  return raw || '';
+  // Sem chip correspondente (ex.: filtro herdado de OUTRA persona), o valor cru
+  // ('receb') não pode vazar para a tela: passa pelo mapa canônico de rótulos.
+  return resolveSituationFilterLabel(filters.status, filters.externalStatus);
 });
+
+// Troca de conta ativa muda a PERSONA e, com ela, o conjunto de chips de situação.
+// O filtro persistido da persona anterior sobrevivia à troca: ficava aplicado
+// (0 resultados) sem chip realçado e aparecia como token cru no resumo. Aqui o
+// filtro é reconciliado — se não corresponde a nenhum chip da persona atual, cai
+// para "Todos".
+function reconcileSituationFilterWithPersona() {
+  const hasSituationFilter = Boolean(String(filters.status || '').trim() || String(filters.externalStatus || '').trim());
+  if (!hasSituationFilter || activeSituationKey.value) {
+    return false;
+  }
+  filters.status = '';
+  filters.externalStatus = '';
+  filters.page = 1;
+  return true;
+}
 
 // Sugestões de Número MTR conforme digita: busca instantânea no espelho local
 // (localOnly=true — não toca a CETESB), a partir de 3 dígitos.
@@ -923,19 +1181,21 @@ function scheduleManifestNumberSuggestions(term) {
   }, 300);
 }
 
-// Lote: o "Grupo" era um ID opaco grp_... que ninguém sabia o que era. Vira
-// combobox com os lotes presentes na listagem atual, rotulados.
-const groupSuggestions = computed(() => {
-  const seen = new Map();
-  for (const manifest of items.value) {
-    const groupId = String(manifest?.groupId || '').trim();
-    if (!groupId || seen.has(groupId)) {
-      continue;
-    }
-    seen.set(groupId, { title: `${formatManifestBatchLabel(manifest)} · ${groupId}`, value: groupId });
-  }
-  return [...seen.values()];
-});
+/*
+ * FILTRO "LOTE" REMOVIDO — ele nunca filtrou.
+ *
+ * O campo mandava `groupId=<lote>` na listagem e a API respondia 200 devolvendo
+ * TUDO: `buildManifestListFilters` (backend/src/services/manifest-service.ts)
+ * não copia `groupId` para os filtros do banco, então o valor jamais chegava ao
+ * repositório (que até sabe filtrar por lote). Aplicar o filtro, limpar o aviso
+ * de pendência e o chip declarar "aplicado" para uma busca que ignorou o campo é
+ * o pior dos mundos — pior do que não ter o campo. Enquanto o backend não
+ * repassar o parâmetro, a tela não promete o que não entrega.
+ *
+ * O lote continua VISÍVEL: cada linha da tabela mostra o chip do lote
+ * (`formatManifestBatchLabel`) e as ações em lote seguem informando o grupo
+ * criado na mensagem de sucesso.
+ */
 
 // Sugestões de parceiros nos filtros (combobox = texto livre + sugestões da
 // API /v1/partners/search, local-first com fallback CETESB). O usuário não
@@ -945,6 +1205,66 @@ const carrierSuggestionsLoading = ref(false);
 const receiverSuggestions = ref([]);
 const receiverSuggestionsLoading = ref(false);
 const partnerSuggestionTimers = { carrier: 0, receiver: 0 };
+
+/*
+ * MENU EM BRANCO do "Transportador" (e do "Destinador", gêmeo idêntico).
+ *
+ * O campo abria um overlay VAZIO — painel branco de ~64px, sem uma linha de
+ * texto — que ainda cobria os chips de período logo abaixo. O `no-data-text`
+ * daqui era LETRA MORTA: o VCombobox da Vuetify nasce com `hideNoData: true`
+ * (`makeSelectProps({ hideNoData: true })`), e o item de "sem dados" só é
+ * renderizado quando `!props.hideNoData`. Sem itens e com `hideNoData` ligado o
+ * menu também perde a lista (`hasList` falso) — mas o menu que já estava aberto
+ * não se fecha sozinho: sobra a casca do overlay.
+ *
+ * Agora: termo digitado + estado da busca decidem se o menu abre e QUAL frase
+ * ele carrega (regra pura em `lib/partner-suggestion-menu.js`, mensagens de
+ * `lib/partner-selection-messages.js`). Sem nada a mostrar, o menu nem abre — e
+ * se já estava aberto, é fechado à mão.
+ */
+const partnerSearchTerms = reactive({ carrier: '', receiver: '' });
+const carrierMenuOpen = ref(false);
+const receiverMenuOpen = ref(false);
+
+const carrierMenuState = computed(() => resolvePartnerSuggestionMenu({
+  query: partnerSearchTerms.carrier,
+  roleLabel: 'transportador',
+  loading: carrierSuggestionsLoading.value,
+  itemCount: carrierSuggestions.value.length
+}));
+
+const receiverMenuState = computed(() => resolvePartnerSuggestionMenu({
+  query: partnerSearchTerms.receiver,
+  roleLabel: 'destinador',
+  loading: receiverSuggestionsLoading.value,
+  itemCount: receiverSuggestions.value.length
+}));
+
+watch(() => carrierMenuState.value.shouldCloseMenu, (shouldClose) => {
+  if (shouldClose) {
+    carrierMenuOpen.value = false;
+  }
+});
+
+watch(() => receiverMenuState.value.shouldCloseMenu, (shouldClose) => {
+  if (shouldClose) {
+    receiverMenuOpen.value = false;
+  }
+});
+
+/*
+ * Geometria do menu igual à do combobox do wizard (`FilterableDropdown`):
+ * altura máxima de 260px (`LIST_MAX_HEIGHT`, em vez dos 310 do padrão da
+ * Vuetify) e 6px de folga do campo (`LIST_GAP`), para o painel ocupar o mínimo
+ * de tela e a estratégia "connected" da Vuetify ter espaço para virá-lo para
+ * cima quando não couber embaixo. `contentClass` dá um seletor estável para
+ * medir sobreposição por hit-test (o menu é teleportado para fora da view).
+ */
+const partnerSuggestionMenuProps = {
+  maxHeight: 260,
+  offset: 6,
+  contentClass: 'sicat-partner-suggestions-menu'
+};
 
 function buildPartnerSuggestionItems(items) {
   const seen = new Set();
@@ -964,6 +1284,13 @@ function buildPartnerSuggestionItems(items) {
   return options;
 }
 
+// Papel canônico do contrato (pt-BR), o MESMO que o wizard de emissão manda. O
+// backend resolve os sinônimos (`resolvePartnerRoleAliases`), mas mandar o termo
+// legado em inglês daqui mantinha dois vocabulários circulando para a mesma busca.
+function toCanonicalPartnerRole(role) {
+  return role === 'carrier' ? 'transportador' : 'destinador';
+}
+
 async function fetchPartnerSuggestions(role, term) {
   const targetRef = role === 'carrier' ? carrierSuggestions : receiverSuggestions;
   const loadingRef = role === 'carrier' ? carrierSuggestionsLoading : receiverSuggestionsLoading;
@@ -978,7 +1305,7 @@ async function fetchPartnerSuggestions(role, term) {
     const response = await searchPartners({
       integrationAccountId,
       sessionContextId: sessionContextId || undefined,
-      role,
+      role: toCanonicalPartnerRole(role),
       q: String(term || '').trim() || undefined,
       pageSize: 20
     });
@@ -993,6 +1320,9 @@ async function fetchPartnerSuggestions(role, term) {
 
 function schedulePartnerSuggestions(role, term) {
   const normalized = String(term || '').trim();
+  // O termo é registrado ANTES do corte de 1 caractere: é ele que decide a
+  // frase do estado vazio ("digite pelo menos 2 caracteres").
+  partnerSearchTerms[role] = normalized;
   clearTimeout(partnerSuggestionTimers[role]);
   if (normalized.length === 1) {
     return;
@@ -1017,7 +1347,7 @@ async function resolveReceiveOperationalContext() {
   const integrationAccountId = String(authStore.integrationAccountId.value || '').trim();
   const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
   if (!ready || !integrationAccountId || !sessionContextId) {
-    throw new Error('Contexto operacional incompleto. Atualize a sessao CETESB antes de continuar.');
+    throw new Error('Contexto operacional incompleto. Atualize a sessão CETESB antes de continuar.');
   }
 
   return { integrationAccountId, sessionContextId };
@@ -1063,7 +1393,8 @@ function resolveReceiverPartnerCode(manifest) {
 async function enqueueReceiveForManifest(manifest, context, requestBase, requestedBy) {
   const receiverPartnerCode = resolveReceiverPartnerCode(manifest);
   if (!receiverPartnerCode) {
-    throw new Error('destinador ativo nao identificado.');
+    // Minúscula proposital: a mensagem entra concatenada ("<MTR>: <motivo>").
+    throw new Error('destinador ativo não identificado.');
   }
 
   const accepted = await enqueueManifestReceive({
@@ -1114,9 +1445,9 @@ function buildReceiveManifestPayload(manifest) {
 }
 
 function buildReceiveSuccessMessage(acceptedCount, blockedCount) {
-  let message = `${acceptedCount} recebimento(s) enfileirado(s) com sucesso.`;
+  let message = `${acceptedCount} ${pluralize(acceptedCount, 'recebimento')} ${pluralize(acceptedCount, 'enfileirado')} com sucesso.`;
   if (blockedCount) {
-    message += ` ${blockedCount} manifesto(s) ficaram bloqueados antes do envio.`;
+    message += ` ${blockedCount} ${pluralize(blockedCount, 'manifesto')} ${pluralize(blockedCount, 'ficou', 'ficaram')} ${pluralize(blockedCount, 'bloqueado')} antes do envio.`;
   }
   return message;
 }
@@ -1162,7 +1493,7 @@ async function submitReceiveRequests() {
       if (receiveModalMode.value === 'batch') {
         clearManifestSelection();
       }
-      await search();
+      await runManifestSearch();
     }
 
     const blockedMessages = receiveBlockedManifestEntries.value
@@ -1215,7 +1546,7 @@ async function requestRemoveManifest(manifest) {
     await removeManifest(manifestId);
     cancelFeedbackError.value = '';
     cancelFeedback.value = `Manifesto ${displayId} removido com sucesso.`;
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedback.value = '';
     cancelFeedbackError.value = err.message || `Falha ao remover o manifesto ${displayId}.`;
@@ -1250,7 +1581,7 @@ async function requestRecoverManifest(manifest) {
     });
 
     cancelFeedback.value = `Reenvio enfileirado para ${manifest.manifestNumber || manifestId}. Job: ${response.jobId}.`;
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao reenfileirar envio do manifesto.';
   } finally {
@@ -1326,12 +1657,12 @@ async function requestBatchPrintManifests() {
       processed += 1;
     }
 
-    cancelFeedback.value = `Compactando ${printableManifests.length} PDF(s) em um arquivo ZIP...`;
+    cancelFeedback.value = `Compactando ${printableManifests.length} ${pluralize(printableManifests.length, 'PDF', 'PDFs')} em um arquivo ZIP...`;
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     triggerBrowserDownload(zipBlob, buildBatchPrintZipFileName(printableManifests));
 
     cancelFeedbackError.value = '';
-    cancelFeedback.value = `ZIP gerado com ${printableManifests.length} PDF(s). Download iniciado.`;
+    cancelFeedback.value = `ZIP gerado com ${printableManifests.length} ${pluralize(printableManifests.length, 'PDF', 'PDFs')}. Download iniciado.`;
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao solicitar impressão em lote.';
   } finally {
@@ -1388,7 +1719,7 @@ async function confirmBatchCancelManifest() {
     cancelFeedback.value = `${response.total} cancelamentos enfileirados no grupo ${response.groupId}.`;
     closeBatchCancelModal();
     clearManifestSelection();
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao solicitar cancelamento em lote.';
   } finally {
@@ -1435,7 +1766,7 @@ async function requestSubmitManifest(manifest) {
     cancelFeedback.value = `Envio enfileirado para ${manifest.manifestNumber || manifestId}. Job: ${response.jobId}.`;
     // Remove só o manifesto enviado da seleção — não pune o lote inteiro.
     selectedManifestIds.value = selectedManifestIds.value.filter((id) => id !== manifestId);
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao enfileirar envio do manifesto.';
   } finally {
@@ -1455,14 +1786,16 @@ async function requestBatchSubmitManifests() {
   }
 
   // Torna explícito o que antes era mágica invisível: contagem real de
-  // elegíveis e o reuso do grupo do filtro como grupo do lote.
+  // elegíveis. O grupo do lote é criado pelo backend e sai na mensagem de
+  // sucesso — deixou de ser herdado do campo "Lote" (removido dos filtros).
   const submittableCount = selectedSubmittableManifestIds.value.length;
   const ignoredCount = selectedManifestCount.value - submittableCount;
-  const groupNote = String(filters.groupId || '').trim() ? ` Serão etiquetados no grupo ${filters.groupId}.` : '';
-  const ignoredNote = ignoredCount > 0 ? ` ${ignoredCount} selecionado(s) não elegíveis serão ignorados.` : '';
+  const ignoredNote = ignoredCount > 0
+    ? ` ${ignoredCount} ${pluralize(ignoredCount, 'selecionado')} não ${pluralize(ignoredCount, 'elegível', 'elegíveis')} ${pluralize(ignoredCount, 'será', 'serão')} ${pluralize(ignoredCount, 'ignorado')}.`
+    : '';
   const confirmed = await confirm({
     title: 'Enviar manifestos à CETESB',
-    message: `Enviar ${submittableCount} manifesto(s) à CETESB agora?${groupNote}${ignoredNote}`,
+    message: `Enviar ${submittableCount} ${pluralize(submittableCount, 'manifesto')} à CETESB agora?${ignoredNote}`,
     confirmLabel: 'Enviar em lote'
   });
   if (!confirmed) {
@@ -1480,13 +1813,12 @@ async function requestBatchSubmitManifests() {
       sessionContextId,
       requestedBy,
       validateOnly: false,
-      printAfterSubmit: false,
-      groupId: filters.groupId || undefined
+      printAfterSubmit: false
     });
 
     cancelFeedback.value = `${response.total} envios enfileirados no grupo ${response.groupId}.`;
     clearManifestSelection();
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao solicitar envio em lote.';
   } finally {
@@ -1540,11 +1872,13 @@ async function confirmReplicateManifest() {
       requestedBy,
       sessionContextId: filters.sessionContextId || undefined
     });
-    filters.groupId = response.groupId;
+    // Antes a tela "filtrava" pelo grupo recém-criado (filters.groupId) — filtro
+    // que a API ignora. Agora só volta à primeira página e nomeia o lote no aviso;
+    // as cópias aparecem na lista com o chip de lote na coluna do número.
     filters.page = 1;
     cancelFeedback.value = `${response.total} cópias criadas no grupo ${response.groupId}.`;
     closeReplicateModal();
-    await search();
+    await runManifestSearch();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao replicar manifesto.';
   } finally {
@@ -1605,7 +1939,7 @@ async function confirmCancelManifest() {
     cancelModalVisible.value = false;
     cancelReason.value = '';
     targetManifest.value = null;
-    await search();
+    await runManifestSearch();
     void monitorCancelJob(response.jobId, manifestLabel);
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao solicitar cancelamento do manifesto.';
@@ -1645,13 +1979,13 @@ async function resyncManifests() {
       pageSize: filters.pageSize || 20
     };
     const syncResponse = await syncManifests(params);
-    await search();
+    await runManifestSearch();
 
     const summary = syncResponse?.syncSummary || null;
     if (summary && Number.isFinite(Number(summary.remoteItemsCount))) {
       const remoteItemsCount = Number(summary.remoteItemsCount);
       const deletedLocalMirrorCount = Number(summary.deletedLocalMirrorCount || 0);
-      resyncFeedback.value = `Sincronização com CETESB concluída. ${remoteItemsCount} registro(s) remoto(s) processado(s); ${deletedLocalMirrorCount} registro(s) local(is) do espelho limpo(s).`;
+      resyncFeedback.value = `Sincronização com CETESB concluída. ${remoteItemsCount} ${pluralize(remoteItemsCount, 'registro remoto', 'registros remotos')} ${pluralize(remoteItemsCount, 'processado')}; ${deletedLocalMirrorCount} ${pluralize(deletedLocalMirrorCount, 'registro local', 'registros locais')} do espelho ${pluralize(deletedLocalMirrorCount, 'limpo')}.`;
     } else {
       resyncFeedback.value = 'Sincronização com CETESB concluída. Lista atualizada.';
     }
@@ -1679,7 +2013,15 @@ watch(
       return;
     }
 
+    // A persona pode ter mudado junto com a conta: descarta o filtro de situação
+    // que não existe mais nos chips desta persona ANTES de sincronizar/persistir.
+    const situationFilterReset = reconcileSituationFilterWithPersona();
+
     await syncWithActiveOperationalContext({ resetPage: true });
+
+    if (situationFilterReset && updateDateFilterFeedback()) {
+      await runManifestSearch();
+    }
   }
 );
 
@@ -1688,12 +2030,27 @@ onMounted(async () => {
 
   const operationalContext = await syncWithActiveOperationalContext();
 
+  // A URL manda nos filtros: o que veio no endereço (e é válido) sobrescreve o
+  // que estava persistido em localStorage. Chave desconhecida e valor inválido
+  // não entram aqui — e somem da URL na primeira sincronização (ver
+  // `syncFiltersToUrl`), para o endereço nunca descrever uma tela diferente.
+  const urlFilters = parseManifestUrlFilters(route.query).filters;
+  if (Object.keys(urlFilters).length) {
+    Object.assign(filters, urlFilters);
+  }
+
+  // Filtro de situação persistido pode ser de OUTRA persona (troca de conta entre
+  // sessões): reconcilia antes da primeira busca para não abrir a tela vazia com
+  // um filtro que nem aparece nos chips.
+  reconcileSituationFilterWithPersona();
+
   const refreshRequested = String(route.query.refresh || '') === '1';
   const forceSyncRequested = String(route.query.forceSync || '') === '1';
   const integrationAccountFromQuery = String(route.query.integrationAccountId || '').trim();
   const groupIdFromQuery = String(route.query.groupId || '').trim();
   const batchCreated = String(route.query.batchCreated || '') === '1';
   const batchCountFromQuery = Number(route.query.count || 0);
+  const focusFromQuery = String(route.query.focus || '').trim();
 
   if (
     integrationAccountFromQuery
@@ -1702,30 +2059,54 @@ onMounted(async () => {
     filters.integrationAccountId = integrationAccountFromQuery;
   }
 
-  if (groupIdFromQuery) {
-    filters.groupId = groupIdFromQuery;
-  }
+  // `?groupId=` (vindo da criação em lote) NÃO vira mais filtro: a listagem não
+  // filtra por lote (ver `manifest-list-query.js`). O valor segue servindo só
+  // para nomear o lote na mensagem de sucesso, mais abaixo.
 
   normalizeReceiverDateWindow();
+
+  // CTAs do dashboard: ?focus=<bucket> vira o chip de situação correspondente e a
+  // busca filtrada. Como o dashboard resume o dia ("Resumo de hoje"), ancoramos a
+  // janela em hoje para que as falhas/rascunhos contados lá apareçam na lista.
+  if (focusFromQuery && !refreshRequested) {
+    const focusApplied = applyDashboardFocus(focusFromQuery);
+    // `?focus=` é parâmetro de NAVEGAÇÃO, não filtro: `syncFiltersToUrl` (chamado
+    // por `runManifestSearch`) reescreve a URL canônica e ele some sozinho — junto
+    // com qualquer chave desconhecida que tenha vindo colada.
+    if (focusApplied) {
+      filters.dateFrom = getTodayBr();
+      filters.dateTo = getTodayBr();
+      filters.page = 1;
+      normalizeReceiverDateWindow();
+      if (updateDateFilterFeedback()) {
+        await runManifestSearch();
+      }
+      return;
+    }
+  }
 
   if (refreshRequested) {
     if (forceSyncRequested) {
       await resyncManifests();
     } else if (updateDateFilterFeedback()) {
-      await search();
+      await runManifestSearch();
     }
 
     if (batchCreated && groupIdFromQuery && Number.isFinite(batchCountFromQuery) && batchCountFromQuery > 0) {
       cancelFeedback.value = `${batchCountFromQuery} manifestos criados no grupo ${groupIdFromQuery}.`;
     }
 
-    await router.replace({ path: '/manifestos' });
+    syncFiltersToUrl();
     return;
   }
 
   if (!items.value.length && updateDateFilterFeedback()) {
-    await search();
+    await runManifestSearch();
   }
+
+  // Rede de segurança: mesmo quando nenhuma busca roda (ex.: período inválido),
+  // a URL não pode continuar carregando parâmetro desconhecido ou valor inválido.
+  syncFiltersToUrl();
 });
 
 onUnmounted(() => {
@@ -1758,24 +2139,31 @@ onUnmounted(() => {
             <div class="text-h6 font-weight-semibold mb-3">Filtros</div>
             <v-form @submit.prevent="applyFilters">
               <!-- Situação: chips por persona em vez de combo de status interno.
-                   Aplicam ao clicar — zero digitação, zero decisão técnica. -->
+                   O clique dispara a busca, mas o chip só fica PREENCHIDO (✓)
+                   quando a lista já está mostrando aquele filtro; até lá aparece
+                   com contorno e relógio ("selecionado, ainda não aplicado"). -->
               <div class="d-flex align-center flex-wrap ga-2 mb-4">
                 <span class="text-caption text-medium-emphasis mr-1">Situação:</span>
                 <v-chip
                   v-for="option in situationChipOptions"
                   :key="option.key"
                   size="small"
-                  :variant="activeSituationKey === option.key ? 'flat' : 'tonal'"
-                  :color="activeSituationKey === option.key ? 'primary' : undefined"
+                  v-bind="filterChipAttrs(situationChipState(option), option.label)"
                   @click="applySituationChip(option)"
                 >
                   {{ option.label }}
                 </v-chip>
               </div>
+              <!-- O campo "Lote" saiu daqui: a listagem NÃO filtra por lote
+                   (o backend ignora `groupId` na busca) e um campo que promete
+                   filtrar sem filtrar é pior que campo nenhum. Ver o bloco
+                   "FILTRO 'LOTE' REMOVIDO" no <script> e `manifest-list-query.js`.
+                   Enter em qualquer combobox aplica (`applyFiltersFromField`):
+                   a Vuetify dá preventDefault no Enter e matava o submit. -->
               <v-row dense>
-                <!-- No modo destinador (sem o campo Destinador) os 3 campos
-                     fecham a linha em md4; no gerador, 4 campos em md3. -->
-                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
+                <!-- No modo destinador (sem o campo Destinador) os 2 campos
+                     fecham a linha em md6; no gerador, 3 campos em md4. -->
+                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 6 : 4">
                   <v-combobox
                     v-model="filters.manifestNumber"
                     :items="manifestNumberSuggestions"
@@ -1786,24 +2174,17 @@ onUnmounted(() => {
                     :loading="manifestNumberSuggestionsLoading"
                     no-data-text="Digite ao menos 3 dígitos"
                     @update:search="scheduleManifestNumberSuggestions($event)"
+                    @keydown.enter="applyFiltersFromField"
                   />
                 </v-col>
-                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
-                  <v-combobox
-                    v-model="filters.groupId"
-                    :items="groupSuggestions"
-                    item-title="title"
-                    item-value="value"
-                    :return-object="false"
-                    label="Lote"
-                    placeholder="Grupo de replicação/criação em lote"
-                    clearable
-                    no-data-text="Nenhum lote na listagem atual"
-                  />
-                </v-col>
-                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
+                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 6 : 4">
+                  <!-- `:hide-no-data` e `:no-data-text` vêm do resolvedor:
+                       sem nada a mostrar o menu NÃO abre (não cobre os chips de
+                       período); com termo digitado ele abre com texto real
+                       ("Nenhum transportador encontrado para ..."). -->
                   <v-combobox
                     v-model="filters.carrierQuery"
+                    v-model:menu="carrierMenuOpen"
                     :items="carrierSuggestions"
                     item-title="title"
                     item-value="value"
@@ -1812,16 +2193,21 @@ onUnmounted(() => {
                     placeholder="Digite para ver sugestões"
                     clearable
                     :loading="carrierSuggestionsLoading"
-                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    :hide-no-data="carrierMenuState.hideNoData"
+                    :no-data-text="carrierMenuState.emptyText"
+                    :menu-props="partnerSuggestionMenuProps"
                     @focus="schedulePartnerSuggestions('carrier', filters.carrierQuery)"
                     @update:search="schedulePartnerSuggestions('carrier', $event)"
+                    @click:clear="schedulePartnerSuggestions('carrier', '')"
+                    @keydown.enter="applyFiltersFromField"
                   />
                 </v-col>
                 <!-- No modo destinador a lista já é da própria empresa: o filtro
                      de Destinador seria sempre ela mesma — escondido. -->
-                <v-col v-if="!isReceiverOperationalMode" cols="12" sm="6" md="3">
+                <v-col v-if="!isReceiverOperationalMode" cols="12" sm="6" md="4">
                   <v-combobox
                     v-model="filters.receiverQuery"
+                    v-model:menu="receiverMenuOpen"
                     :items="receiverSuggestions"
                     item-title="title"
                     item-value="value"
@@ -1830,9 +2216,13 @@ onUnmounted(() => {
                     placeholder="Digite para ver sugestões"
                     clearable
                     :loading="receiverSuggestionsLoading"
-                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    :hide-no-data="receiverMenuState.hideNoData"
+                    :no-data-text="receiverMenuState.emptyText"
+                    :menu-props="partnerSuggestionMenuProps"
                     @focus="schedulePartnerSuggestions('receiver', filters.receiverQuery)"
                     @update:search="schedulePartnerSuggestions('receiver', $event)"
+                    @click:clear="schedulePartnerSuggestions('receiver', '')"
+                    @keydown.enter="applyFiltersFromField"
                   />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
@@ -1875,17 +2265,27 @@ onUnmounted(() => {
                 </v-col>
                 <v-col cols="12" md="6" class="d-flex align-center flex-wrap ga-2">
                   <span class="text-caption text-medium-emphasis">Período rápido:</span>
-                  <v-chip size="small" :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 1 ? 'primary' : undefined" @click="applyDatePreset(1)">Hoje</v-chip>
-                  <v-chip size="small" :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 7 ? 'primary' : undefined" @click="applyDatePreset(7)">7 dias</v-chip>
-                  <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(1), 'Hoje')" @click="applyDatePreset(1)">Hoje</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(7), '7 dias')" @click="applyDatePreset(7)">7 dias</v-chip>
+                  <v-chip size="small" v-bind="filterChipAttrs(datePresetState(30), '30 dias')" @click="applyDatePreset(30)">30 dias</v-chip>
                 </v-col>
               </v-row>
               <div v-if="String(filters.manifestNumber || '').trim()" class="text-caption text-medium-emphasis mt-1">
                 Busca por número de MTR ignora o período selecionado.
               </div>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
-                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
+                <v-btn
+                  color="primary"
+                  type="submit"
+                  :loading="loadingList"
+                  :append-icon="hasPendingFilterEdits && !loadingList ? 'mdi-alert-circle-outline' : undefined"
+                >Aplicar filtros</v-btn>
+                <v-btn variant="outlined" type="button" @click="clearFilters">Limpar filtros</v-btn>
+                <span
+                  v-if="hasPendingFilterEdits && !loadingList"
+                  class="text-caption text-warning"
+                  aria-live="polite"
+                >Há filtros alterados que ainda não estão valendo — clique em “Aplicar filtros” (ou tecle Enter).</span>
               </div>
             </v-form>
           </v-card-text>
@@ -1907,7 +2307,7 @@ onUnmounted(() => {
           <v-card-text>
             <v-row align="center">
               <v-col>
-                <strong>{{ selectedManifestCount }}</strong> manifesto(s) selecionado(s) — cada botão mostra quantos são elegíveis.
+                <strong>{{ selectedManifestCount }}</strong> {{ pluralize(selectedManifestCount, 'manifesto') }} {{ pluralize(selectedManifestCount, 'selecionado') }} — cada botão mostra quantos são elegíveis.
               </v-col>
               <v-col cols="auto" class="d-flex flex-wrap ga-2">
                 <v-btn v-if="isReceiverOperationalMode && selectedReceivableManifests.length" color="primary" size="small" :loading="receiveModalLoading" @click="openReceiveModal()">Receber ({{ selectedReceivableManifests.length }})</v-btn>
@@ -1926,7 +2326,7 @@ onUnmounted(() => {
             <v-row align="center">
               <v-col>
                 <div class="text-h6 font-weight-semibold">Resultados</div>
-                <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifestos</div>
+                <div class="text-caption text-medium-emphasis">{{ resultsCounterLabel }}</div>
               </v-col>
               <v-col cols="auto" class="d-flex align-center ga-2">
                 <v-btn
@@ -1942,21 +2342,35 @@ onUnmounted(() => {
                 <v-select
                   v-model.number="filters.pageSize"
                   :items="[10, 20, 50]"
-                  label="Por página"
+                  label="Itens por página"
                   density="compact"
                   variant="outlined"
                   hide-details
-                  style="width: 110px"
+                  style="width: 160px"
                   @update:model-value="applyFilters"
                 />
               </v-col>
             </v-row>
           </v-card-text>
-          <v-table density="compact" class="manifests-table-shell">
+          <!-- Recarga sobre dados já exibidos: barra de progresso + tabela esmaecida.
+               Antes uma linha "Carregando manifestos…" era injetada DENTRO do corpo
+               acima das linhas antigas — dois estados simultâneos na mesma tabela. -->
+          <v-progress-linear v-if="loadingList" indeterminate color="primary" height="3" aria-label="Carregando manifestos" />
+          <v-table density="compact" class="manifests-table-shell" :class="{ 'is-refreshing': loadingList && items.length }">
             <thead>
               <tr>
+                <!-- Coluna de seleção: para leitor de tela as caixas eram só
+                     "caixa de seleção", sem dizer QUAL manifesto. Cada linha
+                     ganha o número do MTR no nome acessível e o cabeçalho ganha
+                     rótulo próprio (o "selecionar todos" também). -->
                 <th scope="col" style="width:40px">
-                  <v-checkbox-btn :model-value="allVisibleSelected" @change="toggleSelectAllVisible" density="compact" />
+                  <span class="d-sr-only">Seleção</span>
+                  <v-checkbox-btn
+                    :model-value="allVisibleSelected"
+                    :aria-label="allVisibleSelected ? 'Desmarcar todos os manifestos desta página' : 'Selecionar todos os manifestos desta página'"
+                    density="compact"
+                    @change="toggleSelectAllVisible"
+                  />
                 </th>
                 <th scope="col">Número MTR</th>
                 <th scope="col">Data Emissão</th>
@@ -1967,13 +2381,13 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loadingList">
-                <td colspan="7" class="text-center text-medium-emphasis pa-4">Carregando manifestos...</td>
+              <tr v-if="loadingList && !items.length">
+                <td colspan="7" class="text-center text-medium-emphasis pa-4" aria-live="polite">Carregando manifestos…</td>
               </tr>
               <tr v-if="!items.length && !loadingList">
                 <td colspan="7" class="text-center pa-6">
                   <div class="text-body-1 font-weight-bold mb-1">Nenhum manifesto aqui</div>
-                  <div class="text-body-2 text-medium-emphasis mb-1">Pode ser por causa do filtro abaixo, ou você ainda não criou nenhum.</div>
+                  <div class="text-body-2 text-medium-emphasis mb-1">{{ emptyStateHint }}</div>
                   <div v-if="activeFiltersSummary" class="text-caption text-medium-emphasis mb-3">{{ activeFiltersSummary }}</div>
                   <div class="d-flex justify-center flex-wrap ga-2">
                     <v-btn v-if="!isReceiverOperationalMode" size="small" color="primary" variant="flat" prepend-icon="mdi-plus" @click="goToCreate">Criar manifesto</v-btn>
@@ -1987,6 +2401,7 @@ onUnmounted(() => {
                   <v-checkbox-btn
                     v-if="canBatchSelectManifest(manifest)"
                     :model-value="isManifestSelected(manifest)"
+                    :aria-label="manifestSelectionAriaLabel(manifest)"
                     density="compact"
                     @change="toggleManifestSelection(manifest)"
                   />
@@ -1999,6 +2414,7 @@ onUnmounted(() => {
                     :title="`Abrir manifesto ${manifest.manifestNumber || resolveManifestIdentifier(manifest) || ''}`"
                     @click="openManifestFromRow(manifest)"
                     @keydown.enter.prevent="openManifestFromRow(manifest)"
+                    @keydown.space.prevent="openManifestFromRow(manifest)"
                   >
                     {{ manifest.manifestNumber || resolveManifestIdentifier(manifest) || '-' }}
                   </a>
@@ -2010,9 +2426,12 @@ onUnmounted(() => {
                 <td>{{ formatPartnerLabel(manifest.carrier) }}</td>
                 <td>{{ formatPartnerLabel(manifest.receiver) }}</td>
                 <td>
+                  <!-- Rótulo canônico (mesmo vocabulário dos chips de Situação);
+                       o termo cru da CETESB fica no tooltip para rastreabilidade. -->
                   <SicatStatusBadge
                     :status="manifest.externalStatus || manifest.status"
                     :label="resolveManifestStatusLabel(manifest)"
+                    :title="resolveManifestRawStatus(manifest) ? `Situação na CETESB: ${resolveManifestRawStatus(manifest)}` : undefined"
                     domain="manifest"
                     with-dot
                   />
@@ -2065,18 +2484,23 @@ onUnmounted(() => {
                         :subtitle="!canUseManifestForCdf(manifest) ? describeCdfManifestRestriction(manifest) : undefined"
                         @click="goToCdfFlowForManifest(manifest)"
                       />
+                      <!-- Envio SEM CONFIRMAÇÃO: os dois itens que duplicariam o MTR
+                           continuam na lista, porém DESABILITADOS e com o motivo — some
+                           da tela o operador não aprende nada e tenta de novo por fora. -->
                       <v-list-item
-                        v-if="!isReceiverOperationalMode && canReplicateManifest(manifest)"
-                        :disabled="replicateLoading"
+                        v-if="!isReceiverOperationalMode && (canReplicateManifest(manifest) || isSubmitUnconfirmedManifest(manifest))"
+                        :disabled="replicateLoading || !canReplicateManifest(manifest)"
                         prepend-icon="mdi-content-copy"
                         title="Replicar"
+                        :subtitle="!canReplicateManifest(manifest) ? describeReplicateManifestRestriction(manifest) : undefined"
                         @click="openReplicateModal(manifest)"
                       />
                       <v-list-item
-                        v-if="!isReceiverOperationalMode && canSubmitManifest(manifest)"
-                        :disabled="submitLoadingManifestId === resolveManifestIdentifier(manifest)"
+                        v-if="!isReceiverOperationalMode && (canSubmitManifest(manifest) || isSubmitUnconfirmedManifest(manifest))"
+                        :disabled="submitLoadingManifestId === resolveManifestIdentifier(manifest) || !canSubmitManifest(manifest)"
                         prepend-icon="mdi-send"
                         :title="submitLoadingManifestId === resolveManifestIdentifier(manifest) ? 'Enviando…' : 'Submeter'"
+                        :subtitle="!canSubmitManifest(manifest) ? describeSubmitManifestRestriction(manifest) : undefined"
                         @click="requestSubmitManifest(manifest)"
                       />
                       <v-list-item
@@ -2121,11 +2545,11 @@ onUnmounted(() => {
           </v-table>
           <v-card-text class="d-flex align-center justify-space-between pt-3">
             <span class="text-caption text-medium-emphasis">
-              Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifestos
+              {{ resultsCounterLabel }}
             </span>
             <div class="d-flex ga-2">
-              <v-btn variant="outlined" size="small" :disabled="!canGoPreviousPage" prepend-icon="mdi-chevron-left" @click="changePage(Number(page) - 1)">Anterior</v-btn>
-              <v-btn variant="outlined" size="small" :disabled="!canGoNextPage" append-icon="mdi-chevron-right" @click="changePage(Number(page) + 1)">Próxima</v-btn>
+              <v-btn variant="outlined" size="small" :disabled="!canGoPreviousPage" prepend-icon="mdi-chevron-left" @click="goToPage(Number(page) - 1)">Anterior</v-btn>
+              <v-btn variant="outlined" size="small" :disabled="!canGoNextPage" append-icon="mdi-chevron-right" @click="goToPage(Number(page) + 1)">Próxima</v-btn>
             </div>
           </v-card-text>
         </v-card>
@@ -2156,7 +2580,7 @@ onUnmounted(() => {
               <v-btn icon="mdi-close" variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal" />
             </v-card-title>
             <v-card-text>
-              <p class="text-body-2 mb-1">Serão cancelados: <strong>{{ selectedCancelableManifestIds.length }}</strong> manifesto(s)</p>
+              <p class="text-body-2 mb-1">{{ pluralize(selectedCancelableManifestIds.length, 'Será cancelado', 'Serão cancelados') }}: <strong>{{ selectedCancelableManifestIds.length }}</strong> {{ pluralize(selectedCancelableManifestIds.length, 'manifesto') }}</p>
               <p v-if="selectedManifestCount > selectedCancelableManifestIds.length" class="text-caption text-medium-emphasis mb-3">
                 {{ selectedManifestCount - selectedCancelableManifestIds.length }} dos {{ selectedManifestCount }} selecionados não são canceláveis e serão ignorados.
               </p>
@@ -2166,7 +2590,7 @@ onUnmounted(() => {
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal">Voltar</v-btn>
-              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Cancelar {{ selectedCancelableManifestIds.length }} manifesto(s)</v-btn>
+              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Cancelar {{ selectedCancelableManifestIds.length }} {{ pluralize(selectedCancelableManifestIds.length, 'manifesto') }}</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -2260,7 +2684,7 @@ onUnmounted(() => {
               <v-checkbox v-model="receiveForm.printReceiptAfterReceive" label="Baixar e persistir comprovante PDF após o recebimento" :disabled="receiveModalLoading" density="compact" hide-details class="mt-2" />
               <!-- Bloqueados com a RAZÃO antes do envio (não depois, truncado) -->
               <v-alert v-if="receiveBlockedManifestEntries.length" type="info" variant="tonal" density="compact" class="mt-2">
-                <div class="font-weight-medium mb-1">{{ receiveBlockedManifestEntries.length }} manifesto(s) serão ignorados:</div>
+                <div class="font-weight-medium mb-1">{{ receiveBlockedManifestEntries.length }} {{ pluralize(receiveBlockedManifestEntries.length, 'manifesto') }} {{ pluralize(receiveBlockedManifestEntries.length, 'será', 'serão') }} {{ pluralize(receiveBlockedManifestEntries.length, 'ignorado') }}:</div>
                 <ul class="manifests-blocked-list">
                   <li v-for="entry in receiveBlockedManifestEntries" :key="resolveManifestIdentifier(entry.manifest)">
                     {{ formatManifestLabel(entry.manifest) }} — {{ entry.reason }}
@@ -2516,6 +2940,13 @@ onUnmounted(() => {
   padding: 0;
   overflow-x: auto;
   overflow-y: visible;
+}
+
+/* Recarga com dados na tela: esmaece e bloqueia o clique (sem trocar o conteúdo
+   por uma linha de "carregando" no meio dos dados antigos). */
+.manifests-table-shell.is-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .manifest-code-cell {

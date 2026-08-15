@@ -3,6 +3,7 @@ import '@mdi/font/css/materialdesignicons.css';
 import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
+import { en, pt } from 'vuetify/locale';
 import { getStoredThemeMode, toVuetifyThemeName } from '../composables/useAppTheme.js';
 // Paleta monocromática institucional (slate + verde-petróleo) GERADA de
 // packages/design-tokens (marca sicat): o Vuetify alimenta componentes, os tokens
@@ -14,6 +15,38 @@ export default createVuetify({
   directives,
   display: {
     mobileBreakpoint: 'sm'
+  },
+  // Locale pt-BR: sem isto o Vuetify usa o pacote 'en' e a paginação de TODA
+  // tabela sai em inglês ("0-0 of 0", "Items per page", "Next page"). Ajustar
+  // aqui resolve o sistema inteiro (rodapé de paginação, aria-labels de
+  // navegação, "No data available") em vez de traduzir tabela por tabela.
+  locale: {
+    locale: 'pt',
+    fallback: 'en',
+    messages: {
+      pt: {
+        ...pt,
+        dataFooter: {
+          ...pt.dataFooter,
+          // String canônica do SICAT para o seletor de paginação. Todas as telas
+          // (painel, listas, relatórios, CDF) dizem a MESMA coisa — antes havia
+          // "Por página" / "Linhas por página" / "Itens por página" convivendo.
+          // SEM dois-pontos: os seletores escritos à mão (/manifestos, relatório
+          // de MTR, administração de acesso) rotulam o campo "Itens por página",
+          // e só o rodapé das tabelas dizia "Itens por página:" — a mesma frase
+          // pontuada de dois jeitos na mesma tela.
+          itemsPerPageText: 'Itens por página',
+          // Contador do rodapé no MESMO formato do contador das telas
+          // (lib/pagination-label.js): "Mostrando 1–20 de 38". O painel dizia
+          // "0-0 de 0" enquanto /manifestos dizia "Mostrando 1 até 20 de 38" —
+          // três formatos para a mesma informação. Este é o texto de quem NÃO
+          // declarou o substantivo; a tabela que declara (`count-noun` do
+          // SicatDataTable) diz "… de 38 manifestos" em vez do anônimo "de 38".
+          pageText: 'Mostrando {0}–{1} de {2}'
+        }
+      },
+      en
+    }
   },
   theme: {
     defaultTheme: toVuetifyThemeName(getStoredThemeMode()),

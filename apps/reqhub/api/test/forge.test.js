@@ -12,7 +12,44 @@ const ctx = (llm, extra = {}) => ({ llm, authenticated: true, identity: 'operato
 
 test('forge tools sao R1 (sem mutacao) e registradas', () => {
   for (const t of reg.list()) { assert.equal(t.risk, 'R1'); assert.ok(!t.mutates); }
-  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen']);
+  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['forge.idea.copilot', 'forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen']);
+});
+
+test('idea.copilot: reply + patch (só produto) + maturity/open_questions/ready; whitelist derruba campo técnico', async () => {
+  const payload = {
+    reply: 'Legal! Para quem é o sistema?',
+    patch: {
+      name: 'Central de Chamados', problem: 'chamados se perdem', audience: 'suporte',
+      actors: ['Atendente', { text: 'Técnico' }, ''], capabilities: ['Abrir chamado', 'Atribuir'],
+      businessRules: ['SLA 24h'], goals: ['reduzir atraso'], value: 'clientes felizes', constraints: ['LGPD'],
+      stack: 'gymops', database: 'postgres', // <- técnico: DEVE ser descartado pela whitelist
+    },
+    maturity: 130, // fora do range -> clampa em 100
+    open_questions: [{ text: 'qual SLA?', essential: true }, 'texto solto'],
+    quick_replies: ['A equipe', 'Os clientes', 'x', 'y', 'z'], // > 4 -> corta em 4
+    ready: false, summary: 'Sistema de chamados.',
+  };
+  const out = await dispatchTool(reg.get('forge.idea.copilot'), { message: 'quero gerir chamados', mode: 'guiado' }, ctx(stubLlm(payload)));
+  assert.equal(out.status, 'executed');
+  assert.equal(out.output.prompt_version, PROMPTS.forgeIdea.version);
+  assert.equal(out.output.reply, 'Legal! Para quem é o sistema?');
+  // whitelist: SÓ campos de produto sobrevivem; nada de tecnologia
+  assert.deepEqual(Object.keys(out.output.patch).sort(), ['actors', 'audience', 'businessRules', 'capabilities', 'constraints', 'goals', 'name', 'problem', 'value']);
+  assert.ok(!('stack' in out.output.patch) && !('database' in out.output.patch), 'campo técnico descartado');
+  assert.deepEqual(out.output.patch.actors, ['Atendente', 'Técnico'], 'coage {text} e remove vazios');
+  assert.equal(out.output.maturity, 100, 'maturity clampada 0..100');
+  assert.equal(out.output.ready, false);
+  assert.equal(out.output.open_questions.length, 2, 'objeto + string coagida a {text,essential:false}');
+  assert.equal(out.output.open_questions[0].essential, true);
+  assert.deepEqual(out.output.open_questions[1], { text: 'texto solto', essential: false });
+  assert.equal(out.output.quick_replies.length, 4, 'corta em 4');
+});
+
+test('idea.copilot: message vazio -> TOOL_INVALID_INPUT', async () => {
+  await assert.rejects(
+    () => dispatchTool(reg.get('forge.idea.copilot'), { message: '   ' }, ctx(stubLlm({ reply: 'x' }))),
+    (e) => e.code === 'TOOL_INVALID_INPUT'
+  );
 });
 
 test('propose_requirements: gera conjunto a partir do brief', async () => {
@@ -100,7 +137,7 @@ test('JSON invalido do modelo -> LLM_INVALID_JSON (sem fallback)', async () => {
 test('registry de producao expõe autoria + forge juntos', () => {
   const full = createToolRegistry([...buildAuthoringTools(), ...buildForgeTools()]);
   assert.deepEqual(full.list().map((t) => t.name).sort(), [
-    'forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen',
+    'forge.idea.copilot', 'forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen',
     'req.authoring.analyze', 'req.authoring.analyze_refinement', 'req.authoring.assist', 'req.authoring.classify_change',
     'req.authoring.draft', 'req.authoring.draft_refinement', 'req.authoring.revise', 'req.authoring.revise_refinement', 'req.authoring.suggest_links',
   ]);

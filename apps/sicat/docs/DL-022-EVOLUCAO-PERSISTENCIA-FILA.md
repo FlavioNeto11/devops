@@ -575,9 +575,618 @@ npm run worker
 
 ---
 
+## Migrations 021/022 — Catálogo regulatório Transporte (PR-A1, 2026-08-13)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103 — bounded
+context separado do ambiental; nada referencia `manifests`/entidades CETESB):
+
+- **`021_transporte_regulatory_catalog.sql`** — `regulatory_sources`, `regulatory_rules` e
+  `regulatory_rule_versions` (catálogo regulatório temporal, seed das 26 regras TR-* em
+  `src/bootstrap/regulatory-rules-seed.ts`). Além do padrão DL-022 (PK text, `version` +
+  trigger `increment_version`, checks idempotentes), traz duas travas novas:
+  `chk_regrulev_blocking_reviewed` (versão `ACTIVE` só é bloqueante com `reviewed_by`/
+  `reviewed_at` — revisão humana) e **exclusion constraint** GiST anti-sobreposição de
+  vigência por regra (`create extension if not exists btree_gist`).
+- **`022_transporte_freight_floor_catalog.sql`** — `freight_floor_versions` e
+  `freight_floor_coefficients` (estrutura das tabelas de piso, **sem nenhum coeficiente
+  semeado** — pendência P3 do guia Transporte: coeficiente real só entra com revisão humana).
+
+⚠️ **Rollout escalonado obrigatório** (api primeiro, worker só depois de Ready): `runMigrations`
+(`src/db/migrate.ts`) **não tem advisory lock** — com `AUTO_MIGRATE=true` na api E no worker,
+duas migrations inéditas na mesma corrida podem colidir em `23505` na PK de `schema_migrations`
+e derrubar os dois pods em CrashLoop simultâneo (armadilha 13 do `apps/sicat/CLAUDE.md`).
+
+---
+
+## Migration 026 — Cálculos do piso mínimo de frete Transporte (PR-B1, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103):
+
+- **`026_transport_freight_floor_calculations.sql`** — `freight_floor_calculations`, a tabela que
+  o `FreightFloorEngine` grava a cada tentativa de cálculo do piso mínimo sobre uma operação
+  (**MODO SHADOW**: não torna nada bloqueante por si só). **APPEND-ONLY** — mesmo desvio
+  deliberado da migration 025 (`compliance_evaluations`): sem coluna `version`, sem trigger
+  `increment_version`, e o repositório (`freight-floor-repo.ts`) nunca emite `update`/`delete`
+  contra ela — recalcular a mesma operação é sempre uma linha NOVA (reprodutibilidade/auditoria,
+  NFR-0009/0010). Colunas `cargo_type`/`axles_count`/`distance_km` são `NOT NULL` por desenho —
+  sentinela `''`/`0` quando o insumo bruto está ausente, com o motivo em
+  `calculation_inputs_snapshot`/`calculation_trace` (nunca inferido da coluna sozinha). Índices
+  `(operation_id, created_at desc)` e `(integration_account_id, created_at desc)` — mesmo padrão
+  de leitura "mais recente primeiro" de `compliance_evaluations`.
+
+Coeficientes REAIS da Tabela A (Res. ANTT 6.084/2026) entram por um script **MANUAL** do operador
+(`npm run load:freight-floor`, `scripts/load-freight-floor-tables.js`) — nunca por seed de boot; a
+meta-guarda 4 de `tests/regulatory/rule-catalog-invariants.test.js` (PR-A6) continua verde,
+provando que `regulatory-rules-seed.ts` segue sem tocar `freight_floor_versions`/`_coefficients`.
+Toda versão carregada nasce `review_status='pending_review'` — promoção a `reviewed` é ato humano
+futuro (rota admin ainda não existe nesta fase).
+
+⚠️ Mesmo aviso de rollout escalonado da seção anterior se aplica: migration inédita, api primeiro,
+worker só depois de Ready.
+
+---
+
+## Migration 027 — Verificações RNTRC Transporte + `transporte.rntrc.verify` (PR-C1, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — e o
+PRIMEIRO **job type novo** e o primeiro **gateway externo real** que a vertical Transporte
+registra na fila desde a fundação (021–026 nunca tocaram `operation-handlers.ts`/`lib/retry.ts`).
+
+- **`027_transport_rntrc_verifications.sql`** — `rntrc_verifications`. "APPEND-ONLY" no mesmo
+  sentido de `compliance_evaluations`/`freight_floor_calculations` (sem coluna `version`, sem
+  trigger `increment_version`), mas com uma nuance que as duas irmãs não têm: a estratégia
+  `open_data` é ASSÍNCRONA, então a linha nasce `requested_status='pending'` (gravada ANTES da
+  chamada ao gateway, mesmo molde de `status: 'submitting'` do fluxo de manifesto) e recebe
+  EXATAMENTE UMA transição em `update` — `pending → succeeded` OU `pending → failed`, sempre
+  restrita por `where requested_status = 'pending'` no repositório
+  (`rntrc-verification-repo.ts`). Uma nova verificação NUNCA reabre uma linha terminal: sempre
+  nasce outra linha. A estratégia `manual` não tem fase `pending` — nasce direto `succeeded`
+  (síncrona, sem fila).
+
+**Fila — 4 pontos tocados** (o resto da vertical nunca precisou, por ser 100% síncrona até aqui):
+
+1. `src/workers/operation-handlers.ts` — novo `case 'transporte.rntrc.verify'` no switch de
+   `processJob`, delegando a `handleTransporteRntrcVerify(job)` **sem** o parâmetro `gateway`
+   (molde `handleWhatsAppInboundMessage`: dependências do corpo do job — em
+   `transport-rntrc-verification-service.ts` — entram por import direto, nunca amplia o tipo
+   inline de 14 métodos do gateway CETESB que `processJob` já expõe). Terminal (DLQ/failed)
+   tratado por `applyTransporteRntrcVerifyTerminalFailureSideEffect` (par simétrico de
+   `applyWhatsAppInboundTerminalFailureSideEffect`), registrado em `workers/job-runner.ts` nos
+   dois pontos de despacho (`handleDlqTransition`/`handleFailedTransition`) — marca a linha
+   `pending` como `failed`, nunca toca `transport_parties`.
+2. `src/lib/retry.ts` — `transporte.rntrc.verify` entra em `RetryableOperation`,
+   `calculateJobPriority` (4) e `getRetryConfig` (4 tentativas, exponencial 5s→120s). A
+   classificação retryable/definitivo continua GENÉRICA por status HTTP
+   (`isRetryableJobError`): o gateway (`antt-rntrc-gateway.ts`) devolve `AppError` com `.status`
+   real (504/502 para timeout/rede, o próprio 4xx/5xx do CKAN para erro HTTP), então nenhuma
+   regra nova por código foi necessária além de registrar `RNTRC_GATEWAY_TIMEOUT`/
+   `_NETWORK_ERROR` em `RETRYABLE_ERROR_CODES` (redundância defensiva, mesmo molde de
+   `CETESB_TIMEOUT`/`CETESB_NETWORK_ERROR`).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) e o espelho em
+   `src/services/job-service.ts` (`getJob`) — `entityType 'transport_party'` entrou no ternário de
+   `links.entity` → `/v1/transporte/transportadores/{id}`.
+4. Contrato: endpoint de comando novo (`POST .../verificar-rntrc`, `202` quando
+   `strategy=open_data`) entrou em `commandEndpoints` de `scripts/validate-openapi.js` **e** do
+   teste gêmeo `tests/integration/openapi-queue-contract.test.js` — os dois precisam concordar,
+   por desenho (um valida o build, o outro é o gate de CI).
+
+Gateway `src/gateways/antt-rntrc-gateway.ts` (TS — só `cetesb-gateway.js` é exceção JS, DL-093):
+integra com o Portal de Dados Abertos da ANTT (CKAN público, `dados.antt.gov.br`, dataset
+`"rntrc"`). `RNTRC_GATEWAY_MODE` (`mock` default | `open_data`) segue o padrão de
+`CETESB_GATEWAY_MODE`/`CONVERSATION_PERMISSION_ENFORCEMENT`: valor desconhecido LANÇA no boot.
+Detalhe da sondagem real que fixou o contrato e a estratégia de fallback (CSV streaming quando o
+datastore do mês corrente não está ativo) em `docs/10-estado-atual/estado-atual.md` §3.9 e nos
+comentários do próprio gateway.
+
+⚠️ Mesmo aviso de rollout escalonado das duas seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
+## Migration 028 — Ciclo do CIOT Transporte + 5 job types (PR-C2, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — o SEGUNDO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts` no PR-C1), e o primeiro a aplicar o
+padrão **DL-102** (marcador de correlação + `*_unconfirmed` + reconciliador) DESDE A CRIAÇÃO da
+entidade, não como reparo posterior. NÃO existe provedor CIOT contratado
+([EXTERNAL DEPENDENCY] P5 do guia do programa) — `provider` só implementa `mock`.
+
+- **`028_transport_ciot.sql`** — `ciot_operations` (PK `text` via `createPrefixedId` (`ciot_`),
+  `version` + trigger `increment_version()` — ao contrário de `rntrc_verifications`/
+  `compliance_evaluations`, esta tabela TEM locking otimista porque sofre `update`s legítimos
+  fora da criação: `pre_validation → requested → registered|rejected|request_unconfirmed`, depois
+  `registered → rectified|cancelled|closed`) e `ciot_events` (APPEND-ONLY, sem `version`, trilha
+  completa do ciclo — `pre_validated`, `request_dispatched`, `registered`, `rectify_requested`,
+  `rectified`, `cancel_requested`, `cancelled`, `close_requested`, `closed`, `rejected`,
+  `reconciled`, entre outros). `correlation_marker` é `unique` desde a criação da linha — gravado
+  ANTES de qualquer chamada ao provedor, mesmo princípio de `manifest-correlation.ts` (réplica
+  deliberada em `lib/transport/ciot-correlation.ts`, NÃO reuso — bounded context próprio).
+
+**Fila — 4 pontos tocados, 5 job types novos** (`transporte.ciot.register|rectify|cancel|close|
+reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 5 novos `case`s no switch de `processJob`, cada um
+   delegando a um handler `handleTransporteCiot*(job)` **sem** o parâmetro `gateway` (mesmo molde
+   de `transporte.rntrc.verify`); o corpo de cada job vive em `transport-ciot-service.ts`
+   (`runCiot*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteCiotTerminalFailureSideEffect` (também definido em `transport-ciot-service.ts`
+   e re-exportado por `operation-handlers.ts`, para `job-runner.ts` importar de UM lugar só, no
+   mesmo molde dos outros `apply*TerminalFailureSideEffect`), registrado em `workers/job-runner.ts`
+   nos dois pontos de despacho — distingue rejeição DEFINITIVA do provedor
+   (`CIOT_PROVIDER_REJECTED_TEST` → `rejected`, operação permanece `ciot_pending`) de qualquer
+   outro terminal DEPOIS do dispatch (→ `request_unconfirmed`, NUNCA `failed` — DL-102).
+2. `src/lib/retry.ts` — as 5 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (mutações: 4; `reconcile`: 3 — ele já faz polling próprio contra o provedor, o orçamento de
+   retry da fila cobre só infraestrutura em volta) e `getRetryConfig` (mutações: 4 tentativas
+   exponencial 5s→120s, mesmo orçamento do RNTRC; `reconcile`: 3 tentativas, 5s→60s).
+   `CIOT_PROVIDER_REJECTED_TEST`/`CIOT_PROVIDER_NOT_CONFIGURED`/`TRANSPORTE_CIOT_ALREADY_TERMINAL`
+   entram em `NON_RETRYABLE_ERROR_CODES` (decisão definitiva/config ausente/retry tardio pós-commit
+   — nenhum deles se beneficia de retentar); `CIOT_PROVIDER_LOST_RESPONSE_TEST`/
+   `CIOT_RECONCILE_QUERY_FAILED` entram em `RETRYABLE_ERROR_CODES` (também cobertos por status
+   504/502, redundância defensiva, mesmo molde do RNTRC).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) ganhou um parâmetro NOVO, `entityLink`
+   — a primeira vez que o link do contrato não é derivável só de `entityType`/`entityId`:
+   `entityType 'ciot_operation'` usa `entityId = operationId` (a `transport_operations` PAI, para
+   dedupe e dono do link fazerem sentido — a tentativa ativa vai em `payload.ciotOperationId`), e o
+   GET do ciclo vive sob a operação (`/v1/transporte/operacoes/{operationId}/ciot`, sem rota por id
+   de tentativa). O espelho em `src/services/job-service.ts` (`getJob`) ganhou o mesmo ramo no
+   ternário (sem precisar de `entityLink` — `job.entityId` já É o `operationId`).
+4. Contrato: 4 endpoints de comando novos (`solicitar`/`retificar`/`cancelar`/`encerrar`, todos
+   `202`) entraram em `commandEndpoints` de `scripts/validate-openapi.js` **e** do teste gêmeo
+   `tests/integration/openapi-queue-contract.test.js`.
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteCiotReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueManifestSubmitReconcileSweepIfNeeded` (relógio próprio, env var própria
+`TRANSPORTE_CIOT_RECONCILE_SWEEP_MS`, default 5 min, `0`/negativo desliga, falha nunca derruba o
+loop do worker) — é a rede de segurança para `ciot_operations` em `request_unconfirmed` cujo
+enfileiramento de `reconcile` pelo side-effect terminal falhou ou nunca aconteceu (processo caiu
+entre marcar unconfirmed e enfileirar).
+
+Gateway `src/gateways/ciot-provider-gateway.ts` (TS): `mode: 'mock'` (default,
+`CIOT_PROVIDER_MODE`) é STATEFUL EM MEMÓRIA POR PROCESSO — um `Map` module-level chaveado pelo
+`correlationMarker`, para sobreviver à criação de novas instâncias do gateway a cada retry (e para
+`queryCiotByMarker`, chamado pelo reconciliador `services/ciot-reconciler.ts`, "achar" o que uma
+tentativa anterior registrou). `mode: 'real'` recusa `createCiotProviderGateway` com
+`CIOT_PROVIDER_NOT_CONFIGURED` — mesma postura "aceita o valor, falha no uso" de
+`resolveRntrcGatewayMode` para `antt`.
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
+## Migration 029 — Ciclo do VPO Transporte + 2 job types (PR-D1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — o TERCEIRO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts` no PR-C1 e
+`ciot-provider-gateway.ts` no PR-C2), e a SEGUNDA aplicação do padrão **DL-102** (marcador de
+correlação + `*_unconfirmed` + reconciliador), desta vez sobre um recurso MUTÁVEL em vez de
+append-por-tentativa. NÃO existe fornecedora de VPO integrada tecnicamente
+([EXTERNAL DEPENDENCY] P6 do guia do programa) — `gateways/vpo-gateway.ts` só implementa `mock`.
+
+- **`029_transport_vpo.sql`** — `vpo_providers` (PK `text` via `createPrefixedId` (`vpoprov_`),
+  cadastro de referência CONFIGURÁVEL, sem tenancy — `version` + trigger `increment_version()`),
+  `vpo_allocations` (`vpoalloc_`, `version` + trigger) e `vpo_events` (`vpoev_`, APPEND-ONLY, sem
+  `version`). **Decisão estrutural que diverge de `ciot_operations`**: `vpo_allocations` é
+  MUTÁVEL — `unique(operation_id)` garante NO MÁXIMO uma linha por operação (a especificação do
+  PR pediu "cria/atualiza", não "cada tentativa cria uma linha nova"); o histórico completo vive
+  em `vpo_events`. `applicability_reason_code` é OBRIGATÓRIO quando `status='not_applicable'`
+  (`chk_vpoalloc_not_applicable_reason`) — a exigência "até NOT_APPLICABLE deixa justificativa"
+  virou constraint de banco, não convenção de código. `status` e `event_type` foram ESTENDIDOS além
+  do conjunto mínimo da especificação (`pending/applicable/not_applicable/acquired/cancelled`) com
+  dois estados de trânsito (`acquisition_requested`/`acquisition_unconfirmed`) e um evento
+  (`reconciled`) — necessários para sustentar o padrão DL-102 pedido explicitamente para
+  `.../vpo/adquirir`; sem eles não haveria como representar "dispatchado, aguardando confirmação"
+  distinto de "resposta perdida", a mesma distinção que já motiva `ciot_operations.status`.
+
+**Fila — 4 pontos tocados, 2 job types novos** (`transporte.vpo.acquire|reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 2 novos `case`s no switch de `processJob`, delegando a
+   `handleTransporteVpoAcquire(job)`/`handleTransporteVpoReconcile(job)` **sem** o parâmetro
+   `gateway` (mesmo molde do CIOT); o corpo de cada job vive em `transport-vpo-service.ts`
+   (`runVpo*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteVpoTerminalFailureSideEffect` (definido em `transport-vpo-service.ts` e
+   re-exportado por `operation-handlers.ts`, mesmo molde de `applyTransporteCiotTerminalFailureSideEffect`),
+   registrado em `workers/job-runner.ts` nos dois pontos de despacho — distingue rejeição
+   DEFINITIVA do provedor (`VPO_PROVIDER_REJECTED_TEST` → volta a `applicable`, SEM esperar
+   reconciliação) de qualquer outro terminal DEPOIS do dispatch (→ `acquisition_unconfirmed`,
+   NUNCA falha definitiva — DL-102).
+2. `src/lib/retry.ts` — as 2 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (`acquire`: 4; `reconcile`: 3, mesmo racional do CIOT — já faz polling próprio) e
+   `getRetryConfig` (`acquire`: 4 tentativas exponencial 5s→120s; `reconcile`: 3 tentativas,
+   5s→60s). `VPO_PROVIDER_REJECTED_TEST`/`VPO_PROVIDER_NOT_CONFIGURED`/
+   `TRANSPORTE_VPO_ALREADY_TERMINAL` entram em `NON_RETRYABLE_ERROR_CODES`;
+   `VPO_PROVIDER_LOST_RESPONSE_TEST`/`VPO_RECONCILE_QUERY_FAILED` entram em
+   `RETRYABLE_ERROR_CODES` (mesmo molde do CIOT).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) — `entityType 'vpo_allocation'` usa
+   `entityId = operationId` (mesmo padrão de `ciot_operation`, via o parâmetro `entityLink` já
+   existente desde o PR-C2 — nenhuma mudança de assinatura foi necessária aqui).
+4. Contrato: 1 endpoint de comando novo (`POST .../vpo/adquirir`, `202`) entrou em
+   `commandEndpoints` de `scripts/validate-openapi.js`.
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteVpoReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueTransporteCiotReconcileSweepIfNeeded` (relógio próprio, env var própria
+`TRANSPORTE_VPO_RECONCILE_SWEEP_MS`, default 5 min) — é a rede de segurança para `vpo_allocations`
+em `acquisition_unconfirmed` cujo enfileiramento de `reconcile` pelo side-effect terminal falhou.
+
+As DUAS escritas de `POST .../vpo/registrar-aquisicao` (`vpo_allocations` → `acquired` +
+`transport_operations.vpo_amount` via CAS) rodam NUMA transação (`db/pool.ts#withTransaction`) —
+primeira vez que um service da vertical Transporte usa transação explícita cruzando duas tabelas
+(os PRs anteriores aceitavam a janela de corrida, documentada, entre `insert`/`update` e o CAS do
+cabeçalho da operação).
+
+Gateway `src/gateways/vpo-gateway.ts` (TS): `mode: 'mock'` (default, `VPO_PROVIDER_MODE`) é
+STATEFUL EM MEMÓRIA POR PROCESSO, mesmo padrão do CIOT — calcula o valor do VPO a partir da
+distância da rota (tarifa de SANDBOX, nunca real); sem rota/distância válida, rejeita com
+`VPO_PROVIDER_REJECTED_TEST`. `mode: 'real'` recusa `createVpoProviderGateway` com
+`VPO_PROVIDER_NOT_CONFIGURED`.
+
+Cadastro de fornecedoras (`vpo_providers`) carregado por loader MANUAL e ADITIVO
+(`scripts/load-vpo-providers.js`, `npm run load:vpo-providers`, molde
+`load-freight-floor-tables.js`) a partir de `reference-data/vpo/fornecedoras-habilitadas.json` —
+16 fornecedoras REAIS pesquisadas na fonte oficial gov.br/antt em 14/08/2026. O loader NUNCA roda
+no boot (`AUTO_SEED`) e NUNCA toca `is_active` de uma linha existente (upsert por `name`).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+## Migration 030 — Importação/validação de DF-e Transporte + schema registry (PR-E1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). Diferente de
+027/028/029, este PR NÃO adiciona fila: `importar`/`vincular`/`desvincular`/`revalidar` são TODOS
+síncronos (o XML chega pronto no request; não há resposta externa para reconciliar) — zero job
+type novo, zero touch em `operation-handlers.ts`/`lib/retry.ts`/`command-response.ts`.
+
+- **`030_transport_fiscal_documents.sql`** — `dfe_schema_registry` (PK `text` via `createPrefixedId`
+  (`dfeschema_`), SEM tenancy — schema registry é global, molde `vpo_providers` — `version` +
+  trigger `increment_version()`), `fiscal_documents` (`dfe_`, `version` + trigger),
+  `fiscal_document_links` (`dfelink_`, APPEND-ONLY, sem `version`) e `fiscal_document_events`
+  (`dfeev_`, APPEND-ONLY). **Decisão de índice não-trivial**: `dfe_schema_registry` precisa de
+  chave natural `(document_type, layout_version, technical_note)`, mas `technical_note` é NULLABLE
+  (a entrada BASELINE de cada tipo não cita nenhuma nota técnica) — uma `UNIQUE` constraint comum
+  trata duas linhas com `technical_note IS NULL` como NÃO-conflitantes (semântica padrão de NULL em
+  índice único), o que quebraria a idempotência do seed na primeira reconciliação de cada tipo
+  (reboot criaria uma SEGUNDA linha, não um upsert). Resolvido com um ÍNDICE (não constraint
+  simples) sobre `(document_type, layout_version, coalesce(technical_note, ''))`, e o `INSERT ...
+  ON CONFLICT` do seed (`bootstrap/dfe-schema-seed.ts`) referenciando a mesma expressão como
+  arbiter. `fiscal_documents.access_key` tem CHECK `length = 44 and access_key ~ '^[0-9]{44}$'`
+  (layout SEFAZ) — a coerência FINA da chave (dígito verificador mod-11, modelo do documento, CNPJ
+  embutido) é responsabilidade de `dfe-validator.ts` (`DFE_ACCESS_KEY_MISMATCH`, um
+  `DfeValidationIssue`, não uma constraint de banco — uma chave de 44 dígitos com DV errado ainda é
+  GRAVÁVEL, só entra `invalid` em `validation_status`). `fiscal_documents` NUNCA guarda o XML: só
+  `xml_storage_ref` (`STORAGE_DIR/transporte-dfe/<hash>.xml`) + `xml_hash` (SHA-256) — mesmo
+  racional de `manifest-service.ts` para documentos MTR/CDF gerados.
+
+**Dependência de runtime NOVA**: `fast-xml-parser` (`^5.10.1`, zero deps nativas, licença MIT).
+Justificativa: `packages/fiscal-kit` (kit de EMISSÃO, Fase G) só CONSTRÓI XML simplificado próprio
+para NF-e (`src/nfe/build.js`, formato inventado para o sandbox, nunca o layout real da SEFAZ) —
+não existia parser XML estrutural no workspace. `XMLValidator.validate()` detecta XML malformado
+(`DFE_XML_INVALID`) ANTES de `XMLParser.parse()` rodar; `removeNSPrefix: true` torna o parser
+tolerante a XML com prefixo de namespace. NUNCA `eval`/regex-DOM-hack.
+
+**Schema registry — por que "nenhuma regra de XML depende de schema eterno"**: `dfe_schema_registry`
+resolve a entrada VIGENTE por `(document_type, layout_version)` na data de EMISSÃO do documento
+(`dfe-schema-registry-repo.ts#findActiveSchemaRegistryEntry`, reaproveitando
+`lib/transport/regulatory-temporal.ts#resolveVersionFromList` do catálogo regulatório — MESMO
+predicado temporal, não duplicado em SQL) — o mesmo layout MDF-e 3.00 pode ter perfis de validação
+DIFERENTES conforme a data (`validation_profile` jsonb, regras ativáveis). A antecipação em TESTE
+das rejeições da NT MDF-e 2026.001 (CIOT obrigatório no MDF-e para transporte remunerado por
+terceiros) é uma LINHA deste registry (`MDFE/3.00/NT MDF-e 2026.001`,
+`validation_profile.mdfeRequiresCiot=true`, `effective_from` **[ASSUMPTION]** `2026-10-01` —
+cronograma técnico oficial da SEFAZ/CONFAZ ainda não publicado, pendência P7 do guia do programa),
+nunca um `if` hardcoded no validador — `dfe-validator.ts#checkMdfeCiotRequired` só lê
+`registryEntry.validationProfile.mdfeRequiresCiot`.
+
+`transport-fiscal-service.ts` orquestra `importarDocumentoFiscal`: parse (puro) → dedupe por
+`(integration_account_id, access_key)` (409 `DFE_ALREADY_IMPORTED`, existingId no campo `errors`
+do problem+json — `context` do `AppError` NÃO é serializado por `error-handler.ts#createProblem`,
+só `errors` é) → resolve o schema registry vigente na emissão → valida (`dfe-validator.ts`, contexto
+da operação já incluído quando `operationId` chega no próprio request) → grava XML em storage →
+persiste `fiscal_documents` + `fiscal_document_links` (resolvidos automaticamente: as chaves
+referenciadas no XML — `infDoc`/`infCTeNorm` — cruzadas contra documentos JÁ importados na mesma
+conta) + eventos (`imported`, `validated`, e `linked_to_operation` quando `operationId` é
+informado) NUMA transação. `vincular` roda o cross-check `MDFE_CIOT_MISMATCH` (CIOT registrado da
+operação vs. `infCIOT` do MDF-e) e o side-effect `vpo_allocations.mdfe_reference` (nova função em
+`vpo-repo.ts`, `setVpoAllocationMdfeReference` — guardada por `status = 'acquired'`, mesmo padrão
+das demais transições da tabela) sobre o SNAPSHOT já extraído — sem reler o XML; `revalidar` é o
+único fluxo que relê o XML do storage e reprocessa a validação INTEIRA contra o registry/operação
+ATUAIS, mas nunca reescreve `xml_storage_ref`/`xml_hash`/`ciot_numbers`/`vpo_references` (congelados
+na importação, parte do snapshot, não da validação).
+
+6 evaluators novos em `rule-evaluators.ts` (`TR-NFE-001`, `TR-CTE-001`, `TR-MDFE-001`,
+`TR-MDFE-002`, `TR-CIOT-005`, `TR-VPO-004`) saíram de `RULES_WITHOUT_EVALUATOR_YET` — que agora só
+tem `TR-RNTRC-003` (aguardando regulamentação ANTT). `ctx.fiscalDocuments` (recorte mínimo — `id`,
+`documentType`, `validationStatus`, `authorizationStatus`, `validationIssueCodes` (só os `code`,
+nunca o objeto `DfeValidationIssue` inteiro), `ciotNumbers`, `hasValePedagio`) é montado por
+`transport-compliance-service.ts` via
+`transport-fiscal-repo.ts#listFiscalDocumentsForOperation`, mesmo molde de `ctx.ciotOperation`/
+`ctx.vpoAllocation`.
+
+Contrato: tag nova `Transporte - Documentos Fiscais`, 6 endpoints — TODOS síncronos (201 import, 200
+os demais). NENHUM entrou em `commandEndpoints` de `scripts/validate-openapi.js` (essa lista é só
+para endpoints `202`/`CommandAccepted`; esta camada não tem nenhum).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
+processos).
+
+## Migration 031 — Seguros e PGR Transporte (PR-F2, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). Mesmo racional
+do PR-E1 (030): este PR NÃO adiciona fila — `apolices` (criar/listar/atualizar/verificar) e `pgr`
+(criar/listar) são TODOS síncronos, zero job type novo, zero touch em
+`operation-handlers.ts`/`lib/retry.ts`/`command-response.ts`. É o QUARTO gateway externo da
+vertical (depois de `antt-rntrc-gateway.ts` no PR-C1, `ciot-provider-gateway.ts` no PR-C2 e
+`vpo-gateway.ts` no PR-D1), mas o PRIMEIRO sem estado — `insurance-verification-provider.ts` não
+tem Map por processo porque `verifyCarrier`/`verifyPolicy` são CONSULTA, não mutação (não existe
+"resposta perdida" DL-102 a reconciliar para uma leitura pura).
+
+- **`031_transport_insurance.sql`** — `insurance_policies` (PK `text` via `createPrefixedId`
+  (`inspol_`), `version` + trigger `increment_version()`), `risk_management_plans`/PGR (`pgr_`,
+  `version` + trigger) e `insurance_verifications` (`insver_`, APPEND-ONLY, sem `version` — mesmo
+  racional de `rntrc_verifications` da migration 027). Chave natural de `insurance_policies`:
+  `unique (integration_account_id, party_id, policy_type, policy_number)` — é o que
+  `POST .../apolices/verificar` usa para decidir criar vs. atualizar (upsert manual via
+  `findPolicyByNaturalKey` + `insertPolicy`/`updatePolicyById`, não um `ON CONFLICT` de banco,
+  porque o `id` é gerado ANTES de saber se a linha já existe). `insurance_policies.status`/
+  `risk_management_plans.status` são ADMINISTRATIVOS (`active|cancelled|expired_marked` e
+  `active|superseded|cancelled`, respectivamente) — a vigência REAL é sempre derivada de
+  `valid_from`/`valid_until` contra a data que importa (nunca contra `status` sozinho, e nunca
+  contra "hoje" quando o consumidor é o motor de compliance). `risk_management_plans.
+  related_policy_types` (jsonb, default `["RCTR_C","RC_DC"]`) é declarativo — quem de fato decide
+  se o PGR é EXIGIDO é o evaluator `TR-PGR-001` (`rule-evaluators.ts`), olhando se o carrier tem
+  apólice RCTR-C/RC-DC registrada, não este campo.
+
+`insurance-verification-provider.ts` (`gateways/`) declara a interface abstrata
+`InsuranceVerificationProvider` (`verifyCarrier`/`verifyPolicy`) e entrega hoje só `mode: mock` —
+sandbox determinístico por paridade de dígito do documento/`policyNumber` (par → encontrado; ímpar
+→ não encontrado; `mockOverrides` sobrepõe). `INSURANCE_PROVIDER_MODE=antt` ou `real` recusa criar
+a instância com `501 INSURANCE_PROVIDER_NOT_CONFIGURED` — nenhuma integração técnica com
+seguradora/ANTT credenciada ainda ([EXTERNAL DEPENDENCY] P8 do guia do programa: a ANTT tem
+cronograma de verificação automática de seguros, mas ele exige credenciamento que o operador ainda
+não tem).
+
+`transport-insurance-service.ts` orquestra dois caminhos de escrita por apólice: `POST .../apolices`
+(evidência MANUAL declarada por um usuário — grava a apólice + uma `insurance_verifications`
+`strategy: manual`/`verifiedBy`=usuário NUMA transação) e `POST .../apolices/verificar` (roda o
+provider; para cada apólice encontrada, upsert por chave natural + `insurance_verifications` por
+apólice tocada, `evidenceSource`/`strategy` = a origem do provider). `PATCH .../apolices/{policyId}`
+usa locking otimista (`version`, 409 em divergência) e trata `validFrom`/`validUntil` como um caso
+especial: qualquer alteração desses dois campos grava uma `insurance_verifications` NOVA com o
+resultado da mudança (`previousValidFrom`/`previousValidUntil` vs. os novos valores) — nunca edita
+vigência silenciosamente, mesmo a apólice em si sendo `UPDATE ... SET` in-place (é um cadastro
+administrativo com `version`, não um histórico por tentativa como `rntrc_verifications`).
+`GET .../seguros/vencimentos` roda duas queries (`listPoliciesExpiringSoon`/
+`listExpiredPoliciesWithOpenOperations`, ambas com `JOIN transport_parties` para o nome do
+transportador no alerta) e junta os dois tipos de resultado — a segunda faz `JOIN
+transport_operation_parties`/`transport_operations` para só alertar sobre apólice vencida quando
+existe pelo menos uma operação `NOT IN ('completed', 'cancelled')` dependendo dela (evita ruído de
+apólice vencida de operação já encerrada).
+
+4 evaluators novos em `rule-evaluators.ts` (`TR-SEG-001`, `TR-SEG-002`, `TR-SEG-003`, `TR-PGR-001`)
+saíram de `RULES_WITHOUT_EVALUATOR_YET` — que agora só tem `TR-RNTRC-003` (aguardando
+regulamentação ANTT). `ctx.carrierInsurance` (`{policies: {RCTR_C, RC_DC, RC_V}, pgr}`, recorte
+MÍNIMO — `policyNumber`/`planReference` + `validFrom`/`validUntil`, nunca condições comerciais) é
+montado por `transport-compliance-service.ts` via
+`transport-insurance-repo.ts#findApplicablePolicyForPartyAndType` (uma consulta por tipo — a
+apólice `active` que MELHOR cobre a `referenceDate` do gate, com fallback para a mais recente por
+`valid_until` quando nenhuma cobre) e `findApplicablePlanForParty` (mesmo racional para o PGR),
+mesmo molde de `ctx.fiscalDocuments`/`ctx.vpoAllocation`.
+
+Contrato: tag nova `Transporte - Seguros`, 7 endpoints — TODOS síncronos (201 apolices/pgr, 200 os
+demais, incluindo `apolices/verificar` que responde 200 OU 501, nunca 202). NENHUM entrou em
+`commandEndpoints` de `scripts/validate-openapi.js` (essa lista é só para endpoints
+`202`/`CommandAccepted`; esta camada não tem nenhum).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready (mesmo sem job novo aqui — `AUTO_MIGRATE` roda nos dois
+processos).
+
+## Migration 032 — Emissão de DF-e SANDBOX-READY Transporte + 3 job types (PR-G, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). É o QUINTO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts`/`ciot-provider-gateway.ts`/
+`vpo-gateway.ts`/`insurance-verification-provider.ts`) e a TERCEIRA aplicação do padrão **DL-102**
+sobre um recurso append-por-tentativa (molde `ciot_operations`, não `vpo_allocations`) — mas o
+PRIMEIRO gateway desta lista que fala com uma dependência REAL de outro pacote do monorepo
+(`@flavioneto11/fiscal-kit`, não um mock local): o "provedor" é o kit sandbox de verdade, chamado
+de ponta a ponta (`buildNfeXml`/`signXml`/`submit`/`queryStatus`), não uma simulação escrita só para
+este PR. A Fase G é CONDICIONAL a go/no-go comercial + certificado + credenciamento SEFAZ
+([LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY], pendência P9) — a fila/gateway nascem atrás de
+`DFE_ISSUANCE_MODE=off` (config, default em todo ambiente).
+
+- **`032_transport_dfe_issuance.sql`** — `dfe_issuances` (PK `text` via `createPrefixedId`
+  (`dfeiss_`), `version` + trigger `increment_version()`) e `dfe_issuance_events` (`dfeissev_`,
+  APPEND-ONLY, sem `version`). Uma linha por TENTATIVA de emissão (molde `ciot_operations`: uma
+  emissão rejeitada/falha não apaga histórico nem trava uma nova tentativa). `correlation_marker`
+  (`[sicat-dfe:<issuanceId>]`, prefixo distinto do CIOT para nunca colidir em log/auditoria
+  compartilhados) é `unique`, gravado na CRIAÇÃO — ANTES de qualquer chamada ao gateway.
+  `fiscal_document_id` (FK para `fiscal_documents`, nullable) só é preenchido quando a emissão
+  AUTORIZADA é reimportada ao acervo da Fase E. `environment` aceita `sandbox|production` por
+  DESENHO de schema (a coluna não muda quando P9 for resolvida), mas nenhum código deste PR grava
+  `production` — o bloqueio real é a config `DFE_ISSUANCE_MODE`, não uma CHECK constraint.
+
+**Fila — 4 pontos tocados, 3 job types novos** (`transporte.dfe.issue|.cancel|.reconcile`):
+
+1. `src/workers/operation-handlers.ts` — 3 novos `case`s no switch de `processJob`, delegando a
+   `handleTransporteDfeIssue|DfeIssueCancel|DfeIssueReconcile(job)` **sem** o parâmetro `gateway`
+   (mesmo molde do CIOT/VPO); o corpo de cada job vive em `transport-dfe-issuance-service.ts`
+   (`runDfeIssuance*Job`). Terminal (DLQ/failed) tratado por
+   `applyTransporteDfeIssuanceTerminalFailureSideEffect` (definido em
+   `transport-dfe-issuance-service.ts`, re-exportado por `operation-handlers.ts`), registrado em
+   `workers/job-runner.ts` nos dois pontos de despacho — mas com uma DIVERGÊNCIA deliberada do
+   CIOT/VPO: a classificação local-vs-DL-102 não lê nenhum código de erro, é 100% pelo STATUS da
+   linha no momento do terminal (`submitting` → `submit_unconfirmed`; qualquer status pré-
+   `submitting` → `failed_validation`) — mais robusto a esquecer um código novo numa lista.
+2. `src/lib/retry.ts` — as 3 operações entram em `RetryableOperation`, `calculateJobPriority`
+   (`issue`/`cancel`: 4; `reconcile`: 3, mesmo racional do CIOT/VPO — já faz polling próprio) e
+   `getRetryConfig` (`issue`/`cancel`: 4 tentativas exponencial 5s→120s; `reconcile`: 3 tentativas,
+   5s→60s). `DFE_ISSUANCE_INCOMPLETE_DATA`/`DFE_ISSUANCE_TYPE_NOT_SUPPORTED`/`DFE_ISSUANCE_DISABLED`
+   entram em `NON_RETRYABLE_ERROR_CODES`; `TRANSPORTE_DFE_ISSUANCE_RECONCILE_QUERY_FAILED` entra em
+   `RETRYABLE_ERROR_CODES` (mesmo molde do CIOT/VPO — ⚠️ nota: como os três primeiros carregam
+   status HTTP `>=500`, `isRetryableJobError` os classifica RETRYABLE pela via do STATUS antes de
+   chegar no código, mesmo comportamento pré-existente de `CIOT_PROVIDER_NOT_CONFIGURED`/
+   `VPO_PROVIDER_NOT_CONFIGURED` — não é regressão deste PR, é uma precedência status-antes-de-código
+   que já existia; registrado no NON_RETRYABLE por paridade de intenção com os outros domínios).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) — `entityType 'dfe_issuance'` usa
+   `entityId = operationId` (mesmo padrão de `ciot_operation`/`vpo_allocation`, via o parâmetro
+   `entityLink` já existente desde o PR-C2 — nenhuma mudança de assinatura foi necessária aqui).
+4. Contrato: 2 endpoints de comando novos (`POST .../emissoes` e `POST .../emissoes/{id}/cancelar`,
+   ambos `202`) entraram em `commandEndpoints` de `scripts/validate-openapi.js` e do teste irmão
+   (`tests/integration/openapi-queue-contract.test.js`, que também ganhou a entrada pré-existente
+   `vpo/adquirir` que faltava lá — drift de um PR anterior, corrigido de passagem).
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteDfeIssuanceReconcileSweepIfNeeded`) — molde EXATO de
+`enqueueTransporteCiotReconcileSweepIfNeeded`/`enqueueTransporteVpoReconcileSweepIfNeeded` (relógio
+próprio, env var própria `TRANSPORTE_DFE_ISSUANCE_RECONCILE_SWEEP_MS`, default 5 min) — rede de
+segurança para `dfe_issuances` em `submit_unconfirmed` cujo enfileiramento de `reconcile` pelo
+side-effect terminal falhou.
+
+Gateway `src/gateways/dfe-issuance-gateway.ts` (TS): `mode: 'off'` (default, `DFE_ISSUANCE_MODE`)
+recusa TODA chamada com `DFE_ISSUANCE_DISABLED`; `mode: 'sandbox'` + `documentType: 'NFE'` chama de
+verdade `@flavioneto11/fiscal-kit` (`createFiscalGateway({mode:'sandbox'})`) — comportamento REAL
+observado (lido no código do kit): `buildNfeXml`/`signXml` são puros e determinísticos,
+`submit`/`queryStatus` respondem IMEDIATAMENTE `authorized`, sem espera nem rejeição — o sandbox do
+kit nunca deixa uma emissão pendente nem a recusa. `documentType: 'CTE'/'MDFE'` recusa com
+`DFE_ISSUANCE_TYPE_NOT_SUPPORTED` (o kit só cobre NF-e). O XML cru do kit (formato PRÓPRIO
+minimalista, sem chave de acesso de 44 dígitos) NUNCA é o que persiste: `lib/transport/
+dfe-issuance-nfe-mapper.ts` (PURO) tece o resultado real do kit (digest, recibo, protocolo) dentro
+de um envelope no layout REAL da SEFAZ, com uma chave de acesso sandbox SINTETIZADA mas
+estruturalmente VÁLIDA (DV/modelo/CNPJ coerentes) — o documento final é reimportado ao acervo da
+Fase E via `transport-fiscal-service.importarDocumentoFiscal` (reuso interno, zero linha alterada
+naquele parser/validador).
+
+Dependência nova do monorepo: `@flavioneto11/fiscal-kit` (`packages/fiscal-kit`) vendorizada em
+`vendor/flavioneto11-fiscal-kit-0.1.0.tgz` — mesmo mecanismo de `@flavioneto11/oidc-kit`
+(`scripts/vendor-packages.ps1` → `npm pack` → `file:vendor/<tgz>` no `package.json` do backend, ver
+`docs/standards/shared-libraries-and-versioning.md`). Achado de empacotamento (reportado, NÃO
+corrigido — o kit é só consumido): `packages/fiscal-kit/package.json` declara `"exports"` sem
+condição `"types"`, e sob `moduleResolution: "NodeNext"` o TypeScript não resolve `index.d.ts` da
+raiz do pacote por esse mapa — contornado com um shim de tipos LOCAL do backend
+(`src/types/fiscal-kit.d.ts`, réplica documentada do `index.d.ts` do kit) em vez de tocar o pacote.
+
+3 evaluators NOVOS: NENHUM. A emissão autorizada reimportada vira um `fiscal_documents` comum,
+avaliado pelos evaluators TR-NFE-001/TR-CTE-001/TR-MDFE-001/002 JÁ EXISTENTES desde o PR-E1 —
+`RULES_WITHOUT_EVALUATOR_YET` permanece intocado (só `TR-RNTRC-003`, aguardando regulamentação
+ANTT), confirmado pela meta-guarda 2 de `tests/regulatory/rule-catalog-invariants.test.js`.
+
+Contrato: tag nova `Transporte - Emissao Fiscal`, 3 endpoints (`POST .../emissoes` 202,
+`GET .../emissoes` 200, `POST .../emissoes/{id}/cancelar` 202 sandbox only).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+## Migration 033 — Regulatory Watch Transporte + 1 job type (PR-H1, 2026-08-15)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103). É o SEXTO
+gateway externo da vertical (depois de `antt-rntrc-gateway.ts`/`ciot-provider-gateway.ts`/
+`vpo-gateway.ts`/`insurance-verification-provider.ts`/`dfe-issuance-gateway.ts`), mas o PRIMEIRO
+com uma postura de falha DIFERENTE dos outros cinco: em vez de fail-closed (`mode: off/mock` recusa
+a chamada), `regulatory-watch-gateway.ts` em `mode: 'off'` (default, `REGULATORY_WATCH_MODE`)
+devolve `{ skipped: true }` sem tocar rede nem lançar — NO-OP LIMPO. Verificar uma fonte é LEITURA
+sem efeito colateral em produção; desligar o modo não devia transformar um disparo manual
+(`POST .../watch/verificar-agora`) num erro 5xx. É também o PRIMEIRO job type da vertical com
+dedupe em **entidade GLOBAL** (`regulatory_watch_sweep:global`) em vez de uma linha por
+operação/tentativa — o job processa TODAS as fontes monitoradas dentro de UMA execução (mesmo
+racional de `catalog.sync`, não do CIOT/VPO/DF-e), e o índice parcial
+`ux_jobs_active_entity_operation` garante no máximo UMA varredura em voo por vez, seja disparada
+pela sweep periódica ou pelo comando manual.
+
+- **`033_transport_regulatory_watch.sql`** — `regulatory_watch_items` (PK `text` via
+  `createPrefixedId` (`regwatch_`), `version` + trigger `increment_version()`) e
+  `regulatory_watch_events` (`regwev_`, APPEND-ONLY, sem `version`). Uma linha de item por MUDANÇA
+  DETECTADA (não por fonte — uma fonte pode acumular vários itens ao longo do tempo). `detected_
+  change` (jsonb: `previousHash`/`newHash`/`httpStatus`/`etag`/`lastModified`) guarda só o FATO
+  bruto da detecção; o conteúdo baixado nunca entra em coluna — `ingested_content_ref` aponta para
+  `STORAGE_DIR/regulatory-watch/<hash>.bin` (molde `xml_storage_ref` da Fase E/G). Check
+  `chk_regwatch_reviewed_when_decided` espelha `chk_regrulev_blocking_reviewed` (migration 021): um
+  item só pode estar `approved`/`rejected`/`active_applied` com `reviewed_by`/`reviewed_at`
+  preenchidos. `regulatory_watch_events.watch_item_id` é NULLABLE — o ÚNICO evento sem item é
+  `check_run_no_change` (a varredura confirmou "sem mudança"; não há mudança para acompanhar), que
+  por isso carrega `source_id` direto (toda linha da tabela carrega `source_id`, ligada ou não a um
+  item, para consulta uniforme "últimas verificações desta fonte" sem join).
+
+**Fila — 4 pontos tocados, 1 job type novo** (`transporte.regulatory.watch_check`):
+
+1. `src/workers/operation-handlers.ts` — 1 novo `case` no switch de `processJob`, delegando a
+   `handleTransporteRegulatoryWatchCheck(job)` **sem** o parâmetro `gateway` (mesmo molde do CIOT/
+   VPO/DF-e); o corpo do job vive em `transport-regulatory-watch-service.ts`
+   (`runRegulatoryWatchCheckJob`). SEM side-effect terminal: o job não cria nenhum estado `pending`
+   fora de uma transação bem-sucedida — cada `regulatory_watch_items` só nasce DEPOIS de um fetch
+   OK, dentro do próprio corpo do job (cada fonte isolada em `try/catch` — uma fonte fora do ar
+   nunca derruba as demais nem o job inteiro), então uma falha TERMINAL do job inteiro (só infra:
+   Postgres fora no meio da varredura) não deixa nada pela metade para reconciliar.
+2. `src/lib/retry.ts` — a operação entra em `RetryableOperation`, `calculateJobPriority`
+   (nível 3, mesmo de `catalog.sync` — housekeeping de fundo, nunca preempta CETESB/CIOT/VPO/DF-e)
+   e `getRetryConfig` (3 tentativas, exponencial 10s→120s — orçamento curto: a próxima varredura
+   periódica de 24h já é a rede de segurança natural). `REGULATORY_WATCH_GATEWAY_TIMEOUT`/
+   `REGULATORY_WATCH_GATEWAY_NETWORK_ERROR` entram em `RETRYABLE_ERROR_CODES` por clareza/
+   redundância (também cobertos por status via `classifyRetryabilityFromStatus`) — mas na prática
+   nunca escapam do `try/catch` por-fonte dentro do job, então a classificação só importa se o
+   job um dia for redesenhado para um job por fonte.
+3. `src/services/transport-regulatory-watch-service.ts` — `triggerRegulatoryWatchCheckNowService`
+   (comando manual, `entityType 'regulatory_watch_sweep'`/`entityId 'global'`) e
+   `enqueueRegulatoryWatchSweep` (chamada pela sweep periódica) usam o MESMO `insertJobDeduplicated`
+   com a MESMA entidade — é isso que garante no máximo uma varredura ativa, disparada por qualquer
+   um dos dois caminhos.
+4. Contrato: 1 endpoint de comando novo (`POST /v1/transporte/watch/verificar-agora`, `202`) entrou
+   em `commandEndpoints` de `scripts/validate-openapi.js` e do teste irmão
+   (`tests/integration/openapi-queue-contract.test.js`).
+
+Além da fila, uma **varredura periódica própria** em `workers/job-runner.ts`
+(`enqueueTransporteRegulatoryWatchSweepIfNeeded`) — molde ESTRUTURAL das sweeps de reconciliação
+(relógio próprio, env var própria `TRANSPORTE_REGULATORY_WATCH_SWEEP_MS`, default 24h — bem mais
+espaçado que os 5 min das sweeps de reconciliação, porque fonte normativa não muda de hora em hora),
+mas com uma GUARDA A MAIS que nenhuma sweep anterior tinha: só enfileira quando
+`config.regulatoryWatchMode === 'live'` — em `off` (default), nem chega a criar o job (o job SERIA
+um no-op limpo se rodasse, mas não vale gastar um slot de fila com isso).
+
+Gateway `src/gateways/regulatory-watch-gateway.ts` (TS): `fetchSource({ url, previousHash })` —
+`mode: 'off'` devolve `{ skipped: true, reason: 'watch_mode_off' }` (ver acima); `mode: 'live'` faz
+GET real com timeout curto (`REGULATORY_WATCH_GATEWAY_TIMEOUT_MS`, default 20s) e User-Agent
+identificado (`REGULATORY_WATCH_USER_AGENT` — portais governamentais costumam bloquear/registrar
+clientes anônimos), calcula sha256 do corpo e compara com `previousHash`; só GRAVA o corpo em
+`STORAGE_DIR/regulatory-watch/` quando o hash MUDOU (hash igual não persiste nada — a fonte não
+mudou, não há conteúdo novo a preservar). Resposta não-2xx vira erro retryable
+(`REGULATORY_WATCH_GATEWAY_HTTP_ERROR`); timeout/rede também.
+
+Passo de IA (opcional, dentro de `transport-regulatory-watch-service.ts`, NÃO no gateway): reusa a
+infraestrutura de IA já existente do SICAT (`services/conversation/ai-config.ts`
+`hasOpenAiApiKey`/`getAiConfig`/`createChatModel`, `services/ai-control/ai-control-config.ts`
+`getAiControlConfig`) — sem chave, ou com `AI_CONTROL_ENABLED=false`, ou em QUALQUER falha da
+chamada (leitura do conteúdo, erro do modelo, resposta vazia), o item pula para `ai_skipped` sem
+lançar. Prompt FIXO minimalista: resume o que o conteúdo baixado PARECE tratar — a IA NÃO tem a
+versão anterior para comparar (não pode afirmar "o que mudou") e é instruída a NUNCA sugerir uma
+decisão. Nenhum modelo/prompt novo registrado no AI Control Center (chamada direta, molde
+`conversation-evidence-verifier.ts`, não uma tool do catálogo conversacional).
+
+Escrita nova em `regulatory-repo.ts` (histórico de ser SÓ leitura desde o PR-A1, anunciado no
+header do arquivo): `insertRuleVersion` (chamada por `aplicar` — `blocking` não é parâmetro, o
+INSERT grava o literal `false`) e `promoteRuleVersionBlocking` (chamada por `promover` — o ÚNICO
+caminho para `blocking=true`, `UPDATE ... where implementation_state='ACTIVE'`, propagando exclusion/
+check violations do Postgres para o chamador traduzir em `409`).
+
+3 evaluators NOVOS: NENHUM (o Regulatory Watch não avalia compliance, só monitora fontes). Nenhuma
+regra TR-* nova — `aplicar` só permite criar NOVA VERSÃO de uma regra já existente no catálogo.
+
+Contrato: tag nova `Transporte - Regulatory Watch` (5 endpoints: `GET .../watch`,
+`GET .../watch/{itemId}`, `POST .../watch/{itemId}/revisar`, `POST .../watch/{itemId}/aplicar`,
+`POST .../watch/verificar-agora` 202), mais `POST /v1/transporte/regras/{code}/versoes/
+{versionLabel}/promover` (tag `Transporte - Regras`) e `GET /v1/transporte/operations/overview`
+(tag `Transporte - Operações`, reusa a infraestrutura do Centro Operacional da fase 04 — sem tocar
+`/v1/operations/overview` nem `/v1/dashboard/overview`).
+
+⚠️ Mesmo aviso de rollout escalonado das seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`
 - Worker: `src/workers/job-runner.js`
 - Rotas: `src/routes/health-routes.js`
-- Decision log: `docs/copilot/13-decision-log.md` (DL-022)
+- Decision log: `docs/copilot/13-decision-log.md` (DL-022, DL-102, DL-103)

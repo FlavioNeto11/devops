@@ -68,6 +68,10 @@ export async function assistant(message, files) {
   return data;
 }
 export const assistantHealth = () => request('GET', '/v1/assistant/health');
+// Confirma um rascunho proposto pela IA (loop rascunho -> confirmação humana). Endpoint existente
+// (assistant.js: POST /v1/assistant/confirm-draft). Persiste o rascunho como documento confirmado.
+export const confirmDraft = ({ draftId, draftType, draftData, conversationId }) =>
+  request('POST', '/v1/assistant/confirm-draft', { draft_id: draftId, draft_type: draftType, draft_data: draftData, conversation_id: conversationId || null });
 
 // Identidade do usuário (REQ-CONTAVIVA360-0008)
 export const me = () => request('GET', '/me');

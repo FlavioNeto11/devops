@@ -1,0 +1,16 @@
+﻿Item,Tipo,Mín (R$),Máx (R$),Confiança,Fonte
+Infra cloud — fase lancamento (até 30 clientes),fixo-mês,150,800,alta,cloud nacional em R$ (Magalu BV2/BV4 R$83-150 + storage no free tier do Cloudflare R2) até AWS sa-east-1 gerenciada (EC2 t3.large + RDS ≈ R$785) — pesquisa 2026-07-16
+Infra cloud — fase crescimento (até 150 clientes),fixo-mês,1800,3500,media,2 nós + Postgres gerenciado HA + monitoração
+Infra cloud — fase escala (150+ clientes),fixo-mês,4000,8000,baixa,cluster gerenciado + réplica leitura + DR
+Custo fixo de operação (sem folha),fixo-mês,10000,10000,premissa,"infra 800 (teto da fase lançamento) + suporte/CS 0,5 FTE 4000 + ferramentas/contab 1200 + marketing 4000 (sem folha core); com infra de crescimento, sobe ~1-2,7 mil"
+Folha core (1 dev + fundador parcial),fixo-mês,20000,20000,premissa,1 dev + fundador parcial — linha separada do CF
+Suporte/CS (por hora),por-cliente-mês,60,60,premissa,custo carregado CS/suporte BR
+IA — custo por turno de chat (faixa = cache hit 80% a 60%),por-interação,0.052,0.072,media,"tokens 22000/800 @ US$1.0/5.0 MTok, cache hit central 70%, câmbio 5.1 — fórmula viva na aba Premissas"
+IA — custo por arquivo ingerido,por-interação,0.255,0.255,media,50000 tokens de input
+Storage de PDFs (por GB·mês),por-DO,0.1,0.25,media,"object storage BR ~R$0,10-0,25/GB·mês"
+Banco/fila (por DO),por-DO,0.001,0.001,premissa,fila Postgres — custo marginal quase nulo
+Fiscal: custo do parceiro por documento,referência,0.1,0.14,alta,"Focus NFe: excedente R$0,10-0,12/doc; efetivo ≈R$0,137 no plano Growth (focusnfe.com.br/precos, 2026-07-16); CT-e/MDF-e inclusos na franquia única"
+Fiscal: mensalidade da plataforma parceira,referência,90,548,alta,"Focus NFe: Solo R$89,90 (1 CNPJ, 100 docs) → Growth R$548 (CNPJs ilimitados, 4.000 docs) — sem setup, sem fidelidade"
+Fiscal: certificado A1 (custo do CLIENTE),referência,150,250,media,"custo do CLIENTE, não do SICAT — calibrar bloco B"
+"Fiscal: dev fase 1 (API parceira, one-off)",referência,40000,70000,premissa,integração + DACTE + telas + vínculo MTR↔CT-e
+Fiscal: dev emissor próprio (one-off),referência,150000,300000,baixa,"schema CT-e 4.0 + assinatura + contingência + MDF-e + homologação, sobre gateway do ContaViva-360 — só com >30k docs/mês"

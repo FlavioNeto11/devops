@@ -1,5 +1,6 @@
 'use client';
 
+import type { HTMLAttributes, KeyboardEvent } from 'react';
 import { AlertTriangle, CheckSquare, Clock, RefreshCw, Users } from 'lucide-react';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/avatar';
@@ -15,12 +16,33 @@ export function ActivityCard({ activity, onClick }: ActivityCardProps) {
   const responsible = activity.assignees.find((a) => a.kind === 'responsible');
   const { done, total } = activity.checklistProgress;
 
+  // Acessibilidade (WCAG 2.1.1): quando o card é acionável, ele vira um botão
+  // ARIA operável por teclado (Tab + Enter/Espaço) com foco visível, em vez de
+  // um `<div onClick>` que só responde ao mouse. O card não tem nenhum
+  // interativo aninhado, então ele inteiro é o único alvo acionável.
+  const interactiveProps: HTMLAttributes<HTMLDivElement> = onClick
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        },
+        'aria-label': `Abrir atividade: ${activity.title}`,
+      }
+    : {};
+
   return (
     <div
       data-tutorial="activity-card"
-      onClick={onClick}
+      {...interactiveProps}
       className={[
-        'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-muted/40',
+        'flex items-start gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-muted/40',
+        onClick &&
+          'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background',
         activity.priority === 'critica' && activity.isOverdue
           ? 'border-red-300 bg-red-50/50 dark:bg-red-950/20'
           : activity.isOverdue

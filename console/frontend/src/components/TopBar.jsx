@@ -25,11 +25,15 @@ export default function TopBar({ section, onMenu, navOpen = false, live }) {
       </div>
 
       <div className="topbar__actions">
-        {live && (
-          <span className={live.cls} title="Observação do cluster em tempo real (SSE)">
-            {live.text}
-          </span>
-        )}
+        {/* Região viva persistente: mudanças de estado do stream (conectando/ao vivo/
+            reconectando) são anunciadas por leitores de tela sem roubar o foco. */}
+        <span className="topbar__live" role="status" aria-live="polite">
+          {live && (
+            <span className={live.cls} title="Observação do cluster em tempo real (SSE)">
+              {live.text}
+            </span>
+          )}
+        </span>
       </div>
     </header>
   );

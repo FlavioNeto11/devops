@@ -1,19 +1,29 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateConversationPolicy } from '../../src/services/conversation/conversation-policy-service.js';
+import {
+  evaluateConversationPolicy,
+  listRequiredPermissionKeys
+} from '../../src/services/conversation/conversation-policy-service.js';
 
 function buildContext(overrides = {}) {
   return {
+    // Campos resolvidos pelo principal no servidor (conversation-principal.ts)
     channel: 'inapp',
+    userId: 'usr_test_001',
+    integrationAccountId: 'acc_test_001',
+    sessionContextId: 'scx_test_001',
+    channelSessionKey: 'inapp:usr_test_001:acc_test_001',
+    // Operador COMPLETO — ver a nota em `conversation-policy-service.test.js`: com `[]` estes casos
+    // paravam no fail-open e nunca chegavam nos controles de lote/escopo que dizem exercitar.
+    permissionKeys: listRequiredPermissionKeys(),
+    requestedBy: 'tester',
+    // Derivados da requisição
     correlationId: 'corr_test_conversation_policy',
     conversationSessionId: 'csn_test',
     conversationTurnId: 'ctn_test',
-    integrationAccountId: 'acc_test_001',
-    sessionContextId: 'scx_test_001',
     manifestId: 'man_test',
     jobId: null,
     auditCorrelationId: null,
-    requestedBy: 'tester',
     idempotencyKey: null,
     metadata: {},
     ...overrides
@@ -314,9 +324,10 @@ describe('conversation-policy-access-control (phase 08)', () => {
     });
 
     it('preserves existing policy checks while adding new controls', () => {
-      // Permission check still applies
+      // Permission check still applies. As permissões vêm do PRINCIPAL (resolvidas no banco a partir
+      // do usuário autenticado) — não mais de `metadata`, que era declarado pelo cliente.
       const contextWithLimitedPerms = buildContext({
-        metadata: { permissionKeys: ['manifest.read'] }
+        permissionKeys: ['manifest.read']
       });
 
       const decision = evaluateConversationPolicy({

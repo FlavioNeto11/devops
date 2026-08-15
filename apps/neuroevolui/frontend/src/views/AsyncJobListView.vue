@@ -69,7 +69,7 @@
         description="O monitoramento de filas exige perfil de gestor (clinic_manager) ou superior. Solicite o acesso a um administrador."
       >
         <template #action>
-          <UiButton variant="subtle" to="/dashboard">Voltar ao painel</UiButton>
+          <UiButton variant="subtle" to="/">Voltar ao painel</UiButton>
         </template>
       </UiEmptyState>
     </UiCard>
@@ -152,7 +152,7 @@
 
         <!-- CTA do estado vazio -->
         <template #empty-action>
-          <UiButton variant="subtle" to="/dashboard">Voltar ao painel</UiButton>
+          <UiButton variant="subtle" to="/">Voltar ao painel</UiButton>
         </template>
       </UiDataTable>
     </UiCard>

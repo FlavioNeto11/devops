@@ -41,6 +41,24 @@ test('validateInventory: defaults p/ valores fora do enum', () => {
   assert.equal(r.value.screens[0].kind, 'custom'); // kind inválido -> custom
 });
 
+test('validateInventory: kinds de agendamento (calendar/booking) NÃO são coeridos p/ custom (parte C2)', () => {
+  // Contrato: o sanitizer aceita os kinds novos da C2 — senão a IA propõe calendar/booking e o server
+  // rebaixaria silenciosamente p/ custom, matando a agenda/marcação no preview.
+  const r = validateInventory({
+    ...INV,
+    screens: [
+      { slug: 'agenda', title: 'Agenda', kind: 'calendar', route: '/agenda', entity: 'products', anchors: ['REQ-X-0001'] },
+      { slug: 'marcar', title: 'Marcar', kind: 'booking', route: '/marcar', entity: 'products', anchors: ['REQ-X-0001'] },
+    ],
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.screens[0].kind, 'calendar');
+  assert.equal(r.value.screens[1].kind, 'booking');
+  // e sanitizeScreen (usado no refino) preserva igualmente
+  assert.equal(sanitizeScreen({ slug: 'a', title: 'A', kind: 'calendar', route: '/a', anchors: [] }).kind, 'calendar');
+  assert.equal(sanitizeScreen({ slug: 'b', title: 'B', kind: 'booking', route: '/b', anchors: [] }).kind, 'booking');
+});
+
 test('validateInventory: sem telas -> NO_SCREENS', () => {
   assert.equal(validateInventory({ brand: {}, entities: [], screens: [] }).code, 'NO_SCREENS');
   assert.equal(validateInventory({}).code, 'NO_SCREENS');

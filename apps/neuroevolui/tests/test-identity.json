@@ -1,0 +1,4 @@
+{
+  "_comment": "Identidade de TESTE (NÃO-locked) injetada pelo gate forge-tests via FORGE_TEST_HEADERS (item 3b). POST /v1/records exige papel professional (rbac.js); menor privilégio que satisfaz os testes locked. Cada teste ainda sobrescreve headers por chamada.",
+  "headers": { "X-Role": "professional", "X-Tenant-Id": "1" }
+}

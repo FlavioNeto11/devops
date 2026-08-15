@@ -1,8 +1,8 @@
 <template>
   <UiPageLayout title="Fluxo de Caixa" subtitle="Previsão de entradas e saídas por período." :loading="loading" :error="error" @retry="load">
     <template #actions>
-      <div class="horizon-selector">
-        <button v-for="h in [30, 60, 90]" :key="h" :class="['horizon-btn', { active: horizon === h }]" @click="setHorizon(h)">
+      <div class="horizon-selector" role="group" aria-label="Horizonte de projeção">
+        <button v-for="h in [30, 60, 90]" :key="h" type="button" :class="['horizon-btn', { active: horizon === h }]" :aria-pressed="horizon === h" @click="setHorizon(h)">
           {{ h }} dias
         </button>
       </div>
@@ -52,8 +52,12 @@ onMounted(load);
 </script>
 <style scoped>
 .horizon-selector { display: flex; gap: var(--ui-space-1); }
-.horizon-btn { padding: var(--ui-space-1) var(--ui-space-3); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); cursor: pointer; font-size: var(--ui-text-sm); }
-.horizon-btn.active { background: var(--ui-primary); color: var(--ui-on-primary); border-color: var(--ui-primary); }
+/* Tokens são triplets RGB (precisam de rgb()) e o raio é --ui-radius-sm|md — não existem
+   --ui-primary/--ui-on-primary/--ui-radius. Antes o estado ativo era invisível (mesmo do inativo),
+   fazendo o usuário ler a projeção errada (UX-CV360-006). */
+.horizon-btn { padding: var(--ui-space-1) var(--ui-space-3); border: 1px solid rgb(var(--ui-border-strong)); border-radius: var(--ui-radius-sm); background: rgb(var(--ui-surface)); color: rgb(var(--ui-fg)); cursor: pointer; font-size: var(--ui-text-sm); }
+.horizon-btn:hover { background: rgb(var(--ui-surface-2)); }
+.horizon-btn.active { background: rgb(var(--ui-accent)); color: rgb(var(--ui-accent-fg)); border-color: rgb(var(--ui-accent)); }
 .cf-layout { display: flex; flex-direction: column; gap: var(--ui-space-4); }
 .cf-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--ui-space-4); }
 </style>

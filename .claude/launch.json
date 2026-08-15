@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "sicat-frontend-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/sicat/frontend", "--", "--port", "5177", "--strictPort"],
+      "port": 5177
+    },
+    {
       "name": "anarabottini",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/anarabottini", "--", "--port", "5173", "--strictPort"],
@@ -72,6 +78,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/besc/frontend", "--", "--port", "5195", "--strictPort"],
       "port": 5195
+    },
+    {
+      "name": "zapbridge-web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/zapbridge/web", "--", "--port", "5196", "--strictPort"],
+      "port": 5196
     }
   ]
 }

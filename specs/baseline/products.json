@@ -3,10 +3,10 @@
     {
       "name": "anarabottini",
       "display_name": "Ana Rabottini",
-      "base_path": "/sites/anarabottini",
+      "base_path": "/anarabottini",
       "blueprint": "cms-portal",
       "origin": "adopted",
-      "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Primeiro portal t1 REAL da plataforma registrado como produto da Forja: o conteúdo (páginas e seções por kind) vive no CMS do Console (pm-api, projeto 'anarabottini') e a entrega publicada é servida pelo site-renderer em /sites/anarabottini — zero código de produto neste repo para o conteúdo. O app dedicado apps/anarabottini (SPA React/Vite servida em /anarabottini) continua existindo como frontend próprio do mesmo portal e fala o protocolo cmsEdit do editor visual.",
+      "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Portal de conteúdo (tier t1), par do rmambiental: a SPA React/Vite dedicada é servida em /anarabottini (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'anarabottini') — editável pelo editor visual (protocolo cmsEdit) sem tocar código. Primeiro portal t1 registrado como produto da Forja (E4), agora par do rmambiental na vitrine.",
       "app_type": "cms_portal",
       "architecture_summary": "",
       "requirement_ids": [],
@@ -17,7 +17,7 @@
         },
         "architecture": {
           "status": "adopted",
-          "note": "blueprint cms-portal (t1): executor = CMS do Console (pm-api) + site-renderer; decisões nas default_adrs do blueprint"
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/anarabottini (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'anarabottini'); decisões nas default_adrs do blueprint"
         },
         "scaffold": {
           "status": "adopted",
@@ -25,7 +25,7 @@
         },
         "build": {
           "status": "deployed",
-          "note": "conteúdo publicado NO AR: site-renderer responde 200 em /sites/anarabottini (e o frontend dedicado em /anarabottini); projeto approved/active no pm-api"
+          "note": "site publicado NO AR: SPA responde 200 em /anarabottini; projeto CMS seedado/approved no pm-api"
         }
       }
     },
@@ -228,6 +228,35 @@
       }
     },
     {
+      "name": "rmambiental",
+      "display_name": "RM Ambiental",
+      "base_path": "/rmambiental",
+      "blueprint": "cms-portal",
+      "origin": "adopted",
+      "vision": "Portal institucional de consultoria ambiental (hero, serviços, galeria, contato). Portal de conteúdo (tier t1), par do anarabottini: a SPA React/Vite dedicada é servida em /rmambiental (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'rmambiental') — editável pelo editor visual sem tocar código. Mesma capacidade cms_portal do anarabottini; registrado como produto da Forja para consistência da vitrine.",
+      "app_type": "cms_portal",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "portal de conteúdo (tier t1) — o artefato é o CONTEÚDO no CMS, não requisitos de código; nada em specs/requirements/ por design (blueprint cms-portal)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/rmambiental (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'rmambiental'); decisões nas default_adrs do blueprint"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "sem scaffold de código de produto (t1); o frontend dedicado pré-existente em apps/rmambiental é anterior à Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "site publicado NO AR: SPA responde 200 em /rmambiental; projeto CMS seedado no pm-api (cms-seed-rmambiental)"
+        }
+      }
+    },
+    {
       "name": "sicat",
       "display_name": "SICAT",
       "base_path": "/sicat",
@@ -235,7 +264,7 @@
       "origin": "adopted",
       "vision": "Plataforma operacional de automação MTR/CDF/DMR da CETESB-SP: SPA Vue 3 + Vuetify sobre API Node 20/Express (TypeScript) com worker de fila transacional e Postgres 16 como fonte transacional única. Automatiza emissão, impressão, cancelamento e recebimento de manifestos, CDFs e cadastros contra o portal REAL da CETESB por um gateway resiliente único, com sessão própria do app sobre o login CETESB real e camada de IA assistiva (chat operacional com memória). É o exemplar que origina o blueprint node-api-vue-spa — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
       "app_type": "product_software",
-      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Vuetify (Vite → nginx, base /sicat/) + API Node 20/Express em TypeScript (runtime tsx; tsc só para dist/ em prod) + worker na MESMA imagem (npm run worker) + Postgres 16 como fonte transacional única e fila. Corresponde ao blueprint node-api-vue-spa (base_stack sicat) — o SICAT é o exemplar que origina esse blueprint.\nBlocos de capacidade: camadas-rigidas, contas-acesso, contract-openapi, gateway-externo, idempotencia, migrations-versionadas, observabilidade, rag-pgvector, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Contract-first — OpenAPI interno como fonte da superfície HTTP; ADR-002 (DL-022): Fila transacional no Postgres — sem broker externo; ADR-003 (DL-093): Gateway CETESB único, mantido em JS; ADR-004: Camadas rígidas route → service → repository → job → worker → gateway; ADR-005: Sessão própria do app sobre login CETESB real + SSO Keycloak aditivo; ADR-006: Idempotência honrando Idempotency-Key; ADR-007: Migrations versionadas idempotentes no boot; ADR-008: Observabilidade estruturada (health por subsistema + Prometheus); ADR-009: IA assistiva com memória/retrieval vetorial no engine de conversa.",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Vuetify (Vite → nginx, base /sicat/) + API Node 20/Express em TypeScript (runtime tsx; tsc só para dist/ em prod) + worker na MESMA imagem (npm run worker) + Postgres 16 como fonte transacional única e fila. Corresponde ao blueprint node-api-vue-spa (base_stack sicat) — o SICAT é o exemplar que origina esse blueprint.\nBlocos de capacidade: camadas-rigidas, contas-acesso, contract-openapi, gateway-externo, idempotencia, migrations-versionadas, observabilidade, rag-pgvector, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Contract-first — OpenAPI interno como fonte da superfície HTTP; ADR-002 (DL-022): Fila transacional no Postgres — sem broker externo; ADR-003 (DL-093): Gateway CETESB único, mantido em JS; ADR-004: Camadas rígidas route → service → repository → job → worker → gateway; ADR-005: Sessão própria do app sobre login CETESB real + SSO Keycloak aditivo; ADR-006: Idempotência honrando Idempotency-Key; ADR-007: Migrations versionadas idempotentes no boot; ADR-008: Observabilidade estruturada (health por subsistema + Prometheus); ADR-009: IA assistiva com memória/retrieval vetorial no engine de conversa; ADR-010 (DL-103): Bounded context Transporte separado do ambiental; ADR-011 (DL-103): Catálogo regulatório temporal + compliance gates como motor de decisão.",
       "requirement_ids": [
         "REQ-SICAT-0001",
         "REQ-SICAT-0002",

@@ -4,6 +4,7 @@ import { buildConversationScreenContext } from '../config/conversation-screen-ca
 import {
   downloadConversationArtifactContent,
   getConversationArtifactStatus,
+  sendConversationFeedback,
   sendConversationTurn
 } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
@@ -101,7 +102,7 @@ function buildConfirmationAction(response) {
 
   return {
     type: 'confirm_tool_execution',
-    label: 'Confirmar execucao',
+    label: 'Confirmar execução',
     payload: {
       name: toolName,
       arguments: response?.toolCall?.arguments || {}
@@ -134,7 +135,10 @@ function mapBackendActionToUiAction(action) {
   if (action.type === 'open_job') {
     return {
       kind: 'navigate',
-      label: action.label || 'Abrir jobs',
+      // "Jobs" é o nome da TELA administrativa (menu Sistema › Jobs) — o rótulo
+      // de navegação precisa casar com o menu. O conceito, na prosa, é
+      // "processamento".
+      label: action.label || 'Abrir Jobs',
       to: '/sistema/jobs'
     };
   }
@@ -143,8 +147,8 @@ function mapBackendActionToUiAction(action) {
     const operation = toTrimmedString(payload.operation);
     const manifestId = toTrimmedString(payload.manifestId);
     const prompt = operation && manifestId
-      ? `Verifique novamente a operacao ${operation} para o manifesto ${manifestId}.`
-      : 'Verifique novamente o status da ultima operacao.';
+      ? `Verifique novamente a operação ${operation} para o manifesto ${manifestId}.`
+      : 'Verifique novamente o status da última operação.';
 
     return {
       kind: 'backend',
@@ -163,18 +167,10 @@ function mapBackendActionToUiAction(action) {
 
   return {
     kind: 'backend_action',
-    label: action.label || 'Executar acao',
+    label: action.label || 'Executar ação',
     payload,
     type: action.type
   };
-}
-
-function buildRequestedBy(user) {
-  if (!user || typeof user !== 'object') {
-    return null;
-  }
-
-  return toNullableString(user.userId) || toNullableString(user.email) || toNullableString(user.name);
 }
 
 function buildUserId(user) {
@@ -183,14 +179,6 @@ function buildUserId(user) {
   }
 
   return toNullableString(user.userId) || toNullableString(user.email);
-}
-
-function buildChannelSessionKey(userId, integrationAccountId) {
-  return [
-    'inapp',
-    userId || 'anonymous',
-    integrationAccountId || 'no-account'
-  ].join(':');
 }
 
 function detectLocalIntent(rawText) {
@@ -227,7 +215,7 @@ function buildNavigationActions(screenContext) {
 function buildScreenOverviewMessage(screenContext) {
   const facts = [
     screenContext.pageDescription,
-    `Rota atual: ${screenContext.routePath}`,
+    `Tela atual: ${screenContext.routePath}`,
     `Conta ativa: ${screenContext.activeAccountLabel}`
   ];
 
@@ -236,7 +224,7 @@ function buildScreenOverviewMessage(screenContext) {
   }
 
   if (screenContext.jobId) {
-    facts.push(`Job em foco: ${screenContext.jobId}`);
+    facts.push(`Processamento em foco: ${screenContext.jobId}`);
   }
 
   const importantFields = normalizeCollection(screenContext.fieldHints)
@@ -245,7 +233,7 @@ function buildScreenOverviewMessage(screenContext) {
 
   return createMessage({
     role: 'assistant',
-    text: `Voce esta em ${screenContext.pageTitle}. Posso usar essa rota como contexto para orientar a leitura da tela e sugerir proximos caminhos.`,
+    text: `Você está em ${screenContext.pageTitle}. Posso usar esta tela como contexto para orientar a leitura e sugerir próximos caminhos.`,
     facts: facts.concat(importantFields),
     actions: buildNavigationActions(screenContext)
   });
@@ -256,7 +244,7 @@ function buildFieldHelpMessage(screenContext) {
 
   return createMessage({
     role: 'assistant',
-    text: `Os pontos que mais merecem atencao em ${screenContext.pageTitle} estao abaixo.`,
+    text: `Os pontos que mais merecem atenção em ${screenContext.pageTitle} estão abaixo.`,
     facts,
     actions: buildNavigationActions(screenContext)
   });
@@ -268,7 +256,7 @@ function buildNavigationHelpMessage(screenContext) {
 
   return createMessage({
     role: 'assistant',
-    text: 'Estes sao os atalhos mais uteis a partir do contexto atual.',
+    text: 'Estes são os atalhos mais úteis a partir do contexto atual.',
     facts,
     actions
   });
@@ -292,7 +280,7 @@ function buildManifestLabel(manifest) {
   }
 
   return toTrimmedString(manifest.manifestNumber)
-    || (toTrimmedString(manifest.externalCode) ? `Codigo CETESB ${toTrimmedString(manifest.externalCode)}` : '')
+    || (toTrimmedString(manifest.externalCode) ? `Código CETESB ${toTrimmedString(manifest.externalCode)}` : '')
     || toTrimmedString(manifest.id)
     || 'Manifesto';
 }
@@ -312,7 +300,7 @@ function summarizeManifestListResult(response, data, resultKind) {
   const firstItem = items[0] || null;
   const facts = [
     `Manifestos retornados nesta consulta: ${totalItems}`,
-    `Itens visiveis no payload atual: ${visibleCount}`,
+    `Itens visíveis nesta amostra: ${visibleCount}`,
     ...(firstItem ? [
       `Primeiro item: ${buildManifestLabel(firstItem)}`,
       `Status do primeiro item: ${toTrimmedString(firstItem?.externalStatus || firstItem?.status) || '-'}`
@@ -350,10 +338,10 @@ function summarizeDashboardResult(data, resultKind) {
   const health = data?.health?.statistics || {};
   const activeJobs = Number(data?.activeJobs?.total || 0);
   const facts = [
-    `Jobs em fila: ${Number(health.jobs_queued || 0)}`,
-    `Jobs executando: ${Number(health.jobs_running || 0)}`,
-    `Workers ativos: ${Number(health.workers_active_5m || 0)}`,
-    `Jobs ativos retornados: ${activeJobs}`
+    `Processamentos na fila: ${Number(health.jobs_queued || 0)}`,
+    `Processamentos em andamento: ${Number(health.jobs_running || 0)}`,
+    `Processadores ativos: ${Number(health.workers_active_5m || 0)}`,
+    `Processamentos ativos retornados: ${activeJobs}`
   ];
 
   return {
@@ -372,16 +360,16 @@ function summarizeDashboardResult(data, resultKind) {
 function summarizeJobResult(response, data, resultKind) {
   return {
     facts: [
-      `Job: ${toTrimmedString(data?.jobId) || response?.jobId || '-'}`,
+      `Processamento: ${toTrimmedString(data?.jobId) || response?.jobId || '-'}`,
       `Status: ${toTrimmedString(data?.status) || '-'}`,
-      `Operacao: ${toTrimmedString(data?.jobType || data?.operation || data?.type) || '-'}`
+      `Operação: ${toTrimmedString(data?.jobType || data?.operation || data?.type) || '-'}`
     ],
     actions: [{
       id: buildLocalId('copilot-action'),
       kind: 'navigate',
       label: 'Abrir Jobs',
       to: '/sistema/jobs',
-      description: 'Consultar fila e diagnostico no modulo de jobs.'
+      description: 'Consultar a fila e o diagnóstico dos processamentos.'
     }],
     resultKind: resultKind || 'query'
   };
@@ -392,7 +380,7 @@ function summarizeAuditResult(response, data, resultKind) {
   return {
     facts: [
       `Eventos de auditoria retornados: ${items.length}`,
-      `CorrelationId consultado: ${toTrimmedString(response?.correlationId) || '-'}`
+      `Código de rastreio consultado: ${toTrimmedString(response?.correlationId) || '-'}`
     ],
     actions: [],
     resultKind: resultKind || 'query'
@@ -403,14 +391,14 @@ function summarizeBlockedResult(response) {
   const confirmationAction = response?.policy?.requiresConfirmation ? buildConfirmationAction(response) : null;
   const facts = [
     ...(response?.policy?.reason ? [`Motivo do bloqueio: ${response.policy.reason}`] : []),
-    ...(response?.policy?.requiresConfirmation ? ['A policy do backend exige confirmacao explicita para esta operacao.'] : [])
+    ...(response?.policy?.requiresConfirmation ? ['A regra de segurança do sistema exige confirmação explícita para esta operação.'] : [])
   ];
 
   return {
     facts,
     actions: confirmationAction ? [confirmationAction] : [],
     confirmationAction,
-    confirmationText: response?.policy?.reason || 'Confirme para executar esta operacao sensivel.',
+    confirmationText: response?.policy?.reason || 'Confirme para executar esta operação sensível.',
     resultKind: 'blocked'
   };
 }
@@ -466,6 +454,10 @@ export function useInAppCopilot() {
   const conversationSessionId = ref('');
   const messages = ref([]);
 
+  // AbortController do turno em andamento (botão Parar). Não-reativo de propósito:
+  // cancela a ESPERA do cliente — o backend conclui o turno em segundo plano.
+  let activeAbortController = null;
+
   const currentScreenContext = computed(() => buildConversationScreenContext({
     route,
     activeAccount: authStore.activeAccount.value || null,
@@ -482,7 +474,7 @@ export function useInAppCopilot() {
   ));
 
   const composerPlaceholder = computed(() => {
-    return `Pergunte sobre ${currentScreenContext.value.pageTitle.toLowerCase()}, manifestos, jobs ou dashboard.`;
+    return `Pergunte sobre ${currentScreenContext.value.pageTitle.toLowerCase()}, manifestos, processamentos ou o painel.`;
   });
 
   function appendMessage(message) {
@@ -536,9 +528,6 @@ export function useInAppCopilot() {
   }
 
   async function sendToBackend(userInput, options = {}) {
-    const user = authStore.user.value || null;
-    const requestedBy = buildRequestedBy(user);
-    const userId = buildUserId(user);
     const screenContext = currentScreenContext.value;
     const metadata = {
       source: 'inapp-copilot-panel',
@@ -557,16 +546,14 @@ export function useInAppCopilot() {
       message: {
         text: userInput
       },
+      // Identidade (usuário, conta CETESB, sessão CETESB, chave de sessão do canal) é resolvida NO
+      // SERVIDOR a partir do token SICAT — ver backend `conversation-principal.ts`. Aqui vai só o
+      // contexto de TELA, que é o que o cliente de fato conhece.
       context: {
-        integrationAccountId: screenContext.integrationAccountId,
-        sessionContextId: screenContext.sessionContextId,
         manifestId: screenContext.manifestId,
         jobId: screenContext.jobId,
         auditCorrelationId: screenContext.auditCorrelationId,
-        requestedBy,
         currentScreen: screenContext.screenKey,
-        channelSessionKey: buildChannelSessionKey(userId, screenContext.integrationAccountId),
-        userId,
         accountId: screenContext.accountId,
         routeName: screenContext.routeName,
         routePath: screenContext.routePath,
@@ -588,7 +575,7 @@ export function useInAppCopilot() {
       options: {
         allowActions: true
       }
-    });
+    }, { signal: options.signal });
 
     conversationSessionId.value = toTrimmedString(response?.conversationSessionId);
 
@@ -597,7 +584,7 @@ export function useInAppCopilot() {
     const mergedActions = normalizeCollection(summary.actions).concat(resultActions);
     appendMessage(createMessage({
       role: 'assistant',
-      text: response?.responseText || 'Nao consegui montar uma resposta agora.',
+      text: response?.responseText || 'Não consegui montar uma resposta agora.',
       source: 'backend',
       status: toTrimmedString(response?.status) || 'ready',
       facts: summary.facts,
@@ -630,7 +617,7 @@ export function useInAppCopilot() {
       source: 'local'
     }));
 
-    await sendToBackend('Confirmar execucao da acao sensivel.', {
+    await sendToBackend('Confirmar execução da ação sensível.', {
       toolRequest: {
         name: toolName,
         arguments: actionPayload?.arguments || {},
@@ -659,7 +646,7 @@ export function useInAppCopilot() {
     if (!['available', 'partial'].includes(artifactStatus)) {
       appendMessage(createMessage({
         role: 'assistant',
-        text: `O artifact ${artifactId} ainda nao esta pronto para download.`,
+        text: `O arquivo ${artifactId} ainda não está pronto para download.`,
         status: 'blocked',
         source: 'local',
         result: {
@@ -667,7 +654,7 @@ export function useInAppCopilot() {
           data: {},
           artifacts: [{
             type: artifact?.artifactType === 'zip' ? 'zip_bundle' : 'document',
-            title: 'Artifact em processamento',
+            title: 'Arquivo em processamento',
             payload: {
               artifactId,
               status: artifactStatus || 'collecting',
@@ -717,22 +704,41 @@ export function useInAppCopilot() {
     }
 
     isSubmitting.value = true;
+    const controller = new AbortController();
+    activeAbortController = controller;
 
     try {
-      await sendToBackend(userInput);
+      await sendToBackend(userInput, { signal: controller.signal });
     } catch (requestError) {
-      const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
-      error.value = message;
-      appendMessage(createMessage({
-        role: 'assistant',
-        text: 'Nao consegui falar com o backend conversacional agora.',
-        source: 'local',
-        status: 'failed',
-        facts: [message]
-      }));
+      if (controller.signal.aborted) {
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Consulta interrompida. Se a operação já tinha começado, o sistema a conclui em segundo plano.',
+          source: 'local',
+          status: 'blocked'
+        }));
+      } else {
+        const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o assistente.';
+        error.value = message;
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Não consegui falar com o assistente agora.',
+          source: 'local',
+          status: 'failed',
+          facts: [message]
+        }));
+      }
     } finally {
+      if (activeAbortController === controller) {
+        activeAbortController = null;
+      }
       isSubmitting.value = false;
     }
+  }
+
+  // Botão Parar: cancela a ESPERA do cliente (o turno no backend não é morto).
+  function cancelCurrent() {
+    activeAbortController?.abort();
   }
 
   async function handleAction(action) {
@@ -765,7 +771,7 @@ export function useInAppCopilot() {
         role: 'assistant',
         source: 'local',
         status: 'ready',
-        text: 'Confirmacao cancelada. Nenhuma acao sensivel foi executada.'
+        text: 'Confirmação cancelada. Nenhuma ação sensível foi executada.'
       }));
       return;
     }
@@ -821,6 +827,7 @@ export function useInAppCopilot() {
     togglePanel,
     resetConversation,
     sendMessage,
+    cancelCurrent,
     sendFeedback,
     handleAction,
     downloadArtifact

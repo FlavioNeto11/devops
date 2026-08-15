@@ -213,6 +213,14 @@ onMounted(async () => {
 
 <template>
   <div class="chat-view">
+    <!-- HIERARQUIA SEMÂNTICA: esta tela não passa por SicatPageHeader (ela é um
+         layout de altura cheia, próprio) e por isso não tinha NENHUM heading —
+         h1..h3 = 0. Sem título, quem navega por cabeçalhos (leitor de tela,
+         atalho "próximo heading") não tem como saber onde está nem pular entre
+         as regiões. Os títulos abaixo são só para tecnologia assistiva
+         (.chat-sr-heading): a tela continua pixel a pixel igual. -->
+    <h1 class="chat-sr-heading">Assistente operacional</h1>
+
     <!-- Compact action bar: context line + buttons -->
     <div class="chat-view-bar">
       <div class="chat-view-context">
@@ -234,12 +242,12 @@ onMounted(async () => {
               type="button"
               class="chat-focus-chip"
               :class="{ 'chat-focus-chip--active': hasFocus }"
-              :title="hasFocus ? 'Editar foco operacional' : 'Definir manifesto/job em foco para as ações guiadas'"
+              :title="hasFocus ? 'Editar foco operacional' : 'Definir o manifesto ou o processamento em foco para as ações guiadas'"
               @click="openFocusMenu"
             >
               <v-icon size="13">{{ hasFocus ? 'mdi-target' : 'mdi-target-variant' }}</v-icon>
               <span v-if="focusedManifestId">MTR {{ focusedManifestId }}</span>
-              <span v-if="focusedJobId">Job {{ focusedJobId }}</span>
+              <span v-if="focusedJobId">Processamento {{ focusedJobId }}</span>
               <span v-if="!hasFocus">Definir foco</span>
             </button>
           </template>
@@ -257,7 +265,7 @@ onMounted(async () => {
             />
             <v-text-field
               v-model="focusJobDraft"
-              label="Job em foco"
+              label="Processamento em foco"
               density="compact"
               hide-details
               clearable
@@ -304,7 +312,14 @@ onMounted(async () => {
     </div>
 
     <!-- Quick action pills (com conversa em andamento) -->
-    <div v-if="messages.length && quickActions.length" class="chat-quick-pills" aria-label="Ações guiadas">
+    <!-- `aria-label` num <div> sem papel é ignorado pelo leitor de tela; a
+         região vira <section> rotulada pelo próprio heading. -->
+    <section
+      v-if="messages.length && quickActions.length"
+      class="chat-quick-pills"
+      aria-labelledby="chat-quick-actions-heading"
+    >
+      <h2 id="chat-quick-actions-heading" class="chat-sr-heading">Ações guiadas</h2>
       <button
         v-for="action in quickActions"
         :key="action.id"
@@ -317,15 +332,16 @@ onMounted(async () => {
         <v-icon v-if="action.icon" size="13">{{ action.icon }}</v-icon>
         {{ action.title }}
       </button>
-    </div>
+    </section>
 
     <!-- Thread -->
     <div class="chat-thread-wrap">
+      <h2 id="chat-thread-heading" class="chat-sr-heading">Conversa</h2>
       <section
         ref="threadRef"
         class="chat-thread"
         aria-live="polite"
-        aria-label="Conversa"
+        aria-labelledby="chat-thread-heading"
         @scroll.passive="updateNearBottom"
       >
         <!-- Estado vazio: hero clean + sugestões em cards (sem mensagem fake) -->
@@ -333,10 +349,16 @@ onMounted(async () => {
           <div class="chat-empty-icon">
             <v-icon size="26" color="primary">mdi-message-text-outline</v-icon>
           </div>
-          <h2 class="chat-empty-title">Como posso ajudar?</h2>
+          <!-- h3: está DENTRO da região "Conversa" (h2) — o nível acompanha o
+               aninhamento. O tamanho vem da classe, não da tag: o visual não
+               muda. -->
+          <h3 class="chat-empty-title">Como posso ajudar?</h3>
           <p class="chat-empty-sub">
-            Consultas operacionais sobre manifestos, jobs, auditoria e dashboard —
+            Consultas operacionais sobre manifestos, processamentos, auditoria e o painel —
             sempre no contexto da conta CETESB ativa.
+          </p>
+          <p class="chat-empty-disclosure">
+            Respostas geradas por IA podem conter erros — confira antes de agir.
           </p>
           <div class="chat-empty-grid">
             <button
@@ -383,7 +405,7 @@ onMounted(async () => {
               size="small"
               @click="onMessageAction(action)"
             >
-              {{ action.label || 'Acao' }}
+              {{ action.label || 'Ação' }}
             </v-btn>
           </div>
 
@@ -401,18 +423,18 @@ onMounted(async () => {
                 :icon="message.feedback === 'positive' ? 'mdi-thumb-up' : 'mdi-thumb-up-outline'"
                 :color="message.feedback === 'positive' ? 'success' : undefined"
                 variant="text"
-                size="x-small"
-                density="compact"
-                aria-label="Resposta útil"
+                size="small"
+                title="Marcar como resposta útil"
+                aria-label="Marcar como resposta útil"
                 @click="sendFeedback(message, 'positive')"
               />
               <v-btn
                 :icon="message.feedback === 'negative' ? 'mdi-thumb-down' : 'mdi-thumb-down-outline'"
                 :color="message.feedback === 'negative' ? 'error' : undefined"
                 variant="text"
-                size="x-small"
-                density="compact"
-                aria-label="Resposta não útil"
+                size="small"
+                title="Marcar como resposta que não ajudou"
+                aria-label="Marcar como resposta que não ajudou"
                 @click="sendFeedback(message, 'negative')"
               />
             </template>
@@ -421,8 +443,7 @@ onMounted(async () => {
               :icon="copiedMessageId === message.id ? 'mdi-check' : 'mdi-content-copy'"
               :color="copiedMessageId === message.id ? 'success' : undefined"
               variant="text"
-              size="x-small"
-              density="compact"
+              size="small"
               :title="copiedMessageId === message.id ? 'Copiado!' : 'Copiar esta resposta'"
               aria-label="Copiar esta resposta"
               @click="copyMessageText(message)"
@@ -431,10 +452,9 @@ onMounted(async () => {
               v-if="message.id === lastAssistantId && canRegenerate"
               icon="mdi-refresh"
               variant="text"
-              size="x-small"
-              density="compact"
-              title="Regenerar resposta (reenvia a última pergunta)"
-              aria-label="Regenerar resposta"
+              size="small"
+              title="Refazer a resposta (reenvia a última pergunta)"
+              aria-label="Refazer a resposta"
               @click="onRegenerate"
             />
           </div>
@@ -445,7 +465,7 @@ onMounted(async () => {
           <div class="chat-message-meta"><span>Assistente</span></div>
           <div class="chat-typing" aria-label="Assistente processando">
             <span class="chat-typing-dot" /><span class="chat-typing-dot" /><span class="chat-typing-dot" />
-            <span class="chat-typing-label">Consultando o backend operacional…</span>
+            <span class="chat-typing-label">Consultando os seus dados operacionais…</span>
           </div>
         </div>
       </section>
@@ -478,7 +498,8 @@ onMounted(async () => {
     </div>
 
     <!-- Composer -->
-    <form class="chat-composer" @submit.prevent="onSubmitComposer">
+    <form class="chat-composer" aria-labelledby="chat-composer-heading" @submit.prevent="onSubmitComposer">
+      <h2 id="chat-composer-heading" class="chat-sr-heading">Escrever mensagem</h2>
       <!-- variant="plain": o textarea fica transparente e SEM o overlay do
            solo-filled (que rendia o efeito de degradê). Quem faz o papel de
            "campo" é o cartão .chat-composer, com anel de foco no acento. -->
@@ -497,7 +518,7 @@ onMounted(async () => {
       />
       <div class="chat-composer-foot">
         <span class="chat-composer-hint">
-          Enter envia · Shift+Enter quebra linha · ações sensíveis pedem confirmação
+          Respostas geradas por IA podem conter erros — confira antes de agir. · Enter envia · Shift+Enter quebra linha · ações sensíveis pedem confirmação
         </span>
         <div class="chat-composer-buttons">
           <v-btn
@@ -532,6 +553,23 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   gap: 10px;
+}
+
+/* Títulos só para tecnologia assistiva: dão à tela a hierarquia h1>h2>h3 que
+   faltava SEM alterar um pixel. `position: absolute` tira o elemento do fluxo
+   flex/grid (não cria coluna nem consome o `gap`) e `clip-path` o esconde
+   visualmente mantendo-o na árvore de acessibilidade — `display: none` ou
+   `visibility: hidden` o apagariam também para o leitor de tela. */
+.chat-sr-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 /* Bar: context line + action buttons */
@@ -719,6 +757,12 @@ onMounted(async () => {
   color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
+.chat-empty-disclosure {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
 .chat-empty-grid {
   margin-top: 10px;
   display: grid;
@@ -832,10 +876,19 @@ onMounted(async () => {
 .chat-message-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-top: 2px;
-  opacity: 0.55;
+  gap: 8px;
+  margin-top: 6px;
+  margin-left: -6px;
+  opacity: 0.75;
   transition: opacity 0.15s ease;
+}
+
+/* Alvo de toque confortável (WCAG 2.5.8): 40px por botão, com folga entre eles. */
+.chat-message-toolbar :deep(.v-btn) {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 10px;
 }
 
 .chat-message:hover .chat-message-toolbar,

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/ui/avatar';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Shield, Loader2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { TutorialTrigger } from '@/features/tutorial';
 
@@ -73,7 +74,7 @@ function AuditContent({ organizationId, page, setPage, filterAction, setFilterAc
   showFilters: boolean;
   setShowFilters: (b: boolean) => void;
 }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['audit-logs', organizationId, page, filterAction, dateFrom, dateTo],
     queryFn: () => auditLogsApi.list({
       organizationId,
@@ -130,7 +131,17 @@ function AuditContent({ organizationId, page, setPage, filterAction, setFilterAc
         )}
       </div>
 
-      {isLoading ? (
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
       ) : logs.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">

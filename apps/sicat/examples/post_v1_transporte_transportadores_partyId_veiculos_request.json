@@ -1,0 +1,14 @@
+{
+  "params": {
+    "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f"
+  },
+  "body": {
+    "integrationAccountId": "acc_exemplo_prod",
+    "vehicleId": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b",
+    "linkType": "owned",
+    "validFrom": "2026-08-01"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_vinculo_veiculo_create"
+  }
+}

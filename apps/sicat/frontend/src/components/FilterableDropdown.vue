@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 
 const props = defineProps({
   modelValue: {
@@ -46,6 +46,21 @@ const props = defineProps({
     type: String,
     default: 'Sem dados para seleção.'
   },
+  /**
+   * Nº mínimo de caracteres antes de a busca (normalmente remota) acontecer.
+   * Só com isso o componente consegue distinguir "ainda faltam caracteres" de
+   * "a busca rodou e não achou nada" — antes o estado vazio mentia, exibindo
+   * "Digite pelo menos 2 caracteres" mesmo com 7 caracteres digitados e a API
+   * respondendo 200 com zero resultados.
+   */
+  minSearchLength: {
+    type: Number,
+    default: 0
+  },
+  minSearchText: {
+    type: String,
+    default: ''
+  },
   ariaLabel: {
     type: String,
     default: 'Campo de seleção pesquisável'
@@ -62,6 +77,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update:searchValue', 'search-change']);
 
+const listboxId = `${useId()}-listbox`;
 const isOpen = ref(false);
 const hasFocus = ref(false);
 const localSearchValue = ref('');
@@ -69,6 +85,27 @@ const inputRef = ref(null);
 const rootRef = ref(null);
 const listRef = ref(null);
 const opensUpward = ref(false);
+/**
+ * Índice da opção DESTACADA pelo teclado. Começa (e volta) em -1 de propósito:
+ * sem destaque explícito o Enter não escolhe nada. É a garantia de que nenhuma
+ * sugestão vira seleção só porque o operador digitou e apertou Enter.
+ */
+const activeIndex = ref(-1);
+/**
+ * Âncora do popover em coordenadas de viewport (`position: fixed`).
+ *
+ * A lista era `position: absolute` dentro do campo, então QUALQUER ancestral com
+ * `overflow: hidden` a recortava — e o wizard de MTR fica dentro de um
+ * `v-card` (Vuetify aplica `overflow: hidden`) na view hospedeira, além do card
+ * do próprio stepper. Resultado: a primeira sugestão aparecia cortada ao meio e
+ * as demais sumiam atrás do card "Voltar / Próximo passo". Com `fixed` o
+ * elemento é posicionado pelo viewport e deixa de ser recortado por ancestrais;
+ * o preço é recalcular a âncora em scroll/resize (já feito abaixo).
+ */
+const listStyle = ref({});
+const LIST_MAX_HEIGHT = 260;
+const LIST_MIN_HEIGHT = 120;
+const LIST_GAP = 6;
 
 const resolvedSearchValue = computed({
   get() {
@@ -128,6 +165,20 @@ const filteredOptions = computed(() => {
     .slice(0, 50);
 });
 
+/** Ainda faltam caracteres para a busca remota disparar. */
+const needsMoreCharacters = computed(() => {
+  if (!props.minSearchLength || props.minSearchLength <= 0) {
+    return false;
+  }
+
+  return String(resolvedSearchValue.value || '').trim().length < props.minSearchLength;
+});
+
+const resolvedMinSearchText = computed(() => {
+  return props.minSearchText
+    || `Digite pelo menos ${props.minSearchLength} caracteres para buscar.`;
+});
+
 const showClearButton = computed(() => {
   if (!props.clearable || props.disabled) {
     return false;
@@ -136,29 +187,66 @@ const showClearButton = computed(() => {
   return String(resolvedSearchValue.value || '').trim().length > 0;
 });
 
+/**
+ * Recalcula a âncora do popover a partir do retângulo do campo. `desiredHeight`
+ * é a altura real da lista quando ela já existe no DOM; antes disso usamos o
+ * teto para decidir o lado — assim o primeiro frame já sai no lugar certo.
+ */
+function measureDropdownAnchor(desiredHeight) {
+  const rootElement = rootRef.value;
+  if (!rootElement) {
+    return;
+  }
+
+  const rect = rootElement.getBoundingClientRect();
+  const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || 0;
+  const spaceBelow = viewportHeight - rect.bottom - LIST_GAP;
+  const spaceAbove = rect.top - LIST_GAP;
+  const height = Math.min(desiredHeight || LIST_MAX_HEIGHT, LIST_MAX_HEIGHT);
+  const upward = spaceBelow < height && spaceAbove > spaceBelow;
+  const available = Math.max(LIST_MIN_HEIGHT, Math.floor(upward ? spaceAbove : spaceBelow));
+
+  opensUpward.value = upward;
+  listStyle.value = {
+    left: `${Math.round(rect.left)}px`,
+    width: `${Math.round(rect.width)}px`,
+    maxHeight: `${Math.min(LIST_MAX_HEIGHT, available)}px`,
+    ...(upward
+      ? { bottom: `${Math.round(viewportHeight - rect.top + LIST_GAP)}px`, top: 'auto' }
+      : { top: `${Math.round(rect.bottom + LIST_GAP)}px`, bottom: 'auto' })
+  };
+}
+
 async function updateDropdownPlacement() {
   if (!isOpen.value) {
     opensUpward.value = false;
     return;
   }
 
+  measureDropdownAnchor();
+
   await nextTick();
 
-  const rootElement = rootRef.value;
-  const listElement = listRef.value;
-  if (!rootElement || !listElement) {
-    opensUpward.value = false;
+  if (!isOpen.value) {
     return;
   }
 
-  const rect = rootElement.getBoundingClientRect();
-  const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || 0;
-  const listHeight = Math.min(listElement.scrollHeight || 0, 260);
-  const gap = 6;
-  const spaceBelow = viewportHeight - rect.bottom;
-  const spaceAbove = rect.top;
+  measureDropdownAnchor(listRef.value?.scrollHeight);
+}
 
-  opensUpward.value = spaceBelow < (listHeight + gap) && spaceAbove > spaceBelow;
+function optionDomId(index) {
+  return `${listboxId}-option-${index}`;
+}
+
+function scrollActiveOptionIntoView() {
+  nextTick(() => {
+    if (activeIndex.value < 0) {
+      return;
+    }
+
+    const element = listRef.value?.querySelector(`[data-option-index="${activeIndex.value}"]`);
+    element?.scrollIntoView?.({ block: 'nearest' });
+  });
 }
 
 watch(
@@ -187,17 +275,27 @@ watch(
   { immediate: true }
 );
 
-watch(isOpen, () => {
+watch(isOpen, (open) => {
+  if (!open) {
+    activeIndex.value = -1;
+  }
+
   updateDropdownPlacement();
 });
 
 watch(filteredOptions, () => {
+  // Lista nova = destaque zerado. Nunca herdamos o índice anterior: ele poderia
+  // apontar para outro parceiro depois que os resultados mudam.
+  activeIndex.value = -1;
   updateDropdownPlacement();
 });
 
 function handleInput(event) {
   resolvedSearchValue.value = event?.target?.value || '';
+  // Digitar SEMPRE desfaz a seleção: o texto no campo é uma busca, não uma
+  // escolha. Só `selectOption` (clique ou Enter numa opção destacada) comita.
   emit('update:modelValue', '');
+  activeIndex.value = -1;
   isOpen.value = true;
   updateDropdownPlacement();
 }
@@ -213,6 +311,7 @@ function handleBlur() {
 
   setTimeout(() => {
     isOpen.value = false;
+    activeIndex.value = -1;
 
     if (selectedOption.value) {
       localSearchValue.value = getOptionLabel(selectedOption.value);
@@ -227,7 +326,95 @@ function selectOption(option) {
   const nextLabel = getOptionLabel(option);
   localSearchValue.value = nextLabel;
   emit('update:searchValue', nextLabel);
+  activeIndex.value = -1;
   isOpen.value = false;
+}
+
+function moveActiveOption(step) {
+  const total = filteredOptions.value.length;
+  if (total === 0) {
+    return;
+  }
+
+  if (!isOpen.value) {
+    isOpen.value = true;
+    updateDropdownPlacement();
+  }
+
+  activeIndex.value = activeIndex.value < 0
+    ? (step > 0 ? 0 : total - 1)
+    : (activeIndex.value + step + total) % total;
+
+  scrollActiveOptionIntoView();
+}
+
+/**
+ * Teclado: setas destacam, Enter confirma o DESTAQUE.
+ *
+ * Enter sem destaque (`activeIndex === -1`) não faz nada de propósito — é o que
+ * impede que "digitei e apertei Enter" vire "escolhi o primeiro resultado".
+ */
+function handleKeydown(event) {
+  switch (event.key) {
+    case 'ArrowDown': {
+      event.preventDefault();
+      moveActiveOption(1);
+      break;
+    }
+
+    case 'ArrowUp': {
+      event.preventDefault();
+      moveActiveOption(-1);
+      break;
+    }
+
+    case 'Home': {
+      if (isOpen.value && filteredOptions.value.length > 0) {
+        event.preventDefault();
+        activeIndex.value = 0;
+        scrollActiveOptionIntoView();
+      }
+
+      break;
+    }
+
+    case 'End': {
+      if (isOpen.value && filteredOptions.value.length > 0) {
+        event.preventDefault();
+        activeIndex.value = filteredOptions.value.length - 1;
+        scrollActiveOptionIntoView();
+      }
+
+      break;
+    }
+
+    case 'Enter': {
+      if (isOpen.value && activeIndex.value >= 0) {
+        event.preventDefault();
+        selectOption(filteredOptions.value[activeIndex.value]);
+      }
+
+      break;
+    }
+
+    case 'Escape': {
+      if (isOpen.value) {
+        event.preventDefault();
+        isOpen.value = false;
+      }
+
+      break;
+    }
+
+    case 'Tab': {
+      isOpen.value = false;
+      break;
+    }
+
+    default: {
+      break;
+    }
+  }
 }
 
 function clearFieldAndFocus() {
@@ -235,6 +422,7 @@ function clearFieldAndFocus() {
   emit('update:modelValue', '');
   emit('update:searchValue', '');
   emit('search-change', '');
+  activeIndex.value = -1;
   isOpen.value = true;
 
   requestAnimationFrame(() => {
@@ -269,10 +457,16 @@ onUnmounted(() => {
         :placeholder="placeholder"
         :disabled="disabled"
         :aria-label="ariaLabel"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="isOpen"
+        :aria-controls="listboxId"
+        :aria-activedescendant="isOpen && activeIndex >= 0 ? optionDomId(activeIndex) : undefined"
         autocomplete="off"
         @input="handleInput"
         @focus="handleFocus"
         @blur="handleBlur"
+        @keydown="handleKeydown"
       />
 
       <button
@@ -287,17 +481,30 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="isOpen" ref="listRef" class="filterable-dropdown-list">
+    <div
+      v-if="isOpen"
+      :id="listboxId"
+      ref="listRef"
+      class="filterable-dropdown-list"
+      role="listbox"
+      :aria-label="ariaLabel"
+      :style="listStyle"
+    >
       <div v-if="loading" class="filterable-dropdown-state">Carregando...</div>
+      <div v-else-if="needsMoreCharacters" class="filterable-dropdown-state">{{ resolvedMinSearchText }}</div>
       <div v-else-if="!options.length" class="filterable-dropdown-state">{{ noDataText }}</div>
       <div v-else-if="!filteredOptions.length" class="filterable-dropdown-state">{{ emptyText }}</div>
       <button
-        v-for="item in filteredOptions"
+        v-for="(item, index) in filteredOptions"
         v-else
+        :id="optionDomId(index)"
         :key="`${optionValueKey}-${getOptionValue(item)}`"
         type="button"
+        role="option"
         class="filterable-dropdown-option"
-        :class="{ selected: String(modelValue || '') === getOptionValue(item) }"
+        :data-option-index="index"
+        :aria-selected="String(modelValue || '') === getOptionValue(item)"
+        :class="{ selected: String(modelValue || '') === getOptionValue(item), active: activeIndex === index }"
         @mousedown.prevent="selectOption(item)"
       >
         <span>{{ getOptionLabel(item) }}</span>
@@ -364,25 +571,24 @@ onUnmounted(() => {
   color: var(--color-text);
 }
 
+/*
+  `fixed` (com âncora calculada em JS) e não `absolute`: qualquer ancestral com
+  `overflow: hidden` — e o wizard vive dentro de `v-card`s do Vuetify, que têm —
+  recortava a lista. Com o viewport como bloco contêiner, o popover deixa de ser
+  cortado pelo card e de ser coberto pela barra "Voltar / Próximo passo".
+  `z-index` alto pelo mesmo motivo: cada `v-card` é um contexto de empilhamento.
+*/
 .filterable-dropdown-list {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
+  position: fixed;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
   border-radius: 16px;
   background: color-mix(in srgb, var(--color-surface) 94%, transparent 6%);
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(16px);
-  z-index: 20;
+  z-index: 2400;
   max-height: 260px;
   overflow-y: auto;
   padding: 6px;
-}
-
-.filterable-dropdown.opens-upward .filterable-dropdown-list {
-  top: auto;
-  bottom: calc(100% + 6px);
 }
 
 .filterable-dropdown-state {
@@ -402,9 +608,16 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.filterable-dropdown-option:hover {
+.filterable-dropdown-option:hover,
+.filterable-dropdown-option.active {
   background: color-mix(in srgb, var(--color-bg-accent) 34%, var(--color-surface) 66%);
   border-color: var(--color-border-strong);
+}
+
+/* Destaque do teclado precisa ser visível por si só (não depende do hover). */
+.filterable-dropdown-option.active {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 52%, transparent 48%);
+  outline-offset: -2px;
 }
 
 .filterable-dropdown-option.selected {

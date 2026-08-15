@@ -245,6 +245,47 @@ test('draft_refinement: filtra verification_method ao ENUM', async () => {
   assert.deepEqual(out.output.draft.verification_method, ['test-e2e', 'manual-review']);
 });
 
+// --- GROUNDING DE CONTRATO (F3-prep Forja 4.1): a autoria de REF recebe o openapi REAL ---
+test('draft_refinement@2: prompt recebe o CONTRATO REAL quando fornecido (grounding, nao heuristica)', () => {
+  assert.equal(PROMPTS.draftRefinement.version, 'draft-refinement@2');
+  const withContract = PROMPTS.draftRefinement.user({ product: 'neuroevolui', sketch: 'tela de relatorios', anchors: [], contract: 'paths:\n  /v1/patient-reports:\n    get: {}' });
+  assert.match(withContract, /CONTRATO REAL DA API/);
+  assert.match(withContract, /\/v1\/patient-reports/);
+  const without = PROMPTS.draftRefinement.user({ product: 'neuroevolui', sketch: 'tela de relatorios', anchors: [] });
+  assert.ok(!/CONTRATO REAL DA API/.test(without), 'sem contrato fornecido, a secao nao aparece (nada inventado)');
+  assert.match(PROMPTS.draftRefinement.system, /contract":\s*"existing"\|"proposed"|"contract": "existing"\|"proposed"/);
+});
+
+test('revise_refinement@2: prompt recebe o CONTRATO REAL quando fornecido', () => {
+  assert.equal(PROMPTS.reviseRefinement.version, 'revise-refinement@2');
+  const withContract = PROMPTS.reviseRefinement.user({ refinement: { id: 'REF-X' }, gaps: [], contract: 'paths:\n  /v1/reports: {}' });
+  assert.match(withContract, /CONTRATO REAL DA API/);
+  const without = PROMPTS.reviseRefinement.user({ refinement: { id: 'REF-X' }, gaps: [] });
+  assert.ok(!/CONTRATO REAL DA API/.test(without));
+});
+
+test('draft_refinement: marcador contract proposto pelo modelo e PRESERVADO (endpoint novo explicito)', async () => {
+  const draft = { title: 'X', kind: 'screen', behavior: { states: [{ name: 'normal' }], data: [{ field: 'clinic_name', source: 'api:/v1/settings', editable: true, contract: 'proposed' }] } };
+  const out = await dispatchTool(reg.get('req.authoring.draft_refinement'), { product: 'neuroevolui', sketch: 'tela de config', anchors: [] }, ctx(stubLlm({ draft })));
+  assert.equal(out.output.draft.behavior.data[0].contract, 'proposed');
+});
+
+test('draft_refinement: marcador contract fora do enum -> LLM_INVALID_JSON (fail-fast, sem conserto silencioso)', async () => {
+  const draft = { title: 'X', kind: 'screen', behavior: { states: [{ name: 'normal' }], data: [{ field: 'a', source: 'api:/v1/x', editable: false, contract: 'imaginado' }] } };
+  await assert.rejects(
+    () => dispatchTool(reg.get('req.authoring.draft_refinement'), { product: 'neuroevolui', sketch: 'algo', anchors: [] }, ctx(stubLlm({ draft }))),
+    (e) => e.code === 'LLM_INVALID_JSON'
+  );
+});
+
+test('revise_refinement: marcador contract invalido em interactions -> LLM_INVALID_JSON', async () => {
+  const draft = { title: 'X', kind: 'screen', behavior: { states: [{ name: 'normal' }], interactions: [{ trigger: 't', action: 'POST /v1/x', result: 'r', contract: 'talvez' }] } };
+  await assert.rejects(
+    () => dispatchTool(reg.get('req.authoring.revise_refinement'), { refinement: { id: 'REF-X' }, gaps: [] }, ctx(stubLlm({ draft, notes: '' }))),
+    (e) => e.code === 'LLM_INVALID_JSON'
+  );
+});
+
 test('revise_refinement: corrige o refinamento (draft + notes)', async () => {
   const draft = { title: 'Endereço no perfil', kind: 'screen', surface: { route: '/profile' }, behavior: { states: [{ name: 'normal' }, { name: 'error' }, { name: 'empty' }] }, source: { source_paths: ['apps/gymops/apps/web/src/app/(app)/profile'] } };
   const out = await dispatchTool(reg.get('req.authoring.revise_refinement'), { refinement: { id: 'REF-GYMOPS-0001' }, gaps: [{ field: 'behavior.states', message: 'faltou error/empty' }] }, ctx(stubLlm({ draft, notes: 'adicionei error e empty' })));

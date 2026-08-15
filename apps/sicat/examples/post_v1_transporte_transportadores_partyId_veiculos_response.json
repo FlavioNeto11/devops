@@ -1,0 +1,12 @@
+{
+  "id": "trvlink_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+  "vehicleId": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b",
+  "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f",
+  "vehiclePlate": "ABC1D23",
+  "vehicleType": "truck",
+  "linkType": "owned",
+  "validFrom": "2026-08-01",
+  "validUntil": null,
+  "evidenceRef": null,
+  "createdAt": "2026-08-13T12:10:00Z"
+}

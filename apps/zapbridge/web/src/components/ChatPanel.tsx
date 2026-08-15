@@ -28,12 +28,17 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
   const {
     messages,
     loading,
+    error,
+    reload,
     loadingMore,
     exhausted,
     presence,
     loadMore,
     sendText,
     sendMedia,
+    retrySend,
+    canRetry,
+    sendFailureAt,
     react,
     notifyTyping,
     suggestions,
@@ -45,8 +50,23 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
   const [summary, setSummary] = useState<string[] | null>(null);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
+
+  // Anuncia falha de envio para leitores de tela. sendFailureAt é um contador
+  // monotônico; limpa e repõe o texto para forçar mutação real do DOM (senão
+  // falhas seguintes com texto idêntico não são re-anunciadas).
+  useEffect(() => {
+    if (!sendFailureAt) return;
+    setLiveAnnouncement('');
+    const announce = setTimeout(() => setLiveAnnouncement('Falha ao enviar mensagem'), 0);
+    const clear = setTimeout(() => setLiveAnnouncement(''), 4000);
+    return () => {
+      clearTimeout(announce);
+      clearTimeout(clear);
+    };
+  }, [sendFailureAt]);
 
   const runSummary = async () => {
     if (!chatId) return;
@@ -116,6 +136,11 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
         }
       }}
     >
+      {/* Região viva para anúncios acessíveis (ex.: falha de envio) */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {liveAnnouncement}
+      </div>
+
       {dragging && (
         <div className="absolute inset-0 z-30 bg-black/60 border-2 border-dashed border-primary grid place-items-center pointer-events-none">
           <span className="text-white font-semibold">Solte para enviar</span>
@@ -123,7 +148,7 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
       )}
       {/* Header */}
       <div className="flex items-center gap-3 px-3 h-14 bg-header border-b border-line shrink-0" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <button onClick={() => nav('/')} className="text-white md:hidden" title="Voltar">
+        <button onClick={() => nav('/')} className="text-white md:hidden" title="Voltar" aria-label="Voltar">
           <IconBack />
         </button>
         <div className="w-9 h-9 rounded-full bg-surfaceAlt grid place-items-center overflow-hidden shrink-0">
@@ -141,7 +166,7 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
           {subtitle && <div className="text-xs text-primary truncate">{subtitle}</div>}
         </div>
         {aiOn && (
-          <button onClick={runSummary} title="Resumir conversa" className="text-lg shrink-0">
+          <button onClick={runSummary} title="Resumir conversa" aria-label="Resumir conversa" className="text-lg shrink-0">
             ✨
           </button>
         )}
@@ -152,7 +177,7 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
         <div className="mx-3 mt-2 rounded-lg bg-surface border border-line p-3 shrink-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-primary text-sm font-semibold">✨ Resumo</span>
-            <button onClick={() => setSummary(null)} className="text-muted">×</button>
+            <button onClick={() => setSummary(null)} className="text-muted" aria-label="Fechar resumo">×</button>
           </div>
           {summaryBusy ? (
             <div className="text-muted text-sm">Resumindo…</div>
@@ -180,6 +205,17 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
           <div className="grid place-items-center py-16">
             <Spinner />
           </div>
+        ) : error ? (
+          <div className="text-center px-6 py-16">
+            <div className="text-white font-semibold">Não foi possível carregar as mensagens</div>
+            <div className="text-muted text-sm mt-1">{error}</div>
+            <button
+              onClick={reload}
+              className="mt-4 rounded-full bg-surface hover:bg-surfaceAlt text-primary font-semibold px-5 py-2 text-sm"
+            >
+              Tentar novamente
+            </button>
+          </div>
         ) : items.length === 0 ? (
           <div className="text-center text-muted py-16">Nenhuma mensagem ainda</div>
         ) : (
@@ -196,6 +232,7 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
                 onReply={setReplyTo}
                 onReact={(m, emoji) => react(m.id, emoji)}
                 onOpenMedia={setViewer}
+                onRetry={canRetry(it) ? retrySend : undefined}
               />
             ),
           )
@@ -211,7 +248,7 @@ export function ChatPanel({ chatId }: { chatId?: string }) {
             <div className="text-primary text-xs font-bold">Respondendo</div>
             <div className="text-muted text-sm truncate">{replyTo.text ?? 'mídia'}</div>
           </div>
-          <button onClick={() => setReplyTo(null)} className="text-muted text-lg px-1">×</button>
+          <button onClick={() => setReplyTo(null)} className="text-muted text-lg px-1" aria-label="Cancelar resposta">×</button>
         </div>
       )}
 

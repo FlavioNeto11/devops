@@ -1,0 +1,53 @@
+id: REQ-SICAT-0029
+slug: req-sicat-0029
+title: "Transporte: emissão fiscal DF-e (condicional a go/no-go comercial)"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  Condicionado a decisão comercial explícita (go/no-go) e ADR próprio, o sistema deve emitir
+  documentos fiscais eletrônicos (CT-e/MDF-e e, quando pertinente, NF-e) com gestão de
+  certificados digitais, assinatura, submissão à SEFAZ, contingência, eventos fiscais e
+  encerramento — avaliando o reuso do pacote compartilhado @flavioneto11/fiscal-kit
+  (packages/fiscal-kit, sandbox-first) como fundação do gateway fiscal.
+business_rationale: >-
+  Emissão fiscal completa envolve certificados, contingência, particularidades estaduais e
+  operação de alta criticidade — deliberadamente separada da importação/validação (REQ-SICAT-0027)
+  para não concentrar risco em uma única release (baseline deep-research 2026-08-13, "Documentos
+  fiscais"). Fase G do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+    - packages/fiscal-kit
+priority: medium
+criticality: critical
+architectural_significance: true
+risk_tags: [external-dependency, legal-review-required]
+capability_blocks:
+  - nota-fiscal-emissao
+  - gateway-externo
+acceptance_criteria:
+  - "Só inicia com ADR próprio de emissão vs. validação e pendência P9 do guia resolvida (certificados, credenciamento SEFAZ, responsabilidade fiscal)."
+verification_method: [architecture-review, test-integration, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0027
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase G, condicional)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres
+    - infra-sealed-secrets

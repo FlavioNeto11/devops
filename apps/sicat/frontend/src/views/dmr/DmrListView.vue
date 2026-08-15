@@ -17,7 +17,9 @@ import SicatFiltersPanel from '../../components/sicat/SicatFiltersPanel.vue';
 import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
 import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
-import { isoDaysAgo, isoToday } from '../../utils/date-format.js';
+import { formatDateBr, isoDaysAgo, isoToday } from '../../utils/date-format.js';
+import { formatPaginationCounter, resolveOffsetRange } from '../../lib/pagination-label.js';
+import { pluralize } from '../../lib/plural-pt.js';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -67,8 +69,9 @@ const activeChips = computed(() => {
   const chips = [];
   if (filters.status) chips.push({ key: 'status', label: `Status: ${statusLabel(filters.status)}` });
   if (filters.role) chips.push({ key: 'role', label: `Papel: ${roleLabel(filters.role)}` });
-  if (filters.periodStart) chips.push({ key: 'periodStart', label: `De: ${filters.periodStart}` });
-  if (filters.periodEnd) chips.push({ key: 'periodEnd', label: `Até: ${filters.periodEnd}` });
+  // Data em pt-BR nos chips (o valor interno segue ISO, como a API espera).
+  if (filters.periodStart) chips.push({ key: 'periodStart', label: `De: ${formatDateBr(filters.periodStart)}` });
+  if (filters.periodEnd) chips.push({ key: 'periodEnd', label: `Até: ${formatDateBr(filters.periodEnd)}` });
   return chips;
 });
 
@@ -115,8 +118,17 @@ const canNext = computed(() => {
 
 const totalLabel = computed(() => {
   const value = Number(total.value || 0);
-  return `${value} ${value === 1 ? 'declaração encontrada' : 'declarações encontradas'}`;
+  return `${value} ${pluralize(value, 'declaração', 'declarações')} ${pluralize(value, 'encontrada', 'encontradas')}`;
 });
+
+// Contador ÚNICO do app: "Mostrando 1–20 de 243 declarações" (lib/pagination-label.js).
+// Antes esta tela dizia "Exibindo …" e as de MTR "Mostrando …".
+const resultsCounterLabel = computed(() => formatPaginationCounter({
+  ...resolveOffsetRange({ offset: filters.offset, limit: filters.limit, itemsOnPage: items.value.length }),
+  total: total.value,
+  singular: 'declaração',
+  plural: 'declarações'
+}));
 
 onMounted(async () => {
   await fetchList();
@@ -227,11 +239,16 @@ onMounted(async () => {
     </template>
 
     <SicatCard :title="totalLabel" flush-body>
+      <!-- Paginação é SERVIDORA (offset/limit no footer abaixo). O footer padrão
+           do v-data-table pagina só as linhas já baixadas e contradizia o
+           contador real ("1-10 de 50" x "1–50 de 243") — desligado aqui. -->
       <SicatDataTable
         :headers="headers"
         :items="rows"
         :loading="loadingList"
         :error="listError"
+        :show-footer="false"
+        :items-per-page="-1"
         :empty="{ title: 'Nenhuma declaração neste filtro', description: 'Tente outro filtro acima, ou crie uma nova em “Criar declaração”.', icon: 'mdi-file-tree-outline' }"
         @row-click="(row) => row?.id && goToDetail(row.id)"
       >
@@ -246,7 +263,7 @@ onMounted(async () => {
             Anterior
           </v-btn>
           <span class="text-caption text-medium-emphasis">
-            Exibindo {{ Math.min(Number(filters.offset || 0) + 1, Number(total || 0)) }}–{{ Math.min(Number(filters.offset || 0) + Number(filters.limit || 50), Number(total || 0)) }} de {{ Number(total || 0) }} declarações
+            {{ resultsCounterLabel }}
           </span>
           <v-btn variant="text" :disabled="!canNext" append-icon="mdi-chevron-right" @click="changeOffset(Number(filters.limit || 50))">
             Próxima

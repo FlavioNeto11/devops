@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { openStream, pmMe, pmProjects } from './api.js';
+import { fetchOverview, openStream, pmMe, pmProjects } from './api.js';
 import Overview from './components/Overview.jsx';
 import Apps from './components/Apps.jsx';
 import Publications from './components/Publications.jsx';
@@ -118,7 +118,21 @@ function ConsoleShell() {
   const [focusProject, setFocusProject] = useState(null);
   // Modal informativo do Traefik (dashboard interno, sem rota pública).
   const [traefikInfo, setTraefikInfo] = useState(false);
-  const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
+  // Navegação interna SINCRONIZA a URL (recarregar/compartilhar preserva a seção).
+  // A troca de seção iniciada pelo usuário empilha (pushState) uma entrada no
+  // histórico — assim o botão Voltar do navegador retorna à seção anterior DENTRO
+  // do Console, em vez de abandoná-lo. Voltar/Avançar mudam o hash e disparam
+  // `hashchange` → o apply() abaixo reprocessa e ajusta a aba (sem re-gravar o
+  // hash, então não há loop). Nem push nem replaceState disparam hashchange, logo
+  // a gravação em si nunca re-executa o apply().
+  const syncHash = (key, { push = false } = {}) => {
+    try {
+      const target = `#${key}`;
+      if (push && window.location.hash !== target) window.history.pushState(null, '', target);
+      else window.history.replaceState(null, '', target);
+    } catch { /* noop (ambientes sem history) */ }
+  };
+  const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); syncHash(tab, { push: true }); };
 
   // (A4, Forja 4.0) deep-link por hash: outros apps apontam para uma seção (#conteudo?novo=1 abre
   // o assistente de portal — a criação começa na Forja/Studio). Só LEITURA do hash na entrada e em
@@ -152,13 +166,14 @@ function ConsoleShell() {
     return () => { alive = false; window.removeEventListener('hashchange', apply); };
   }, []);
 
-  // Mantém a aba ativa válida para o papel.
+  // Mantém a aba ativa válida para o papel. Depende de activeTab para reavaliar
+  // também quando um deep-link por hash (colado por um admin) leva o member a uma
+  // seção de Cluster após a carga — em vez de renderizar main vazio, cai no painel.
   useEffect(() => {
     if (!meLoaded) return;
     if (isMember) setActiveTab((cur) => (memberSections.includes(cur) ? cur : 'painel'));
     else if (activeTab === 'access' && !isAdmin) setActiveTab('overview');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meLoaded, isMember, isAdmin]);
+  }, [meLoaded, isMember, isAdmin, activeTab, memberSections]);
 
   // Título da aba do navegador acompanha a seção (várias abas abertas ficam distinguíveis).
   useEffect(() => {
@@ -179,10 +194,26 @@ function ConsoleShell() {
       return undefined;
     }
     esRef.current = es;
-    es.onopen = () => { if (!closed) setStreamStatus('open'); };
-    es.onerror = () => { if (!closed) setStreamStatus('error'); };
+    // Sessão expirada durante o SSE não é detectável pelo EventSource (ele não expõe o
+    // status HTTP do reconnect — só onerror) e viraria "reconectando…" eterno. Após 2
+    // falhas seguidas, um GET JSON descartável sonda a borda: o getJSON de api.js
+    // converte 401 em handleAuthExpired() (reload → login). Rede/backend fora do ar
+    // cai no catch e o EventSource segue reconectando normalmente.
+    let streamErrCount = 0;
+    let lastAuthProbe = 0;
+    es.onopen = () => { if (!closed) { streamErrCount = 0; setStreamStatus('open'); } };
+    es.onerror = () => {
+      if (closed) return;
+      setStreamStatus('error');
+      streamErrCount += 1;
+      if (streamErrCount >= 2 && Date.now() - lastAuthProbe > 15000) {
+        lastAuthProbe = Date.now();
+        fetchOverview().catch(() => { /* 401 já redirecionou; outras falhas: seguir reconectando */ });
+      }
+    };
     const onSnapshot = (evt) => {
       if (closed) return;
+      streamErrCount = 0;
       try { setStreamData(JSON.parse(evt.data)); setStreamStatus('open'); }
       catch (e) { /* frame não-JSON ignorado */ }
     };
@@ -221,8 +252,9 @@ function ConsoleShell() {
   }
 
   const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
-  // Navegação interna limpa o contexto de app do deep-link (ele vale para a seção onde se chegou).
-  const selectSection = (key) => { setActiveTab(key); setDeepApp(null); setMobileNavOpen(false); };
+  // Navegação interna limpa o contexto de app do deep-link (ele vale para a seção onde
+  // se chegou) — e escreve o hash SEM query, coerente com o contexto limpo.
+  const selectSection = (key) => { setActiveTab(key); setDeepApp(null); setMobileNavOpen(false); syncHash(key, { push: true }); };
   const platformLinks = isMember ? [] : [
     ...QUICK_LINKS,
     { label: 'Traefik', icon: 'info', title: 'Dashboard interno — como acessar', onClick: () => setTraefikInfo(true) },

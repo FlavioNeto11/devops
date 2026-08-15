@@ -11,42 +11,95 @@ import {
   formatDateBr,
   formatDateTimeBr
 } from '../../../utils/date-format.js';
+import {
+  MANIFEST_STATUS_SUBMIT_UNCONFIRMED,
+  resolveManifestRawSituation,
+  resolveManifestSituationLabel
+} from '../../../lib/status-map.js';
 
-export const MANIFEST_STATUS_LABELS = Object.freeze({
-  draft: 'Rascunho',
-  queued_submit: 'Pendente',
-  submitting: 'Enviando',
-  processing: 'Executando',
-  submitted: 'Sucesso',
-  printing: 'Imprimindo',
-  printed: 'Sucesso',
-  cancelling: 'Cancelando',
-  cancelled: 'Cancelado',
-  succeeded: 'Sucesso',
-  failed: 'Falha',
-  error: 'Falha'
-});
+/**
+ * "Enviei e não sei se chegou": o submit foi despachado para a CETESB e o SICAT
+ * NÃO sabe se o MTR nasceu. Não é falha (falha = sabemos que não nasceu) nem
+ * envio (envio = sabemos que nasceu).
+ *
+ * Casa pelo status INTERNO exato — quem escreve esse token é o backend. De
+ * propósito NÃO usa `normalizedStatusValue` (que concatena o `externalStatus`
+ * livre da CETESB): substring aqui abriria porta para falso positivo vindo de
+ * texto do SIGOR.
+ *
+ * Enquanto durar, TODA ação que escreve (na CETESB ou no MTR) fica bloqueada; a
+ * única saída é "Atualizar da CETESB", que resolve a dúvida e devolve o
+ * manifesto a um status que o sistema entende. Nunca é beco sem saída.
+ */
+export function isSubmitUnconfirmedManifest(manifest) {
+  return String(manifest?.status || '').trim().toLowerCase() === MANIFEST_STATUS_SUBMIT_UNCONFIRMED;
+}
 
+/**
+ * Frase única do estado, reaproveitada por todas as explicações de bloqueio —
+ * o operador lê a MESMA verdade em qualquer ação que tentar.
+ */
+const SUBMIT_UNCONFIRMED_PREFIX = 'Envio sem confirmação: o SICAT ainda não sabe se este MTR nasceu na CETESB.';
+const SUBMIT_UNCONFIRMED_WAY_OUT = 'Use “Atualizar da CETESB” para descobrir.';
+
+/**
+ * Rótulo do status do manifesto — delega ao mapa CANÔNICO (`lib/status-map.js`).
+ * Antes esta função devolvia o `externalStatus` CRU da CETESB ('Salvo'), o que
+ * fazia a lista falar um vocabulário e o filtro/dashboard outro.
+ */
 export function resolveManifestStatusLabel(manifest) {
-  const externalStatus = String(manifest?.externalStatus || '').trim();
-  if (externalStatus) {
-    return externalStatus;
-  }
-  const internalStatus = String(manifest?.status || '').trim();
-  return MANIFEST_STATUS_LABELS[internalStatus] || internalStatus || '-';
+  return resolveManifestSituationLabel(manifest);
 }
 
-export function normalizedStatusClass(status) {
-  const value = String(status || '').toLowerCase();
-  if (value.includes('queue') || value.includes('pend')) return 'queued';
-  if (value.includes('run') || value.includes('process')) return 'running';
-  if (value.includes('cancel')) return 'failed';
-  if (value.includes('falh') || value.includes('erro') || value.includes('error') || value.includes('dlq')) return 'failed';
-  if (value.includes('salvo') || value.includes('receb') || value.includes('trâns') || value.includes('transit')) return 'succeeded';
-  if (value.includes('print')) return 'succeeded';
-  if (value.includes('succ') || value.includes('submit')) return 'succeeded';
-  return 'failed';
+/** Termo cru da CETESB (tooltip de rastreabilidade ao lado do rótulo canônico). */
+export function resolveManifestRawStatus(manifest) {
+  return resolveManifestRawSituation(manifest);
 }
+
+/**
+ * Rótulo legível de um FILTRO de situação, a partir dos valores CRUS enviados à
+ * API (`status` interno + `externalStatus`, que é um fragmento ILIKE da CETESB:
+ * 'receb', 'salvo', 'cancel'...).
+ *
+ * Sem isto o resumo de "Filtros ativos" vazava o token cru truncado
+ * (`situação "receb"`) — vocabulário de máquina, sem chip correspondente na tela.
+ * Passa pelo mapa CANÔNICO (`lib/status-map.js`), o mesmo dos badges e dos chips.
+ */
+export function resolveSituationFilterLabel(status, externalStatus) {
+  const rawStatus = String(status || '').trim();
+  const rawExternalStatus = String(externalStatus || '').trim();
+  const labels = [];
+  if (rawExternalStatus) {
+    labels.push(resolveManifestSituationLabel({ externalStatus: rawExternalStatus }));
+  }
+  if (rawStatus) {
+    labels.push(resolveManifestSituationLabel({ status: rawStatus }));
+  }
+  return [...new Set(labels.filter((label) => label && label !== '-'))].join(' / ');
+}
+
+/*
+ * NÃO existe helper local de COR/CLASSE de status neste módulo, e isso é uma
+ * decisão (DL-100): quem pinta status é `SicatStatusBadge` a partir do mapa
+ * canônico `lib/status-map.js`. Aqui só se decide AÇÃO (o que o operador pode
+ * fazer), nunca cor.
+ *
+ * Existia aqui um `normalizedStatusClass(status)` classificando por substring,
+ * sem nenhum chamador em todo o repositório — armadilha armada, não bug vivo.
+ * Ele divergia do mapa canônico em pelo menos quatro pontos, e o pior era
+ * `'submit_unconfirmed'.includes('submit')` → `'succeeded'`: pintaria de VERDE
+ * justamente o estado que existe para o operador NÃO achar que deu certo
+ * ("despachei para a CETESB e não sei se o MTR nasceu"). No mapa canônico ele é
+ * `warning`. Divergia também em `cancelled` (→ vermelho, canônico é `neutral`),
+ * `received` (→ vermelho: 'receb' não é substring de 'received') e em qualquer
+ * status desconhecido, inclusive `draft` (→ vermelho, pelo `return` final).
+ *
+ * O vocabulário que ele devolvia ('queued'/'running'/'succeeded'/'failed') nem
+ * era o das tonalidades (`STATUS_TONES`: neutral/running/warning/success/error),
+ * então não havia consumidor plausível: consertá-lo seria reescrever o
+ * `status-map.js` num segundo lugar — a duplicação que o DL-100 eliminou.
+ * O guard vive em `tests/unit/manifest-status-class-helper.test.js`.
+ */
 
 export function isSingleDayDateWindow(dateFrom, dateTo) {
   const fromIso = brDateToIsoDate(dateFrom);
@@ -228,7 +281,27 @@ export function isCancelledStatus(manifest) {
   return normalizedStatusValue(manifest).includes('cancel');
 }
 
+/**
+ * ATENÇÃO — `submit_unconfirmed` NUNCA é erro. `isErrorManifest` é a chave que
+ * abre "Reenviar" (`canRecoverManifest`) e "Remover" (`canRemoveManifest`):
+ * classificar como erro um envio de desfecho desconhecido faz a tela oferecer
+ * justamente as duas ações que produzem MTR duplicado / perda de rastro do
+ * órfão. Os testes de `manifest-submit-unconfirmed.test.js` travam essas três
+ * respostas juntas.
+ *
+ * O guard explícito no topo NÃO é redundante, e o comentário anterior aqui
+ * errava ao dizer que bastava o estado não casar os fragmentos. A mensagem que o
+ * backend grava em `externalStatus` quando o submit morre em DLQ sem
+ * confirmação ("Envio sem confirmação: job finalizado em DLQ e a pesquisa na
+ * CETESB não confirmou se o MTR foi criado...") contém a palavra **DLQ**: o
+ * `includes('dlq')` abaixo lia o TEXTO EXPLICATIVO como sinal de estado e
+ * devolvia `true`, reabrindo as duas ações. É o par exato do guard em
+ * `isManifestFailureState` (backend), que autoriza a remoção da linha.
+ */
 export function isErrorManifest(manifest) {
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return false;
+  }
   const status = String(manifest?.status || '').toLowerCase();
   const externalStatus = String(manifest?.externalStatus || '').toLowerCase();
   const combinedStatus = `${status} ${externalStatus}`;
@@ -243,6 +316,12 @@ export function canCancelManifest(manifest) {
   if (!resolveManifestIdentifier(manifest)) {
     return false;
   }
+  // Cancelar exige saber O QUE cancelar. Sem este bloqueio, um manifesto com
+  // hash e status `submit_unconfirmed` casava `status.includes('submit')` lá
+  // embaixo e reabilitava "Cancelar".
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return false;
+  }
   const hasExternalHash = Boolean(String(manifest?.externalHashCode || '').trim());
   if (!hasExternalHash) {
     return false;
@@ -251,11 +330,17 @@ export function canCancelManifest(manifest) {
   if (!status) {
     return false;
   }
+  // Manifesto RECEBIDO nao volta a ser cancelado: o fluxo dele segue para o
+  // certificado (ver canUseManifestForCdf, que EXIGE 'receb'). O recebimento
+  // mantem o status interno 'submitted', entao sem este bloqueio o
+  // `status.includes('submit')` abaixo reabilitava "Cancelar" para recebidos
+  // (em lote aparecia "Cancelar (N)" para N manifestos ja recebidos).
   if (
     status.includes('draft')
     || status.includes('queue')
     || status.includes('process')
     || status.includes('cancel')
+    || status.includes('receb')
     || status.includes('fail')
     || status.includes('error')
   ) {
@@ -264,6 +349,11 @@ export function canCancelManifest(manifest) {
   return status.includes('submit') || status.includes('print') || status.includes('success');
 }
 
+/**
+ * Decisão para `submit_unconfirmed`: FALSE, herdado de `isErrorManifest` — sem
+ * guard redundante aqui de propósito. "Reenviar" reexecuta o submit; num envio
+ * de desfecho desconhecido isso é a fábrica do MTR duplicado.
+ */
 export function canRecoverManifest(manifest) {
   const manifestId = resolveManifestIdentifier(manifest);
   if (!manifestId) {
@@ -277,6 +367,13 @@ export function canRecoverManifest(manifest) {
 
 export function canSubmitManifest(manifest) {
   if (!resolveManifestIdentifier(manifest)) {
+    return false;
+  }
+  // Reenviar o que já foi despachado é a receita do MTR duplicado. Hoje o
+  // `return` final (que só aceita 'draft'/'pending_submission') já barraria por
+  // acidente; aqui vira INTENÇÃO declarada — quem um dia acrescentar 'submit' à
+  // lista de baixo esbarra neste guard e no teste que o cobre.
+  if (isSubmitUnconfirmedManifest(manifest)) {
     return false;
   }
   if (canRecoverManifest(manifest)) {
@@ -298,6 +395,12 @@ export function canReplicateManifest(manifest) {
   if (!manifestId) {
     return false;
   }
+  // Nenhum fragmento da lista abaixo casa 'submit_unconfirmed', então o ramo
+  // genérico devolvia TRUE e a tela oferecia replicar um envio de destino
+  // desconhecido — exatamente como nasce o MTR duplicado.
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return false;
+  }
   const status = normalizedStatusValue(manifest);
   if (!status) {
     return true;
@@ -308,6 +411,11 @@ export function canReplicateManifest(manifest) {
 export function canReceiveOperationalManifest(manifest) {
   const snapshot = resolveManifestSnapshot(manifest);
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
+    return false;
+  }
+  // Baixa operacional pressupõe MTR existente. Com snapshot preenchido nenhum
+  // fragmento da lista abaixo casava 'submit_unconfirmed' e a ação era liberada.
+  if (isSubmitUnconfirmedManifest(manifest)) {
     return false;
   }
   const status = normalizedStatusValue(manifest);
@@ -334,6 +442,12 @@ export function canUseManifestForCdf(manifest) {
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
     return false;
   }
+  // O `includes('receb')` abaixo lê o `externalStatus` CRU junto: um manifesto
+  // ainda `submit_unconfirmed` cujo espelho já trouxe 'Recebido' liberava CDF
+  // antes de a reconciliação fechar a dúvida. Primeiro confirmar, depois emitir.
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return false;
+  }
   const status = normalizedStatusValue(manifest);
   if (!status) {
     return false;
@@ -348,6 +462,12 @@ export function canUseManifestForCdf(manifest) {
 
 export function canPrintManifest(manifest) {
   if (!resolveManifestIdentifier(manifest)) {
+    return false;
+  }
+  // Imprimir gera papel que circula com a carga. Com hash presente o
+  // `status.includes('submit')` do final casava 'submit_unconfirmed' e liberava
+  // a impressão de um MTR que talvez não exista no SIGOR.
+  if (isSubmitUnconfirmedManifest(manifest)) {
     return false;
   }
   const hasExternalHash = Boolean(String(manifest?.externalHashCode || '').trim());
@@ -370,11 +490,62 @@ export function canPrintManifest(manifest) {
   return status.includes('submit') || status.includes('print') || status.includes('success') || status.includes('cancel');
 }
 
+/**
+ * Decisão para `submit_unconfirmed`: FALSE, herdado de `isErrorManifest` — sem
+ * guard redundante aqui de propósito. Remover a linha local de um MTR que pode
+ * existir no SIGOR apaga o rastro do órfão justamente quando ele é o único fio
+ * para achá-lo. Quem mudar `isErrorManifest` derruba o teste que trava isto.
+ */
 export function canRemoveManifest(manifest) {
   return Boolean(resolveManifestIdentifier(manifest)) && isErrorManifest(manifest);
 }
 
+/**
+ * Por que "Replicar" está bloqueado. Sem esta explicação o item sumia da lista
+ * sem dizer nada e o operador concluía sozinho "não funcionou, vou mandar de
+ * novo" — o caminho curto para dois MTRs do mesmo resíduo.
+ */
+export function describeReplicateManifestRestriction(manifest) {
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} Replicar agora pode gerar um MTR duplicado. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
+  if (!resolveManifestIdentifier(manifest)) {
+    return 'Manifesto sem identificador — recarregue a lista.';
+  }
+  const status = normalizedStatusValue(manifest);
+  if (status.includes('queue') || status.includes('process')) {
+    return 'Aguarde o processamento terminar.';
+  }
+  if (status.includes('cancel')) {
+    return 'Este manifesto foi cancelado.';
+  }
+  if (status.includes('fail') || status.includes('error') || status.includes('dlq')) {
+    return 'Este manifesto teve um problema.';
+  }
+  return 'Este manifesto não pode ser replicado agora.';
+}
+
+/** Por que "Submeter"/"Reenviar" está bloqueado. */
+export function describeSubmitManifestRestriction(manifest) {
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} Reenviar agora pode gerar um MTR duplicado. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
+  if (!resolveManifestIdentifier(manifest)) {
+    return 'Manifesto sem identificador — recarregue a lista.';
+  }
+  if (String(manifest?.externalHashCode || '').trim()) {
+    return 'Este manifesto já está registrado no SIGOR.';
+  }
+  return 'Este manifesto não pode ser enviado agora.';
+}
+
 export function describeCdfManifestRestriction(manifest) {
+  // ANTES da checagem de snapshot: um envio sem confirmação normalmente não tem
+  // identidade externa, e "Ainda não sincronizado" sugere que nada saiu daqui —
+  // quando na verdade o envio SAIU e o desfecho é que é desconhecido.
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} O certificado só sai depois da confirmação e do recebimento. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
   const snapshot = resolveManifestSnapshot(manifest);
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
     return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
@@ -396,6 +567,9 @@ export function describeCdfManifestRestriction(manifest) {
 }
 
 export function describeReceiveManifestRestriction(manifest) {
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} A baixa só depois da confirmação. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
   const snapshot = resolveManifestSnapshot(manifest);
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
     return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
@@ -417,8 +591,19 @@ export function describeReceiveManifestRestriction(manifest) {
 }
 
 export function describeCancelManifestRestriction(manifest) {
+  // ANTES da checagem de hash: envio sem confirmação não tem hash, e a frase
+  // "manifesto ainda nao registrado no SIGOR" seria MENTIRA — pode estar
+  // registrado; é justamente o que não se sabe.
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} Não dá para cancelar o que ainda não se sabe se existe. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
   if (isCancelledStatus(manifest)) {
     return 'Manifesto ja cancelado.';
+  }
+  // Espelha describeReceiveManifestRestriction: recebido é estado final para o
+  // cancelamento; o próximo passo é o certificado (CDF).
+  if (normalizedStatusValue(manifest).includes('receb')) {
+    return 'Este manifesto já foi recebido. O próximo passo é o certificado (CDF), não o cancelamento.';
   }
   if (!String(manifest?.externalHashCode || '').trim()) {
     return 'Sem hash CETESB — manifesto ainda nao registrado no SIGOR.';
@@ -428,12 +613,17 @@ export function describeCancelManifestRestriction(manifest) {
     return 'Aguarde o processamento terminar.';
   }
   if (status.includes('draft')) {
-    return 'Rascunho local — nao ha o que cancelar na CETESB.';
+    return 'Rascunho local — não há o que cancelar na CETESB.';
   }
   return 'Manifesto indisponivel para cancelamento.';
 }
 
 export function describePrintManifestRestriction(manifest) {
+  // ANTES da checagem de hash: "imprima apos o envio ao SIGOR" diria ao
+  // operador que ele ainda não enviou — ele enviou; o que falta é a confirmação.
+  if (isSubmitUnconfirmedManifest(manifest)) {
+    return `${SUBMIT_UNCONFIRMED_PREFIX} Imprima depois que a CETESB confirmar. ${SUBMIT_UNCONFIRMED_WAY_OUT}`;
+  }
   if (!String(manifest?.externalHashCode || '').trim()) {
     return 'Sem hash CETESB — imprima apos o envio ao SIGOR.';
   }

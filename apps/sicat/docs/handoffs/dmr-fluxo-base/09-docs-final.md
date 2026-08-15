@@ -73,7 +73,7 @@ do orquestrador, sem tocar produto e sem commit/push. Entregas:
    de captura humana de HAR DMR que ainda não ocorreu. Permanece como
    cadeia futura, destravável a qualquer momento após a captura.
 5. **F4 registrada como follow-up de estabilidade** em
-   [estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade),
+   [estado-atual.md §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados),
    sem abrir cadeia dedicada (não-bloqueante).
 6. **CHANGELOG dedicado** publicado em
    [docs/CHANGELOG-DMR-FLUXO-BASE.md](../../CHANGELOG-DMR-FLUXO-BASE.md)

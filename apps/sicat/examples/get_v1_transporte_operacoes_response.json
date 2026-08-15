@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "id": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+      "version": 1,
+      "integrationAccountId": "acc_exemplo_prod",
+      "referenceCode": "PED-2026-000123",
+      "status": "draft",
+      "cargoRegime": "lotacao",
+      "freight": {
+        "offeredAmount": 3500.00,
+        "contractedAmount": null,
+        "floorAmount": null,
+        "tollAmount": null,
+        "vpoAmount": null,
+        "otherComponentsAmount": null,
+        "totalContractValue": null
+      },
+      "currency": "BRL",
+      "availableCommands": [
+        "submit_validation",
+        "cancel"
+      ],
+      "createdAt": "2026-08-13T12:15:00Z",
+      "updatedAt": "2026-08-13T12:15:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 20
+}

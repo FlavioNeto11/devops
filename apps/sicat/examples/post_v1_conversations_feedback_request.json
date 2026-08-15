@@ -1,0 +1,12 @@
+{
+  "body": {
+    "feedbackType": "negative",
+    "correlationId": "corr_conversation_turn_2026_03_13",
+    "conversationSessionId": "csess_01JQW5M6YY9M7K7B5N63GQ6E9S",
+    "toolName": "list_manifests",
+    "userComment": "A lista veio de outra conta."
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_conversation_feedback_2026_03_13"
+  }
+}

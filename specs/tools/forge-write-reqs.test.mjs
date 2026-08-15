@@ -47,3 +47,31 @@ test('writeFromPayload: rejeita slug inválido e requirements vazio', () => {
   assert.throws(() => writeFromPayload({ product: 'Bad Slug', requirements: [{ title: 'x' }] }));
   assert.throws(() => writeFromPayload({ product: 'ok-app', requirements: [] }));
 });
+
+test('writeFromPayload: slug hifenizado deriva id SEM hífens (schema-válido) — bug do besc-next (#212)', () => {
+  const dir = tmp();
+  const payload = {
+    product: 'besc-next', display_name: 'BESC 2.0', blueprint: 'app-simples',
+    requirements: [{ title: 'Fundação', type: 'functional', statement: 'DEVE existir.' }],
+  };
+  const r = writeFromPayload(payload, { specsDir: path.join(dir, 'specs'), repoRoot: dir });
+  assert.deepEqual(r.ids, ['REQ-BESCNEXT-0001']); // NÃO REQ-BESC-NEXT-0001
+  for (const id of r.ids) assert.match(id, /^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$/);
+  const y = fs.readFileSync(path.join(dir, 'specs/requirements/besc-next/REQ-BESCNEXT-0001.yaml'), 'utf8');
+  assert.match(y, /id: REQ-BESCNEXT-0001/);
+  assert.match(y, /product_scope: besc-next/); // vínculo com o produto continua pelo scope, não pelo id
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('writeFromPayload: id explícito fora do schema é rejeitado (fail-closed, nada escrito no git)', () => {
+  const dir = tmp();
+  assert.throws(
+    () => writeFromPayload(
+      { product: 'ok-app', requirements: [{ id: 'REQ-BESC-NEXT-0001', title: 'x', statement: 'y' }] },
+      { specsDir: path.join(dir, 'specs'), repoRoot: dir },
+    ),
+    /req id inválido/,
+  );
+  assert.equal(fs.existsSync(path.join(dir, 'specs/requirements')), false);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

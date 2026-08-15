@@ -24,7 +24,10 @@ async function load() {
   try {
     try { await health(); live.value = true; } catch { live.value = false; }
     const r = await records.list({ pageSize: 5 });
-    recent.value = r.data || []; total.value = r.total ?? recent.value.length;
+    // O backend ainda ignora pageSize (devolve até 200): cortamos no cliente p/ manter o painel
+    // como resumo, sem deixar 'Registros recentes' virar tabela longa. O total reflete o carregado.
+    const data = r.data || [];
+    recent.value = data.slice(0, 5); total.value = r.total ?? data.length;
   } catch (e) { error.value = e; } finally { loading.value = false; }
 }
 const open = (row) => router.push('/records/' + row.id);

@@ -9,7 +9,7 @@
     <UiDataTable :columns="columns" :rows="rows" row-key="id"
       :empty="{ title: 'Nenhum usuário', description: 'Crie o primeiro usuário.' }">
       <template #cell-role="{ row }">
-        <UiStatusBadge :tone="row.role === 'admin' ? 'success' : 'neutral'" :label="row.role" size="sm" />
+        <UiStatusBadge :tone="roleTone(row.role)" :label="roleLabel(row.role)" size="sm" />
       </template>
       <template #cell-is_active="{ row }">
         <UiStatusBadge :tone="row.is_active ? 'success' : 'neutral'" :label="row.is_active ? 'ativo' : 'inativo'" size="sm" />
@@ -44,8 +44,7 @@
         <UiFormField label="Papel">
           <template #default="{ id }">
             <select :id="id" :value="cf.values.role" @change="cf.setField('role', $event.target.value)">
-              <option value="member">membro</option>
-              <option value="admin">admin</option>
+              <option v-for="rl in assignableRoles" :key="rl" :value="rl">{{ roleLabel(rl) }}</option>
             </select>
           </template>
         </UiFormField>
@@ -62,9 +61,11 @@ import { ref, onMounted } from 'vue';
 import { UiPageLayout, UiDataTable, UiButton, UiStatusBadge, UiModal, UiFormSection, UiFormField, UiInput, useForm, validators, useToast, useConfirm } from '../ui/index.js';
 import { users } from '../api.js';
 import { useAuth } from '../composables/useAuth.js';
+import { roleLabel, roleTone, ASSIGNABLE_ROLES } from '../lib/roles.js';
 const toast = useToast();
 const ask = useConfirm();
 const account = useAuth();
+const assignableRoles = ASSIGNABLE_ROLES;
 const columns = [
   { key: 'name', label: 'Nome' },
   { key: 'email', label: 'E-mail' },

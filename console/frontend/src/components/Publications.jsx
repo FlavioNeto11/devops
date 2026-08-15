@@ -57,6 +57,9 @@ export default function Publications({ initialApp = null }) {
     return () => ctrl.abort();
   }, [load]);
 
+  const visible = rows.filter((r) => !filter || [r.app, r.deployment, r.branch, r.imageTag, r.commitSha]
+    .some((v) => (v || '').toLowerCase().includes(filter.toLowerCase())));
+
   return (
     <section className="publications" aria-label="Publicacoes">
       <PageHeader
@@ -97,9 +100,17 @@ export default function Publications({ initialApp = null }) {
               </tr>
             </thead>
             <tbody>
-              {rows
-                .filter((r) => !filter || [r.app, r.deployment, r.branch, r.imageTag, r.commitSha]
-                  .some((v) => (v || '').toLowerCase().includes(filter.toLowerCase())))
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="table__empty">
+                    Nenhum resultado para "{filter}".{' '}
+                    <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => setFilter('')}>
+                      Limpar filtro
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {visible
                 .map((r, idx) => {
                   const tag = r.imageTag || '—';
                   const sha = (r.commitSha || '').slice(0, 7) || '—';

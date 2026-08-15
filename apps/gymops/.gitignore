@@ -33,6 +33,7 @@ pnpm-debug.log*
 # Test outputs
 playwright-report/
 test-results/
+.auth/
 .playwright-mcp/
 
 # Generated files

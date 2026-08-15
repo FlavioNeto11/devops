@@ -5,6 +5,7 @@ import { useTheme } from 'vuetify';
 import { useAuthStore } from '../stores/auth.js';
 import { startKeycloakLogin } from '../services/keycloak.js';
 import { toggleAppTheme } from '../composables/useAppTheme.js';
+import { reduceAutofillState } from '../lib/autofill-detection.js';
 import SicatAuthSteps from '../components/sicat/SicatAuthSteps.vue';
 
 const router = useRouter();
@@ -13,17 +14,39 @@ const theme = useTheme();
 const authStore = useAuthStore();
 const { loading, error } = authStore;
 
-const email = ref(import.meta.env.VITE_LOGIN_EMAIL || '');
+// Nunca pré-preencher credencial (nem por variável de build): campo de login
+// começa vazio sempre. O preenchimento automático fica a cargo do gerenciador
+// de senhas do próprio usuário, via `autocomplete` nos campos.
+const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
 const formError = ref('');
+const formNotice = ref('');
 const registerMode = ref(false);
 const registerName = ref('');
 const registerEmail = ref('');
 const registerPassword = ref('');
 const registerConfirmPassword = ref('');
 const registerError = ref('');
-const rememberMe = ref(true);
+
+/*
+ * Rótulo flutuante × autofill do navegador.
+ *
+ * Quando o Chrome/Edge preenchia as credenciais salvas, "E-mail" e "Senha"
+ * ficavam impressos SOBRE o valor: o autofill não dispara os eventos que o
+ * v-model escuta, então o campo nunca ficava `dirty` e a Vuetify não subia o
+ * rótulo. Aqui o único sinal que o navegador emite (`animationstart` da
+ * animação pendurada em `:-webkit-autofill` — ver o <style> abaixo) é traduzido
+ * no estado do formulário, e cada campo recebe `:active`, a prop OFICIAL da
+ * Vuetify para forçar o rótulo flutuante (`VTextField`: `isActive = ... ||
+ * props.active`). Regra pura + casamento do nome da animação:
+ * `lib/autofill-detection.js`.
+ */
+const autofillState = ref({});
+
+function handleAutofillAnimation(event) {
+  autofillState.value = reduceAutofillState(autofillState.value, event);
+}
 
 const authError = computed(() => formError.value || error.value || '');
 const isLoading = computed(() => loading.value);
@@ -53,6 +76,7 @@ function isValidEmail(value) {
 
 async function handleLogin() {
   formError.value = '';
+  formNotice.value = '';
 
   if (!isValidEmail(email.value)) {
     formError.value = 'Informe um e-mail válido.';
@@ -68,11 +92,13 @@ async function handleLogin() {
 
 async function loginWithKeycloak() {
   formError.value = '';
+  formNotice.value = '';
   await startKeycloakLogin();
 }
 
 function handleForgotPassword() {
-  formError.value = 'Solicite a redefinição de senha com o administrador do SICAT.';
+  formError.value = '';
+  formNotice.value = 'Para redefinir sua senha, procure o administrador do SICAT na sua organização. Se você acessa por SSO, use o botão "Entrar com Keycloak (SSO)" abaixo.';
 }
 
 function toggleRegisterMode() {
@@ -159,7 +185,10 @@ async function handleRegister() {
         </div>
       </section>
 
-      <v-sheet class="auth-panel">
+      <!-- `animationstart` sobe por bubbling: um único ouvinte no painel cobre
+           todos os campos (login e cadastro). Animações que não são do autofill
+           são ignoradas pelo casamento de nome. -->
+      <v-sheet class="auth-panel" @animationstart="handleAutofillAnimation">
         <div class="auth-panel-toolbar">
           <div class="text-caption text-medium-emphasis">SICAT Interno</div>
           <div class="auth-panel-toolbar-actions">
@@ -217,6 +246,10 @@ async function handleRegister() {
             v-model="email"
             label="E-mail"
             type="email"
+            name="email"
+            data-autofill-key="email"
+            :active="Boolean(autofillState.email)"
+            autocomplete="username"
             placeholder="voce@empresa.com"
             :error-messages="formError && !email ? [formError] : []"
             autofocus
@@ -227,6 +260,10 @@ async function handleRegister() {
             v-model="password"
             label="Senha"
             :type="showPassword ? 'text' : 'password'"
+            name="current-password"
+            data-autofill-key="password"
+            :active="Boolean(autofillState.password)"
+            autocomplete="current-password"
             placeholder="Digite sua senha"
             :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
             class="mb-2"
@@ -234,13 +271,6 @@ async function handleRegister() {
           />
 
           <div class="auth-form-options mb-4">
-            <v-checkbox
-              v-model="rememberMe"
-              label="Lembrar de mim"
-              density="compact"
-              hide-details
-              color="primary"
-            />
             <v-btn variant="text" size="small" type="button" @click="handleForgotPassword">
               Esqueceu a senha?
             </v-btn>
@@ -254,6 +284,16 @@ async function handleRegister() {
             density="compact"
           >
             {{ authError }}
+          </v-alert>
+
+          <v-alert
+            v-if="formNotice"
+            type="info"
+            variant="tonal"
+            class="mb-4"
+            density="compact"
+          >
+            {{ formNotice }}
           </v-alert>
 
           <div class="auth-actions mb-4">
@@ -296,24 +336,28 @@ async function handleRegister() {
               <v-text-field
                 v-model="registerName"
                 label="Nome completo"
+                autocomplete="name"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerEmail"
                 label="E-mail"
                 type="email"
+                autocomplete="username"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerPassword"
                 label="Senha"
                 type="password"
+                autocomplete="new-password"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerConfirmPassword"
                 label="Confirmar senha"
                 type="password"
+                autocomplete="new-password"
                 class="mb-4"
               />
 
@@ -631,6 +675,80 @@ async function handleRegister() {
 
 .auth-register-panel {
   padding-top: 4px;
+}
+
+/*
+  AUTOFILL × RÓTULO FLUTUANTE — duas camadas independentes.
+
+  (1) SINAL. `:-webkit-autofill` não emite evento algum; o único gancho é uma
+  animação CSS pendurada no seletor, cujo `animationstart` o JS ouve
+  (`handleAutofillAnimation` → `lib/autofill-detection.js`), que então liga
+  `:active` no campo — a prop oficial da Vuetify para subir o rótulo. Os
+  `@keyframes` daqui ganham sufixo de escopo no build (`-<hash>`), por isso o
+  casamento no JS é por PREFIXO. A contraparte `:not(...)` avisa quando o
+  autofill é desfeito. Os dois seletores (padrão `:autofill` e prefixado
+  `-webkit-`) ficam em regras SEPARADAS de propósito: numa lista única, um
+  seletor desconhecido invalidaria a regra inteira.
+
+  (2) REDE DE SEGURANÇA sem JS. Mesmo que o `animationstart` escape (evento
+  perdido, campo montado já preenchido), `:has()` reproduz exatamente o que a
+  Vuetify faz em `.v-field--active`: esconde o rótulo de repouso, revela o
+  flutuante e abre o entalhe da borda `outlined`. Nunca mais "E-mail" impresso
+  por cima do endereço.
+*/
+@keyframes sicat-autofill-start {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+@keyframes sicat-autofill-cancel {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+.auth-panel :deep(input:-webkit-autofill) {
+  animation-name: sicat-autofill-start;
+  animation-duration: 1ms;
+}
+
+.auth-panel :deep(input:autofill) {
+  animation-name: sicat-autofill-start;
+  animation-duration: 1ms;
+}
+
+.auth-panel :deep(input:not(:-webkit-autofill)) {
+  animation-name: sicat-autofill-cancel;
+  animation-duration: 1ms;
+}
+
+.auth-panel :deep(input:not(:autofill)) {
+  animation-name: sicat-autofill-cancel;
+  animation-duration: 1ms;
+}
+
+.auth-panel :deep(.v-field:has(input:-webkit-autofill) .v-label.v-field-label) {
+  visibility: hidden;
+}
+
+.auth-panel :deep(.v-field:has(input:autofill) .v-label.v-field-label) {
+  visibility: hidden;
+}
+
+/* Depois das regras acima de propósito: mesma especificidade, vence a ordem. */
+.auth-panel :deep(.v-field:has(input:-webkit-autofill) .v-label.v-field-label--floating) {
+  visibility: unset;
+}
+
+.auth-panel :deep(.v-field:has(input:autofill) .v-label.v-field-label--floating) {
+  visibility: unset;
+}
+
+.auth-panel :deep(.v-field--variant-outlined:has(input:-webkit-autofill) .v-field__outline__notch::before) {
+  opacity: 0;
+}
+
+.auth-panel :deep(.v-field--variant-outlined:has(input:autofill) .v-field__outline__notch::before) {
+  opacity: 0;
 }
 
 @media (max-width: 1080px) {

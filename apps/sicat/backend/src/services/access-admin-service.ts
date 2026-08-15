@@ -2,6 +2,7 @@ import { AppError } from '../lib/problem.js';
 import { createPrefixedId } from '../lib/ids.js';
 import { parsePage, parsePageSize } from '../lib/pagination.js';
 import { hashPassword } from '../lib/sicat-security.js';
+import { ADMIN_ROLE_NAME_ALIASES, listCatalogPermissionKeys } from '../lib/conversation-permission-catalog.js';
 import {
   hasAdminGlobalAccessByUserId,
   listAdminAccessUsers as repoListAdminAccessUsers,
@@ -28,11 +29,44 @@ import { updatePassword, updatePasswordExpiration } from '../repositories/sicat-
 import { revokeActiveByUserId } from '../repositories/sicat-session-repo.js';
 
 type LooseRecord = Record<string, unknown>;
-type SicatUser = {
+
+/**
+ * Identidade SICAT como o middleware a entrega. Exportada para que outras superfícies
+ * administrativas (ex.: o waiver do escudo anti-bombing) tipem o ator com ESTE contrato em vez de
+ * copiá-lo — uma cópia local fatalmente diverge do que o gate realmente lê.
+ */
+export type SicatUser = {
   userId?: string;
   id?: string;
   roles?: unknown[];
 };
+
+/**
+ * A ÚNICA dependência de banco do gate administrativo, isolada num seam próprio.
+ *
+ * Fica aqui, e NÃO no seam de persistência de quem chama o gate: um seam de repositórios que
+ * carregue a função de AUTORIZAÇÃO deixa de ser "troque o banco por um double" e passa a ser
+ * "desligue o gate" — e o setter é exportado de módulo de produção, no mesmo processo dos testes.
+ * Com o gate importado direto e só esta consulta injetável, o teste do 403 roda sem Postgres e
+ * nenhum override consegue conceder acesso administrativo.
+ */
+type AccessAdminGateDependencies = {
+  hasAdminGlobalAccessByUserId: typeof hasAdminGlobalAccessByUserId;
+};
+
+const DEFAULT_GATE_DEPENDENCIES: AccessAdminGateDependencies = { hasAdminGlobalAccessByUserId };
+
+let gateDependencies: AccessAdminGateDependencies = DEFAULT_GATE_DEPENDENCIES;
+
+/**
+ * Substitui a consulta de acesso global por um double. **SÓ para testes** — nenhum caminho de
+ * produção chama isto. `null` restaura o real; o teste DEVE restaurar no `afterEach`.
+ */
+export function setAccessAdminGateDependenciesForTests(
+  overrides: Partial<AccessAdminGateDependencies> | null
+): void {
+  gateDependencies = overrides ? { ...DEFAULT_GATE_DEPENDENCIES, ...overrides } : DEFAULT_GATE_DEPENDENCIES;
+}
 
 type AuditActionInput = {
   correlationId?: string | null;
@@ -44,12 +78,12 @@ type AuditActionInput = {
   actionStatus?: string;
 };
 
-const ADMIN_ROLE_TOKENS = new Set([
-  'admin',
-  'admin.global',
-  'admin_global',
-  'role_admin_global'
-]);
+/**
+ * Fonte única em `lib/conversation-permission-catalog.ts` — a mesma lista que
+ * `hasAdminGlobalAccessByUserId` usa no SQL e que o seed de RBAC verifica contra colisão de nome.
+ * Antes havia duas cópias literais (aqui e no repositório), livres para divergir.
+ */
+const ADMIN_ROLE_TOKENS = new Set(ADMIN_ROLE_NAME_ALIASES);
 
 function hasAdminRoleInToken(sicatUser: SicatUser | null | undefined) {
   const roles = Array.isArray(sicatUser?.roles) ? sicatUser.roles : [];
@@ -72,14 +106,20 @@ export async function resolveAdminAccessSummary(sicatUser: SicatUser | null | un
     };
   }
 
-  const hasDbAdminAccess = await hasAdminGlobalAccessByUserId(userId);
+  const hasDbAdminAccess = await gateDependencies.hasAdminGlobalAccessByUserId(userId);
   return {
     allowed: hasDbAdminAccess,
     source: hasDbAdminAccess ? 'database' : 'none'
   };
 }
 
-async function ensureAdminAuthorization(sicatUser: SicatUser | null | undefined) {
+/**
+ * Gate único de autorização administrativa: papel de admin no token OU `admin.global` efetivo no
+ * banco. Exportado para que superfícies administrativas de OUTROS domínios (ex.: o waiver do escudo
+ * anti-bombing em `conversation-channel-link-service`) usem exatamente esta decisão em vez de
+ * reimplementá-la — duas cópias da regra é como o RBAC diverge.
+ */
+export async function ensureAdminAuthorization(sicatUser: SicatUser | null | undefined) {
   if (!sicatUser?.userId) {
     throw new AppError(401, 'Unauthorized', 'Sessão SICAT inválida.');
   }
@@ -176,7 +216,12 @@ function ensureFieldNotEmpty(value: string | null | undefined, fieldName: string
   throw new AppError(400, 'Bad Request', `Campo ${fieldName} não pode ser vazio.`);
 }
 
-function requireActorUserId(sicatUser: SicatUser): string {
+/**
+ * Id do ator para a trilha. Exportada porque toda superfície administrativa precisa exatamente
+ * desta regra depois do gate — copiar `String(user?.userId || '').trim()` é como as 17 chamadas
+ * daqui começariam a divergir.
+ */
+export function requireActorUserId(sicatUser: SicatUser): string {
   const actorUserId = String(sicatUser.userId || '').trim();
   if (!actorUserId) {
     throw new AppError(401, 'Unauthorized', 'Sessão SICAT inválida.');
@@ -588,6 +633,33 @@ export async function deleteAdminAccessPermission(sicatUser: SicatUser, permissi
   const existing = await findAdminAccessPermissionById(permissionId);
   if (!existing) {
     throw new AppError(404, 'Not Found', `Permissão ${permissionId} não encontrada.`);
+  }
+
+  /**
+   * As 8 chaves do catálogo conversacional não podem ser desativadas pela API. É a única guarda que o
+   * código consegue dar, já que `access_permissions` não tem `is_system` (migration 008).
+   *
+   * O motivo é a combinação de duas coisas: (a) desativar uma chave faz o OPOSTO do intuitivo —
+   * `listPermissionKeysByUserId` filtra `ap.is_active = true`, então a chave some do conjunto de
+   * TODOS e a integridade por chave torna aquela ação insatisfazível para o mundo inteiro, inclusive
+   * os `admin.global`; (b) é IRREVERSÍVEL pelo produto — não há rota que devolva `is_active = true`,
+   * o seed mantém `is_active` fora de todo `do update` (propriedade por coluna), e recriar a chave
+   * bate 23505 → 409. A recuperação hoje exige `update access_permissions set is_active = true` no
+   * Postgres, às 2h da manhã, por alguém que não sabia que estava entrando num caminho sem volta.
+   *
+   * Destravar é SEMPRE no sentido de CONCEDER papel; degradar o regime é
+   * `CONVERSATION_PERMISSION_ENFORCEMENT=observe`, que é reversível por env.
+   */
+  if (listCatalogPermissionKeys().includes(String(existing.permissionKey || '').toLowerCase())) {
+    throw new AppError(
+      409,
+      'Conflict',
+      `A permissão ${existing.permissionKey} pertence ao catálogo do gate conversacional e não pode ser `
+        + 'desativada pela API: desativá-la nega aquela operação para TODOS os usuários (inclusive '
+        + 'administradores) e não há caminho de volta pelo produto. Para destravar alguém, CONCEDA um '
+        + 'papel; para degradar o regime inteiro, use CONVERSATION_PERMISSION_ENFORCEMENT=observe.',
+      { code: 'ACCESS_PERMISSION_IS_CATALOG_KEY' }
+    );
   }
 
   const removed = await deactivateAdminAccessPermissionById(permissionId);

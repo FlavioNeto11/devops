@@ -1,13 +1,28 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import {
+  expireAdminAccessUserPassword,
   getAdminAccessUserById,
+  grantAdminAccessRole,
+  grantAdminChannelShieldWaiver,
   listAdminAccessPermissions,
   listAdminAccessRoles,
   listAdminAccessSessions,
-  listAdminAccessUsers
+  listAdminAccessUsers,
+  resetAdminAccessUserPassword,
+  revokeAdminAccessRole
 } from '../services/api.js';
+import {
+  WAIVER_REASON_MAX_LENGTH,
+  buildShieldWaiverPayload,
+  buildWaiverConfirmMessage,
+  resolveShieldWaiverError,
+  validateShieldWaiverForm
+} from '../features/access-admin/shieldWaiverState.js';
 import { formatDateTimeBr } from '../utils/date-format.js';
+import { useAuthStore } from '../stores/auth.js';
+import { useNotification } from '../composables/useNotification.js';
+import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatCard from '../components/sicat/SicatCard.vue';
@@ -15,6 +30,24 @@ import SicatFiltersPanel from '../components/sicat/SicatFiltersPanel.vue';
 import SicatDataTable from '../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import SicatEmptyState from '../components/sicat/SicatEmptyState.vue';
+import ConfirmDialog from '../components/sicat/SicatConfirmDialog.vue';
+
+const authStore = useAuthStore();
+const notify = useNotification();
+const {
+  dialogVisible,
+  dialogTitle,
+  dialogMessage,
+  dialogConfirmLabel,
+  dialogCancelLabel,
+  dialogDanger,
+  dialogShowCancel,
+  confirm,
+  accept,
+  cancel
+} = useConfirmDialog();
+
+const canAccessAdmin = computed(() => Boolean(authStore.canAccessAdmin?.value));
 
 const loading = ref(false);
 const loadingUserDetails = ref(false);
@@ -35,6 +68,50 @@ const selectedUser = ref(null);
 
 const selectedUserRoles = computed(() => selectedUser.value?.roles || []);
 const selectedUserPermissions = computed(() => selectedUser.value?.permissions || []);
+
+// Ação em curso: chave curta que trava o botão correspondente (anti-duplo-submit).
+// Ex.: 'expire' | `revoke:${roleId}`.
+const actionKey = ref('');
+
+// Diálogo de concessão de perfil.
+const grantDialog = ref(false);
+const grantRoleId = ref('');
+const grantExpiresAt = ref('');
+const grantSubmitting = ref(false);
+const grantError = ref('');
+
+// Diálogo de reset de senha.
+const resetDialog = ref(false);
+const resetPassword = ref('');
+const resetRevokeSessions = ref(true);
+const resetShowPassword = ref(false);
+const resetSubmitting = ref(false);
+const resetError = ref('');
+
+// Diálogo do waiver do escudo anti-spam (vínculo WhatsApp). O número em claro
+// vive só no input e no corpo do POST; todo eco da tela usa a forma mascarada.
+const waiverDialog = ref(false);
+const waiverPhone = ref('');
+const waiverReason = ref('');
+const waiverSubmitting = ref(false);
+const waiverError = ref('');
+const waiverErrorDetail = ref('');
+
+// Fonte única da validação: eco mascarado, habilitação do botão e mensagens
+// derivam todos daqui (a regra mora em shieldWaiverState.js).
+const waiverForm = computed(() =>
+  validateShieldWaiverForm({ phone: waiverPhone.value, reason: waiverReason.value })
+);
+
+// Perfis ainda não atribuídos ao usuário selecionado (candidatos à concessão).
+const assignableRoles = computed(() => {
+  const assigned = new Set(selectedUserRoles.value.map((role) => role.roleId));
+  return roles.value.filter((role) => !assigned.has(role.roleId));
+});
+
+const roleSelectItems = computed(() =>
+  assignableRoles.value.map((role) => ({ title: role.name, value: role.roleId }))
+);
 
 function formatDate(value) {
   return value ? formatDateTimeBr(value) : '—';
@@ -148,6 +225,210 @@ async function selectUser(userId) {
   }
 }
 
+// Recarrega lista, dados de apoio e o usuário selecionado após uma mutação,
+// para que a UI reflita o novo estado (perfis/sessões). Falha aqui é não-fatal:
+// a ação já foi aplicada no servidor.
+async function refreshAfterMutation() {
+  const currentUserId = selectedUserId.value;
+  try {
+    await Promise.all([loadUsers(), loadSupportData()]);
+    lastUpdatedAt.value = new Date().toISOString();
+    if (currentUserId) {
+      await selectUser(currentUserId);
+    }
+  } catch (err) {
+    notify.warning('Ação aplicada, mas não foi possível atualizar a tela.', {
+      detail: err?.message || '',
+      actionLabel: 'Atualizar dados',
+      onAction: loadInitialData
+    });
+  }
+}
+
+function openGrantDialog() {
+  if (!canAccessAdmin.value || !selectedUserId.value) return;
+  grantRoleId.value = '';
+  grantExpiresAt.value = '';
+  grantError.value = '';
+  grantDialog.value = true;
+}
+
+async function submitGrant() {
+  if (grantSubmitting.value) return;
+  const userId = selectedUserId.value;
+  const roleId = grantRoleId.value;
+  if (!userId) return;
+  if (!roleId) {
+    grantError.value = 'Selecione um perfil para conceder.';
+    return;
+  }
+
+  grantSubmitting.value = true;
+  grantError.value = '';
+  try {
+    const payload = {};
+    if (grantExpiresAt.value) {
+      payload.expiresAt = new Date(grantExpiresAt.value).toISOString();
+    }
+    await grantAdminAccessRole(userId, roleId, payload);
+    const roleName = roles.value.find((role) => role.roleId === roleId)?.name || 'Perfil';
+    notify.success(`${roleName} concedido ao usuário.`);
+    grantDialog.value = false;
+    await refreshAfterMutation();
+  } catch (err) {
+    grantError.value = err?.message || 'Falha ao conceder o perfil.';
+  } finally {
+    grantSubmitting.value = false;
+  }
+}
+
+async function revokeRole(role) {
+  if (!canAccessAdmin.value) return;
+  const userId = selectedUserId.value;
+  const roleId = role?.roleId;
+  if (!userId || !roleId) return;
+  if (actionKey.value) return;
+
+  const confirmed = await confirm({
+    title: 'Revogar perfil',
+    message: `Revogar o perfil "${role.name}" deste usuário? Ele perde as permissões associadas.`,
+    confirmLabel: 'Revogar perfil',
+    danger: true
+  });
+  if (!confirmed) return;
+
+  actionKey.value = `revoke:${roleId}`;
+  try {
+    const response = await revokeAdminAccessRole(userId, roleId, {});
+    if (response?.status === 'noop') {
+      notify.info(`O usuário já não tinha o perfil "${role.name}".`);
+    } else {
+      notify.success(`Perfil "${role.name}" revogado.`);
+    }
+    await refreshAfterMutation();
+  } catch (err) {
+    notify.error('Falha ao revogar o perfil.', { detail: err?.message || '' });
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+function openResetDialog() {
+  if (!canAccessAdmin.value || !selectedUserId.value) return;
+  resetPassword.value = '';
+  resetRevokeSessions.value = true;
+  resetShowPassword.value = false;
+  resetError.value = '';
+  resetDialog.value = true;
+}
+
+async function submitReset() {
+  if (resetSubmitting.value) return;
+  const userId = selectedUserId.value;
+  if (!userId) return;
+  if (String(resetPassword.value || '').length < 8) {
+    resetError.value = 'A nova senha deve ter no mínimo 8 caracteres.';
+    return;
+  }
+
+  resetSubmitting.value = true;
+  resetError.value = '';
+  try {
+    const response = await resetAdminAccessUserPassword(userId, {
+      newPassword: resetPassword.value,
+      revokeSessions: resetRevokeSessions.value
+    });
+    const revoked = Number(response?.revokedSessions || 0);
+    const suffix = response?.revokeSessions
+      ? ` ${revoked} sessão(ões) revogada(s).`
+      : ' Sessões ativas mantidas.';
+    notify.success(`Senha redefinida.${suffix}`);
+    resetDialog.value = false;
+    resetPassword.value = '';
+    await refreshAfterMutation();
+  } catch (err) {
+    resetError.value = err?.message || 'Falha ao redefinir a senha.';
+  } finally {
+    resetSubmitting.value = false;
+  }
+}
+
+async function expirePassword() {
+  if (!canAccessAdmin.value) return;
+  const userId = selectedUserId.value;
+  if (!userId) return;
+  if (actionKey.value) return;
+
+  const confirmed = await confirm({
+    title: 'Expirar senha',
+    message: 'Forçar a expiração da senha deste usuário? Ele terá de definir uma nova no próximo acesso e as sessões ativas serão revogadas.',
+    confirmLabel: 'Expirar senha',
+    danger: true
+  });
+  if (!confirmed) return;
+
+  actionKey.value = 'expire';
+  try {
+    const response = await expireAdminAccessUserPassword(userId, { revokeSessions: true });
+    const revoked = Number(response?.revokedSessions || 0);
+    notify.success(`Senha expirada. ${revoked} sessão(ões) revogada(s).`);
+    await refreshAfterMutation();
+  } catch (err) {
+    notify.error('Falha ao expirar a senha.', { detail: err?.message || '' });
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+function openWaiverDialog() {
+  if (!canAccessAdmin.value) return;
+  waiverPhone.value = '';
+  waiverReason.value = '';
+  waiverError.value = '';
+  waiverErrorDetail.value = '';
+  waiverDialog.value = true;
+}
+
+async function submitWaiver() {
+  if (waiverSubmitting.value) return;
+
+  // O botão já espelha `waiverForm.valid`; este guard cobre o Enter no campo.
+  const form = waiverForm.value;
+  if (!form.valid) {
+    waiverError.value = form.errors.phone || form.errors.reason;
+    waiverErrorDetail.value = '';
+    return;
+  }
+
+  waiverError.value = '';
+  waiverErrorDetail.value = '';
+  const confirmed = await confirm({
+    title: 'Liberar número do escudo',
+    // A confirmação ecoa só a forma MASCARADA — o E.164 em claro nunca sai do input.
+    message: buildWaiverConfirmMessage(form.phoneMasked),
+    confirmLabel: 'Liberar número',
+    danger: true
+  });
+  if (!confirmed) return;
+
+  waiverSubmitting.value = true;
+  try {
+    await grantAdminChannelShieldWaiver(buildShieldWaiverPayload(form));
+    notify.success(`Número ${form.phoneMasked} liberado do escudo anti-spam.`);
+    waiverDialog.value = false;
+    // Encurta a vida do telefone em claro na memória da view (higiene de PII);
+    // o open também zera, mas só na PRÓXIMA abertura.
+    waiverPhone.value = '';
+    waiverReason.value = '';
+  } catch (err) {
+    const resolved = resolveShieldWaiverError(err);
+    waiverError.value = resolved.message;
+    waiverErrorDetail.value = resolved.detail;
+  } finally {
+    waiverSubmitting.value = false;
+  }
+}
+
 onMounted(loadInitialData);
 </script>
 
@@ -159,6 +440,7 @@ onMounted(loadInitialData);
         description="Operação administrativa global para usuários, perfis, permissões e sessões."
       >
         <template #actions>
+          <v-btn v-if="canAccessAdmin" variant="outlined" color="primary" prepend-icon="mdi-shield-off-outline" :disabled="Boolean(actionKey)" @click="openWaiverDialog">Liberar número do escudo</v-btn>
           <v-btn variant="tonal" color="primary" :loading="loading" prepend-icon="mdi-refresh" @click="loadInitialData">Atualizar dados</v-btn>
         </template>
       </SicatPageHeader>
@@ -168,7 +450,7 @@ onMounted(loadInitialData);
       <SicatFiltersPanel :loading="loading" apply-label="Aplicar filtros" @apply="applyFilters" @clear="() => { filters.search = ''; filters.status = 'active'; applyFilters(); }">
         <v-text-field v-model="filters.search" label="Usuário (nome/e-mail/ID)" placeholder="Ex.: flavio" density="comfortable" variant="outlined" hide-details="auto" @keydown.enter.prevent="applyFilters" />
         <v-select v-model="filters.status" label="Status" :items="[{title:'Ativo',value:'active'},{title:'Desativado',value:'disabled'},{title:'Todos',value:''}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
-        <v-select v-model.number="filters.pageSize" label="Por página" :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
+        <v-select v-model.number="filters.pageSize" label="Itens por página" :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]" item-title="title" item-value="value" density="comfortable" variant="outlined" hide-details="auto" />
       </SicatFiltersPanel>
     </template>
 
@@ -214,12 +496,39 @@ onMounted(loadInitialData);
             <div class="text-subtitle-2 font-weight-bold">{{ selectedUser.name || selectedUser.email }}</div>
             <div class="text-caption text-medium-emphasis">{{ selectedUser.userId }}</div>
           </div>
+
+          <div v-if="canAccessAdmin" class="access-admin__actions mb-4">
+            <v-btn size="small" color="primary" variant="flat" prepend-icon="mdi-account-plus-outline" :disabled="Boolean(actionKey)" @click="openGrantDialog">
+              Conceder perfil
+            </v-btn>
+            <v-btn size="small" color="primary" variant="outlined" prepend-icon="mdi-lock-reset" :disabled="Boolean(actionKey)" @click="openResetDialog">
+              Resetar senha
+            </v-btn>
+            <v-btn size="small" color="error" variant="outlined" prepend-icon="mdi-lock-clock" :loading="actionKey === 'expire'" :disabled="Boolean(actionKey)" @click="expirePassword">
+              Expirar senha
+            </v-btn>
+          </div>
+
           <div class="access-admin__detail-grid">
             <div>
               <div class="text-caption font-weight-bold mb-1">Perfis atribuídos</div>
               <p v-if="!selectedUserRoles.length" class="text-caption text-medium-emphasis">Usuário sem perfis.</p>
               <v-list v-else density="compact" lines="two">
-                <v-list-item v-for="role in selectedUserRoles" :key="role.roleId" :title="role.name" :subtitle="role.description" />
+                <v-list-item v-for="role in selectedUserRoles" :key="role.roleId" :title="role.name" :subtitle="role.description">
+                  <template v-if="canAccessAdmin" #append>
+                    <v-btn
+                      size="x-small"
+                      color="error"
+                      variant="text"
+                      icon="mdi-account-minus-outline"
+                      :aria-label="`Revogar perfil ${role.name}`"
+                      :title="`Revogar perfil ${role.name}`"
+                      :loading="actionKey === `revoke:${role.roleId}`"
+                      :disabled="Boolean(actionKey)"
+                      @click="revokeRole(role)"
+                    />
+                  </template>
+                </v-list-item>
               </v-list>
             </div>
             <div>
@@ -250,6 +559,155 @@ onMounted(loadInitialData);
         </template>
       </SicatDataTable>
     </SicatCard>
+
+    <ConfirmDialog
+      :visible="dialogVisible"
+      :title="dialogTitle"
+      :message="dialogMessage"
+      :confirm-label="dialogConfirmLabel"
+      :cancel-label="dialogCancelLabel"
+      :show-cancel="dialogShowCancel"
+      :danger="dialogDanger"
+      @confirm="accept"
+      @cancel="cancel"
+      @close="cancel"
+    />
+
+    <v-dialog v-model="grantDialog" max-width="480" persistent role="dialog" aria-modal="true">
+      <v-card rounded="lg" title="Conceder perfil">
+        <v-card-text>
+          <p class="text-body-2 mb-4">
+            Atribuir um perfil a <strong>{{ selectedUser?.name || selectedUser?.email || 'usuário' }}</strong>.
+            O usuário passa a herdar as permissões do perfil.
+          </p>
+          <v-select
+            v-model="grantRoleId"
+            label="Perfil"
+            :items="roleSelectItems"
+            item-title="title"
+            item-value="value"
+            density="comfortable"
+            variant="outlined"
+            hide-details="auto"
+            :no-data-text="'Nenhum perfil disponível para conceder'"
+            class="mb-3"
+          />
+          <v-text-field
+            v-model="grantExpiresAt"
+            type="datetime-local"
+            label="Expira em (opcional)"
+            hint="Deixe em branco para uma concessão permanente."
+            persistent-hint
+            density="comfortable"
+            variant="outlined"
+          />
+          <v-alert v-if="grantError" type="error" variant="tonal" density="compact" class="mt-3" aria-live="polite">
+            {{ grantError }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" :disabled="grantSubmitting" @click="grantDialog = false">Cancelar</v-btn>
+          <v-btn color="primary" variant="flat" :loading="grantSubmitting" :disabled="!grantRoleId" @click="submitGrant">
+            Conceder perfil
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="resetDialog" max-width="480" persistent role="dialog" aria-modal="true">
+      <v-card rounded="lg" title="Resetar senha">
+        <v-card-text>
+          <p class="text-body-2 mb-4">
+            Definir uma nova senha para <strong>{{ selectedUser?.name || selectedUser?.email || 'usuário' }}</strong>.
+            Informe a nova senha e repasse-a por um canal seguro.
+          </p>
+          <v-text-field
+            v-model="resetPassword"
+            :type="resetShowPassword ? 'text' : 'password'"
+            label="Nova senha"
+            autocomplete="new-password"
+            :append-inner-icon="resetShowPassword ? 'mdi-eye-off' : 'mdi-eye'"
+            hint="Mínimo de 8 caracteres."
+            persistent-hint
+            density="comfortable"
+            variant="outlined"
+            @click:append-inner="resetShowPassword = !resetShowPassword"
+            @keydown.enter.prevent="submitReset"
+          />
+          <v-switch
+            v-model="resetRevokeSessions"
+            label="Revogar sessões ativas do usuário"
+            color="primary"
+            density="compact"
+            hide-details
+            class="mt-2"
+          />
+          <v-alert v-if="resetError" type="error" variant="tonal" density="compact" class="mt-3" aria-live="polite">
+            {{ resetError }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" :disabled="resetSubmitting" @click="resetDialog = false">Cancelar</v-btn>
+          <v-btn color="error" variant="flat" :loading="resetSubmitting" :disabled="resetPassword.length < 8" @click="submitReset">
+            Resetar senha
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="waiverDialog" max-width="520" persistent role="dialog" aria-modal="true">
+      <v-card rounded="lg" title="Liberar número do escudo anti-spam">
+        <v-card-text>
+          <p class="text-body-2 mb-4">
+            O escudo anti-spam tranca um número de WhatsApp que recebeu pedidos de código de contas
+            distintas demais (proteção contra bombing). Se o titular comprovou a posse do número por
+            um canal fora do sistema, libere-o aqui. A liberação fica na trilha de auditoria.
+          </p>
+          <v-text-field
+            v-model="waiverPhone"
+            type="tel"
+            label="Número do WhatsApp"
+            placeholder="Ex.: (11) 91234-5678"
+            hint="DDD + número; o DDI 55 é aplicado automaticamente."
+            persistent-hint
+            density="comfortable"
+            variant="outlined"
+            autocomplete="off"
+            class="mb-3"
+            @keydown.enter.prevent="submitWaiver"
+          />
+          <p v-if="waiverForm.phoneMasked" class="text-caption text-medium-emphasis mb-3" aria-live="polite">
+            Número a liberar: <strong>{{ waiverForm.phoneMasked }}</strong>
+          </p>
+          <v-textarea
+            v-model="waiverReason"
+            label="Motivo da liberação"
+            placeholder="Ex.: posse confirmada por ligação com o titular."
+            rows="2"
+            auto-grow
+            :counter="WAIVER_REASON_MAX_LENGTH"
+            density="comfortable"
+            variant="outlined"
+          />
+          <v-alert v-if="waiverError" type="error" variant="tonal" density="compact" class="mt-3" aria-live="polite">
+            {{ waiverError }}
+            <div v-if="waiverErrorDetail" class="text-caption mt-1">{{ waiverErrorDetail }}</div>
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" :disabled="waiverSubmitting" @click="waiverDialog = false">Cancelar</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="waiverSubmitting"
+            :disabled="!waiverForm.valid"
+            @click="submitWaiver"
+          >
+            Liberar número
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </SicatPageLayout>
 </template>
 
@@ -258,6 +716,12 @@ onMounted(loadInitialData);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
+}
+
+.access-admin__actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

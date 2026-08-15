@@ -17,7 +17,22 @@ export function resolveTone(status) {
   return 'neutral';
 }
 
+// Dicionário canônico EN->PT dos status mais comuns de CRUD/agendamento — para não mostrar a chave crua
+// do banco na UI ("no_show", "cancelled"). Chave normalizada (lower + separadores -> _). Domain-agnostic.
+const STATUS_PT = {
+  pending: 'Pendente', active: 'Ativo', inactive: 'Inativo', done: 'Concluído', completed: 'Concluído',
+  cancelled: 'Cancelado', canceled: 'Cancelado', no_show: 'Faltou', noshow: 'Faltou', absent: 'Ausente',
+  approved: 'Aprovado', rejected: 'Rejeitado', paid: 'Pago', unpaid: 'Não pago', overdue: 'Atrasado',
+  in_progress: 'Em andamento', processing: 'Processando', queued: 'Na fila', scheduled: 'Agendado',
+  confirmed: 'Confirmado', open: 'Aberto', closed: 'Fechado', draft: 'Rascunho', archived: 'Arquivado',
+  blocked: 'Bloqueado', failed: 'Falhou', error: 'Erro', success: 'Sucesso', sent: 'Enviado',
+  delivered: 'Entregue', new: 'Novo', review: 'Em revisão', waiting: 'Aguardando', expired: 'Expirado',
+  refunded: 'Reembolsado', authorized: 'Autorizado', suspended: 'Suspenso', enabled: 'Ativo', disabled: 'Inativo',
+};
+
 export function statusLabel(status, explicit) {
   if (explicit) return explicit;
-  return humanize(status);
+  const key = String(status || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  if (STATUS_PT[key]) return STATUS_PT[key];
+  return humanize(status); // desconhecido: pelo menos "no_show" -> "No show"
 }

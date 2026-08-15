@@ -62,6 +62,8 @@ import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateDeleteInput, dispatchForgeDelete } from './forge-launch.js';
 import { buildLaunchStatus, buildProductStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
+import { classifyDispatchToken, validateDispatchToken, dispatchErrorPayload } from './github.js';
+import { retryLlmTool } from './retry.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
@@ -101,7 +103,7 @@ function withIngest(mergeField) {
       // multipart: multer entrega TODO campo de texto como STRING. Reidrata os que o contrato dos
       // tools espera como JSON (array/objeto) — em JSON puro (ing=null) nada disso roda e o corpo é intacto.
       req.body = req.body || {};
-      for (const k of ['grounding', 'history', 'capabilities', 'blueprints', 'scope', 'context']) {
+      for (const k of ['grounding', 'history', 'capabilities', 'blueprints', 'scope', 'context', 'draft']) {
         if (typeof req.body[k] === 'string' && req.body[k].trim()) {
           try { req.body[k] = JSON.parse(req.body[k]); } catch { /* não-JSON: mantém string */ }
         }
@@ -121,7 +123,9 @@ export function buildRouter({ registry, llm, memory } = {}) {
   const router = express.Router();
 
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'reqhub-api', ai: aiEnabled(), tools: reg.list().map((t) => t.name) });
+    // dispatch: estado do GITHUB_DISPATCH_TOKEN (offline; sem tocar na rede) — o operador vê se o token
+    // do Forge está 'present' | 'placeholder' | 'missing' sem precisar disparar um build.
+    res.json({ status: 'ok', service: 'reqhub-api', ai: aiEnabled(), dispatch: classifyDispatchToken(), tools: reg.list().map((t) => t.name) });
   });
 
   // Quem sou eu (identidade da borda SSO — oauth2-proxy). Publico, mas so e alcancavel
@@ -149,14 +153,15 @@ export function buildRouter({ registry, llm, memory } = {}) {
     catch (err) { console.error('[reqhub-api] forge/events:', err); if (!res.headersSent) res.status(500).end(); }
   });
 
-  const run = (toolName) => async (req, res, next) => {
+  const run = (toolName, { retry = false } = {}) => async (req, res, next) => {
     try {
       const theLlm = llm || (await getLlm());
       if (!theLlm) {
         return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'OPENAI_API_KEY nao configurado; geracao de IA desabilitada' } });
       }
       const tool = reg.get(toolName);
-      const result = await dispatchTool(tool, req.body || {}, { llm: theLlm, authenticated: true, identity: req.identity });
+      const call = () => dispatchTool(tool, req.body || {}, { llm: theLlm, authenticated: true, identity: req.identity });
+      const result = retry ? await retryLlmTool(toolName, call) : await call(); // retry só p/ tools de geração pesada (fail transitório do LLM)
       res.json({ status: result.status, ...result.output });
     } catch (err) {
       next(err);
@@ -201,8 +206,69 @@ export function buildRouter({ registry, llm, memory } = {}) {
 
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
   // propose-requirements: entrada do usuario = 'brief' (descricao do produto novo).
-  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements'));
+  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements', { retry: true }));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
+
+  // Forge IDEIA (etapa 1): COPILOTO DE PRODUTO conversacional (SSE). Roda a tool forge.idea.copilot e
+  // transmite a resposta em DELTAS (o motor ai-core nao streama tokens — chunkamos a reply p/ cadencia
+  // de digitacao) + um PATCH final do ideaDraft. 100% produto; anexos entram via withIngest('message').
+  // Eventos: status -> delta* -> patch -> done (ou error). IngressRoute dedicada SEM `compress` (k8s/api.yaml).
+  router.post('/v1/forge/idea/chat', requireAuthoringAuth, ...withIngest('message'), async (req, res) => {
+    const b = req.body || {};
+    if (typeof b.message !== 'string' || b.message.trim().length < 1) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'message obrigatorio' } });
+    }
+    const theLlm = llm || (await getLlm());
+    if (!theLlm) return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — a etapa Ideia cai no formulario manual' } });
+
+    sseStart(res);
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const ka = setInterval(() => { if (!closed) { try { res.write(': keep-alive\n\n'); } catch { /* noop */ } } }, 15000);
+    if (typeof ka.unref === 'function') ka.unref();
+    const finish = () => { clearInterval(ka); try { res.end(); } catch { /* noop */ } };
+
+    // Transmite a reply em pedacos (palavras) com micro-cadencia -> streaming REAL na rede + sensacao
+    // de digitacao. Preserva os espacos (split capturando \s+) p/ o cliente reconstruir o texto exato.
+    const streamText = async (text) => {
+      const parts = String(text || '').split(/(\s+)/);
+      let buf = ''; let n = 0;
+      for (const part of parts) {
+        if (closed) return;
+        buf += part; n++;
+        if (n >= 4 && buf.trim()) {
+          sseEmit(res, 'delta', { text: buf }); buf = ''; n = 0;
+          await new Promise((r) => { const t = setTimeout(r, 28); if (typeof t.unref === 'function') t.unref(); });
+        }
+      }
+      if (buf && !closed) sseEmit(res, 'delta', { text: buf });
+    };
+
+    try {
+      sseEmit(res, 'status', { phase: 'thinking' }); // feedback imediato (antes do await do LLM)
+      const result = await dispatchTool(reg.get('forge.idea.copilot'),
+        { product: b.product, message: b.message, history: b.history, draft: b.draft, mode: b.mode },
+        { llm: theLlm, authenticated: true, identity: req.identity });
+      if (closed) return finish();
+      const out = result.output || {};
+      await streamText(out.reply);
+      if (closed) return finish();
+      sseEmit(res, 'patch', {
+        patch: out.patch || {},
+        maturity: out.maturity || 0,
+        open_questions: out.open_questions || [],
+        quick_replies: out.quick_replies || [],
+        ready: out.ready === true,
+        summary: out.summary || '',
+      });
+      sseEmit(res, 'done', { ok: true, usage: out.usage || null });
+      finish();
+    } catch (err) {
+      const code = (err && err.code && String(err.name || '').startsWith('AiTool')) ? err.code : 'IDEA_CHAT_ERROR';
+      sseEmit(res, 'error', { code, message: String((err && err.message) || err) });
+      finish();
+    }
+  });
 
   // Forge LAUNCH: a UI "cria no git" disparando a esteira (repository_dispatch -> greenfield-launch.yml).
   // O reqhub-api NÃO escreve git; só dispara. Fail-closed sem GITHUB_DISPATCH_TOKEN. Admin-only (auth).
@@ -226,7 +292,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     try {
       const d = await dispatchForgeLaunch({ token, repo, payload: built.payload });
-      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o workflow'}` } });
+      if (!d.ok) { console.error('[reqhub-api] forge/launch dispatch falhou:', d.status, d.detail || ''); return res.status(502).json({ error: dispatchErrorPayload(d.status, 'criar o sistema') }); }
       const branch = `forge/${v.value.product}/requisitos`;
       return res.status(202).json({
         status: 'dispatched', mode: v.value.mode, product: v.value.product, expected_branch: branch,
@@ -272,7 +338,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     try {
       const d = await dispatchForgeDelete({ token, repo, product: v.value.product, identity: req.identity });
-      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar a exclusão'}` } });
+      if (!d.ok) { console.error('[reqhub-api] forge/delete dispatch falhou:', d.status, d.detail || ''); return res.status(502).json({ error: dispatchErrorPayload(d.status, 'excluir o sistema') }); }
       return res.status(202).json({
         status: 'deleting', product: v.value.product,
         actions_url: `https://github.com/${repo}/actions/workflows/forge-delete.yml`,
@@ -306,7 +372,17 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const vp = validateProduct(b.product);
     if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
     const token = process.env.GITHUB_DISPATCH_TOKEN;
-    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'build do preview desligado — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config.' } });
+    // PRÉ-FLIGHT do token ANTES de abrir o SSE: depois de sseStart o HTTP já é 200 e não dá para mudar o
+    // status. Token ausente/placeholder -> 503 (config); token inválido/expirado (GitHub 401) -> 502.
+    // Assim o 401 do GitHub nunca estoura no meio do stream nem vaza a mensagem crua para a UI.
+    if (classifyDispatchToken(token) !== 'present') {
+      return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'Geração de preview desligada: configure um GITHUB_DISPATCH_TOKEN válido no Secret reqhub-api-config (PAT fine-grained com Contents: Read and write).' } });
+    }
+    const tokCheck = await validateDispatchToken({ token });
+    if (!tokCheck.ok) {
+      console.error('[reqhub-api] forge/preview pré-flight do token falhou:', tokCheck.status);
+      return res.status(502).json({ error: dispatchErrorPayload(tokCheck.status, 'gerar o preview') });
+    }
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     const product = vp.product;
 
@@ -331,10 +407,26 @@ export function buildRouter({ registry, llm, memory } = {}) {
         sseEmit(res, 'start', { product, mode: 'propose' });
         const theLlm = llm || (await getLlm());
         if (!theLlm) { sseEmit(res, 'error', { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — não dá p/ propor as telas' }); return finish(); }
+        // GUARD explícito (pré-tool): forge.propose_screens exige requisitos NÃO-VAZIOS (inputSchema). Se
+        // vierem vazios (ex.: preview aberto antes de gerar os requisitos), NÃO chama a IA: loga o input
+        // REJEITADO na íntegra (diagnóstico) e devolve um erro ACIONÁVEL 'NO_REQUIREMENTS' na fase certa —
+        // em vez do 'TOOL_INVALID_INPUT' genérico da tool, que não diz o motivo nem a fase real.
+        const reqList = Array.isArray(b.requirements) ? b.requirements : [];
+        if (reqList.length === 0) {
+          console.error('[reqhub-api] forge/preview: propose SEM requisitos — input rejeitado:', JSON.stringify({
+            product, bodyKeys: Object.keys(b || {}), requirementsType: typeof b.requirements,
+            requirementsLen: reqList.length, hasArchitecture: !!b.architecture, hasInventory: !!b.inventory,
+            brief: String(b.brief || '').slice(0, 120),
+          }));
+          sseEmit(res, 'error', { code: 'NO_REQUIREMENTS', message: 'Não há requisitos para desenhar as telas. Volte ao passo "O que será criado" e gere (ou aguarde) os requisitos antes de gerar o preview.' });
+          return finish();
+        }
         sseEmit(res, 'propose', { phase: 'propose-screens' });
-        const result = await dispatchTool(reg.get('forge.propose_screens'),
+        // Retry transparente: gpt-5-nano às vezes devolve inventário inválido (LLM_INVALID_JSON) — re-tenta
+        // 2x antes de mostrar erro. Logado server-side. Só o erro esgotado chega à UI (catch abaixo).
+        const result = await retryLlmTool('propose_screens', () => dispatchTool(reg.get('forge.propose_screens'),
           { product, requirements: b.requirements || [], architecture: b.architecture || {} },
-          { llm: theLlm, authenticated: true, identity: req.identity });
+          { llm: theLlm, authenticated: true, identity: req.identity }));
         const out = result.output || {};
         inventory = { brand: out.brand, entities: out.entities, screens: out.screens };
         sseEmit(res, 'inventory', { ...inventory, navGroups: out.navGroups || [], gaps: out.gaps || [], counts: { screens: (out.screens || []).length, entities: (out.entities || []).length } });
@@ -346,7 +438,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
       const built = buildPreviewPayload({ product, inventory, identity: req.identity, jobId });
       if (!built.ok) { sseEmit(res, 'error', { code: built.code, message: built.message }); return finish(); }
       const d = await dispatchForgePreview({ token, repo, payload: built.payload });
-      if (!d.ok) { sseEmit(res, 'error', { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o build do preview'}` }); return finish(); }
+      if (!d.ok) { console.error('[reqhub-api] forge/preview dispatch falhou:', d.status, d.detail || ''); sseEmit(res, 'error', dispatchErrorPayload(d.status, 'gerar o preview')); return finish(); }
       const actionsUrl = `https://github.com/${repo}/actions/workflows/forge-preview.yml`;
       sseEmit(res, 'dispatch', { jobId, status: 'dispatched', actions_url: actionsUrl });
 
@@ -381,6 +473,11 @@ export function buildRouter({ registry, llm, memory } = {}) {
     } catch (err) {
       // erro tipado do contrato AiTool -> code; senão genérico. Nunca 500 no meio do stream.
       const code = (err && err.code && String(err.name || '').startsWith('AiTool')) ? err.code : 'PREVIEW_ERROR';
+      // Diagnóstico: o AiToolError esconde o motivo real em err.cause (o .message só diz "input invalido
+      // para a tool X"). Loga a causa p/ não voltarmos a depurar às cegas se um input inesperado regredir.
+      if (code === 'TOOL_INVALID_INPUT' || code === 'TOOL_INVALID_OUTPUT') {
+        console.error(`[reqhub-api] forge/preview ${code}:`, String((err && err.cause && (err.cause.message || err.cause)) || err.message || err));
+      }
       sseEmit(res, 'error', { code, message: String((err && err.message) || err) });
       finish();
     }

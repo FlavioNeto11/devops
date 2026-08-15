@@ -2,6 +2,221 @@
 
 # Decision log
 
+## DL-103
+**Tema:** SICAT Transporte — bounded context separado do ambiental, catálogo regulatório temporal e compliance gates como motor de decisão
+**Data:** 2026-08-13
+**Tipo:** Backend / Frontend / Arquitetura de vertical nova / Governança regulatória
+**Especialistas:** programa `transporte` (Onda 0) — baseline deep-research 2026-08-13 + plano aprovado pelo operador
+**Status:** 📋 **PLANEJADO — governança entregue; implementação nas Ondas 1+ (PRs `sicat/transporte-01..07`)**
+
+### Planejamento
+- **Objetivo:** dar ao SICAT uma vertical de **transporte rodoviário remunerado de cargas** (RNTRC, piso mínimo, CIOT, Vale-Pedágio, NF-e/CT-e/MDF-e, seguros/PGR) como **motor preventivo de conformidade** — a operação só avança entre estados quando passa por gates regulatórios versionados — sem tocar no domínio ambiental (MTR/CDF/DMR CETESB).
+- **Escopo da decisão:** fronteiras do bounded context, modelo do catálogo regulatório temporal, motor de compliance, política de enforcement, registro da baseline e roadmap por ondas. Implementação: migrations `021+`, `transporte-routes.ts`, services/evaluators, frontend mínimo — nos PRs das Ondas 1/1.5.
+- **Critério pronto (desta entrega):** baseline registrada e imutável (`docs/30-transporte/deep-research-report.md`), guia vivo com matriz de rastreabilidade (`docs/30-transporte/transporte-guia.md`), 19 REQs na base de requisitos (`REQ-SICAT-0017..0031`, `NFR-0009..0012`), ADR-010/011 em `specs/products/sicat/architecture.json`, este DL.
+
+### Contexto
+- A regulação de 2026 tornou a conformidade **preventiva**: CIOT universalizado desde 24/05/2026 (Res. ANTT 6.078/2026 + Portaria SUROC 6/2026), e a **Lei nº 15.485/2026** (conversão da MP 1.343/2026, veto parcial — Veto nº 43/2026) sujeita às sanções do piso mínimo também quem **anuncia/oferta/publica/intermedeia** frete abaixo do piso, incluindo plataformas digitais. A validação precisa acontecer **antes da oferta**, não no embarque.
+- No repositório, a vertical é **greenfield puro**: zero código de CIOT/RNTRC/VPO/piso/MDF-e (só material comercial marcado como roadmap em `docs/20-comercial/`); zero REQs de transporte em `specs/`.
+- O termo "transportador" já existe no domínio ambiental (papel do MTR de **resíduos** — `dmr_declaration_items.partner_role`) e é um **falso amigo** do carrier do TRC.
+
+### Decisões
+- **D1 — Bounded context Transporte SEPARADO do ambiental.** Nenhuma FK ou reuso de `manifests`/entidades ambientais; nenhum arquivo novo com `mtr`/`manifest` no nome; roles do TRC em inglês (`carrier`, `contractor`, `shipper`, `subcontractor`) eliminando colisão até lexical com o `transportador` ambiental. O gateway CETESB não é tocado (DL-093 intacta). MTR ambiental ≠ MDF-e — misturá-los seria dívida arquitetural grave.
+- **D2 — Agregado central `TransportOperation` com máquina de estados explícita; transição só via comando + gate.** Grafo completo declarado em módulo puro (`lib/transport-state-machine.ts`), mas só transições da fase corrente têm endpoint; escrita de status exclusivamente por compare-and-swap (`where status=$from and version=$v`); `PATCH` rejeita o campo `status` (422). Integrações externas trazem **fatos**; quem decide transição é o `TransportComplianceService`.
+- **D3 — Regras legais NUNCA viram if/else espalhado: catálogo regulatório temporal versionado.** `regulatory_sources` + `regulatory_rules` (códigos estáveis `TR-*`) + `regulatory_rule_versions` (vigência `effective_from/until`, estados `DRAFT|UNDER_REVIEW|ACTIVE|FUTURE|SUPERSEDED|REVOKED|AWAITING_REGULATION`). A pergunta fundacional é "qual regra valia NESTA data?" (`resolveRuleVersionAt`), com constraint de não-sobreposição temporal por regra.
+- **D4 — Nenhuma regra nasce bloqueante; promoção a `blocking=true` é ato humano.** Trava dupla: check constraint no DDL (`ACTIVE + blocking=true` ⇒ `reviewed_by`/`reviewed_at` obrigatórios) + clamp no engine (regra não-enforçável nunca produz BLOCK efetivo; resultado bruto preservado em `raw_status` com `RULE_NOT_ENFORCEABLE`). Rito de promoção: item [LEGAL REVIEW REQUIRED] resolvido no guia + fixtures de comportamento antes/depois da vigência + canário em WARN em produção.
+- **D5 — Baseline regulatória registrada como snapshot IMUTÁVEL + guia vivo.** O estudo de 13/08/2026 vive íntegro em `docs/30-transporte/deep-research-report.md`; evolução normativa entra no guia e no catálogo como nova `rule_version` — nunca como edição do snapshot. Todo PR do programa cita a seção do guia que o motiva e atualiza a tabela de adoção.
+- **D6 — Fase A é 100% local (sem chamada externa) e o compliance é SÍNCRONO (200).** Sem job type novo, sem touch em `operation-handlers.ts`/`lib/retry.ts`/`command-response.ts` — zero risco à fila existente. O `TransportComplianceService` nasce worker-callable para virar handler de job na Fase C sem refatoração. Integrações (ANTT/CIOT/VPO/SEFAZ/seguros) entram por gateways dedicados **em TS** nas fases C+ com 202/command-accepted, retry/DLQ e o padrão DL-102 (marcador de correlação + `*_unconfirmed` + reconciliador) desde o dia 1.
+- **D7 — Avaliações de compliance são APPEND-ONLY e temporalmente reproduzíveis.** `compliance_evaluations` sem update (desvio deliberado do padrão version/trigger, justificado no header da migration); `reference_date` distinta de `evaluated_at`; snapshot do agregado + base legal congelada por check. Operação de agosto não muda de resultado porque tabela de novembro substituiu coeficientes.
+- **D8 — RBAC: chaves novas `transporte.read`/`transporte.write` + papel semeado `sicat.transporte.operator`.** Nunca alargar `sicat.reader` (papel-piso do cadastro público) nem misturar a vertical no `sicat.operator` ambiental.
+- **D9 — Entrega por ondas com flags em DOIS níveis.** Feature flag por capacidade (deploy) + `implementation_state`/`blocking` por regra no catálogo (dado). Ondas: 0 governança → 1 Fase A backend → 1.5 frontend mínimo → B piso → C RNTRC/CIOT → D VPO → E fiscal import/validação → F seguros/PGR → G emissão (go/no-go com ADR próprio) → H Regulatory Watch/hardening.
+
+### Recusas (decisões negativas)
+- **⛔ Regra fixa de antecipação de 70% do frete** — dispositivo **vetado** (Veto nº 43/2026); não existe no produto enquanto o veto vigorar (pendência P1 do guia, monitorada).
+- **⛔ Coeficiente de piso hardcoded ou em seed sem revisão** — coeficiente só entra no catálogo com `review_status=reviewed` (pendência P3).
+- **⛔ Reutilizar `Manifest`/renomear MTR ambiental para acomodar MDF-e** — ver D1.
+- **⛔ CIOT dentro do `manifest-service` / chamada ANTT direta de rota** — fronteira de camadas inegociável.
+- **⛔ Segundo sistema de fila ou segundo framework de observabilidade** — reutilizar `jobs` + Centro Operacional.
+- **⛔ Emissão fiscal antes de importação/validação** — Fase G condicionada a go/no-go comercial e ADR próprio.
+- **⛔ Atualização regulatória automática por robô/IA sem aprovação humana** — Regulatory Watch (Fase H) sugere; humano ativa.
+- **⛔ Tratar "CIOT gerado" como "operação legalmente liberada"** — `REGISTERED ≠ COMPLIANT` (FAQ ANTT).
+
+### Alternativas consideradas
+- **Evoluir o fluxo de MTR existente com campos fiscais:** rejeitada — semânticas distintas (resíduos CETESB × cargas ANTT/SEFAZ); produziria acoplamento irreversível.
+- **Compliance assíncrono (202+job) já na Fase A:** rejeitada — sem I/O externo não há benefício; custo de 4 pontos de job type + extensão do envelope command-accepted sem necessidade (D6).
+- **Regras em tabela de configuração simples (chave→booleano):** rejeitada — sem vigência temporal nem base legal citada, não responde "qual regra valia nesta data?" nem sustenta auditoria.
+
+### Consequências
+- A Fase A entrega um motor de compliance que **ainda não bloqueia nada** (todas as 26 regras `TR-*` nascem `blocking=false`) — o valor inicial é estrutural: catálogo temporal consultável, operação com estados guardados e decisões evidenciadas. Um leitor apressado pode achar "que não faz nada"; é deliberado (D4).
+- Estados a partir de `ciot_pending` existem no grafo mas são **inalcançáveis por API** até as fases C+ — documentado na máquina de estados (campo `phase` por transição) e nos testes.
+- 4 PRs da Onda 1 introduzem migrations inéditas (`021`–`025`): cada deploy exige **rollout escalonado** api → Ready → worker (armadilha 13 do `CLAUDE.md` — `runMigrations` sem advisory lock).
+- Pendências externas (P4–P8 do guia) não bloqueiam as Ondas 0–2, mas travam C–F; o programa foi sequenciado para maximizar entrega antes delas.
+
+### Validação
+- Onda 0: `specs-baseline-check.ps1` sem drift (400 requisitos válidos); gates `specs-governance`/`reqhub-gate` nos PRs; validador de links markdown limpo.
+- Ondas 1+: validação obrigatória por PR (`typecheck`, `lint`, `validate:openapi`, `gen:operations` + `sync-operations-ts.mjs`, `npm test`) + categoria nova `tests/regulatory/` com testes de fronteira temporal (23/24/25-05-2026; 05/06/07-08-2026) e meta-guardas (nenhuma versão ACTIVE+blocking sem revisor; toda `version_label` com fixtures antes/depois).
+
+### Resultado
+O programa Transporte tem fundação governada: baseline imutável + guia vivo + 19 REQs rastreáveis +
+este DL + ADR-010/011. A implementação começa pela Onda 1 (PR `sicat/transporte-01-catalogo-regulatorio`).
+
+### Referências
+- [docs/30-transporte/transporte-guia.md](../30-transporte/transporte-guia.md) — guia vivo (tabela de adoção, matriz TR-*, pendências)
+- [docs/30-transporte/deep-research-report.md](../30-transporte/deep-research-report.md) — baseline regulatória (snapshot 13/08/2026)
+- [docs/04-arquitetura/transporte-sicat.md](../04-arquitetura/transporte-sicat.md) — arquitetura alvo da vertical
+- `specs/requirements/sicat/REQ-SICAT-0017..0031, NFR-0009..0012` — requisitos do programa
+- DL-102 — padrão marcador de correlação + `*_unconfirmed` + reconciliador (replicar em CIOT/MDF-e)
+- DL-093 — gateway CETESB permanece em `.js` e intocado
+- DL-022 — fila transacional única (sem broker externo)
+
+### Adendo (PR-G — emissão de DF-e sandbox-ready, 15/08/2026)
+A Fase G (D9) chegou condicionada a P9 (go/no-go comercial + certificado digital + credenciamento
+SEFAZ, [LEGAL REVIEW REQUIRED]+[EXTERNAL DEPENDENCY]) — decisão sem novidade normativa, só a
+constatação de que arquitetura e decisão comercial/legal são coisas DIFERENTES e podem se separar.
+O PR-G entrega a primeira 100% pronta, deliberadamente atrás da segunda: pipeline completo
+`build→sign→submit` via `@flavioneto11/fiscal-kit` REAL (`mode: sandbox`, sem certificado, sem
+SEFAZ), padrão DL-102 desde o dia 1 (marcador `[sicat-dfe:...]`, `submit_unconfirmed`,
+reconciliador), reimportação automática da emissão autorizada ao acervo da Fase E — SEM evaluator
+novo. O bloqueio de produção é `DFE_ISSUANCE_MODE=off` (config, default em todo ambiente), não
+constraint de schema nem feature flag de deploy: `dfe_issuances.environment` aceita `production` por
+desenho (a coluna não vai mudar quando a decisão vier), mas nenhum código deste PR grava esse valor.
+Ativar emissão real — trocar `mode: sandbox` por um emissor de verdade, aceitar `DFE_ISSUANCE_MODE`
+além de `off`/`sandbox` — permanece decisão comercial+legal futura do operador, não uma question de
+código pronto esperando um `if`.
+
+## DL-102
+**Tema:** Correlação pré-submit de manifesto — identidade de idempotência que a CETESB não oferece, gravada em campo livre, e a opção deliberada de entregar o mecanismo INERTE
+**Data:** 2026-08-08
+**Tipo:** Backend / Integração CETESB / Correção de risco operacional (MTR duplicado)
+**Especialistas:** unidades C1/C2/C3 da leva de consolidação da cadeia `whatsapp-channel-sicat`
+**Status:** ⚠️ **PARCIAL — 1 de 3 partes ligada.** C1 costurado ponta a ponta; C2 e C3 mesclados e **sem consumidor**
+
+### Planejamento
+- **Objetivo:** dar ao SICAT uma forma de responder *"esse envio de MTR foi processado pela CETESB?"* depois de uma resposta perdida — a pergunta que hoje ele não sabe fazer, e cuja ausência produz **MTR duplicado**.
+- **Escopo:** `backend/src/lib/manifest-correlation.ts` (novo), `gateways/cetesb-gateway.js` (`mapManifestToCetesb` + `submitManifest`), `workers/operation-handlers.ts` (`handleManifestSubmit`, `handleMtrProvisorioSubmit`), `services/manifest-submit-reconciler.ts` (novo), `repositories/manifest-repo.ts` (`listUnconfirmedSubmitManifestsForReconciliation`).
+- **Critério pronto:** **sem migration** (a `020` já é inédita e `migrate.ts` não tem advisory lock — DL-101); observação do usuário preservada; nenhuma mudança de comportamento observável enquanto não houver consumidor.
+
+### Contexto
+- O `manHashCode` — o identificador que a CETESB devolve — **só nasce na resposta do PUT**. Nenhum identificador nosso viaja no corpo enviado, então a chamada é, do nosso lado, **não idempotente por construção**.
+- Perdida a resposta (timeout, erro de parse, o pod morrendo entre o PUT e o commit local), a busca por atributos é **ambígua de propósito**: em lote, data, gerador, transportador, destinador e resíduo se repetem — é essa repetição que torna o lote um lote.
+- O produto resolvia a dúvida para o lado errado: `applyManifestSubmitTerminalFailureSideEffect` (`operation-handlers.ts:754`) gravava `failed` **sem consultar a CETESB**, `reconcileManifestSubmitState` (`manifest-service.ts:1127`) decidia o mesmo olhando só o job local, e a mensagem entregue era *"Revise os dados e realize novo envio."* — **um convite a criar um segundo MTR real**, cuja única compensação seria um cancelamento que não tem inverso.
+- É também a evidência **E5** da lista fechada que segura o N2 do canal WhatsApp (`whatsapp-confirmation-flow.ts:195–204`): *"um mecanismo que responda 'o MTR nasceu na CETESB?' depois de uma falha de `manifest.submit`"*. O próprio código já classificava E5 como **escopo próprio**, e não como trabalho da cadeia do canal.
+
+### Decisões
+- **D1 — A identidade de idempotência é um marcador DETERMINÍSTICO derivado do id local, não um uuid sorteado.** `[sicat:<manifestId>]`, gerado por `buildManifestCorrelationMarker` (`lib/manifest-correlation.ts`). Determinístico porque quem faz a pergunta depois da falha é o processo que **perdeu** o contexto: um valor sorteado teria de ser persistido para ser reencontrado, e persistir antes do PUT é exatamente a escrita que pode não ter acontecido. Derivado do id, a pergunta é reconstruível a partir da linha local, sempre.
+- **D2 — O marcador vai no `manObservacao`, campo LIVRE do payload, e nunca sobrescreve a observação do usuário.** `appendManifestCorrelationMarker` concatena e é **idempotente** (não duplica em re-submit depois de um sync que trouxe o `manObservacao` da CETESB de volta). A escolha do campo não é estética: `manObservacao` é o único campo que **volta no resultado de `searchManifests`**, o que fecha o ciclo pergunta→resposta sem endpoint novo na CETESB. Sem essa propriedade o marcador seria escrita-só, isto é, inútil.
+- **D3 — O módulo do marcador mora em `lib/` e é a fonte ÚNICA dos dois lados.** É consumido pelo **gateway** (JS, DL-093 — não converter) e pelo **worker** (TS). Duas implementações do mesmo formato divergiriam em silêncio, e a divergência só apareceria no dia da falha, que é o pior dia possível para descobri-la.
+- **D4 — A intenção é persistida ANTES do PUT, no `payload` jsonb, SEM migration.** `submitCorrelation` = `{ marker, jobId, dispatchedAt }`, gravado junto com `status: 'submitting'` (`operation-handlers.ts:1069–1072`; 1260–1265 no MTR provisório). Uma coluna dedicada seria mais limpa e foi **rejeitada**: uma segunda migration inédita rodando junto com a `020` num `migrate.ts` **sem advisory lock** é CrashLoop simultâneo de api + worker (DL-101, D7 — mesma razão, mesma decisão).
+- **D5 — Não achar cedo NUNCA é falha.** O reconciliador faz polling fiel ao padrão do `cetesb-gateway` (2s/5s/10s/15s/20s, orçamento injetável) e devolve resultado **tipado**: `found` | `not-found-after-polling` | `error`. Os três são desfechos legítimos e distintos — colapsar `not-found` em `error` faria o consumidor tratar "confirmadamente não nasceu" como "não sei", que é o oposto da informação que ele precisa.
+- **D6 — Ambiguidade é erro EXPLÍCITO, nunca um palpite.** Dois remotos casando o mesmo marcador viram `SUBMIT_RECONCILE_AMBIGUOUS_MARKER_MATCH`. Num mecanismo cuja função é evitar MTR duplicado, escolher o "mais provável" seria reintroduzir o defeito pela porta dos fundos.
+- **D7 — A varredura é IRMÃ da existente, não uma alteração dela.** `listUnconfirmedSubmitManifestsForReconciliation` cobre exatamente o caso que `listPotentialGhostManifestsForMirrorWindow` **exclui por construção** (aquela exige hash preenchido e status pós-submit; esta quer hash **NULO** e status transiente). Janela de tempo é **obrigatória** — sem ela a consulta degenera em full scan da tabela de manifestos.
+
+### Recusas (decisões negativas)
+- **⛔ Busca por atributos como caminho de reconciliação** — rejeitada na origem: é ambígua justamente nos lotes, que são o caso em que o dano do duplicado é maior.
+- **⛔ Coluna dedicada / migration `021`** — ver D4.
+- **⛔ Ligar C2 e C3 no mesmo PR em que nasceram** — ver Consequências.
+
+### Alternativas consideradas
+- **Chave de idempotência enviada à CETESB:** não existe no contrato capturado (`docs/portal-contracts/cetesb/`). Não é uma opção, é uma ausência.
+- **Marcador em campo estruturado em vez de `manObservacao`:** rejeitado — nenhum outro campo livre retorna em `searchManifests`, e sem retorno o marcador não fecha o ciclo (D2).
+- **`getManifest` (que reconcilia) em vez de `searchManifests`:** rejeitado para este caminho — `getManifest` precisa do identificador remoto, que é exatamente o que se perdeu.
+
+### Consequências
+- **O mecanismo foi entregue INERTE, de propósito, e isso é a decisão mais discutível deste DL.** C2 e C3 não têm consumidor em `src/` — só testes. A razão: ligar o reconciliador muda o **desfecho** de toda falha de `manifest.submit` do produto inteiro (não só do canal), e essa mudança precisa do estado novo (`submit_unconfirmed`), da UI que o exibe e da decisão de produto sobre o que dizer quando a resposta é *"não sei"*. Entregar as peças verificáveis separadamente do flip de comportamento é o mesmo padrão do portão do N2. **O custo: enquanto ninguém ligar, o risco de MTR duplicado permanece exatamente como estava** — e um leitor apressado do diff pode concluir que foi resolvido.
+- **O estado `submit_unconfirmed` NÃO EXISTE** na árvore consolidada de 2026-08-08 (verificado por busca em `backend/src` e `frontend/src`). Falha terminal continua gravando `failed`.
+- **E5 continua NÃO satisfeita**, logo o N2 do canal WhatsApp continua fechado. DL-101 permanece intacta neste ponto — este DL **não** reabre o critério de tier por efeito irreversível (DL-101, D8); ele ataca a evidência que aquele critério exigia.
+- Todo MTR enviado a partir desta versão carrega `[sicat:<id>]` no `manObservacao` **na CETESB**. É dado que sai do nosso domínio e fica visível ao gerador, ao transportador e ao destinador no documento. Consequência aceita: o campo é de observação livre e o marcador é curto e opaco.
+- O MTR provisório herda tudo, porque `submitMtrProvisorio` delega para o mesmo caminho de submit.
+
+### Validação
+- `typecheck` e `lint` limpos na árvore consolidada.
+- Teste unitário de C2 (`tests/unit/manifest-submit-reconciler.test.js`) com `searchManifests` injetado — o módulo é puro e não abre conexão.
+- Teste de integração de C3 (`tests/integration/manifest-unconfirmed-submit-reconciliation.test.js`) insere manifesto `submitting`/hash-nulo e prova que a função nova o **ENCONTRA** e a irmã **NÃO** — controle negativo explícito, no espírito do contrato desta casa.
+- ⚠️ **Não há prova ponta a ponta contra a CETESB real**, e não haverá por evidência cega: `manifest.submit` é operação mutável e irreversível.
+
+### Resultado
+A pergunta *"o MTR nasceu?"* passou de **impossível** a **respondível**, e o caminho de volta
+(`manObservacao` → `searchManifests` → marcador) está costurado e testado. O que falta é **ligar** —
+e o que falta está escrito, não fingido.
+
+### Referências
+- [docs/05-operacao/runbook-canal-whatsapp.md](../05-operacao/runbook-canal-whatsapp.md) §8 — o risco, o que já existe e o que o operador faz enquanto não está ligado
+- [docs/10-estado-atual/estado-atual.md](../10-estado-atual/estado-atual.md) §2.8 e §4
+- DL-101 (canal WhatsApp) — D7 (zero DDL) e D8 (tier por efeito irreversível)
+- DL-093 — o gateway permanece em `.js`
+
+## DL-101
+**Tema:** Canal conversacional externo (WhatsApp) — identidade resolvida no servidor, abstração de provedor, ticket como linha, três níveis por efeito irreversível e as recusas explícitas
+**Data:** 2026-08-08
+**Tipo:** Backend / Arquitetura de canal externo / Segurança / Autorização
+**Especialistas:** cadeia `whatsapp-channel-sicat` (fases 0–7) + validação cross-model Fable 5 (7 revisores, um por commit de fase)
+**Status:** ✅ COMPLETADO — **com o N2 fechado por desenho** (ver Decisões e Consequências)
+
+### Planejamento
+- **Objetivo:** dar ao SICAT um canal conversacional **externo** (WhatsApp) que não afrouxe nenhuma fronteira de segurança já existente: sem canal declarável por cliente, sem elevação de permissão pela IA, sem ação irreversível confirmada por um fio onde o desfecho é invisível.
+- **Escopo:** `backend/src/services/conversation/channel/whatsapp/*` (20 módulos), `routes/{conversation,channel-link,channel-webhook}-routes.ts`, `middlewares/auth.ts`, `lib/{config,job-lanes,channel-metrics,raw-body,conversation-permission-catalog}.ts`, `src/sql/020_channel_link_verifications.sql`, `bootstrap/access-control-seed.ts`, `frontend/src/views/WhatsAppLinkView.vue` + rota `/perfil/canais`, OpenAPI + examples + `src/generated/operations.{js,ts}`, `k8s/backend.yaml` (**retido**).
+- **Critério pronto:** `typecheck`/`lint` limpos; suíte unitária sem regressão sobre a **baseline pré-existente de 35 falhas**; contrato em lockstep; canal **desligado por default**; cada recusa escrita, não omitida.
+
+### Contexto
+- A superfície `/v1/conversations/*` já existia e era **fail-open em dois eixos**: o cliente **declarava** o canal no corpo da requisição, e `hasConversationPermission` liberava TODAS as tools para quem não tivesse papel nenhum — com `access_permissions` em **0 linhas**, isso valia para os 5 usuários do banco. "A IA nunca eleva permissão" era, textualmente, falso.
+- O worker do SICAT é **consumidor serial único** (`replicas: 1`, laço `await` por job): um turno de LLM de 90 s bloquearia `manifest.submit` por 90 s. Prioridade **ordena** a fila, não a paraleliza.
+- `runMigrations` **não tem advisory lock**, e `AUTO_MIGRATE=true` está na api **e** no worker.
+- Nenhuma rota da família era pública até aqui — o webhook seria a primeira.
+
+### Decisões
+- **D1 — A identidade do turno é resolvida NO SERVIDOR e vence o corpo da requisição.** `channel`, `userId`, `integrationAccountId`, `sessionContextId` e `permissionKeys` saem de `resolveChannelPrincipal`, nunca do payload. `whatsapp` deixa de ser declarável por cliente HTTP (**403 `CONVERSATION_CHANNEL_NOT_CLIENT_DECLARABLE`**) e canal desconhecido passa a ser **400 `CONVERSATION_CHANNEL_INVALID`** em vez de cair silenciosamente em `inapp`. Rate limit de 40 turnos/5 min por usuário (**429 + `Retry-After`**).
+- **D2 — Abstração `WhatsAppProvider` com DOIS adapters (Twilio e Meta Cloud API), não um.** Dois provedores desde o primeiro dia porque a diferença entre eles não é cosmética: HMAC-SHA1 sobre URL + params ordenados (Twilio) × HMAC-SHA256 sobre o corpo bruto (Meta). Escrever para um só teria embutido o formato dele na fronteira. Verificação de assinatura **fail-closed** (sem segredo ⇒ recusa) e `AbortSignal.timeout` em todo `fetch` — o worker é serial, um provedor que aceita conexão e nunca responde prende o processo inteiro.
+- **D3 — Vínculo telefone↔usuário por OTP SEMPRE iniciado no app.** Não existe OTP disparado a partir do canal externo: um número desconhecido não provoca escrita nenhuma. `code_hash` é `scrypt` **com salt por linha** — 6 dígitos são 10⁶ possibilidades, e um sha256 sem salt seria pré-computável em menos de um segundo a partir de um dump, invertendo **todos** os desafios vivos de uma vez.
+- **D4 — O webhook é público e autenticado pela ASSINATURA, com isenção estreita.** `/v1/channels/` entra em `PUBLIC_PATH_PREFIXES` porque quem chama é um terceiro que nunca manda `Authorization`. `/v1/sicat/channel-links` **não** entra — aquela é a superfície autenticada do dono do número. Sem a isenção o webhook quebraria **só em produção** (`AUTH_REQUIRED` é injetado pelo cluster). Com o provedor `disabled`, a rota responde **404**, indistinguível de inexistente.
+- **D5 — Raia de fila em vez de prioridade.** `WORKER_LANE` (`all` | `default` | `channel`), com as duas metades do predicado SQL saindo da **mesma constante** (`CHANNEL_LANE_OPERATIONS`) para que acrescentar uma operação não deixe um job órfão invisível na fila. Ausente ⇒ `all`, o comportamento antigo byte a byte: **a raia nasce inerte**. A presença de `whatsapp.outbound_notice` na constante é **asserida no import**.
+- **D6 — RBAC conversacional fail-closed, com gate de TRÊS estados e integridade POR CHAVE.** Catálogo de 8 chaves semeado no boot (invariante contínua, não backfill único). O terceiro estado (`observe`) permite **e registra** `would_deny`, tornando o fechamento mensurável antes de ser aplicado. O quarto ramo — catálogo degradado — impede o pior minuto possível: gate fechado + seed falho = chat morto com pod `Ready` e health verde.
+- **D7 — O ticket de confirmação é uma LINHA no banco, não um token autocontido.** Server-side mais forte que existe: o cliente não carrega o payload, logo não há o que forjar. `createAccessToken` foi **proibido** explicitamente — o prefixo é a constante fixa `sicat_access` e o middleware valida só prefixo + assinatura + `exp`, então um ticket mintado com o segredo de sessão seria, byte a byte, um Bearer válido para aquele `sub`. **Zero DDL**: tudo vive na `020` discriminado por `channel_type` (`whatsapp_action`, `whatsapp_stepup`), porque uma segunda migration inédita rodando junto com a `020` num `migrate.ts` sem advisory lock seria CrashLoop simultâneo de api + worker.
+- **D8 — Os três níveis são separados por EFEITO IRREVERSÍVEL, não por `riskLevel`.** O `riskLevel` do catálogo está comprovadamente desalinhado (`cdf.generate_from_manifest_selection` é R3 e exige `manifest.read`, a chave que o papel-piso concede a **todo auto-cadastro público**). O critério adotado: **N1** não muda estado na CETESB (2ª via de documento existente, rascunho local) — o código de 6 dígitos ali é desambiguador e anti-replay, **não** segundo fator, porque chega pelo mesmo fio da pergunta; **N2** faz nascer MTR real, cuja única compensação é o cancelamento, que este desenho recusa; **N3** é recusa permanente.
+- **D9 — O aviso de conclusão nasce na CONFIRMAÇÃO, não no desfecho.** Criado em `recordDispatchOutcome`, a única linha que tem simultaneamente o ticket, o vínculo e os jobs recém-enfileirados. Como o job de aviso existe **antes** de qualquer desfecho, o estado "terminou e não avisou" não existe. Prazo em **relógio de parede** (`confirmedAt + 10 min`), não em tentativas. **Nunca vai para DLQ** — aviso na DLQ é silêncio sobre o silêncio. O hook nos três pontos terminais de `job-runner.ts` foi rejeitado: com raia separada ele simplesmente nunca dispararia, em silêncio.
+
+### Recusas (decisões negativas, registradas para não serem redescobertas como "faltando")
+- **⛔ N2 — emitir MTR pelo WhatsApp — NÃO é entregue, e não é ligável por configuração.** `const WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED = false;` é **literal de código**; o gate é `if (!IMPLEMENTED || !env)`, então nenhum `WHATSAPP_ACTION_NOTICE_ENABLED=true` o abre. A razão não é falta de tempo: **o aviso não distingue "o MTR não foi criado" de "o MTR foi criado e eu perdi a resposta"** — e para emissão irreversível essa é exatamente a única informação que importa. Preferiu-se recusar a entregar um "confirmado" que pode estar mentindo.
+- **⛔ N3 recusado em lista de código** (`CHANNEL_HARD_DENY`, 10 chaves), avaliada **depois** do overlay do AI Control Center: todos os cancelamentos (sem inverso no gateway; desfazer é emitir OUTRO MTR), os três CDF (exigem só `manifest.read`, chave do piso público — step-up sobre a chave errada é teatro), `manifest.receive_with_receipt`, `manifest.create_from_payload` e `replicate_manifest` direto. `manifest.create_draft` está na lista **explicitamente, nunca por omissão**: é `requiresConfirmation: false` + `isAction: true`, a única ação que passaria sem confirmação nenhuma no instante em que `allowActions` deixasse de ser o literal `false`. A disjunção das duas listas é verificada **no import** — o processo não sobe se alguém relaxar.
+  > 📌 **Atualização posterior (2026-08-08, PR #296, branch `sicat/wa-u3-policy-confirm`):** a fechadura de `manifest.create_draft` foi consertada na origem — passou a `confirmedActionIntentPolicy('R2')`, e `assertEveryActionRequiresConfirmation()` prende a invariante no import das **duas** tabelas de default de código. A recusa de canal deixou de ser a única coisa que segurava a chave. Este parágrafo descreve o estado **na data desta DL** e fica como registro histórico.
+- **⛔ URL assinada / rota pública de download de documento** — custaria rota anônima num prefixo já público, segredo próprio, epoch de revogação, rate limiter e 404 opaco, para servir um adapter que hoje nem fecha ponta a ponta por DNS.
+- **⛔ Caminho de `sendTemplate` fora da janela de 24 h** — a guarda de janela é fail-closed e obrigatória; o que não existe é o envio por template para fora dela.
+- **⛔ Entrega de mídia LIGADA por default** — o código está completo e testado, e a chave nasce `false`. O PDF do MTR carrega CNPJ, endereço, resíduo e responsável; no aparelho vai para backup de nuvem para sempre. Quem decide se isso vai para um celular pessoal é a organização, não o código.
+
+### Alternativas consideradas
+- **Prioridade na fila em vez de raia dedicada:** rejeitada — prioridade ordena, não paraleliza; o bloqueio de 90 s continuaria.
+- **Token assinado como ticket (JWT/HMAC autocontido):** rejeitada — uso único exigiria uma linha de qualquer jeito (para queimar); tendo a linha, a assinatura só provaria integridade de um payload que não deveria estar na mão do cliente.
+- **Migration `021` para o ticket / emendar a `020`:** ambas rejeitadas — a primeira por corrida de bootstrap sem advisory lock; a segunda porque, se algum ambiente já aplicou a `020`, `schema_migrations` registrou e a emenda nunca roda.
+- **Separar `cdf.download` do `manifest.read` nesta cadeia (fase 4.6):** adiada — dois estreitamentos sobre gente real no mesmo flip tornam impossível saber qual quebrou quem.
+- **Hardcodar `whatsapp` em `allowChannels` no `tool-registry.ts`:** rejeitada — a liberação tem de ser **runtime**, auditável e revogável em segundos pelo AI Control Center.
+
+### Consequências
+- **O chat passa a ser a superfície MAIS restrita do SICAT.** A propriedade "a IA não eleva permissão" ficou verdadeira; a propriedade "o usuário não conseguiria pela tela" continua **falsa** — as rotas REST de ação seguem sem `sicatAuthMiddleware`, e isso virou **issue P0 própria**.
+- O canal entregue faz **consulta, 2ª via e réplica local**. A manchete — emitir MTR — não está entregue, e está escrito assim em todos os documentos da cadeia.
+- Cinco itens ficam **inertes até ação humana**: manifesto k8s retido, migration `020` nunca aplicada, seed de RBAC nunca executado, credenciais do provedor ausentes e a decisão sobre mídia. Consolidados como O1–O12 no runbook de ativação.
+- `WHATSAPP_META_VERIFY_TOKEN` **vaza pelo access log do Traefik** (que registra a URI antes do app, fora do alcance do `skip` do `morgan`): é segredo de uso único, a rotacionar após a verificação. Consequência aceita e documentada, não bug pendente.
+- A `020` não tem down migration.
+
+### Validação
+- `npm run typecheck` → ✅ limpo. `npm run lint` → ✅ limpo.
+- `npx tsx --test tests/unit/*.test.js` → **946 testes · 911 pass · 35 fail** — baseline de falhas **pré-existente** (11 nomes top-level), intacta.
+- `node --test tests/integration/openapi-queue-contract.test.js` → **13 pass / 0 fail** (era 4 testes, 2 pass, 2 fail — o gate estava **vermelho** por um caminho que ficou para trás no refactor de monorepo).
+- `node scripts/validate-openapi.js` → ✅ exit 0 (104 operações). `validate-cetesb-source-of-truth.js` → ❌ **falha pré-existente** (`backend/docs/cetesb` ausente; HARs não versionados por conterem JWT/CPF).
+- `npm run check:secrets` / `scan:secrets` → ✅ nenhuma exposição nova.
+- **Validação cross-model Fable 5**, 7 revisores lendo por SHA: 1 ALTO (`twilio-provider` podia descartar **toda** mensagem de entrada — os testes passavam porque os payloads sintéticos omitiam o campo: **verde falso**), 1 MÉDIO (`conversationSessionId` do corpo era confiado; no PK-conflict o turno gravava e lia a sessão de **outro usuário** da mesma conta) e 5 BAIXOS, todos corrigidos.
+
+### Resultado
+Canal conversacional externo completo, endurecido e **desligado por default**, com 16 operações
+publicadas no contrato em lockstep e com todas as recusas escritas em vez de omitidas.
+**Lição de método registrada pela cadeia: houve SEIS casos de texto — comentário de código e
+documentação — afirmando propriedade que o código não tinha.** Comentário não é evidência; double que
+reimplementa a lógica testada concorda consigo mesmo; dívida se escreve, não se finge.
+
+### Referências
+- [docs/CHANGELOG-WHATSAPP-CHANNEL.md](../CHANGELOG-WHATSAPP-CHANNEL.md)
+- [docs/05-operacao/runbook-canal-whatsapp.md](../05-operacao/runbook-canal-whatsapp.md) — ativação, desligamento e as 12 decisões pendentes do operador
+- [docs/05-operacao/runbook-rbac-conversacional.md](../05-operacao/runbook-rbac-conversacional.md)
+- [docs/10-estado-atual/estado-atual.md](../10-estado-atual/estado-atual.md)
+- [docs/handoffs/whatsapp-channel-sicat/](../handoffs/whatsapp-channel-sicat/)
+
 ## DL-100
 **Tema:** Refatoração UX/UI corporativa — design system `Sicat*`, navegação por audiência (Operação × Sistema gated por role) e decomposição das telas-monstro
 **Data:** 2026-05-29

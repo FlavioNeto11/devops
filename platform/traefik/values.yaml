@@ -43,6 +43,22 @@ ports:
     # redirectTo:
     #   port: websecure
     #   priority: 10
+    #
+    # Confianca nos headers X-Forwarded-* do Cloudflare Tunnel.
+    # Sem isto o Traefik ignorava o 'X-Forwarded-Proto: https' enviado pelo
+    # cloudflared e montava os redirects (ex.: /sicat -> /sicat/) com esquema
+    # http://. Quem entrava por https://dev.nvit.com.br/sicat era rebaixado
+    # para HTTP no primeiro redirect, o que descarta cookies marcados Secure
+    # e quebra o SSO.
+    # O tunnel entrega em localhost:80, entao o IP de origem visto pelo Traefik
+    # e o gateway do Docker Desktop (192.168.65.3) — NAO as faixas da
+    # Cloudflare. Usamos a /24 porque esse IP pode mudar entre reinicios.
+    # Acesso local por http://nvit.localhost nao envia X-Forwarded-Proto e
+    # continua sendo servido em HTTP normalmente.
+    forwardedHeaders:
+      trustedIPs:
+        - 192.168.65.0/24
+        - 127.0.0.1/32
   websecure:
     port: 8443          # porta interna do container
     expose:

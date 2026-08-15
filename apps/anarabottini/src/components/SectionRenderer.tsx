@@ -401,7 +401,7 @@ function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
                         {m.kind === 'pdf' ? <Download className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}{m.kind === 'pdf' ? 'Baixar' : 'Acessar'}
                       </a>
                     ) : (
-                      <span className="inline-flex items-center gap-2 text-sm font-medium text-brand-muted/70"><Lock className="h-4 w-4" /> Em breve</span>
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-brand-muted"><Lock className="h-4 w-4" /> Em breve</span>
                     )}
                   </div>
                 </div>

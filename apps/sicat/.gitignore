@@ -7,6 +7,9 @@ coverage
 # Temporary files and test data
 storage/temp/**/*
 storage/documents/**/*
+storage/transporte-dfe/**/*
+storage/transporte-dfe-issuance/**/*
+storage/regulatory-watch/**/*
 tests/manual/*.json
 tests/manual/*.txt
 tests/manual/test-output.txt

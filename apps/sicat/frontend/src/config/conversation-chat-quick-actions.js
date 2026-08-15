@@ -2,8 +2,8 @@ export const CONVERSATIONAL_CHAT_QUICK_ACTIONS = [
   {
     id: 'chat-dashboard-overview',
     title: 'Resumo operacional',
-    description: 'Consultar uma leitura objetiva do dashboard operacional da conta ativa.',
-    prompt: 'Quero um resumo operacional do dashboard atual.',
+    description: 'Consultar uma leitura objetiva do painel operacional da conta ativa.',
+    prompt: 'Quero um resumo operacional do painel atual.',
     icon: 'mdi-view-dashboard-outline',
     requires: []
   },
@@ -25,9 +25,9 @@ export const CONVERSATIONAL_CHAT_QUICK_ACTIONS = [
   },
   {
     id: 'chat-job-status',
-    title: 'Status de job',
-    description: 'Consultar o andamento de um job especifico para troubleshooting operacional.',
-    prompt: 'Quero o status do job em foco.',
+    title: 'Andamento do processamento',
+    description: 'Consultar o andamento de um processamento específico para acompanhar a operação.',
+    prompt: 'Quero o status do processamento em foco.',
     icon: 'mdi-cog-outline',
     requires: ['jobId']
   }

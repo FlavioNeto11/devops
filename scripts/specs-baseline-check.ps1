@@ -38,16 +38,19 @@ if (-not (Test-Path (Join-Path $tools 'node_modules'))) {
 Push-Location $tools
 try {
   if ($Fix) {
-    Write-Host "[specs] regenerando baseline..." -ForegroundColor Cyan
-    node build-baseline.mjs
-    Write-Host "[specs] regenerando índices (products/blueprints/capabilities)..." -ForegroundColor Cyan
-    node build-products.mjs
-    Write-Host "[specs] atualizando history.json (diff vs baseline anterior)..." -ForegroundColor Cyan
-    node emit-history.mjs
-    Write-Host "[specs] reconciliando implementation-status.json..." -ForegroundColor Cyan
-    node impl-status.mjs
-    Write-Host "[specs] gerando coverage-report.json..." -ForegroundColor Cyan
-    node coverage-report.mjs
+    # Cada gerador é checado: -Fix que falha no meio devolvia exit 0 e o caller (ex.: o passo
+    # "regenerar baseline" do greenfield-launch) seguia verde com a baseline NÃO gerada (run
+    # 28630602701, launch do besc-next). Fail-closed: primeiro erro aborta com exit 1.
+    function Invoke-Gen { param([string]$Label, [string]$Script)
+      Write-Host "[specs] $Label..." -ForegroundColor Cyan
+      node $Script
+      if ($LASTEXITCODE -ne 0) { Write-Host "[specs] FALHOU: $Script (exit $LASTEXITCODE) — baseline NÃO regenerada." -ForegroundColor Red; exit 1 }
+    }
+    Invoke-Gen 'regenerando baseline' 'build-baseline.mjs'
+    Invoke-Gen 'regenerando índices (products/blueprints/capabilities)' 'build-products.mjs'
+    Invoke-Gen 'atualizando history.json (diff vs baseline anterior)' 'emit-history.mjs'
+    Invoke-Gen 'reconciliando implementation-status.json' 'impl-status.mjs'
+    Invoke-Gen 'gerando coverage-report.json' 'coverage-report.mjs'
     Write-Host "[specs] baseline + history + status + coverage regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
   } else {
     node build-baseline.mjs --check

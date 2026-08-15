@@ -220,10 +220,12 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `ai-metrics.ts` idempotente sob re-avaliação (guard `register.getSingleMetric(...)` ou registry próprio),
-    sem mudar o comportamento em produção.
-  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde.
+    sem mudar o comportamento em produção. ✅
+  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde. ✅
 - **Testes**: `pnpm -r test` com Postgres+Redis reais (o próprio job de CI).
-- **Status**: 🔴 Aberto — bloqueia o gate de integração em PR.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). Guard `register.getSingleMetric('process_cpu_user_seconds_total')`
+  antes do `collectDefaultMetrics()` + cache do objeto `aiMetrics` em `globalThis` (factory com cache);
+  runtime de produção inalterado (módulo avaliado 1x). Verificado local (10/10 arquivos, 72/72 testes) e no CI.
 
 ### BUG-014 — E2E: `import.spec.ts` quebra a coleta do Playwright (ESM × CJS)
 - **Arquivos**: [`apps/web/e2e/import.spec.ts`](../apps/web/e2e/import.spec.ts) (linhas 3–5)
@@ -235,10 +237,53 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `import.spec.ts` sem `import.meta` (em CJS transpilado o `__dirname` global já existe) ou pacote migrado
-    a ESM de forma consciente.
-  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história).
+    a ESM de forma consciente. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história). ✅
 - **Testes**: o próprio job de CI.
-- **Status**: 🔴 Aberto — bloqueia o gate E2E em PR.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). O `__dirname` derivado de `import.meta.url` era código morto (fixture
+  inline via `Buffer`, sem acesso a filesystem) — removido junto com os imports de `path`/`url`. Coleta
+  verificada local: `playwright test --list` → 50 testes em 12 arquivos (antes: aborto, 0 testes).
+
+### BUG-015 — E2E: locator de login ambíguo (strict mode) derrubava 35/50 testes
+- **Arquivos**: `apps/web/e2e/{auth,rbac,dashboard,activity,import}.spec.ts`, [`apps/web/e2e/smoke/fixtures.ts`](../apps/web/e2e/smoke/fixtures.ts)
+- **Descrição**: descoberto na primeira execução da suite E2E completa em CI (gate raiz `ci-gymops-e2e.yml`,
+  PR #195, destravada pelo BUG-014). O clique de login usava `getByRole('button', { name: /entrar/i })` —
+  na tela de login real o regex casa com 2+ botões (`Entrar` submit + `Entrar com Google` / `Entrar com
+  SSO (Keycloak)`) e o strict mode do Playwright aborta o clique antes do `toHaveURL(/\/dashboard/)`.
+  As 35 falhas do run tinham essa ÚNICA causa raiz; os 14 testes que passaram (`tutorial.spec.ts`) já
+  usavam o regex ancorado `/^entrar$/i` — prova de que o login em si funciona.
+- **Esforço**: s
+- **Critério de aceite**:
+  - Locator de login strict-safe em todos os specs/fixtures (convenção `/^entrar$/i`, a mesma do
+    `tutorial.spec.ts`), sem alterar a página de login. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) sem strict mode violation no login. ✅
+- **Testes**: o próprio job de CI.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). `/entrar/i` → `/^entrar$/i` nos
+  6 arquivos (11 ocorrências). Coleta local íntegra pós-fix (50 testes em 12 arquivos).
+
+### BUG-016 — E2E: asserts defasados vs. comportamento real do app (curadoria F5.2)
+- **Arquivos**: `apps/web/e2e/{activity,import,rbac}.spec.ts`, `apps/web/e2e/smoke/{fixtures.ts,area-leader,executor,unit-manager,owner}.smoke.spec.ts`
+- **Descrição**: com coleta e login destravados (BUG-014/015), a primeira execução VÁLIDA da suite
+  (run 28602328374: 38 pass / 10 fail) mostrou que 8 falhas eram asserts escritos contra um app que
+  não existe mais, e 2 eram 429 do rate limit REAL de `POST /auth/login` (10/min por IP, hardcoded em
+  `routes/auth`) amplificado pelos retries dos testes quebrados (cada retry = novo login):
+  1. **Landing pós-login é POR PAPEL** (`resolveRedirect` em `login/page.tsx`): unit_manager/area_leader
+     → `/units/<primaryUnitId>`; executor/viewer → `/me`; owner/org_manager → `/dashboard`. Os specs
+     esperavam `/dashboard` para todos.
+  2. **O CTA "Nova atividade" vive na página da UNIDADE** (`units/[id]`, atrás de `canCreate()`; acesso
+     de escopo-área via `hasUnitRole`/unit_areas — BUG-007). A Central de Atividades (`/activities`) é
+     navegação/filtro/export, sem CTA de criação. Os specs esperavam o botão em `/activities`.
+  3. `/settings/import`: `getByText(/importar|trello/i)` casa 6 elementos (strict violation) e `/análise/`
+     casaria o stepper estático (sempre no DOM).
+- **Fix (specs reescritos para a VERDADE do app; app INALTERADO)**: `loginAs` devolve `LoginContext`
+  (accessToken/role/organizationId/primaryUnitId capturados da resposta do `POST /auth/login`) e absorve
+  429 esperando a janela renovar; landing asserts por papel; testes de criação navegam a
+  `/units/<primaryUnitId>` (owner resolve unidade via `GET /units`); `activity.spec` exercita o fluxo
+  real de criação (dialog: Área* → Título* → "Criar atividade" → item na lista); `import.spec` asserta o
+  heading "Importar do Trello" e o copy único do passo de mapeamento ("Revise o mapeamento...").
+- **Esforço**: s
+- **Testes**: o próprio job `e2e` do `ci-gymops-e2e.yml`.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195).
 
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)

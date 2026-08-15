@@ -2,7 +2,7 @@
 title: "Índice de Handoffs e Checkpoints"
 status: reference
 applies_to: [sicat]
-updated: 2026-06-09
+updated: 2026-08-08
 language: pt-BR
 ---
 
@@ -46,6 +46,7 @@ Documento de navegação para os checkpoints versionados da plataforma SICAT, or
 
 | Work ID | Descrição | Checkpoint | Status |
 |---|---|---|---|
+| `whatsapp-channel-sicat` | Canal conversacional externo por WhatsApp (identidade no servidor, OTP, webhook público, RBAC fail-closed, confirmação server-side) — **DL-101**; entregue **desligado por default**, com o **N2 (emitir MTR) fechado por desenho** | [00-orchestration.md](whatsapp-channel-sicat/00-orchestration.md) | ✅ COMPLETADO (canal inerte no cluster) |
 | `conversacional-operacional-ia` | Camada conversacional operacional com IA (orquestrador, intenções, ações, memory) | [README.md](conversacional-operacional-ia/README.md) | ✅ COMPLETADO |
 | `chat-copiloto-operacional` | Chat orquestrador do Centro Operacional (UI, roteamento, observabilidade) | [00-orchestration.md](chat-copiloto-operacional/00-orchestration.md) | ✅ COMPLETADO |
 | `chat-sicat-cost-optimization` | Otimização de custo de IA (caching, batching, modelo econômico) | [00-orchestration.md](chat-sicat-cost-optimization/00-orchestration.md) | ✅ COMPLETADO |

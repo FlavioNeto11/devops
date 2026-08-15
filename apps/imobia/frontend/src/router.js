@@ -4,6 +4,7 @@ import AppShell from './layouts/AppShell.vue';
 import Home from './views/Home.vue';
 import Arquitetura from './views/Arquitetura.vue';
 import Login from './views/Login.vue';
+import NotFound from './views/NotFound.vue';
 import Dashboard from './views/app/Dashboard.vue';
 import Assistente from './views/app/Assistente.vue';
 import Imoveis from './views/app/Imoveis.vue';
@@ -54,7 +55,7 @@ export const router = createRouter({
         ...moduleRoutes,
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound, meta: { public: true } },
   ],
 });
 

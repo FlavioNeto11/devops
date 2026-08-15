@@ -18,7 +18,7 @@ const props = defineProps({
       <h4>{{ title }}</h4>
     </header>
 
-    <p class="error-text">{{ detail || 'Nao foi possivel concluir a operacao solicitada.' }}</p>
+    <p class="error-text">{{ detail || 'Não foi possível concluir a operação solicitada.' }}</p>
   </article>
 </template>
 

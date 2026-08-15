@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { pool, query } from '../../src/db/pool.js';
 import { createConversationService } from '../../src/services/conversation/conversation-service.js';
 import { validManifestDraft } from '../fixtures/manifests.js';
+import { buildTestPrincipalFromBody } from '../helpers/conversation-principal.js';
 
 const ACCOUNT_ID = 'acc_test_conv_ops_001';
 const ACCOUNT_ID_ALT = 'acc_test_conv_ops_002';
@@ -13,7 +14,7 @@ const ACCOUNT_ID_ALT = 'acc_test_conv_ops_002';
 const DETERMINISTIC_SYNTHESIZER = async ({ fallbackSummary }) => fallbackSummary;
 
 function buildTurnInput(overrides = {}) {
-  return {
+  const input = {
     body: {
       channel: 'inapp',
       message: { text: 'acao composta' },
@@ -31,6 +32,11 @@ function buildTurnInput(overrides = {}) {
     idempotencyKey: 'idem_test_conv_ops_001',
     ...overrides
   };
+
+  // A identidade do turno vem do PRINCIPAL — o serviço não lê mais conta/usuário do `body`.
+  // Derivamos do `body.context` que cada caso já monta para preservar a intenção de cada um
+  // (vários alternam entre ACCOUNT_ID e ACCOUNT_ID_ALT para provar isolamento entre contas).
+  return { ...input, principal: input.principal || buildTestPrincipalFromBody(input.body) };
 }
 
 async function insertManifestWithDate(id, expeditionDate, options = {}) {

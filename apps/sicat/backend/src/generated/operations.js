@@ -45,6 +45,15 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_sicat_auth_keycloak",
+    "method": "post",
+    "specPath": "/v1/sicat/auth/keycloak",
+    "expressPath": "/v1/sicat/auth/keycloak",
+    "summary": "Login no SICAT via SSO Keycloak (OIDC)",
+    "tag": "SICAT Authentication",
+    "successStatus": 200
+  },
+  {
     "key": "get_v1_sicat_cetesb_accounts",
     "method": "get",
     "specPath": "/v1/sicat/cetesb-accounts",
@@ -243,6 +252,15 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_admin_channel_links_shield_waive",
+    "method": "post",
+    "specPath": "/v1/admin/channel-links/shield/waive",
+    "expressPath": "/v1/admin/channel-links/shield/waive",
+    "summary": "Liberar um telefone do escudo anti-bombing do vínculo de canal",
+    "tag": "Admin Access",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_session_contexts",
     "method": "post",
     "specPath": "/v1/session-contexts",
@@ -351,6 +369,15 @@ export const operations = [
     "successStatus": 202
   },
   {
+    "key": "get_v1_manifestos_receipt_responsibles",
+    "method": "get",
+    "specPath": "/v1/manifestos/receipt-responsibles",
+    "expressPath": "/v1/manifestos/receipt-responsibles",
+    "summary": "Listar responsáveis pelo recebimento",
+    "tag": "Manifestos",
+    "successStatus": 200
+  },
+  {
     "key": "get_v1_manifestos_id",
     "method": "get",
     "specPath": "/v1/manifestos/{id}",
@@ -421,6 +448,15 @@ export const operations = [
     "summary": "Solicitar recebimento de manifesto",
     "tag": "Manifestos",
     "successStatus": 202
+  },
+  {
+    "key": "get_v1_cdf_responsibles",
+    "method": "get",
+    "specPath": "/v1/cdf/responsibles",
+    "expressPath": "/v1/cdf/responsibles",
+    "summary": "Listar responsáveis pela emissão de CDF",
+    "tag": "CDF",
+    "successStatus": 200
   },
   {
     "key": "post_v1_cdf_generate",
@@ -522,6 +558,24 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_health_jobs_active_jobId_cancel",
+    "method": "post",
+    "specPath": "/v1/health/jobs/active/{jobId}/cancel",
+    "expressPath": "/v1/health/jobs/active/:jobId/cancel",
+    "summary": "Cancelar job da fila ativa",
+    "tag": "Health",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_health_jobs_active_jobId",
+    "method": "delete",
+    "specPath": "/v1/health/jobs/active/{jobId}",
+    "expressPath": "/v1/health/jobs/active/:jobId",
+    "summary": "Remover job da fila ativa",
+    "tag": "Health",
+    "successStatus": 204
+  },
+  {
     "key": "get_v1_health_jobs_dlq",
     "method": "get",
     "specPath": "/v1/health/jobs/dlq",
@@ -529,6 +583,24 @@ export const operations = [
     "summary": "Verificar jobs em dead letter queue",
     "tag": "Health",
     "successStatus": 200
+  },
+  {
+    "key": "post_v1_health_jobs_dlq_jobId_requeue",
+    "method": "post",
+    "specPath": "/v1/health/jobs/dlq/{jobId}/requeue",
+    "expressPath": "/v1/health/jobs/dlq/:jobId/requeue",
+    "summary": "Reprocessar job da DLQ",
+    "tag": "Health",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_health_jobs_dlq_jobId",
+    "method": "delete",
+    "specPath": "/v1/health/jobs/dlq/{jobId}",
+    "expressPath": "/v1/health/jobs/dlq/:jobId",
+    "summary": "Descartar job da DLQ",
+    "tag": "Health",
+    "successStatus": 204
   },
   {
     "key": "get_v1_health_metrics_performance",
@@ -790,5 +862,707 @@ export const operations = [
     "summary": "Imprimir manifesto provisório (assíncrono)",
     "tag": "MTR Provisorio",
     "successStatus": 202
+  },
+  {
+    "key": "get_v1_conversations_tools",
+    "method": "get",
+    "specPath": "/v1/conversations/tools",
+    "expressPath": "/v1/conversations/tools",
+    "summary": "Listar tools conversacionais e a política efetiva de cada uma",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_conversations_artifacts_artifactId",
+    "method": "get",
+    "specPath": "/v1/conversations/artifacts/{artifactId}",
+    "expressPath": "/v1/conversations/artifacts/:artifactId",
+    "summary": "Consultar o status de um artefato conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_conversations_artifacts_artifactId_content",
+    "method": "get",
+    "specPath": "/v1/conversations/artifacts/{artifactId}/content",
+    "expressPath": "/v1/conversations/artifacts/:artifactId/content",
+    "summary": "Baixar o conteúdo binário de um artefato conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_conversations_feedback",
+    "method": "post",
+    "specPath": "/v1/conversations/feedback",
+    "expressPath": "/v1/conversations/feedback",
+    "summary": "Registrar feedback 👍/👎 de uma resposta da IA",
+    "tag": "Conversations",
+    "successStatus": 201
+  },
+  {
+    "key": "post_v1_conversations_turns",
+    "method": "post",
+    "specPath": "/v1/conversations/turns",
+    "expressPath": "/v1/conversations/turns",
+    "summary": "Executar um turno conversacional",
+    "tag": "Conversations",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_sicat_channel_links",
+    "method": "get",
+    "specPath": "/v1/sicat/channel-links",
+    "expressPath": "/v1/sicat/channel-links",
+    "summary": "Listar vínculos de canal do usuário autenticado",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_sicat_channel_links",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links",
+    "expressPath": "/v1/sicat/channel-links",
+    "summary": "Iniciar a vinculação de um telefone por OTP",
+    "tag": "SICAT Channel Links",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_sicat_channel_links_whatsapp_action_window",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "summary": "Abrir a janela de liberação de ações pelo WhatsApp",
+    "tag": "SICAT Channel Links",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_sicat_channel_links_whatsapp_action_window",
+    "method": "get",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window",
+    "summary": "Consultar a janela de liberação viva",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_whatsapp_action_window_windowId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/whatsapp/action-window/{windowId}",
+    "expressPath": "/v1/sicat/channel-links/whatsapp/action-window/:windowId",
+    "summary": "Revogar a janela de liberação agora",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "post_v1_sicat_channel_links_challenges_challengeId_resend",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}/resend",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId/resend",
+    "summary": "Reenviar o código do desafio",
+    "tag": "SICAT Channel Links",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_sicat_channel_links_challenges_challengeId_confirm",
+    "method": "post",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}/confirm",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId/confirm",
+    "summary": "Confirmar o código e gravar o vínculo",
+    "tag": "SICAT Channel Links",
+    "successStatus": 200
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_challenges_challengeId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/challenges/{challengeId}",
+    "expressPath": "/v1/sicat/channel-links/challenges/:challengeId",
+    "summary": "Cancelar o desafio vivo",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "delete_v1_sicat_channel_links_linkId",
+    "method": "delete",
+    "specPath": "/v1/sicat/channel-links/{linkId}",
+    "expressPath": "/v1/sicat/channel-links/:linkId",
+    "summary": "Desvincular um número",
+    "tag": "SICAT Channel Links",
+    "successStatus": 204
+  },
+  {
+    "key": "get_v1_channels_whatsapp_webhook",
+    "method": "get",
+    "specPath": "/v1/channels/whatsapp/webhook",
+    "expressPath": "/v1/channels/whatsapp/webhook",
+    "summary": "Desafio de verificação do webhook (Meta)",
+    "tag": "WhatsApp Channel",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_channels_whatsapp_webhook",
+    "method": "post",
+    "specPath": "/v1/channels/whatsapp/webhook",
+    "expressPath": "/v1/channels/whatsapp/webhook",
+    "summary": "Receber mensagens de entrada do WhatsApp",
+    "tag": "WhatsApp Channel",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras",
+    "method": "get",
+    "specPath": "/v1/transporte/regras",
+    "expressPath": "/v1/transporte/regras",
+    "summary": "Listar regras do catálogo regulatório de transporte",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras_code",
+    "method": "get",
+    "specPath": "/v1/transporte/regras/{code}",
+    "expressPath": "/v1/transporte/regras/:code",
+    "summary": "Detalhar regra do catálogo regulatório",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_regras_code_historico",
+    "method": "get",
+    "specPath": "/v1/transporte/regras/{code}/historico",
+    "expressPath": "/v1/transporte/regras/:code/historico",
+    "summary": "Histórico de versões de uma regra do catálogo",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_regras_code_versoes_versionLabel_promover",
+    "method": "post",
+    "specPath": "/v1/transporte/regras/{code}/versoes/{versionLabel}/promover",
+    "expressPath": "/v1/transporte/regras/:code/versoes/:versionLabel/promover",
+    "summary": "Promover (ou rebaixar) uma versão de regra a bloqueante",
+    "tag": "Transporte - Regras",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores",
+    "expressPath": "/v1/transporte/transportadores",
+    "summary": "Cadastrar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores",
+    "expressPath": "/v1/transporte/transportadores",
+    "summary": "Listar transportadores",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId",
+    "summary": "Consultar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_transportadores_partyId",
+    "method": "patch",
+    "specPath": "/v1/transporte/transportadores/{partyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId",
+    "summary": "Atualizar transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_verificar_rntrc",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/verificar-rntrc",
+    "expressPath": "/v1/transporte/transportadores/:partyId/verificar-rntrc",
+    "summary": "Solicitar verificação de regularidade RNTRC",
+    "tag": "Transporte - RNTRC",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_verificacoes_rntrc",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/verificacoes-rntrc",
+    "expressPath": "/v1/transporte/transportadores/:partyId/verificacoes-rntrc",
+    "summary": "Histórico paginado de verificações RNTRC do transportador",
+    "tag": "Transporte - RNTRC",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_veiculos",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/veiculos",
+    "expressPath": "/v1/transporte/transportadores/:partyId/veiculos",
+    "summary": "Vincular veículo a um transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_veiculos",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/veiculos",
+    "expressPath": "/v1/transporte/transportadores/:partyId/veiculos",
+    "summary": "Listar veículos vinculados a um transportador",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_veiculos",
+    "method": "post",
+    "specPath": "/v1/transporte/veiculos",
+    "expressPath": "/v1/transporte/veiculos",
+    "summary": "Cadastrar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_veiculos",
+    "method": "get",
+    "specPath": "/v1/transporte/veiculos",
+    "expressPath": "/v1/transporte/veiculos",
+    "summary": "Listar veículos",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_veiculos_vehicleId",
+    "method": "get",
+    "specPath": "/v1/transporte/veiculos/{vehicleId}",
+    "expressPath": "/v1/transporte/veiculos/:vehicleId",
+    "summary": "Consultar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_veiculos_vehicleId",
+    "method": "patch",
+    "specPath": "/v1/transporte/veiculos/{vehicleId}",
+    "expressPath": "/v1/transporte/veiculos/:vehicleId",
+    "summary": "Atualizar veículo",
+    "tag": "Transporte - Cadastros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes",
+    "expressPath": "/v1/transporte/operacoes",
+    "summary": "Criar operação de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_operacoes",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes",
+    "expressPath": "/v1/transporte/operacoes",
+    "summary": "Listar operações de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}",
+    "expressPath": "/v1/transporte/operacoes/:operationId",
+    "summary": "Consultar operação de transporte (agregado completo)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_operacoes_operationId",
+    "method": "patch",
+    "specPath": "/v1/transporte/operacoes/{operationId}",
+    "expressPath": "/v1/transporte/operacoes/:operationId",
+    "summary": "Atualizar dados da operação",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_submeter_validacao",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/submeter-validacao",
+    "expressPath": "/v1/transporte/operacoes/:operationId/submeter-validacao",
+    "summary": "Submeter operação para validação (draft → validating → ready_for_contract|blocked)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_contratar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/contratar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/contratar",
+    "summary": "Contratar operação (ready_for_contract → contracted)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_reabrir",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/reabrir",
+    "expressPath": "/v1/transporte/operacoes/:operationId/reabrir",
+    "summary": "Reabrir operação bloqueada (blocked → draft)",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/cancelar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/cancelar",
+    "summary": "Cancelar operação de transporte",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_validar_conformidade",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/validar-conformidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/validar-conformidade",
+    "summary": "Avaliar conformidade de UM gate (ad-hoc, sem transição)",
+    "tag": "Transporte - Conformidade",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_conformidade",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/conformidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/conformidade",
+    "summary": "Overview de conformidade da operação (última avaliação por gate)",
+    "tag": "Transporte - Conformidade",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_calcular_piso",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/calcular-piso",
+    "expressPath": "/v1/transporte/operacoes/:operationId/calcular-piso",
+    "summary": "Calcular e persistir o piso mínimo de frete (MODO SHADOW)",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_calculos_piso",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/calculos-piso",
+    "expressPath": "/v1/transporte/operacoes/:operationId/calculos-piso",
+    "summary": "Histórico paginado dos cálculos de piso da operação",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_piso_tabelas",
+    "method": "get",
+    "specPath": "/v1/transporte/piso/tabelas",
+    "expressPath": "/v1/transporte/piso/tabelas",
+    "summary": "Tabelas de piso carregadas (admin read-only)",
+    "tag": "Transporte - Piso Mínimo",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_pre_validar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/pre-validar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/pre-validar",
+    "summary": "Pré-validar o CIOT (síncrono, sem transição)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_solicitar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/solicitar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/solicitar",
+    "summary": "Solicitar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_retificar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/retificar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/retificar",
+    "summary": "Retificar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/cancelar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/cancelar",
+    "summary": "Cancelar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_ciot_encerrar",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot/encerrar",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot/encerrar",
+    "summary": "Encerrar CIOT (assíncrono)",
+    "tag": "Transporte - CIOT",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_ciot",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/ciot",
+    "expressPath": "/v1/transporte/operacoes/:operationId/ciot",
+    "summary": "Ciot atual + eventos paginados",
+    "tag": "Transporte - CIOT",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_avaliar_aplicabilidade",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/avaliar-aplicabilidade",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/avaliar-aplicabilidade",
+    "summary": "Avaliar aplicabilidade do VPO (síncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_registrar_aquisicao",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/registrar-aquisicao",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/registrar-aquisicao",
+    "summary": "Registrar aquisição MANUAL do VPO (síncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_vpo_adquirir",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo/adquirir",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo/adquirir",
+    "summary": "Adquirir VPO via provedor (assíncrono)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_vpo",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/vpo",
+    "expressPath": "/v1/transporte/operacoes/:operationId/vpo",
+    "summary": "Alocação de VPO atual + eventos paginados",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_vpo_fornecedoras",
+    "method": "get",
+    "specPath": "/v1/transporte/vpo/fornecedoras",
+    "expressPath": "/v1/transporte/vpo/fornecedoras",
+    "summary": "Fornecedoras de VPO habilitadas (cadastro configurável, read-only)",
+    "tag": "Transporte - Vale-Pedagio",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_importar",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/importar",
+    "expressPath": "/v1/transporte/documentos-fiscais/importar",
+    "summary": "Importar e validar um DF-e (NF-e/CT-e/MDF-e) — síncrono",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 201
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_vincular",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/vincular",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/vincular",
+    "summary": "Vincular um documento fiscal já importado a uma operação",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_desvincular",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/desvincular",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/desvincular",
+    "summary": "Desvincular um documento fiscal da operação atual",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_documentos_fiscais_documentId_revalidar",
+    "method": "post",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}/revalidar",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId/revalidar",
+    "summary": "Reprocessar a validação de um documento fiscal já importado",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_documentos_fiscais",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/documentos-fiscais",
+    "expressPath": "/v1/transporte/operacoes/:operationId/documentos-fiscais",
+    "summary": "Documentos fiscais vinculados a uma operação",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_documentos_fiscais_documentId",
+    "method": "get",
+    "specPath": "/v1/transporte/documentos-fiscais/{documentId}",
+    "expressPath": "/v1/transporte/documentos-fiscais/:documentId",
+    "summary": "Detalhe de um documento fiscal (issues + links)",
+    "tag": "Transporte - Documentos Fiscais",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_apolices",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices",
+    "summary": "Registrar apólice de seguro do transportador (evidência manual)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_apolices",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices",
+    "summary": "Listar apólices do transportador (com vigência derivada contra hoje)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_apolices_verificar",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/verificar",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/verificar",
+    "summary": "Verificar seguros do transportador via provider abstraído",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_transportadores_partyId_apolices_policyId",
+    "method": "patch",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/{policyId}",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/:policyId",
+    "summary": "Atualizar apólice (correções administrativas; locking otimista)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_transportadores_partyId_pgr",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/pgr",
+    "expressPath": "/v1/transporte/transportadores/:partyId/pgr",
+    "summary": "Registrar PGR do transportador (evidência manual)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_pgr",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/pgr",
+    "expressPath": "/v1/transporte/transportadores/:partyId/pgr",
+    "summary": "Listar PGRs do transportador",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_seguros_vencimentos",
+    "method": "get",
+    "specPath": "/v1/transporte/seguros/vencimentos",
+    "expressPath": "/v1/transporte/seguros/vencimentos",
+    "summary": "Alertas de vencimento de seguros (Centro Operacional)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_emissoes",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/emissoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/emissoes",
+    "summary": "Solicitar emissão de DF-e (assíncrono, sandbox-ready)",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_emissoes",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/emissoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/emissoes",
+    "summary": "Lista as emissões de DF-e da operação, com a trilha de eventos de cada uma",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_emissoes_issuanceId_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/emissoes/{issuanceId}/cancelar",
+    "expressPath": "/v1/transporte/emissoes/:issuanceId/cancelar",
+    "summary": "Cancelar emissão de DF-e (assíncrono, sandbox only)",
+    "tag": "Transporte - Emissao Fiscal",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_watch",
+    "method": "get",
+    "specPath": "/v1/transporte/watch",
+    "expressPath": "/v1/transporte/watch",
+    "summary": "Listar itens do Regulatory Watch",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_watch_itemId",
+    "method": "get",
+    "specPath": "/v1/transporte/watch/{itemId}",
+    "expressPath": "/v1/transporte/watch/:itemId",
+    "summary": "Detalhe de um item do Regulatory Watch (com trilha de eventos)",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_itemId_revisar",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/{itemId}/revisar",
+    "expressPath": "/v1/transporte/watch/:itemId/revisar",
+    "summary": "Revisar (aprovar/rejeitar) um item em human_review",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_itemId_aplicar",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/{itemId}/aplicar",
+    "expressPath": "/v1/transporte/watch/:itemId/aplicar",
+    "summary": "Aplicar um item aprovado — cria nova versão da regra (sempre não-bloqueante)",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_watch_verificar_agora",
+    "method": "post",
+    "specPath": "/v1/transporte/watch/verificar-agora",
+    "expressPath": "/v1/transporte/watch/verificar-agora",
+    "summary": "Disparar a varredura do Regulatory Watch sob demanda",
+    "tag": "Transporte - Regulatory Watch",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operations_overview",
+    "method": "get",
+    "specPath": "/v1/transporte/operations/overview",
+    "expressPath": "/v1/transporte/operations/overview",
+    "summary": "Centro Operacional da vertical Transporte — visão consolidada",
+    "tag": "Transporte - Operações",
+    "successStatus": 200
   }
 ];

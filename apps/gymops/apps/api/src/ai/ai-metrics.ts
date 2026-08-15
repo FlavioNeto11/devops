@@ -4,12 +4,24 @@
 // (9464) — NUNCA exposta pelo Traefik (o /gymops/api público não a alcança).
 import http from 'node:http';
 import promClient from 'prom-client';
-import { createAiMetrics } from '@flavioneto11/ai-core';
+import { createAiMetrics, type AiMetrics } from '@flavioneto11/ai-core';
 
-promClient.collectDefaultMetrics();
+// BUG-013: o vitest (pool forks + singleFork) re-avalia este módulo a cada arquivo
+// de teste no MESMO processo, mas o prom-client (node_modules, não isolado) mantém
+// o registry global — re-registrar lançava "metric already registered" e derrubava
+// a coleta da suite. Guard idempotente: registra só na primeira avaliação e cacheia
+// o objeto de métricas em globalThis; em produção o módulo é avaliado uma única
+// vez, então o comportamento de runtime é INALTERADO.
+const globalCache = globalThis as typeof globalThis & { __gymopsAiMetrics?: AiMetrics };
+
+if (!promClient.register.getSingleMetric('process_cpu_user_seconds_total')) {
+  promClient.collectDefaultMetrics();
+}
 
 /** Métricas ai_* (latência, tokens, custo, tools, erros, judge, escalation). */
-export const aiMetrics = createAiMetrics({ promClient, app: 'gymops' });
+export const aiMetrics: AiMetrics =
+  globalCache.__gymopsAiMetrics ??
+  (globalCache.__gymopsAiMetrics = createAiMetrics({ promClient, app: 'gymops' }));
 
 let server: http.Server | null = null;
 

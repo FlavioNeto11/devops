@@ -10,12 +10,16 @@ function hasDocument() {
   return typeof document !== 'undefined' && Boolean(document.documentElement);
 }
 
+// Nomes de tema do Vuetify: são do PRODUTO (`sicat`/`sicatDark`) — o Vuetify os
+// escreve no DOM como `class="v-theme--sicat"`. Os antigos `vuexy`/`vuexyDark`
+// (herança do template comprado) continuam ACEITOS na leitura para não quebrar
+// preferência já gravada no localStorage de quem usa o app.
 export function normalizeThemeMode(value) {
-  return value === THEME_DARK || value === 'vuexyDark' ? THEME_DARK : THEME_LIGHT;
+  return value === THEME_DARK || value === 'sicatDark' || value === 'vuexyDark' ? THEME_DARK : THEME_LIGHT;
 }
 
 export function toVuetifyThemeName(mode) {
-  return normalizeThemeMode(mode) === THEME_DARK ? 'vuexyDark' : 'vuexy';
+  return normalizeThemeMode(mode) === THEME_DARK ? 'sicatDark' : 'sicat';
 }
 
 export function fromVuetifyThemeName(themeName) {

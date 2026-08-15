@@ -1,5 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
+import { useNotification } from './composables/useNotification.js';
+import {
+  describeRequiredPersonas,
+  resolveActivePersona,
+  routeAllowsPersona
+} from './lib/persona-access.js';
+import {
+  ROUTE_DENIAL_REASONS,
+  buildRouteDenialNotice,
+  queueRouteDenialNotice,
+  takeRouteDenialNotice
+} from './lib/route-denial-notice.js';
+import { decideStaleBundleRecovery } from './lib/stale-bundle-recovery.js';
+import { TRANSPORTE_FEATURE_FLAG } from './lib/feature-flags.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
 import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
@@ -11,6 +25,7 @@ import ManifestCreateView from './views/ManifestCreateView.vue';
 import ManifestDetailView from './views/ManifestDetailView.vue';
 import JobsView from './views/JobsView.vue';
 import SessionAccountView from './views/SessionAccountView.vue';
+import WhatsAppLinkView from './views/WhatsAppLinkView.vue';
 import AccessAdminView from './views/AccessAdminView.vue';
 import ConversationalChatAppView from './views/ConversationalChatAppView.vue';
 import DmrListView from './views/dmr/DmrListView.vue';
@@ -27,9 +42,33 @@ import MtrReportsView from './modules/mtr-reports/MtrReportsView.vue';
 import CommandCenterView from './modules/command-center/CommandCenterView.vue';
 import CdfListView from './views/CdfListView.vue';
 import CdfCreateView from './views/CdfCreateView.vue';
+import TransporteOperacaoListView from './views/transporte/TransporteOperacaoListView.vue';
+import TransporteOperacaoDetailView from './views/transporte/TransporteOperacaoDetailView.vue';
+import TransporteRegrasView from './views/transporte/TransporteRegrasView.vue';
+import TransportePendenciasView from './views/transporte/TransportePendenciasView.vue';
+import TransporteTransportadoresListView from './views/transporte/TransporteTransportadoresListView.vue';
+import TransporteTransportadorDetailView from './views/transporte/TransporteTransportadorDetailView.vue';
+import TransporteVeiculosListView from './views/transporte/TransporteVeiculosListView.vue';
+import TransporteWatchListView from './views/transporte/TransporteWatchListView.vue';
+import TransporteWatchDetailView from './views/transporte/TransporteWatchDetailView.vue';
+import TransportePisoTabelasView from './views/transporte/TransportePisoTabelasView.vue';
+import NotFoundView from './views/NotFoundView.vue';
 
 // Destino inicial do admin/SRE (persona de sistema) — não exige conta CETESB.
 const ADMIN_HOME = '/operacao/dashboard';
+
+// Destino de fallback do operador quando uma rota é negada (permissão ou perfil).
+const OPERATOR_HOME = '/dashboard';
+
+// Feature flags por chave — `meta.featureFlag` nas rotas abaixo referencia esta
+// tabela (DL-103, vertical Transporte, Onda 1.5/PR-F1 — a primeira flag do
+// frontend; ver lib/feature-flags.js).
+const ROUTE_FEATURE_FLAGS = {
+  transporte: TRANSPORTE_FEATURE_FLAG
+};
+
+// Regras de perfil (persona) por rota: `lib/persona-access.js` — módulo PURO,
+// coberto por node:test (o guard abaixo não pode voltar a ficar sem teste).
 
 const routes = [
   {
@@ -86,7 +125,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['MTR', 'Relatórios']
+      breadcrumb: ['MTR', 'Relatórios de MTR']
     }
   },
   {
@@ -97,6 +136,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      // Emitir MTR é ação do Gerador (espelha config/navigation.js).
+      personas: ['generator'],
       breadcrumb: ['MTR', 'Emitir MTR']
     }
   },
@@ -123,7 +164,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Declarações']
+      breadcrumb: ['Resíduos · DMR', 'Declarações de resíduos']
     }
   },
   {
@@ -134,7 +175,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Pendentes']
+      breadcrumb: ['Resíduos · DMR', 'Declarações pendentes']
     }
   },
   {
@@ -145,7 +186,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Nova declaração']
+      breadcrumb: ['Resíduos · DMR', 'Nova declaração de resíduos']
     }
   },
   {
@@ -156,7 +197,7 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Resíduos · DMR', 'Detalhe']
+      breadcrumb: ['Resíduos · DMR', 'Detalhe da declaração']
     }
   },
   {
@@ -167,7 +208,9 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['MTR Provisório', 'Lista']
+      // MTR provisório (emergência) é fluxo do Gerador (espelha config/navigation.js).
+      personas: ['generator'],
+      breadcrumb: ['MTR provisório', 'Meus MTRs provisórios']
     }
   },
   {
@@ -178,7 +221,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['MTR Provisório', 'Novo']
+      personas: ['generator'],
+      breadcrumb: ['MTR provisório', 'Novo MTR provisório']
     }
   },
   {
@@ -189,7 +233,8 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['MTR Provisório', 'Detalhe']
+      personas: ['generator'],
+      breadcrumb: ['MTR provisório', 'Detalhe do MTR provisório']
     }
   },
   {
@@ -201,6 +246,23 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       breadcrumb: ['Minha sessão', 'Conta CETESB']
+    }
+  },
+  {
+    // Vincular o WhatsApp é configuração da CONTA SICAT, não operação CETESB:
+    // por isso `requiresActiveCetesbAccount: false`. Nenhum dos endpoints
+    // (/v1/sicat/channel-links) toca a CETESB — a identidade sai do Bearer. E,
+    // como o vínculo vira credencial de entrada pelo canal, exigir conta CETESB
+    // ativa colocaria a REVOGAÇÃO de um número (aparelho roubado, chip devolvido)
+    // atrás de um sistema externo cuja disponibilidade não controlamos.
+    path: '/perfil/canais',
+    name: 'PerfilCanais',
+    component: WhatsAppLinkView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: false,
+      audience: 'operator',
+      breadcrumb: ['Minha conta', 'WhatsApp do assistente']
     }
   },
   {
@@ -223,7 +285,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'admin',
-      breadcrumb: ['Administração', 'Acessos']
+      breadcrumb: ['Administração', 'Perfis e acessos']
     }
   },
   {
@@ -235,7 +297,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Visão geral']
+      breadcrumb: ['Sistema', 'Visão geral do sistema']
     }
   },
   {
@@ -263,7 +325,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Auditoria', 'Timeline']
+      breadcrumb: ['Sistema', 'Auditoria', 'Linha do tempo da auditoria']
     }
   },
   {
@@ -287,7 +349,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       requiresAdminAccess: true,
       audience: 'system',
-      breadcrumb: ['Sistema', 'Relatório MTR']
+      breadcrumb: ['Sistema', 'Relatórios de MTR (SRE)']
     }
   },
   {
@@ -337,7 +399,9 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
-      breadcrumb: ['Certificados · CDF', 'Emitidos']
+      // CDF é emitido pelo Destinador (espelha config/navigation.js).
+      personas: ['receiver'],
+      breadcrumb: ['Certificados · CDF', 'Certificados emitidos']
     }
   },
   {
@@ -348,7 +412,146 @@ const routes = [
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: true,
       audience: 'operator',
+      personas: ['receiver'],
       breadcrumb: ['Certificados · CDF', 'Gerar CDF']
+    }
+  },
+  {
+    // Vertical NOVA (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) —
+    // bounded context separado do MTR ambiental. SEM `personas`: o backend de
+    // Transporte não usa `accountType` (generator/carrier/receiver) do MTR
+    // ambiental — é uma vertical de OPERADOR genérica, sem perfil exclusivo
+    // nesta fase (declarar `personas: ['carrier']` aqui seria inventar uma
+    // semântica que a conta CETESB ativa não carrega). `requiresActiveCetesbAccount:
+    // true` porque a tenancy do backend (`integrationAccountId`) hoje só é
+    // resolvida no frontend via a conta CETESB ativa (`authStore.integrationAccountId`)
+    // — não existe, nesta fase, uma segunda tela de seleção de "conta de
+    // transporte" independente.
+    path: '/transporte/operacoes',
+    name: 'TransporteOperacaoList',
+    component: TransporteOperacaoListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Operações']
+    }
+  },
+  {
+    path: '/transporte/operacoes/:operationId',
+    name: 'TransporteOperacaoDetalhe',
+    component: TransporteOperacaoDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe da operação']
+    }
+  },
+  {
+    path: '/transporte/regras',
+    name: 'TransporteRegras',
+    component: TransporteRegrasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Regras regulatórias']
+    }
+  },
+  {
+    // PR-H2 (frontend completo) — mesma vertical, mesma flag, mesmas regras
+    // de tenancy/persona do bloco acima (PR-F1). Cadastros ANTES de
+    // Pendências/Watch/Piso por serem os recursos mais referenciados
+    // (operações/vínculos apontam para transportadores/veículos).
+    path: '/transporte/pendencias',
+    name: 'TransportePendencias',
+    component: TransportePendenciasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Pendências']
+    }
+  },
+  {
+    path: '/transporte/transportadores',
+    name: 'TransporteTransportadorList',
+    component: TransporteTransportadoresListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Transportadores']
+    }
+  },
+  {
+    path: '/transporte/transportadores/:partyId',
+    name: 'TransporteTransportadorDetalhe',
+    component: TransporteTransportadorDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe do transportador']
+    }
+  },
+  {
+    path: '/transporte/veiculos',
+    name: 'TransporteVeiculoList',
+    component: TransporteVeiculosListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Veículos']
+    }
+  },
+  {
+    // Regulatory Watch é GLOBAL no backend (sem tenancy — mesmo racional do
+    // catálogo de regras), mas a TELA continua atrás de
+    // `requiresActiveCetesbAccount` como o resto da vertical: é a mesma
+    // convenção do grupo (PR-F1 já documentava isto para /transporte/regras).
+    path: '/transporte/watch',
+    name: 'TransporteWatchList',
+    component: TransporteWatchListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Watch regulatório']
+    }
+  },
+  {
+    path: '/transporte/watch/:itemId',
+    name: 'TransporteWatchDetalhe',
+    component: TransporteWatchDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Detalhe do item de Watch']
+    }
+  },
+  {
+    path: '/transporte/piso/tabelas',
+    name: 'TransportePisoTabelas',
+    component: TransportePisoTabelasView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      breadcrumb: ['Transporte', 'Tabelas de piso']
     }
   },
   {
@@ -358,8 +561,26 @@ const routes = [
     meta: {
       requiresSicatAuth: true,
       requiresActiveCetesbAccount: false,
+      requiresAdminAccess: true,
       audience: 'system',
       breadcrumb: ['Dev', 'Componentes Sicat']
+    }
+  },
+  {
+    // Catch-all: URL desconhecida vira 404 DE VERDADE (título próprio,
+    // explicação e caminho de volta) em vez de um card genérico do shell.
+    // Precisa ser a ÚLTIMA rota. Sem `requiresSicatAuth` para não transformar
+    // um endereço errado em "sessão expirada"; quem está logado vê o 404 dentro
+    // do shell (com o menu como saída), quem não está vê a versão pública.
+    path: '/:pathMatch(.*)*',
+    name: 'NaoEncontrado',
+    component: NotFoundView,
+    meta: {
+      requiresSicatAuth: false,
+      // A view é o próprio cabeçalho; o header genérico do shell repetiria o
+      // título e ainda descreveria a tela como se fosse uma tela de operação.
+      hidePageHeader: true,
+      breadcrumb: ['Página não encontrada']
     }
   }
 ];
@@ -442,6 +663,18 @@ router.beforeEach(async (to, from, next) => {
   // não acessa telas de operador (audience 'operator') — é redirecionado ao Sistema.
   if (hasSicatAuth && isAdmin) {
     if (to.path === '/login/cetesb' || to.meta.audience === 'operator') {
+      // Este redirect era o ÚNICO silencioso que sobrou: mandava o admin/SRE para
+      // a visão de Sistema sem enfileirar nada (o `return` acontece antes das duas
+      // razões abaixo). A seleção de conta CETESB continua muda de propósito — ali
+      // o admin não "perdeu" tela nenhuma, ele simplesmente não usa esse fluxo.
+      if (to.meta.audience === 'operator') {
+        queueRouteDenialNotice(buildRouteDenialNotice({
+          reason: ROUTE_DENIAL_REASONS.AUDIENCE,
+          deniedPath: to.path,
+          redirectTo: ADMIN_HOME
+        }));
+      }
+
       next(ADMIN_HOME);
       return;
     }
@@ -460,15 +693,47 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAdminAccess) {
     const hasAdminAccess = await ensureAdminRouteAccess(authStore);
     if (!hasAdminAccess) {
-      next({
-        path: '/dashboard',
-        query: {
-          notice: 'admin-access-denied',
-          deniedRoute: String(to.fullPath || to.path || '/admin/acessos')
-        }
-      });
+      // O aviso é genérico de propósito: o path negado não vai para a URL nem
+      // para a tela, para não expor o mapa de rotas internas a quem não tem acesso.
+      // Ele é ENFILEIRADO aqui e emitido no afterEach (ver lib/route-denial-notice.js):
+      // emitir agora fazia o toast nascer e expirar enquanto a tela de destino
+      // ainda carregava — o redirect parecia silencioso.
+      queueRouteDenialNotice(buildRouteDenialNotice({
+        reason: ROUTE_DENIAL_REASONS.ADMIN,
+        deniedPath: to.path,
+        redirectTo: OPERATOR_HOME
+      }));
+      next(OPERATOR_HOME);
       return;
     }
+  }
+
+  // Vertical atrás de feature flag (ex.: Transporte — DL-103/PR-F1): flag
+  // desligada bloqueia também por URL direta, não só oculta no menu
+  // (`config/navigation.js` já esconde o grupo — este guard é o cinto de
+  // segurança para quem digita/salva a URL).
+  if (to.meta.featureFlag && !ROUTE_FEATURE_FLAGS[to.meta.featureFlag]) {
+    queueRouteDenialNotice(buildRouteDenialNotice({
+      reason: ROUTE_DENIAL_REASONS.FEATURE_FLAG,
+      deniedPath: to.path,
+      redirectTo: OPERATOR_HOME
+    }));
+    next(OPERATOR_HOME);
+    return;
+  }
+
+  // Perfil da conta CETESB ativa (Gerador/Transportador/Destinador): telas
+  // exclusivas de um perfil ficam bloqueadas também por URL direta, e não só
+  // ocultas no menu.
+  if (!routeAllowsPersona(to, resolveActivePersona(authStore))) {
+    queueRouteDenialNotice(buildRouteDenialNotice({
+      reason: ROUTE_DENIAL_REASONS.PERSONA,
+      deniedPath: to.path,
+      requiredPersonas: describeRequiredPersonas(to),
+      redirectTo: OPERATOR_HOME
+    }));
+    next(OPERATOR_HOME);
+    return;
   }
 
   next();
@@ -480,6 +745,119 @@ router.afterEach((to) => {
   const crumbs = Array.isArray(to.meta?.breadcrumb) ? to.meta.breadcrumb : null;
   const page = crumbs?.length ? crumbs[crumbs.length - 1] : (typeof to.name === 'string' ? to.name : '');
   document.title = page && page !== 'Início' ? `${page} · SICAT` : 'SICAT — Transporte de Resíduos CETESB-SP';
+
+  // Rota negada: o aviso enfileirado pelo guard só é EMITIDO agora, com a
+  // navegação já concluída e o host de notificação montado. Emitir dentro do
+  // beforeEach fazia o toast começar a contar o tempo de vida enquanto o
+  // destino ainda carregava — e o redirect chegava mudo ao operador.
+  const denialNotice = takeRouteDenialNotice(to.path, Date.now());
+  if (denialNotice) {
+    // Emissão SÍNCRONA: a fila de toasts é estado de módulo (useNotification) e o
+    // host (<SicatSnackbar/>) fica na raiz do App — ele não é desmontado na troca
+    // de rota, então o aviso empilhado aqui é renderizado assim que a tela pinta.
+    // Adiar por nextTick só acrescentava um elo que podia se perder.
+    useNotification().warning(denialNotice.message, {
+      detail: denialNotice.detail,
+      timeout: denialNotice.timeout
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Recuperação de sessão presa em bundle antigo (ver lib/stale-bundle-recovery.js).
+// ---------------------------------------------------------------------------
+
+const STALE_BUNDLE_STORAGE_KEY = 'sicat:stale-bundle-reload-at';
+
+function readLastStaleBundleReloadAt() {
+  try {
+    return Number(globalThis.sessionStorage?.getItem(STALE_BUNDLE_STORAGE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function rememberStaleBundleReload(at) {
+  try {
+    globalThis.sessionStorage?.setItem(STALE_BUNDLE_STORAGE_KEY, String(at));
+  } catch {
+    /* sessionStorage indisponível (modo restrito) — segue sem a trava persistida. */
+  }
+}
+
+/**
+ * Alvo do reload: quando a navegação para `to` falhou, a barra de endereço
+ * ainda mostra a tela ANTERIOR — recarregar direto levaria o operador de volta
+ * ao ponto errado. `router.resolve` devolve o href já com o base `/sicat/`.
+ */
+function resolveReloadHref(to) {
+  try {
+    return to ? router.resolve(to).href : '';
+  } catch {
+    return '';
+  }
+}
+
+function recoverFromStaleBundle(error, to) {
+  const decision = decideStaleBundleRecovery({
+    error,
+    lastReloadAt: readLastStaleBundleReloadAt(),
+    now: Date.now()
+  });
+
+  if (decision.action === 'ignore') {
+    return false;
+  }
+
+  const notify = useNotification();
+
+  if (decision.action === 'reload') {
+    rememberStaleBundleReload(Date.now());
+    // timeout 0: o aviso precisa estar visível no instante do reload.
+    notify.info(decision.message, { detail: decision.detail, timeout: 0 });
+
+    const href = resolveReloadHref(to);
+    // Pequeno atraso para o aviso pintar antes de a página ser trocada.
+    setTimeout(() => {
+      if (href) {
+        globalThis.location?.assign(href);
+        return;
+      }
+      globalThis.location?.reload();
+    }, 400);
+
+    return true;
+  }
+
+  // Já recarregamos há pouco: recarregar de novo viraria laço. Damos a saída
+  // manual, explícita, em vez de deixar a tela travada sem explicação.
+  notify.error(decision.message, {
+    detail: decision.detail,
+    actionLabel: decision.actionLabel,
+    onAction: () => {
+      rememberStaleBundleReload(Date.now());
+      globalThis.location?.reload();
+    }
+  });
+
+  return true;
+}
+
+router.onError((error, to) => {
+  if (recoverFromStaleBundle(error, to)) {
+    return;
+  }
+
+  console.error('[router] navegação falhou', error);
+});
+
+// Falha de PRELOAD de chunk/CSS não passa pelo router.onError — o Vite emite
+// este evento na window. Mesmo tratamento (é o mesmo sintoma).
+globalThis.addEventListener?.('vite:preloadError', (event) => {
+  const handled = recoverFromStaleBundle(event?.payload || event, null);
+  if (handled) {
+    event?.preventDefault?.();
+  }
 });
 
 export default router;

@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ActivityCard } from '@/components/activities/ActivityCard';
 import { ActivityDrawer } from '@/components/activities/ActivityDrawer';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 import { useTutorialStore } from '@/features/tutorial';
 import { cn } from '@/lib/utils';
@@ -77,7 +78,7 @@ export default function MyActivitiesPage() {
   const run = useTutorialStore((s) => s.run);
   const isTutorialMyActivities = run?.tutorialId === 'my-activities';
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['my-activities', activeTab, organizationId],
     queryFn: () =>
       api.get<ApiResponse<ActivityListItem[]>>(
@@ -114,14 +115,20 @@ export default function MyActivitiesPage() {
         <TutorialTrigger tutorialId="my-activities" />
       </div>
 
-      {/* Tabs — scrollable on mobile */}
+      {/* Tabs — scrollable on mobile. role=tablist/tab + aria-selected para o
+          leitor de tela anunciar a aba ativa (UX-GYMOPS-023). */}
       <div className="overflow-x-auto" data-tutorial="me-tabs">
-      <div className="flex min-w-max gap-1 rounded-lg border bg-muted/50 p-1 md:min-w-0">
+      <div className="flex min-w-max gap-1 rounded-lg border bg-muted/50 p-1 md:min-w-0" role="tablist" aria-label="Filtrar minhas atividades">
         {TABS.map((tab) => {
           const count = counts?.[tab.countKey] ?? 0;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              id={`me-tab-${tab.id}`}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="me-tabpanel"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 'flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap md:flex-1',
@@ -149,8 +156,20 @@ export default function MyActivitiesPage() {
       </div>
       </div>
 
-      {/* Activities */}
-      {isLoading ? (
+      {/* Activities — erro só substitui o conteúdo quando não há dados; com dados stale, banner acima.
+          Região anunciada como tabpanel da aba ativa (UX-GYMOPS-023). */}
+      <div id="me-tabpanel" role="tabpanel" aria-labelledby={`me-tab-${activeTab}`}>
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
@@ -178,6 +197,7 @@ export default function MyActivitiesPage() {
           ))}
         </div>
       )}
+      </div>
 
       {selectedActivityId && (
         <ActivityDrawer

@@ -1,0 +1,49 @@
+id: REQ-SICAT-0023
+slug: req-sicat-0023
+title: "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável"
+type: business-rule
+status: proposed
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  Quando a operação estiver juridicamente sujeita ao piso mínimo, o sistema deve impedir a
+  publicação/oferta (GATE_PROPOSAL — regra TR-PMF-002) e a contratação (GATE_CONTRACT — regra
+  TR-PMF-003) com valor inferior ao piso vigente na data, registrando a decisão com base legal,
+  versão da regra e evidência de cálculo; a validação ocorre antes da oferta, não apenas na
+  liberação do transporte.
+business_rationale: >-
+  A Lei 15.485/2026 sujeita às sanções do piso também quem anuncia, oferta, publica ou intermedeia
+  frete abaixo do mínimo — incluindo plataformas digitais; o gate precisa agir antes da publicação
+  (baseline deep-research 2026-08-13, "Conclusão executiva"). Promoção a bloqueante segue o rito:
+  legal review resolvido + fixtures antes/depois + canário em WARN em produção.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: critical
+architectural_significance: false
+risk_tags: [legal-review-required]
+acceptance_criteria:
+  - "TR-PMF-002/003 só passam a blocking=true após pendência P3 do guia resolvida (revisão jurídica das tabelas vigentes) e período de canário em WARN."
+  - "Bloqueio responde com reasonCode, valor mínimo calculado, valor ofertado e referência do snapshot de cálculo."
+  - "Operações não sujeitas ao piso registram NOT_APPLICABLE com justificativa de aplicabilidade evidenciada."
+verification_method: [test-integration, monitoring, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0022
+  - type: refines
+    target: REQ-SICAT-0019
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase B)
+allocation:
+  service_refs:
+    - svc-sicat-api

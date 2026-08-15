@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { DelayAnalysisModal } from '@/components/ai/DelayAnalysisModal';
 import { TutorialTrigger } from '@/features/tutorial';
 import Link from 'next/link';
@@ -42,9 +43,11 @@ function KpiCard({
 }: {
   icon: React.ElementType;
   label: string;
-  value: number;
+  /** Número real ou '—' quando os dados não puderam ser carregados. */
+  value: number | '—';
   variant?: 'default' | 'danger' | 'warning';
 }) {
+  const positive = typeof value === 'number' && value > 0;
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
@@ -55,9 +58,9 @@ function KpiCard({
         <div>
           <p
             className={`text-2xl font-semibold tracking-tight ${
-              variant === 'danger' && value > 0
+              variant === 'danger' && positive
                 ? 'text-red-600 dark:text-red-400'
-                : variant === 'warning' && value > 0
+                : variant === 'warning' && positive
                   ? 'text-amber-600 dark:text-amber-400'
                   : ''
             }`}
@@ -92,6 +95,40 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     : <ChevronDown className="inline h-3.5 w-3.5 ml-0.5" />;
 }
 
+/**
+ * Cabeçalho ordenável: o clique fica num <button> real (operável por Tab +
+ * Enter/Espaço), enquanto o aria-sort continua no <th> — antes o onClick no
+ * <th> só respondia ao mouse, quebrando a promessa do aria-sort (UX-GYMOPS-010).
+ */
+function SortableTh({
+  col, label, sortCol, sortDir, onSort, align = 'left',
+}: {
+  col: SortCol;
+  label: string;
+  sortCol: SortCol;
+  sortDir: 'asc' | 'desc';
+  onSort: (col: SortCol) => void;
+  align?: 'left' | 'center';
+}) {
+  const active = sortCol === col;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+      className={`p-0 font-medium text-muted-foreground ${active ? 'text-foreground' : ''}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={`flex w-full select-none items-center gap-0.5 px-4 py-3 font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${align === 'center' ? 'justify-center' : 'justify-start'}`}
+      >
+        {label}
+        <SortIcon active={active} dir={sortDir} />
+      </button>
+    </th>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const organizationId = useAuthStore((s) => s.organizationId);
@@ -115,7 +152,7 @@ export default function DashboardPage() {
   });
   const overdueActivities: ActivityListItem[] = overdueData?.data ?? [];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-overview', organizationId],
     queryFn: () =>
       api.get<ApiResponse<DashboardOverview>>(
@@ -145,9 +182,6 @@ export default function DashboardPage() {
     return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
   });
 
-  const thCls = (col: SortCol) =>
-    `cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground transition-colors ${sortCol === col ? 'text-foreground' : ''}`;
-
   return (
     <div className="p-3 md:p-6 space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -160,6 +194,16 @@ export default function DashboardPage() {
         <TutorialTrigger tutorialId="dashboard-overview" />
       </div>
 
+      {/* Falha ao carregar: banner explícito em vez de painel "zerado e saudável".
+          Com dados stale presentes, o banner avisa sem esconder o conteúdo. */}
+      {isError && (
+        <QueryErrorState
+          title={overview ? 'Não foi possível atualizar' : undefined}
+          description={overview ? 'Exibindo os últimos dados carregados.' : undefined}
+          onRetry={() => refetch()}
+        />
+      )}
+
       {/* KPIs */}
       <div data-tutorial="dashboard-kpis" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading ? (
@@ -169,24 +213,24 @@ export default function DashboardPage() {
             <KpiCard
               icon={AlertTriangle}
               label="Unidades com atraso crítico"
-              value={overview?.kpis.unitsWithCriticalOverdue ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.unitsWithCriticalOverdue ?? 0}
               variant="danger"
             />
             <KpiCard
               icon={TrendingDown}
               label="Atividades atrasadas"
-              value={overview?.kpis.totalOverdue ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.totalOverdue ?? 0}
               variant="warning"
             />
             <KpiCard
               icon={Clock}
               label="Financeiro vencendo hoje"
-              value={overview?.kpis.financialDueToday ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.financialDueToday ?? 0}
             />
             <KpiCard
               icon={Wrench}
               label="Manutenções abertas"
-              value={overview?.kpis.maintenanceOpen ?? 0}
+              value={isError && !overview ? '—' : overview?.kpis.maintenanceOpen ?? 0}
             />
           </>
         )}
@@ -228,21 +272,11 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b bg-muted">
-                  <th scope="col" aria-sort={sortCol === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={thCls('name')} onClick={() => handleSort('name')}>
-                    Unidade <SortIcon active={sortCol === 'name'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'open' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('open')} text-center`} onClick={() => handleSort('open')}>
-                    Abertas <SortIcon active={sortCol === 'open'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'overdue' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('overdue')} text-center`} onClick={() => handleSort('overdue')}>
-                    Atrasadas <SortIcon active={sortCol === 'overdue'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'critical' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('critical')} text-center`} onClick={() => handleSort('critical')}>
-                    Críticas <SortIcon active={sortCol === 'critical'} dir={sortDir} />
-                  </th>
-                  <th scope="col" aria-sort={sortCol === 'unassigned' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('unassigned')} text-center`} onClick={() => handleSort('unassigned')}>
-                    Sem resp. <SortIcon active={sortCol === 'unassigned'} dir={sortDir} />
-                  </th>
+                  <SortableTh col="name" label="Unidade" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                  <SortableTh col="open" label="Abertas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="overdue" label="Atrasadas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="critical" label="Críticas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
+                  <SortableTh col="unassigned" label="Sem resp." sortCol={sortCol} sortDir={sortDir} onSort={handleSort} align="center" />
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -285,7 +319,7 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ))}
-                {sortedUnits.length === 0 && (
+                {sortedUnits.length === 0 && !(isError && !overview) && (
                   <tr>
                     <td colSpan={5} className="p-0">
                       <EmptyState
@@ -293,6 +327,13 @@ export default function DashboardPage() {
                         title="Nenhuma unidade encontrada"
                         description="Cadastre uma unidade para acompanhar a operação por aqui."
                       />
+                    </td>
+                  </tr>
+                )}
+                {sortedUnits.length === 0 && isError && !overview && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      Dados indisponíveis no momento.
                     </td>
                   </tr>
                 )}

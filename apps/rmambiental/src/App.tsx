@@ -13,10 +13,14 @@ import { CmsEditProvider } from './lib/cmsEdit';
 function ScrollManager() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (hash) {
       const el = document.getElementById(hash.slice(1));
       if (el) {
-        const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 70);
+        const t = setTimeout(
+          () => el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }),
+          70,
+        );
         return () => clearTimeout(t);
       }
     }
@@ -31,8 +35,11 @@ export default function App() {
       <ContentProvider>
         <div className="relative min-h-screen bg-brand-bg">
           <ScrollManager />
+          <a href="#main-content" className="skip-link">
+            Pular para o conteúdo
+          </a>
           <Header />
-          <main>
+          <main id="main-content" tabIndex={-1}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/solucoes" element={<Solucoes />} />

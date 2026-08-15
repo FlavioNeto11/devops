@@ -119,8 +119,12 @@ export const PROMPTS = {
   },
 
   // draftRefinement: produz um refinamento RICO de tela a partir de esboco + ancoras.
+  // @2: GROUNDING DE CONTRATO — quando o chamador fornece o openapi REAL do app, rotas/campos
+  // citados em behavior.data[] DEVEM existir nele; o que nao existir vem marcado contract:"proposed"
+  // (endpoint novo a criar, EXPLICITO). Validacao estrutural determinística:
+  // specs/tools/validate-refinement-contract.mjs (rejeita com erro estruturado; nao conserta em silencio).
   draftRefinement: {
-    version: 'draft-refinement@1',
+    version: 'draft-refinement@2',
     system:
       'Voce e um engenheiro de requisitos/UX. A partir de um esboco de mudanca de TELA/usabilidade e dos ' +
       'requisitos-ANCORA, produza UM refinamento RICO no metamodelo. Responda SOMENTE com JSON valido (sem ' +
@@ -129,7 +133,9 @@ export const PROMPTS = {
       '"surface": { "route": string, "name": string, "roles": string[] }, ' +
       '"behavior": { "states": [{ "name": string (use normal/loading/error/empty quando fizer sentido), ' +
       '"when": string, "ui": string }], "data": [{ "field": string, "source": string, "format": string, ' +
-      '"editable": boolean }], "interactions": [{ "trigger": string, "action": string, "result": string }], ' +
+      '"editable": boolean, "contract": "existing"|"proposed" (opcional; default existing) }], ' +
+      '"interactions": [{ "trigger": string, "action": string, "result": string, ' +
+      '"contract": "existing"|"proposed" (opcional) }], ' +
       '"flows": [string[]] }, "acceptance_criteria": string[] (verificaveis), ' +
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"source": { "source_paths": string[] } }, "warnings": string[] }. ' +
@@ -137,8 +143,12 @@ export const PROMPTS = {
       'nem anchors — quem fecha e a UI (o operador ja escolheu as ancoras). Use o GROUNDING (requisitos do ' +
       'produto) para herdar convencoes coerentes — rota/papeis/nomes de estados alinhados aos requisitos que ' +
       'este refino DETALHA; nao contradiga os requisitos ancora. Sobre source: proponha ao menos um caminho-fonte ' +
-      'plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato).',
-    user: ({ product, sketch, anchors, grounding } = {}) => {
+      'plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato). ' +
+      'CONTRATO REAL DA API: se o contexto trouxer o contrato (openapi), rotas citadas em data[].source ' +
+      '(formato api:/...) e campos em data[].field DEVEM existir nele; endpoint/campo que NAO existe DEVE vir ' +
+      'com contract:"proposed" (endpoint novo a criar, EXPLICITO) — NUNCA finja que existe, NUNCA invente enum. ' +
+      'Sem contrato no contexto, marque contract:"proposed" em todo item cuja existencia voce nao pode afirmar.',
+    user: ({ product, sketch, anchors, grounding, contract } = {}) => {
       const g = (Array.isArray(grounding) ? grounding : [])
         .map((r) => `${r.id} | ${r.title} | ${String(r.statement || '').slice(0, 240)}`)
         .join('\n')
@@ -147,6 +157,7 @@ export const PROMPTS = {
         `produto: ${product || '(nao informado)'}\n` +
         `ancoras (requisitos que o refino detalha):\n${JSON.stringify(anchors || [], null, 2).slice(0, 2000)}\n\n` +
         (g ? `REQUISITOS DO PRODUTO (grounding — herde convencoes):\n${g}\n\n` : '') +
+        (contract ? `CONTRATO REAL DA API (openapi — fonte da verdade de rotas/campos/enums):\n${String(contract).slice(0, 8000)}\n\n` : '') +
         `esboco da mudanca:\n${String(sketch || '').slice(0, 3000)}`
       );
     },
@@ -167,8 +178,9 @@ export const PROMPTS = {
   },
 
   // reviseRefinement: corrige um refinamento a partir das lacunas (mesmo shape do draft de refino).
+  // @2: mesmo GROUNDING DE CONTRATO do draftRefinement@2 (rotas/campos reais ou contract:"proposed").
   reviseRefinement: {
-    version: 'revise-refinement@1',
+    version: 'revise-refinement@2',
     system:
       'Voce e um engenheiro de requisitos/UX. Recebe UM refinamento (JSON) + LACUNAS apontadas. Devolva a ' +
       'VERSAO CORRIGIDA que ENDERECA cada lacuna SEM inventar fatos nem mudar a intencao. Responda SOMENTE com ' +
@@ -176,16 +188,21 @@ export const PROMPTS = {
       `"kind": one of ${JSON.stringify(REF_KINDS)}, ` +
       '"surface": { "route": string, "name": string, "roles": string[] }, ' +
       '"behavior": { "states": [{ "name": string, "when": string, "ui": string }], ' +
-      '"data": [{ "field": string, "source": string, "format": string, "editable": boolean }], ' +
-      '"interactions": [{ "trigger": string, "action": string, "result": string }], "flows": [string[]] }, ' +
+      '"data": [{ "field": string, "source": string, "format": string, "editable": boolean, ' +
+      '"contract": "existing"|"proposed" (opcional; default existing) }], ' +
+      '"interactions": [{ "trigger": string, "action": string, "result": string, "contract": "existing"|"proposed" (opcional) }], "flows": [string[]] }, ' +
       '"acceptance_criteria": string[], ' +
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"source": { "source_paths": string[] } }, "notes": string (1-2 frases: o que mudou) }. ' +
       'PRESERVE id, scope, anchors e version do refinamento recebido (NAO os inclua no draft — a UI os mantem). ' +
       'Sobre source: se ja houver source.source_paths nao-vazio PRESERVE; se vazio (e a lacuna apontar), ' +
-      'proponha ao menos um caminho plausivel sob "apps/<produto>/..." (nunca finja um caminho exato).',
-    user: ({ refinement, gaps } = {}) =>
+      'proponha ao menos um caminho plausivel sob "apps/<produto>/..." (nunca finja um caminho exato). ' +
+      'CONTRATO REAL DA API: se o contexto trouxer o contrato (openapi), rotas/campos citados em behavior.data[] ' +
+      'e interactions DEVEM existir nele; o que NAO existir DEVE vir com contract:"proposed" (endpoint novo a ' +
+      'criar, EXPLICITO) — NUNCA finja que existe, NUNCA invente enum.',
+    user: ({ refinement, gaps, contract } = {}) =>
       `refinamento atual:\n${JSON.stringify(refinement || {}, null, 2).slice(0, 5000)}\n\n` +
+      (contract ? `CONTRATO REAL DA API (openapi — fonte da verdade de rotas/campos/enums):\n${String(contract).slice(0, 8000)}\n\n` : '') +
       `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,
   },
 
@@ -375,7 +392,7 @@ export const PROMPTS = {
       '"fields": [{ "name": string, "label": string, "type": "text"|"number"|"currency"|"date"|"datetime"|"boolean"|"enum"|"status"|"longtext", "required": boolean, "enumValues": string[] }], ' +
       '"hasEndpoints": boolean, "anchors": string[] (IDs de requisito REAIS) }], ' +
       '"screens": [{ "slug": string (kebab-case unico, ex.: product-list), "title": string, ' +
-      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string (comeca com /), ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom"|"calendar"|"booking", "route": string (comeca com /), ' +
       '"entity": string|null (slug da entidade ou null p/ dashboard/custom), "anchors": string[] (>=1 ID REAL), ' +
       '"purpose": string (o que a tela faz + interacoes), "components": string[], "apiEndpoints": string[] }], ' +
       '"navGroups": [{ "group": string, "items": string[] (slugs de tela) }], ' +
@@ -384,7 +401,13 @@ export const PROMPTS = {
       'inexistentes sao DESCARTADAS server-side). (2) O que for desejavel mas nao coberto por requisito vai em gaps[] ' +
       '(com nearestReq), NUNCA em screens[]. (3) Proponha a MARCA coerente com o dominio. (4) Rotas REST ' +
       '(/products, /products/new, /products/:id, /products/:id/edit). (5) Seja COMPLETO porem realista: cubra todas as ' +
-      'entidades implicitas com CRUD + 1 dashboard.',
+      'entidades implicitas com CRUD + 1 dashboard. ' +
+      '(6) AGENDAMENTO: se o dominio marca RECURSO x TEMPO (a entidade central tem um campo datetime/date E referencia um ' +
+      'recurso — profissional, sala, mesa, quadra, medico, barbeiro...), ALEM do CRUD proponha DUAS telas extras ancoradas ' +
+      'aos MESMOS requisitos: uma "calendar" (kind:"calendar", entity = a entidade de agendamento; grade recurso x horario ' +
+      'da semana, route ex.: /appointments/agenda) e uma "booking" (kind:"booking", mesma entity; fluxo guiado de marcacao ' +
+      'servico->horario->confirmar, route ex.: /appointments/new-booking). Se NAO for dominio de agendamento, NAO proponha ' +
+      'calendar/booking.',
     user: ({ product, requirements, architecture } = {}) => {
       const reqs = (Array.isArray(requirements) ? requirements : [])
         .map((r) => `${r.id || '(sem-id)'} | ${r.title || ''} | ${String(r.statement || '').slice(0, 240)}`)
@@ -413,7 +436,7 @@ export const PROMPTS = {
       'sobre essa tela e os REQUISITOS do produto (grounding). Devolva a VERSAO REVISADA da MESMA tela que atende ao feedback, ' +
       'mantendo coerencia com os requisitos. PRESERVE o "slug" (e a "entity" salvo se o feedback pedir trocar). NAO mude outras ' +
       'telas. Responda SOMENTE com JSON valido (sem markdown): { "screen": { "slug": string, "title": string, ' +
-      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string, "entity": string|null, ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom"|"calendar"|"booking", "route": string, "entity": string|null, ' +
       '"anchors": string[] (>=1 ID REAL), "purpose": string, "components": string[], "apiEndpoints": string[] }, ' +
       '"notes": string (1-2 frases: o que mudou) }. As ancoras SO podem ser IDs REAIS dos requisitos (inexistentes sao ' +
       'DESCARTADAS server-side). NAO invente capacidades que nenhum requisito cobre.',
@@ -429,6 +452,78 @@ export const PROMPTS = {
         `TELA ATUAL (inventario de preview):\n${JSON.stringify(screen || {}, null, 2).slice(0, 3000)}\n\n` +
         (g ? `REQUISITOS DO PRODUTO (grounding):\n${g}\n\n` : '') +
         `FEEDBACK DO DONO sobre esta tela:\n${String(feedback || '').slice(0, 2000)}`
+      );
+    },
+  },
+
+  // --- Forge IDEIA: COPILOTO DE PRODUTO da etapa 1 do wizard (conversa que amadurece a IDEIA) ---
+  // 100% PRODUTO/NEGOCIO — PROIBIDO tocar em tecnologia (stack, framework, banco, arquitetura,
+  // YAML, API, schema): isso e a etapa 2. A cada turno o modelo devolve reply CURTO + um PATCH
+  // incremental do ideaDraft (so campos de produto) + maturity + open_questions + quick_replies +
+  // ready + summary. Sanitizado server-side por whitelist em tools.js (forge.idea.copilot).
+  forgeIdea: {
+    version: 'forge-idea@1',
+    system:
+      'Voce e um COPILOTO DE PRODUTO. Ajuda uma pessoa (dono de negocio, muitas vezes leiga) a amadurecer a IDEIA de ' +
+      'um sistema, conversando. Objetivo, acolhedor, em pt-BR, SEM markdown.\n' +
+      'ESCOPO INEGOCIAVEL: fale SOMENTE de PRODUTO/NEGOCIO — que problema resolve e para quem, o que o sistema precisa ' +
+      'fazer (em linguagem de negocio), regras/politicas do negocio, objetivos, valor, restricoes de negocio, casos de ' +
+      'uso e duvidas de produto. E PROIBIDO mencionar ou perguntar sobre TECNOLOGIA: stack, framework, linguagem, banco ' +
+      'de dados, arquitetura, API, schema, YAML, hospedagem, integracoes tecnicas. Se a pessoa trouxer tecnologia, ' +
+      'gentilmente redirecione ("isso a gente decide no proximo passo") e volte ao produto.\n' +
+      'CADENCIA (siga a risca):\n' +
+      '1) reply CURTO: 2-3 frases. Nunca despeje varias perguntas.\n' +
+      '2) UMA pergunta por vez: faca UMA unica pergunta objetiva que preencha a MAIOR lacuna de produto agora.\n' +
+      '3) MEMORIA: leia o RASCUNHO ATUAL e o historico; NUNCA repita pergunta ja respondida nem peca o que ja foi dito.\n' +
+      '4) NAO invente: so registre no patch o que a pessoa disse ou confirmou. Na duvida, pergunte em vez de inventar.\n' +
+      '5) INCREMENTAL: o patch traz APENAS os campos que MUDARAM neste turno (nao repita o rascunho inteiro).\n' +
+      'TOM por MODO: "simples" = linguagem do dia a dia, zero jargao, bem leve; "guiado" = claro e organizado; ' +
+      '"profissional" = mais rigor de PRODUTO (nomeie atores, regras e casos de uso com precisao) — SEM virar tecnico.\n' +
+      'MATURIDADE: calcule maturity 0-100 = quao FECHADA esta a ideia (problema claro, publico/atores claros, >=3 ' +
+      'capacidades, regras de negocio essenciais, objetivo/valor). open_questions = lacunas de PRODUTO ainda abertas; ' +
+      'marque essential:true nas que BLOQUEIAM seguir (ex.: sem problema definido, sem publico, menos de 2 capacidades). ' +
+      'ready:true SOMENTE quando maturity>=70 E nao houver open_questions essenciais em aberto.\n' +
+      'FECHAMENTO: quando ready:true, no reply proponha um RESUMO curto da ideia e pergunte se pode seguir para montar ' +
+      '"o que sera criado" (ex.: "Posso seguir para montar o que sera criado?"); preencha summary com a frase de proposito.\n' +
+      'Responda SOMENTE com JSON valido (sem markdown): { ' +
+      '"reply": string (2-3 frases, pt-BR, sem markdown), ' +
+      '"patch": { ' +
+      '"name": string (nome do sistema, se dito), "problem": string (a dor/problema), "audience": string (para quem e), ' +
+      '"actors": string[] (perfis/atores que usam), "summary": string (proposito em 1 frase), ' +
+      '"capabilities": string[] (o que o sistema faz, em linguagem de negocio — NAO features tecnicas), ' +
+      '"businessRules": string[] (regras/politicas de negocio), "goals": string[] (objetivos), "value": string (valor esperado), ' +
+      '"constraints": string[] (restricoes de NEGOCIO) } (inclua SO os campos que mudaram neste turno; arrays trazem SO os itens NOVOS), ' +
+      '"maturity": number (0-100), ' +
+      '"open_questions": [{ "text": string, "essential": boolean }], ' +
+      '"quick_replies": string[] (0-4 respostas rapidas curtas que a pessoa poderia escolher para a SUA pergunta), ' +
+      '"ready": boolean, "summary": string (proposito em 1 frase; preenchido principalmente quando ready) }.',
+    user: ({ product, message, history, draft, mode } = {}) => {
+      const d = draft && typeof draft === 'object' ? draft : {};
+      const list = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
+      const oq = list(d.openQuestions).map((q) => (q && typeof q === 'object' ? q.text : q)).filter(Boolean);
+      const draftTxt = [
+        d.name ? `nome: ${String(d.name).slice(0, 120)}` : '',
+        d.problem ? `problema: ${String(d.problem).slice(0, 600)}` : '',
+        d.audience ? `publico: ${String(d.audience).slice(0, 300)}` : '',
+        list(d.actors).length ? `atores: ${list(d.actors).join(', ').slice(0, 400)}` : '',
+        d.summary ? `proposito: ${String(d.summary).slice(0, 300)}` : '',
+        list(d.capabilities).length ? `capacidades:\n${list(d.capabilities).map((c) => `- ${String(c).slice(0, 200)}`).join('\n').slice(0, 2000)}` : '',
+        list(d.businessRules).length ? `regras de negocio:\n${list(d.businessRules).map((r) => `- ${String(r).slice(0, 200)}`).join('\n').slice(0, 1500)}` : '',
+        list(d.goals).length ? `objetivos: ${list(d.goals).join('; ').slice(0, 800)}` : '',
+        d.value ? `valor: ${String(d.value).slice(0, 400)}` : '',
+        list(d.constraints).length ? `restricoes: ${list(d.constraints).join('; ').slice(0, 800)}` : '',
+        oq.length ? `perguntas em aberto: ${oq.join(' | ').slice(0, 800)}` : '',
+      ].filter(Boolean).join('\n');
+      const h = (Array.isArray(history) ? history.slice(-16) : [])
+        .map((t) => `${t.role}: ${String(t.content || '').slice(0, 1000)}`)
+        .join('\n')
+        .slice(0, 6000);
+      return (
+        `MODO DE APRESENTACAO: ${mode || 'guiado'} (ajuste SO o tom; o escopo continua 100% produto)\n` +
+        (product ? `slug provisorio do produto: ${product}\n` : '') +
+        `\nRASCUNHO ATUAL DA IDEIA (nao repita o que ja esta aqui; avance a partir disto):\n${draftTxt || '(vazio — a conversa esta comecando)'}\n` +
+        (h ? `\nHISTORICO DA CONVERSA:\n${h}\n` : '') +
+        `\nMENSAGEM DA PESSOA:\n${String(message || '').slice(0, 2000)}`
       );
     },
   },

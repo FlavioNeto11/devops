@@ -474,7 +474,7 @@
             <UiButton variant="ghost" size="sm" to="/consultations">
               Consultas
             </UiButton>
-            <UiButton variant="ghost" size="sm" to="/reports">
+            <UiButton variant="ghost" size="sm" to="/patient-reports">
               Relatórios
             </UiButton>
           </div>

@@ -1,0 +1,8 @@
+{
+  "params": {
+    "code": "TR-CIOT-001"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_regras_historico"
+  }
+}

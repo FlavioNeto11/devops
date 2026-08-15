@@ -7,9 +7,16 @@
  *   - "Operação": sempre visível (operador parceiro).
  *   - "Sistema" e "Administração": só com canAccessAdmin (SRE/admin).
  *
- * Cada grupo: { id, label, icon, kind: 'direct' | 'group', module, items?, to? }
+ * Cada grupo: { id, label, icon, kind: 'direct' | 'group', module, items?, to?, hidden? }
  * Cada item:  { to, label, icon, description?, requiresAdminAccess?, hidden? }
+ *
+ * `hidden` no GRUPO (não só no item) existe por causa da vertical Transporte
+ * (DL-103, Onda 1.5/PR-F1): o grupo inteiro precisa sumir do menu quando
+ * `VITE_FEATURE_TRANSPORTE` está desligada — não faz sentido esconder item a
+ * item um grupo que só tem itens atrás da mesma flag.
  */
+
+import { TRANSPORTE_FEATURE_FLAG } from '../lib/feature-flags.js';
 
 export const NAVIGATION_MODULES = [
   { id: 'operacao', label: 'Operação' },
@@ -52,16 +59,20 @@ export const NAVIGATION_GROUPS = [
         personas: ['generator']
       },
       {
+        // Nomenclatura única do conceito (menu, breadcrumb, aba do navegador):
+        // "Relatórios de MTR".
         to: '/relatorios/mtrs',
-        label: 'Relatórios',
+        label: 'Relatórios de MTR',
         icon: 'mdi-chart-box-outline',
         description: 'Resumo dos seus manifestos'
       }
     ]
   },
   {
+    // Nomenclatura única do conceito (menu, breadcrumb, título e botão da tela):
+    // "MTR provisório" — é como a CETESB o chama e como o glossário registra.
     id: 'mtr-provisorio',
-    label: 'Manifesto de emergência',
+    label: 'MTR provisório',
     icon: 'mdi-file-clock-outline',
     kind: 'direct',
     module: 'operacao',
@@ -122,13 +133,88 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
-    id: 'conversacional',
-    label: 'Tirar dúvidas',
-    icon: 'mdi-chat-processing-outline',
-    kind: 'direct',
+    // Vertical NOVA (DL-103, programa "SICAT Transporte") — bounded context
+    // separado do MTR ambiental (não reaproveita `manifest`). Nasceu com dois
+    // itens na Onda 1.5/PR-F1 (Operações + Regras) e ganhou o resto no PR-H2
+    // (frontend completo): cadastros, pendências, Regulatory Watch e tabelas
+    // de piso. Atrás de VITE_FEATURE_TRANSPORTE (default desligada): `hidden`
+    // some com o grupo inteiro do menu até a flag ligar — ver
+    // `filterNavigationGroups`.
+    id: 'transporte',
+    label: 'Transporte',
+    icon: 'mdi-truck-outline',
+    kind: 'group',
     module: 'operacao',
-    to: '/conversacional/chat',
-    description: 'Pergunte ao assistente'
+    hidden: !TRANSPORTE_FEATURE_FLAG,
+    items: [
+      {
+        to: '/transporte/operacoes',
+        label: 'Operações',
+        icon: 'mdi-truck-fast-outline',
+        description: 'Acompanhar operações de transporte e a conformidade regulatória'
+      },
+      {
+        to: '/transporte/pendencias',
+        label: 'Pendências',
+        icon: 'mdi-clipboard-alert-outline',
+        description: 'Centro Operacional: compliance, CIOT, VPO, fiscal, seguros e RNTRC num só lugar'
+      },
+      {
+        to: '/transporte/transportadores',
+        label: 'Transportadores',
+        icon: 'mdi-account-hard-hat-outline',
+        description: 'Cadastro de transportadores, RNTRC, seguros e PGR'
+      },
+      {
+        to: '/transporte/veiculos',
+        label: 'Veículos',
+        icon: 'mdi-truck-outline',
+        description: 'Cadastro de veículos usados nas operações'
+      },
+      {
+        to: '/transporte/regras',
+        label: 'Regras regulatórias',
+        icon: 'mdi-gavel',
+        description: 'Consultar o catálogo de regras TR-* e sua vigência'
+      },
+      {
+        to: '/transporte/watch',
+        label: 'Watch regulatório',
+        icon: 'mdi-radar',
+        description: 'Fila de mudanças normativas detectadas em fontes monitoradas'
+      },
+      {
+        to: '/transporte/piso/tabelas',
+        label: 'Tabelas de piso',
+        icon: 'mdi-table',
+        description: 'Versões de tabela de piso mínimo de frete carregadas'
+      }
+    ]
+  },
+  {
+    // Nomenclatura única do conceito: "Assistente" (menu, aba do chat e o botão
+    // flutuante). O que ele faz fica na descrição, não em um segundo nome.
+    // Virou grupo na fase 02 de whatsapp-channel-sicat: o assistente passou a ter
+    // dois lugares — a conversa e o canal por onde ela chega.
+    id: 'conversacional',
+    label: 'Assistente',
+    icon: 'mdi-chat-processing-outline',
+    kind: 'group',
+    module: 'operacao',
+    items: [
+      {
+        to: '/conversacional/chat',
+        label: 'Conversar',
+        icon: 'mdi-chat-processing-outline',
+        description: 'Tire dúvidas e peça ajuda com a operação'
+      },
+      {
+        to: '/perfil/canais',
+        label: 'WhatsApp',
+        icon: 'mdi-whatsapp',
+        description: 'Vincule seu número para falar pelo WhatsApp'
+      }
+    ]
   },
   {
     id: 'sistema',
@@ -175,7 +261,7 @@ export const NAVIGATION_GROUPS = [
       },
       {
         to: '/operacao/relatorios/mtr',
-        label: 'Relatórios MTR (SRE)',
+        label: 'Relatórios de MTR (SRE)',
         icon: 'mdi-file-chart-outline',
         description: 'Relatório técnico de MTRs',
         requiresAdminAccess: true
@@ -238,6 +324,10 @@ export function filterNavigationGroups({ canAccessAdmin = false, accountType = '
   const type = String(accountType || '').toLowerCase();
   return NAVIGATION_GROUPS
     .map((group) => {
+      // Grupo inteiro atrás de feature flag (ex.: "Transporte" — DL-103/PR-F1).
+      if (group.hidden) {
+        return null;
+      }
       // Admin/SRE é persona de sistema: não enxerga o módulo "Operação" (telas de operador).
       if (canAccessAdmin && group.module === 'operacao') {
         return null;
@@ -305,7 +395,10 @@ export function flattenNavigation(groups) {
 /**
  * Rotas que correspondem a si mesmas e às suas subrotas (ex: detalhe).
  */
-const PREFIX_MATCH_PATHS = ['/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria'];
+const PREFIX_MATCH_PATHS = [
+  '/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria',
+  '/transporte/operacoes', '/transporte/transportadores', '/transporte/watch'
+];
 
 /**
  * Subrotas que possuem item de navegação próprio e, portanto, NÃO devem

@@ -19,8 +19,17 @@ que faltam) → **Telas** (um builder por tela + crítico adversarial + correç�
    - `scriptPath: "specs/forge/workflows/generate-ui.workflow.mjs"`
    - `args: { product, title, basePath, appDir: "apps/<app>", requirements: [{id,title,statement?}], contract: <texto do ui-kit-contract.md> }`
 3. O Workflow roda em background; ao terminar, leia o relatório (telas construídas, lacunas, verify).
-4. **Depois**: build das imagens (`docker build` frontend + api) + `kubectl apply` + rollout, e verifique
-   no navegador (screenshots). Commite e abra PR (gate `gpt-approved`).
+4. **Depois (regime branch+PR, Forja 4.1 F4 — decisão do operador)**: o motor NÃO commita na main
+   nem deploya. Na esteira (`.github/workflows/greenfield-ui.yml`), quem faz o git é o workflow: valida
+   o diff com `specs/tools/guard-worktree.mjs` (allowed_paths do produto + denylist), commita em branch
+   `forge-ui/<app>/r<run_id>` e abre PR rastreável (labels `claude-generated`+`forge-ui`); merge pelo
+   gate híbrido (`gpt-approved` + CI verde, clique final do operador) e deploy DEPOIS do merge via
+   `forge-deploy.yml -f product=<app>`. Rodando interativo, replique o regime: branch `forge-ui/<app>/rN`
+   + PR pelo mesmo gate (para validar visualmente antes do PR, use build/apply `:local` sabendo que o
+   Argo selfHeal reverte apply não-commitado).
+5. **PR gigante?** O motor projeta o inventário completo (precedente: 47 views no neuroevolui). Para
+   rodar POR PARTES, use o input `scope` do workflow (lista de REQ-IDs): só telas ancoradas neles entram
+   na rodada — o recorte é o próprio filtro anti-fabricação do motor (âncora fora da lista → descartada).
 
 ## Regras
 

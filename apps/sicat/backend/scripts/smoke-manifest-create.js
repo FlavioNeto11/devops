@@ -9,6 +9,22 @@ const repoRoot = path.resolve(__dirname, '..');
 const examplesDir = path.join(repoRoot, 'examples');
 const baseUrl = (process.env.SMOKE_BASE_URL || process.env.BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 
+/**
+ * `POST /v1/session-contexts` e `POST /v1/manifestos` exigem sessão SICAT desde o fechamento da
+ * superfície `/v1`. Exporte `SMOKE_ACCESS_TOKEN` (access token do `POST /v1/sicat/auth/login`).
+ */
+const accessToken = String(process.env.SMOKE_ACCESS_TOKEN || '').trim();
+
+function smokeHeaders(prefix) {
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'X-Correlation-Id': `${prefix}-${Date.now()}`,
+    'Idempotency-Key': `${prefix}-${Date.now()}`,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+  };
+}
+
 async function readJson(fileName) {
   const content = await fs.readFile(path.join(examplesDir, fileName), 'utf8');
   return JSON.parse(content);
@@ -18,12 +34,7 @@ async function ensureSessionContext() {
   const requestBody = await readJson('post_v1_session-contexts_request.json');
   const response = await fetch(`${baseUrl}/v1/session-contexts`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Correlation-Id': `smoke-session-${Date.now()}`,
-      'Idempotency-Key': `smoke-session-${Date.now()}`
-    },
+    headers: smokeHeaders('smoke-session'),
     body: JSON.stringify(requestBody)
   });
 
@@ -42,12 +53,7 @@ async function createManifest(sessionContextId) {
 
   const response = await fetch(`${baseUrl}/v1/manifestos`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Correlation-Id': `smoke-manifest-${Date.now()}`,
-      'Idempotency-Key': `smoke-manifest-${Date.now()}`
-    },
+    headers: smokeHeaders('smoke-manifest'),
     body: JSON.stringify(requestBody)
   });
 

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useInAppCopilot } from '../../composables/useInAppCopilot.js';
 import StructuredMessageContent from './StructuredMessageContent.vue';
 import ConversationResultRenderer from './ConversationResultRenderer.vue';
@@ -19,6 +20,7 @@ const {
   togglePanel,
   resetConversation,
   sendMessage,
+  cancelCurrent,
   sendFeedback,
   handleAction,
   downloadArtifact
@@ -26,9 +28,65 @@ const {
 
 const threadRef = ref(null);
 const composerRef = ref(null);
+const panelRef = ref(null);
 const panelLabelId = 'inapp-copilot-title';
 
-const launcherLabel = computed(() => (isOpen.value ? 'Fechar copiloto contextual' : 'Abrir copiloto contextual'));
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(', ');
+
+// WCAG 2.4.3: <dialog open> não cria focus trap nativo (só showModal() faz).
+// Contemos o ciclo de Tab dentro do painel para o foco não escapar para o
+// conteúdo sob o backdrop enquanto o copiloto está aberto.
+function getPanelFocusable() {
+  const root = panelRef.value;
+  if (!root || typeof root.querySelectorAll !== 'function') {
+    return [];
+  }
+  return Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    (el) => el instanceof globalThis.HTMLElement && el.offsetParent !== null
+  );
+}
+
+function handlePanelKeydown(event) {
+  if (event.key !== 'Tab') {
+    return;
+  }
+  const focusable = getPanelFocusable();
+  if (focusable.length === 0) {
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = globalThis.document?.activeElement || null;
+  const insidePanel = Boolean(active && panelRef.value?.contains(active));
+
+  if (event.shiftKey) {
+    if (!insidePanel || active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else if (!insidePanel || active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+const route = useRoute();
+
+// Na própria tela do assistente o lançador flutuante só atrapalha: ficava por
+// cima do botão "Enviar" do chat (achado 3.4 da auditoria) e ofereceria um
+// segundo caminho para a mesma conversa.
+const isAssistantRoute = computed(() => route.path === '/conversacional/chat');
+const showLauncher = computed(() => !isAssistantRoute.value);
+
+// Nomenclatura única do conceito: "Assistente" (menu, aba do chat e este FAB).
+const launcherLabel = computed(() => (isOpen.value ? 'Fechar o Assistente' : 'Abrir o Assistente'));
 const launcherTitle = computed(() => `${launcherLabel.value} · arraste para reposicionar`);
 const scopeBadgeTone = computed(() => (hasOperationalContext.value ? 'success' : 'warning'));
 const scopeBadgeLabel = computed(() => (hasOperationalContext.value ? 'Conta ativa pronta' : 'Contexto incompleto'));
@@ -206,6 +264,14 @@ watch(
   }
 );
 
+// Entrou na tela do assistente com o painel aberto: fecha o painel (a conversa
+// continua na página, sem dois canais concorrentes sobre a mesma tela).
+watch(isAssistantRoute, (onAssistantPage) => {
+  if (onAssistantPage && isOpen.value) {
+    closePanel();
+  }
+});
+
 watch(
   () => isOpen.value,
   async (opened) => {
@@ -232,33 +298,36 @@ onUnmounted(() => {
 
 <template>
   <div class="copilot-shell">
-    <v-btn
+    <button
+      v-if="showLauncher"
       ref="launcherRef"
+      type="button"
+      data-testid="copilot-launcher-btn"
       class="copilot-launcher"
       :class="{ 'copilot-launcher--dragging': dragState.active }"
       :style="launcherStyle"
-      color="primary"
-      size="large"
-      elevation="12"
       :aria-label="launcherLabel"
+      :aria-expanded="isOpen"
       :title="launcherTitle"
       @pointerdown="onLauncherPointerDown"
       @click="handleLauncherClick"
     >
-      <v-icon start>{{ isOpen ? 'mdi-close' : 'mdi-headset' }}</v-icon>
-      Copiloto
-    </v-btn>
+      <v-icon size="24" aria-hidden="true">{{ isOpen ? 'mdi-close' : 'mdi-headset' }}</v-icon>
+      <span class="copilot-launcher__label" aria-hidden="true">Assistente</span>
+    </button>
 
     <transition name="copilot-fade">
-      <button v-if="isOpen" class="copilot-backdrop" type="button" aria-label="Fechar painel do copiloto" @click="closePanel" />
+      <button v-if="isOpen" class="copilot-backdrop" type="button" aria-label="Fechar painel do assistente" @click="closePanel" />
     </transition>
 
     <transition name="copilot-panel-transition">
       <dialog
         v-if="isOpen"
+        ref="panelRef"
         open
         class="copilot-panel"
         :aria-labelledby="panelLabelId"
+        @keydown="handlePanelKeydown"
       >
         <header class="copilot-panel-header">
           <div class="copilot-panel-header-main">
@@ -283,14 +352,14 @@ onUnmounted(() => {
               icon="mdi-close"
               variant="text"
               density="compact"
-              aria-label="Fechar copiloto"
-              title="Fechar copiloto"
+              aria-label="Fechar assistente"
+              title="Fechar assistente"
               @click="closePanel"
             />
           </div>
         </header>
 
-        <section class="copilot-actions-strip" aria-label="Atalhos sugeridos do copiloto">
+        <section class="copilot-actions-strip" aria-label="Atalhos sugeridos do assistente">
           <button
             v-for="action in quickActions"
             :key="action.id"
@@ -311,7 +380,7 @@ onUnmounted(() => {
             :class="[`copilot-message-${message.role}`, `copilot-status-${message.status || 'ready'}`]"
           >
             <div class="copilot-message-meta">
-              {{ message.role === 'user' ? 'Você' : 'Copiloto' }}
+              {{ message.role === 'user' ? 'Você' : 'Assistente' }}
             </div>
 
             <div class="copilot-message-text">
@@ -391,8 +460,18 @@ onUnmounted(() => {
           />
 
           <div class="copilot-composer-footer">
-            <span class="copilot-composer-hint">Consulta contexto da rota atual, respeitando conta ativa e policy consultiva.</span>
-            <v-btn color="primary" :loading="isSubmitting" :disabled="!draft.trim()" type="submit">
+            <span class="copilot-composer-hint">Respostas geradas por IA podem conter erros — confira antes de agir. Usa o contexto da tela atual e a sua conta ativa.</span>
+            <v-btn
+              v-if="isSubmitting"
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-stop"
+              type="button"
+              @click="cancelCurrent"
+            >
+              Parar
+            </v-btn>
+            <v-btn v-else color="primary" :disabled="!draft.trim()" type="submit">
               Enviar
             </v-btn>
           </div>
@@ -408,19 +487,59 @@ onUnmounted(() => {
   z-index: 220;
 }
 
+/* Lançador compacto: em repouso é um círculo de 56px, medida usada pelo shell
+   para reservar a faixa inferior e a calha direita (styles/base.css). O rótulo
+   só se expande no hover/foco — quando o ponteiro JÁ está sobre o botão, então
+   a expansão nunca surge por cima de uma ação que o operador ia clicar.
+   Antes era uma pílula de ~160px que cobria a coluna de ações das tabelas. */
 .copilot-launcher {
   position: fixed;
-  right: clamp(18px, 2.5vw, 30px);
-  bottom: clamp(18px, 2.8vw, 30px);
-  min-height: 54px;
-  padding-inline: 18px;
-  border-radius: var(--radius-md);
+  right: var(--sicat-launcher-inset, 16px);
+  bottom: var(--sicat-launcher-inset, 16px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sicat-launcher-size, 56px);
+  min-width: var(--sicat-launcher-size, 56px);
+  padding-inline: calc((var(--sicat-launcher-size, 56px) - 24px) / 2);
+  border: 0;
+  border-radius: 999px;
   background: rgb(var(--v-theme-primary));
   color: rgb(var(--v-theme-on-primary));
   box-shadow: var(--shadow-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1;
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+
+.copilot-launcher:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.copilot-launcher__label {
+  display: inline-block;
+  max-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 0.18s ease, opacity 0.18s ease, margin-left 0.18s ease;
+}
+
+.copilot-launcher:hover .copilot-launcher__label,
+.copilot-launcher:focus-visible .copilot-launcher__label {
+  max-width: 140px;
+  margin-left: 8px;
+  opacity: 1;
+}
+
+.copilot-launcher:focus-visible {
+  outline: 3px solid rgba(var(--v-theme-primary), 0.4);
+  outline-offset: 2px;
 }
 
 .copilot-launcher--dragging {
@@ -437,11 +556,20 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
 }
 
+/* O UA stylesheet do <dialog> aplica `left: 0` + `margin: auto`. Com `right`
+   e `width` definidos aqui, a caixa ficava SOBRE-RESTRINGIDA e o navegador
+   redistribuía as margens automáticas — o painel abria deslocado para a
+   esquerda (por cima da navegação) mesmo com o botão à direita. Zerar a margem
+   e liberar `left` devolve a ancoragem à direita, do lado do lançador. */
 .copilot-panel {
   position: fixed;
   top: 18px;
   right: 18px;
   bottom: 18px;
+  left: auto;
+  margin: 0;
+  /* O UA também define `color: CanvasText` (preto), que ignora o tema do app. */
+  color: rgba(var(--v-theme-on-surface), 0.92);
   width: min(440px, calc(100vw - 36px));
   height: min(860px, calc(100dvh - 36px));
   display: flex;
@@ -686,13 +814,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 960px) {
-  .copilot-launcher {
-    right: 14px;
-    bottom: 14px;
-    min-height: 50px;
-    padding-inline: 16px;
-  }
-
   .copilot-panel {
     top: 10px;
     right: 10px;

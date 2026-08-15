@@ -55,7 +55,7 @@
           <p class="pd-banner-meta">
             <span v-if="ageLabel" class="pd-meta-chip">{{ ageLabel }}</span>
             <span v-if="patient.gender && patient.gender !== 'nao_informado'" class="pd-meta-chip">{{ genderLabel }}</span>
-            <span v-if="patient.cpf" class="pd-meta-chip">CPF {{ patient.cpf }}</span>
+            <span v-if="patient.document" class="pd-meta-chip">CPF {{ patient.document }}</span>
             <span v-if="patient.guardian_name" class="pd-meta-chip">Resp.: {{ patient.guardian_name }}</span>
             <span class="pd-meta-chip pd-meta-muted">Cadastro: {{ fmt.formatDate(patient.created_at) }}</span>
           </p>
@@ -166,7 +166,7 @@
               </div>
               <div class="pd-kv-row">
                 <dt>CPF</dt>
-                <dd>{{ fmt.formatValue(patient && patient.cpf) }}</dd>
+                <dd>{{ fmt.formatValue(patient && patient.document) }}</dd>
               </div>
               <div class="pd-kv-row">
                 <dt>E-mail</dt>

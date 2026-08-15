@@ -17,6 +17,10 @@ coverage/
 
 # --- Logs ---
 *.log
+# Estado de runtime do runner-watchdog (timestamp do ultimo restart). O .log
+# irmao ja cai no *.log acima; o .state escapava e deixava scripts/logs/
+# aparecendo como nao-rastreado.
+scripts/logs/
 
 # --- Cache de ferramentas (Playwright MCP etc.) ---
 .playwright-mcp/
@@ -64,3 +68,10 @@ diagnostics/
 
 # Staging local do preview do Reqhub (baseline copiada p/ servir estático; é assada na imagem)
 /apps/reqhub/frontend/data/
+
+# artefatos de runtime dos testes do SICAT (documentos gerados pelo worker)
+apps/sicat/backend/storage/documents/
+apps/sicat/backend/storage/transporte-dfe/
+apps/sicat/backend/storage/transporte-dfe-issuance/
+apps/sicat/backend/storage/regulatory-watch/
+apps/sicat/backend/docs/copilot/auditoria-links-quebrados.md

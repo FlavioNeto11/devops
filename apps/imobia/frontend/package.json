@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "imobia — Frontend (Vue 3 + Vite). SPA sob base /imobia/. Kit ui-vue sincronizado nas fases de UI (F3+).",
+  "description": "imobia — Frontend (Vue 3 + Vite). SPA sob base /imobia/. DS próprio com tokens --im-* (kit ui-vue não adotado).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

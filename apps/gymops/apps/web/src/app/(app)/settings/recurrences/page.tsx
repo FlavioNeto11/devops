@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Pause, Play, Trash2, Loader2, RepeatIcon, Pencil } from 'lucide-react';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -32,7 +33,7 @@ export default function RecurrencesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['recurrences', organizationId, filterStatus],
     queryFn: () => recurrencesApi.list({ organizationId: organizationId!, ...(filterStatus ? { status: filterStatus } : {}) }),
     enabled: !!organizationId,
@@ -92,7 +93,17 @@ export default function RecurrencesPage() {
         ))}
       </div>
 
-      {isLoading ? (
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
       ) : recurrences.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">

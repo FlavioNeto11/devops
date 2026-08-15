@@ -2,7 +2,7 @@
 title: "RM Ambiental — Estado Atual"
 status: canonical
 applies_to: [rmambiental]
-updated: 2026-06-09
+updated: 2026-07-21
 language: pt-BR
 ---
 
@@ -29,12 +29,13 @@ language: pt-BR
 
 ## Gaps conhecidos
 
-- ⚠️ **Conteúdo placeholder**: contato/redes (`src/lib/site.ts`, campos `AJUSTAR`), cases
-  (`src/data/projects.ts`) e números de autoridade (`src/components/AuthoritySection.tsx`) são
-  **ilustrativos** — substituir por dados reais fornecidos pela empresa.
-- ⚠️ **Imagens reais**: portal é 100% SVG/CSS; faltam fotos profissionais (com direitos) em
-  `public/images/` (rota `/rmambiental/images/` já prevista no `nginx.conf`).
-- ⚠️ **Footer**: link da Política de Privacidade pendente (`src/components/Footer.tsx`).
+- ⚠️ **Números de autoridade ilustrativos**: o bloco `stats` (`src/data/content.default.ts`, com a nota
+  `* Indicadores ilustrativos`) é o **único** conteúdo fictício restante — substituir pelos oficiais
+  via CMS. O **contato** (`src/lib/site.ts`) e a **galeria de cases** (`src/data/projects.ts`) já são
+  **reais** (não existe `AuthoritySection.tsx`).
+- ✅ **Imagens reais**: a galeria já traz **24 fotos reais** em `public/images/gallery/`, servidas por
+  `/rmambiental/images/` (rota no `nginx.conf`); decorações SVG/CSS ficam em `public/images/decor/`.
+- ⚠️ **Footer**: link da Política de Privacidade pendente (`src/components/Footer.tsx`, único `AJUSTAR`).
 - ⚠️ **Build reproduzível**: sem `package-lock.json` versionado → `npm install` no build; gerar e
   commitar lock para `npm ci`.
 - ❌ **Backend / formulário de contato com envio**: fora de escopo (app somente-frontend); contato é
@@ -43,10 +44,12 @@ language: pt-BR
 
 ## Próximos passos
 
-1. 🔵 Substituir placeholders de `src/lib/site.ts` (e-mail, WhatsApp DDI+DDD+nº, cidade, redes).
-2. 🔵 Trocar cases e números ilustrativos por reais (`src/data/projects.ts`, `AuthoritySection.tsx`).
-3. 🔵 Adicionar fotos profissionais em `public/images/` e referenciá-las nas seções/cases.
-4. 🔵 Definir e linkar a Política de Privacidade no `Footer.tsx`.
-5. 🔵 Gerar/commitar `package-lock.json` para build reproduzível (`npm ci`).
-6. 🔵 Validar pipeline CI/GHCR (`ghcr.io/flavioneto11/rmambiental/frontend`) e atualizar annotations
+1. 🔵 Trocar os **números do bloco `stats`** (`src/data/content.default.ts`) pelos indicadores oficiais
+   da RM Ambiental Brasil via CMS — é o único conteúdo ilustrativo restante.
+2. 🔵 Definir e linkar a Política de Privacidade no `Footer.tsx` (único `AJUSTAR` no código).
+3. 🔵 Gerar/commitar `package-lock.json` para build reproduzível (`npm ci`).
+4. 🔵 Validar pipeline CI/GHCR (`ghcr.io/flavioneto11/rmambiental/frontend`) e atualizar annotations
    `devops.flavioneto/*` em `k8s/rmambiental.yaml` na primeira publicação automatizada.
+
+> _Contato (`src/lib/site.ts`), galeria (`src/data/projects.ts` + `public/images/gallery/`) e fotos já
+> são reais — os passos antigos de "substituir placeholders de contato/cases/imagens" foram concluídos._

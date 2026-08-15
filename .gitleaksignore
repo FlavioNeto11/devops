@@ -1,0 +1,19 @@
+# =============================================================================
+# .gitleaksignore — exceções POR FINGERPRINT (commit:arquivo:regra:linha).
+# Só para achados HISTÓRICOS já triados: o commit é imutável, então a exceção é
+# cirúrgica e não silencia ocorrências novas do mesmo valor/regra em outros
+# commits. Allowlist genérica (path/regra inteira) continua em .gitleaks.toml.
+# =============================================================================
+
+# Triagem 2026-07-13 — chave DEV pública do Besu --network=dev (documentada nos
+# docs do Besu; só controla fundos num devnet local descartável — não é credencial
+# de produção). Removida do HEAD em fix/security-gitleaks-baseline (o script agora
+# exige -PrivateKey ou $env:BESU_DEV_PRIVATE_KEY); estes commits são história.
+8ee9567bb9bcd58bf9e1522769eb06b6dbf99363:scripts/besu-deploy-contract.ps1:generic-api-key:15
+e97d278a952ff4ce7b286ebab890580f76904048:scripts/besu-deploy-contract.ps1:generic-api-key:15
+
+# Triagem 2026-07-13 — FALSO POSITIVO: mensagem de RAISE EXCEPTION do trigger
+# token_contract_freeze (a palavra "token" vem do nome da tabela token_contract;
+# o texto é uma frase em português, não um segredo).
+7cc5b974c005ebaecde20c82357f4a7d02a3bb43:apps/besc/api/sql/0003_marketplace.sql:generic-api-key:163
+b5b384bf8d9d405c49f3aec4bd8662f67c7da059:apps/besc/api/sql/0003_marketplace.sql:generic-api-key:163

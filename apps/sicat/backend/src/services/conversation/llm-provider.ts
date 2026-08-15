@@ -14,6 +14,9 @@ import {
   resolveRuntimeAgentText,
   resolveRuntimeAgentTools
 } from '../ai-control/ai-runtime-registry-service.js';
+import { anchorConversationDateWindow, userNamedPeriod } from './planning/conversation-window-anchor.js';
+import { MANIFEST_STATUS_VOCABULARY_HINT } from './conversation-status-vocabulary.js';
+import { buildChannelStyleDirective } from './prompts/conversation-channel-style.js';
 
 // ─── Tipos públicos (mantidos para compatibilidade com conversation-service.ts) ──
 
@@ -30,6 +33,12 @@ type ConversationContextLike = {
   askedManifestIds?: string[];
   /** Bloco textual da Working Memory desta conversa (continuidade + relógio operacional), injetado no raciocínio. */
   workingMemoryBlock?: string | null;
+  /**
+   * Canal de entrega, resolvido NO SERVIDOR (`conversation-principal.ts`). Só a REDAÇÃO o consome —
+   * o planner continua cego a canal de propósito: escolha de tool não pode variar por canal, isso
+   * seria mudança de correção disfarçada de formatação, e quem diferencia canal é a policy.
+   */
+  channel?: string | null;
 };
 
 export type LlmToolCall = {
@@ -70,6 +79,15 @@ export type LlmProvider = {
 };
 
 type PlanningMessage = AIMessage | HumanMessage | SystemMessage | ToolMessage;
+
+/**
+ * Zero ou uma `SystemMessage` com o estilo do canal. PORTÃO: fora do WhatsApp devolve `[]`, e o
+ * spread de um array vazio deixa a lista de mensagens IDÊNTICA à de antes desta fase.
+ */
+function channelStyleMessages(channel: string | null | undefined): SystemMessage[] {
+  const directive = buildChannelStyleDirective(channel);
+  return directive ? [new SystemMessage(directive)] : [];
+}
 
 type PlanningGraph = {
   invoke(input: {
@@ -1446,6 +1464,71 @@ export function downgradeUnconfirmedBatchActionToPreview(toolCall: LlmToolCall |
   return { ...toolCall, arguments: { ...args, intent: previewIntent } };
 }
 
+/**
+ * Ancora a janela de datas do tool call em HOJE quando ela foi INVENTADA pelo
+ * planner (o usuário não citou período algum). Ver
+ * `planning/conversation-window-anchor.ts` para o diagnóstico completo — em
+ * produção o planner emitiu uma janela de 2 anos terminando 46 dias no passado
+ * e a contagem de manifestos "aguardando baixa" voltou 0 com 38 na tela.
+ *
+ * Não é heurística de frase: o sinal usado é o contrato do classificador, que
+ * só preenche `entities.date*` diante de período explícito do usuário.
+ */
+export function anchorPlannerToolCallDateWindow(input: {
+  toolCall: LlmToolCall | null;
+  classifier: Pick<IntentClassification, 'entities'>;
+}): LlmToolCall | null {
+  const toolCall = input.toolCall;
+  if (!toolCall) return toolCall;
+
+  const namedPeriod = userNamedPeriod(input.classifier.entities);
+  if (namedPeriod) return toolCall;
+
+  const args = toRecord(toolCall.arguments);
+
+  if (toolCall.name === 'orchestrate_manifest_operation') {
+    const selection = toRecord(args.selection);
+    const anchored = anchorConversationDateWindow({
+      dateFrom: selection.dateFrom,
+      dateTo: selection.dateTo,
+      userNamedPeriod: namedPeriod
+    });
+    if (anchored.anchor === 'none') return toolCall;
+
+    return {
+      ...toolCall,
+      arguments: {
+        ...args,
+        selection: {
+          ...selection,
+          ...(anchored.dateFrom ? { dateFrom: anchored.dateFrom } : {}),
+          dateTo: anchored.dateTo
+        }
+      }
+    };
+  }
+
+  if (toolCall.name === 'list_manifests' || toolCall.name === 'list_cdf_certificates') {
+    const anchored = anchorConversationDateWindow({
+      dateFrom: args.dateFrom,
+      dateTo: args.dateTo,
+      userNamedPeriod: namedPeriod
+    });
+    if (anchored.anchor === 'none') return toolCall;
+
+    return {
+      ...toolCall,
+      arguments: {
+        ...args,
+        ...(anchored.dateFrom ? { dateFrom: anchored.dateFrom } : {}),
+        dateTo: anchored.dateTo
+      }
+    };
+  }
+
+  return toolCall;
+}
+
 export function normalizePlannerToolCallForRecency(input: {
   toolCall: LlmToolCall | null;
   classifier: Pick<IntentClassification, 'entities'>;
@@ -1570,6 +1653,7 @@ async function respondConversationally(input: {
   workingMemoryBlock?: string | null;
   history?: Array<{ role: string; text: string }>;
   userContent?: Array<Record<string, unknown>> | null;
+  channel?: string | null;
 }): Promise<string> {
   try {
     const historyMessages = sanitizeHistory(input.history).slice(-12).map((turn) =>
@@ -1590,6 +1674,7 @@ async function respondConversationally(input: {
         'Para saudacoes, cumprimente e ofereca ajuda. Para datas relativas (hoje/ontem/anteontem/amanha), calcule a partir da data atual. ' +
         'NUNCA invente dados operacionais NOVOS (manifestos, status, numeros) que nao estejam no historico/memoria; para buscar dados novos, diga que pode consultar e pergunte o que falta.'
       ),
+      ...channelStyleMessages(input.channel),
       ...(input.workingMemoryBlock ? [new SystemMessage(input.workingMemoryBlock)] : []),
       ...historyMessages,
       userMessage
@@ -1617,7 +1702,8 @@ async function classifyIntent(input: {
       'Retorne SOMENTE JSON valido com o formato: ' +
       '{"intent":string,"confidence":number,"entities":object,"needsClarification":boolean,"clarifyingQuestion":string|null}. ' +
       'Quando houver pedido por recencia de manifestos, inclua entities.recencyDirection com valor oldest ou recent. ' +
-      'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito (entre X e Y, do dia X ao Y, ultimos N dias, hoje, ontem). NUNCA invente nem assuma datas; sem periodo explicito na frase, deixe dateFrom/dateTo ausentes. Para COMPARAR dias/periodos (ex.: "ontem com hoje", "esta semana vs a passada"), defina dateFrom/dateTo cobrindo TODOS os dias mencionados (de ontem ate hoje) para que ambos os lados venham nos dados. ' +
+      'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito (entre X e Y, do dia X ao Y, ultimos N dias, hoje, ontem). NUNCA invente nem assuma datas; sem periodo explicito na frase, deixe dateFrom/dateTo ausentes. A data de HOJE e context.currentDate — jamais deduza a data atual do seu proprio conhecimento; datas relativas SEMPRE terminam em context.currentDate. Para COMPARAR dias/periodos (ex.: "ontem com hoje", "esta semana vs a passada"), defina dateFrom/dateTo cobrindo TODOS os dias mencionados (de ontem ate hoje) para que ambos os lados venham nos dados. ' +
+      `${MANIFEST_STATUS_VOCABULARY_HINT} Ao extrair entities.status, use o valor tecnico correspondente a esse vocabulario. ` +
       'AGRUPAMENTO: quando houver, inclua entities.groupBy com um valor CANONICO do contrato da tool: status, externalStatus, generator, carrier, receiver, driverName, vehiclePlate, date, month, year. ' +
       'Perguntas de periodo ("em que mes...", "qual mes...", "por mes") => groupBy=month; ("em que ano...") => groupBy=year. ' +
       'Inclua tambem entities.groupOrder: key_asc quando a pergunta pede linha do tempo (month/date/year) ou count_desc quando pede ranking por volume. ' +
@@ -1770,7 +1856,10 @@ function buildPlannerInstruction(input: {
         'usar orchestrate_manifest_operation para intents compostos e de memoria',
         'preservar contextos de selecao de manifestos da sessao',
         'respeitar direcao temporal explicita: oldest => selection.orderBy=recency_asc; recent => selection.orderBy=recency_desc',
-        'quando existir intervalo temporal, preencher selection.dateFrom e selection.dateTo em YYYY-MM-DD',
+        'quando existir intervalo temporal CITADO PELO USUARIO, preencher selection.dateFrom e selection.dateTo em YYYY-MM-DD',
+        'HOJE e context.currentDate — nunca deduza a data atual do seu proprio conhecimento',
+        'sem periodo citado pelo usuario, NAO preencher selection.dateFrom/dateTo: o SICAT ja consulta a janela operacional corrente. Se ainda assim usar uma janela relativa, ela DEVE terminar exatamente em context.currentDate (jamais numa data anterior)',
+        MANIFEST_STATUS_VOCABULARY_HINT,
         'na ausencia de pedido explicito para pular itens em oldest, manter selection.skipMostRecent=0',
         'para consulta de gerador por numero, usar intent manifest.lookup_generator_by_number',
         'nunca responder com pseudo-codigo JSON de tool/input; usar function call quando a intencao estiver clara',
@@ -1953,9 +2042,12 @@ async function performEscalation(input: {
     classification: escalatedClassification
   });
 
-  const finalToolCall = downgradeUnconfirmedBatchActionToPreview(
-    alignedEscalatedToolCall || buildFallbackToolCallFromClassification(escalatedClassification)
-  );
+  const finalToolCall = anchorPlannerToolCallDateWindow({
+    toolCall: downgradeUnconfirmedBatchActionToPreview(
+      alignedEscalatedToolCall || buildFallbackToolCallFromClassification(escalatedClassification)
+    ),
+    classifier: escalatedClassification
+  });
 
   const escalatedConfidence = Math.max(
     0,
@@ -2003,6 +2095,12 @@ function createEscalationGraph(llm: ChatOpenAI): PlanningGraph {
 export async function synthesizeNaturalResponse(input: {
   userMessage: string;
   toolSummary: string;
+  /**
+   * Canal de entrega (fase 4 da cadeia `whatsapp-channel-sicat`). Opcional e com PORTÃO: só
+   * `'whatsapp'` acrescenta um SystemMessage; qualquer outro valor (ou a ausência) deixa a lista de
+   * mensagens byte-a-byte idêntica à de antes — o chat nativo e o copiloto in-app não são tocados.
+   */
+  channel?: string | null;
 }): Promise<string | null> {
   try {
     const config = getAiConfig();
@@ -2033,6 +2131,9 @@ export async function synthesizeNaturalResponse(input: {
         'Nunca mencione nomes técnicos de ferramentas, intenções internas ou metadados de orquestração. ' +
         'Se a pergunta se referir a um item por posição (ex.: terceiro, segundo), destaque-o explicitamente.'
       ),
+      // Bloco ADICIONAL, nunca edição das linhas acima: menor blast radius, testável isolado, e o
+      // caminho do navegador recebe ZERO tokens novos.
+      ...channelStyleMessages(input.channel),
       new HumanMessage(
         `Data operacional atual: ${operationalTodayIso()} (use-a para resolver "hoje"/"ontem"; não invente datas).`
         + (knowledgeBlock ? `\n\n${knowledgeBlock}` : '')
@@ -2141,6 +2242,10 @@ export function createLlmProvider(): LlmProvider {
           messageText: text,
           history: input.history,
           workingMemoryBlock: input.context.workingMemoryBlock,
+          // Turno puramente conversacional: esta saída vira `responseText` SEM passar por síntese
+          // nenhuma. Sem o canal aqui, saudação e pedido de esclarecimento continuariam saindo em
+          // prosa de navegador.
+          channel: input.context.channel ?? null,
           userContent: input.userContent ?? null,
           fallback:
             classification.clarifyingQuestion
@@ -2238,9 +2343,12 @@ export function createLlmProvider(): LlmProvider {
         }
       }
 
-      const recoveredToolCall = downgradeUnconfirmedBatchActionToPreview(
-        alignedToolCall || buildFallbackToolCallFromClassification(fallbackClassification)
-      );
+      const recoveredToolCall = anchorPlannerToolCallDateWindow({
+        toolCall: downgradeUnconfirmedBatchActionToPreview(
+          alignedToolCall || buildFallbackToolCallFromClassification(fallbackClassification)
+        ),
+        classifier: fallbackClassification
+      });
 
       const toolCall = shouldClarify
         ? null

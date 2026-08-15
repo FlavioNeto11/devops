@@ -13,14 +13,36 @@ language: pt-BR
 
 ## O que é
 
-Sistema **simples, SEM login**, focado **exclusivamente em levantamento**: cadastrar casos/processos
-ligados a ações do antigo **BESC** (incorporado pelo Banco do Brasil), organizar documentos, levantar
-pendências, classificar risco e gerar checklists + relatórios para **futura** tokenização e avaliação de
-uso como **caução/garantia processual**. **Não tokeniza de verdade, não consulta tribunais, sem
-blockchain, sem pagamento.** Ferramenta organizacional — **não** presta aconselhamento jurídico.
+**Portal + base de conhecimento SEM login** sobre as ações do antigo **BESC** (incorporado pelo Banco
+do Brasil), que serve de fundamento para uma **futura** tokenização. Duas frentes:
 
-O escopo funcional completo (10 seções: telas, campos, checklists, status, relatórios, MVP) está em
-[`ESCOPO-FUNCIONAL.md`](./ESCOPO-FUNCIONAL.md).
+1. **Portal de conhecimento** — a home (`/`) explica o que são as BESCs; **Biblioteca institucional**
+   (`/biblioteca`, 18 docs: fundamentos, histórico da incorporação, comunicados Bacen, custos de
+   cartório, petições-modelo, vídeos); **Jurisprudência** (`/jurisprudencia`, 100 decisões navegáveis
+   por facetas — tribunal/credor/mecanismo/resultado/instância, com ementas fiéis + PDF do inteiro
+   teor); **Glossário** (`/glossario`) e **Referência** (`/referencia`, mecanismos/base legal/tabela de
+   cartório 2024/padrão jurisprudencial) e **Roadmap** (`/roadmap`).
+2. **Levantamento por caso** (`/casos`) — cadastrar casos/processos, organizar documentos, **perícia /
+   atualização monetária**, **mecanismo + credor-alvo**, pendências, risco, checklist de tokenização e
+   relatórios (incl. `strategy_report`). Vincula precedentes da jurisprudência (link soft por id).
+
+**Não tokeniza de verdade, não consulta tribunais, sem blockchain, sem pagamento.** Ferramenta
+organizacional — **não** presta aconselhamento jurídico (ementas marcadas "requer validação jurídica").
+
+O escopo funcional do levantamento (10 seções) está em [`ESCOPO-FUNCIONAL.md`](./ESCOPO-FUNCIONAL.md).
+**Plano de evolução p/ MARKETPLACE tokenizado** (proposta, não implementado): [`docs/evolution/00-visao-geral.md`](./docs/evolution/00-visao-geral.md).
+
+### Conteúdo (biblioteca + jurisprudência)
+- **Coleções** no mesmo store JSON: `library`, `jurisprudence`, `glossary`, `catalogMeta` (migração
+  aditiva — `besc.json` antigo só com `cases` carrega inalterado). Enums de conteúdo em
+  `api/src/domain-content.js`; conteúdo de referência estático em `api/src/reference/*`.
+- **Catálogo** (metadados) versionado em `api/seed/*.json`, carregado idempotente no boot por
+  `store.seedCatalog()` (version-gated, não sobrescreve edições do operador). Gerado offline por
+  `api/seed/gen-catalog.mjs` (facetas de pasta+nome; ementas curadas em `overrides.json`).
+- **Binários** (~275 MB: PDFs + 4 vídeos) vivem **só no PVC** (`/data/{library,jurisprudence}/<id><ext>`),
+  ingeridos UMA VEZ por `seed/ingest-files.ps1` (`kubectl cp` — usa caminhos **relativos**, pois `C:\`
+  confunde o kubectl cp no Windows). Rotas de arquivo usam `res.sendFile` (Range p/ vídeo); binário
+  ausente → 404 gracioso. Endpoints: `/library*`, `/jurisprudence*`, `/glossary`, `/stats`.
 
 ## Stack & arquitetura
 
@@ -28,12 +50,38 @@ O escopo funcional completo (10 seções: telas, campos, checklists, status, rel
 |---|---|
 | Frontend | React 18 + Vite 5 + react-router-dom, nginx (`besc-frontend`), base path `/besc/`, sem strip, priority 10 |
 | API | Node 20 + Express (`besc-api`), rotas na raiz (Traefik faz strip de `/besc/api`), priority 40 |
-| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** — sem Postgres/Redis (baixo volume, operador único). **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
-| Auth | nenhuma (sem login por definição) |
+| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** p/ portal + levantamento (cases, library, jurisprudence, glossary) — **+ Postgres `besc-postgres`** (pgvector/pg16, `k8s/postgres.yaml`) p/ identidade/RBAC/auditoria, credenciais no secret **`besc-db` selado**. **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
+| Auth | login local (bootstrap/fallback) + **SSO Keycloak realm dedicado `besc`** (client público `besc-spa`, PKCE S256); sessão própria do app via `@flavioneto11/oidc-kit`; **RBAC 100% em dados** (nunca derivado de claims do token) — ver `docs/evolution/01-rbac-permissoes.md` |
 | Deploy | `apps/besc/k8s` (Argo CD auto-sync) · imagens `:local` no laboratório |
 
 Domínio (enums canônicos §2.11, motor de pendências §8.1, máquina de status §8.2, matriz de risco §8.3,
 relatórios §9) vive em `api/src/domain.js` + `api/src/reports.js`. Frontend em `frontend/src/`.
+
+### Evolução MARKETPLACE (Fases 0–4 IMPLEMENTADAS e no ar; plano em `docs/evolution/`)
+
+O portal evoluiu para um **marketplace de ações BESC tokenizadas** (as fases 0–4 do
+`docs/evolution/09-roadmap.md` estão na main). Módulos novos no `api/src/`:
+- **`foundation/`** — identidade/RBAC/auditoria: `auth.js` (login local + SSO), `rbac.js`
+  (papéis/permissões em dados; deny por padrão; papel novo sem deploy), `admin.js`,
+  `audit.js` (trilha hash-chain append-only; taxonomia fechada), `index.js` (boot fail-soft).
+- **`marketplace/`** — `titles.js` (título↔caso, valuation, parâmetros versionados, **máquina
+  jurídica de 7 estados** com cascatas), `issuance.js` (emissão, **trava de valor de face**,
+  substituição), `revenue.js` (**first-transfer fee = saída da treasury**, aluguel + accrual,
+  **contabilidade de dupla entrada append-only**), `gate.js` (**gate regulatório**: `go_live_enabled`
+  derivado dos 7 itens `requiresLegal` com parecer), `portals.js` (dossiê allowlist, escopo linked
+  do auditor, área do investidor), `states.js`.
+- **`ledger/`** — `port.js` (LedgerPort), `simulated.js` (SimulatedLedgerAdapter, DB-only, DEFAULT),
+  `besu.js` (BesuAdapter ethers v6, Fase 3), `contracts/TitleRegistry.sol` (+`.json` compilado).
+- **`db.js`** + **`db/migrate.js`** (Postgres, migrations `sql/000N_*.sql` com advisory lock).
+
+DDL do marketplace em `api/sql/0003_marketplace.sql`..`0005_receita_gate.sql`. Frontend: telas
+`/gestao/*` (títulos, usuários, papéis, financeiro, aluguéis, gate), `/investidor/*`, `/auditoria/*`,
+`/marketplace`. **Modo demonstração** (watermark) até o gate liberar `go_live` — nenhuma operação
+com dinheiro/valor mobiliário real antes do parecer regulatório (trava em código).
+
+**Ledger**: `LEDGER_ADAPTER=simulated` por padrão (off-chain é a fonte da verdade). O nó Besu
+(`k8s/besu.yaml`) roda como espelho; armar = `scripts/besu-deploy-contract.ps1` + `LEDGER_ADAPTER=besu`
++ `BESU_*` (chave via Sealed Secret), **só após o gate regulatório**.
 
 ## Rodar / publicar
 
@@ -43,6 +91,7 @@ relatórios §9) vive em `api/src/domain.js` + `api/src/reports.js`. Frontend em
 docker build -t besc-api:local apps/besc/api
 docker build -t besc-frontend:local apps/besc/frontend
 kubectl apply -f apps/besc/k8s
+scripts\setup-besc-realm.ps1   # (uma vez, idempotente) provisiona o realm 'besc' + client besc-spa no Keycloak
 ```
 
 Validar: `http://nvit.localhost/besc` (SPA) e `http://nvit.localhost/besc/api/health` (API pós-strip).
@@ -54,5 +103,7 @@ Público: `https://dev.nvit.com.br/besc`.
   Traefik **não** faz strip do frontend.
 - **PVC + `USER node`**: o Deployment usa `securityContext.fsGroup: 1000` para o usuário `node` escrever em `/data`.
 - **`.html` no dev**: o proxy do Vite intercepta `*.html` → `report.html` dá 404 **só no dev**; em produção o Traefik encaminha direto para a API (200).
-- Sem segredos: não há `secret.example.yaml` no path do Argo.
+- **Segredos via SealedSecret** (`besc-db`, `besc-config` — `k8s/sealed-*.yaml`): o exemplo com
+  placeholders fica em `k8s/secret.example.yaml.tmpl` — a extensão `.tmpl` impede o Argo de
+  aplicá-lo (um example "vivo" no path do Argo clobberaria o secret real a cada sync).
 

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
-import { hasWhatsApp } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 
 /**
  * Botão "voltar ao topo". Aparece após rolar a página. Posicionado acima do
- * WhatsAppFab quando ele existe (para não sobrepor).
+ * WhatsAppFab quando ele existe (para não sobrepor). Lê `hasWhatsApp` do CMS
+ * (useSite) — igual ao WhatsAppFab — para acompanhar a configuração real.
  */
 export default function BackToTop() {
+  const { hasWhatsApp } = useSite();
   const [show, setShow] = useState(false);
 
   useEffect(() => {

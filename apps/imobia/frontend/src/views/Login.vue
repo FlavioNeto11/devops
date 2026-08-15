@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
@@ -11,6 +11,8 @@ const mode = ref('login'); // 'login' | 'register'
 const form = ref({ orgName: '', name: '', email: '', password: '' });
 const error = ref('');
 const busy = ref(false);
+// Sinalizado pelo api.js quando a sessao expira durante o uso (401 → redirect).
+const expired = computed(() => route.query.expired === '1');
 
 async function submit() {
   error.value = '';
@@ -37,6 +39,8 @@ async function submit() {
       <p style="color: var(--im-muted); margin: 0 0 18px; font-size: 14px">
         {{ mode === 'register' ? 'Crie sua imobiliária e comece o levantamento.' : 'Entre para acessar seus imóveis, leads e finanças.' }}
       </p>
+
+      <p v-if="expired && !error" class="im-notice" style="margin: 0 0 16px">Sua sessão expirou. Entre novamente para continuar de onde parou.</p>
 
       <form @submit.prevent="submit" class="im-form">
         <template v-if="mode === 'register'">

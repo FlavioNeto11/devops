@@ -1,3 +1,6 @@
+import { buildManifestListQueryParams } from './manifest-list-query.js';
+import { buildPartnerSearchQueryParams } from './partner-search-query.js';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080';
 const DEFAULT_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 20000);
 
@@ -97,10 +100,21 @@ export function clearSicatSessionStorage() {
   dispatchSessionLifecycleEvent(SICAT_SESSION_CLEARED_EVENT);
 }
 
+// A SPA é servida sob um base path (`/sicat/` em produção, `/` em dev). Montar a URL
+// de login sem esse prefixo tira o usuário da SPA e cai no 404 do portal, por isso
+// toda navegação de sessão expirada passa por aqui.
+function buildAppPath(routePath) {
+  const rawBase = String(import.meta.env.BASE_URL || '/');
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  return `${base}${String(routePath).replace(/^\/+/, '')}`;
+}
+
 function redirectToLoginIfNeeded() {
-  const isLoginRoute = globalThis.location?.pathname === '/login';
+  const loginPath = buildAppPath('login');
+  const currentPath = String(globalThis.location?.pathname || '');
+  const isLoginRoute = currentPath === loginPath || currentPath === loginPath.replace(/\/$/, '');
   if (!isLoginRoute) {
-    globalThis.location.href = '/login?reason=expired';
+    globalThis.location.href = `${loginPath}?reason=expired`;
   }
 }
 
@@ -449,6 +463,36 @@ async function request(path, options = {}) {
   throw createApiError({ message: 'Falha ao acessar API após novas tentativas.', correlationId });
 }
 
+/**
+ * Coalescência de GETs idênticos EM VOO.
+ *
+ * As telas de CDF montam o carregamento com `watch(contextReady, { immediate: true })`
+ * E `onMounted` — quando o contexto operacional já está pronto na montagem, os
+ * dois disparam e a mesma consulta sai DUAS vezes por carregamento
+ * (`/v1/cdf/certificates` e `/v1/cdf/responsibles` foram observados assim em
+ * produção). Como essas rotas passam pelo gateway CETESB, a duplicidade dobra a
+ * latência das telas mais lentas.
+ *
+ * Aqui a segunda chamada com o MESMO path enquanto a primeira ainda está em voo
+ * reaproveita a mesma promise. Não é cache: assim que a requisição termina a
+ * entrada é descartada, então um recarregamento posterior continua indo à rede.
+ */
+const inFlightGetRequests = new Map();
+
+function dedupedGet(path) {
+  const pending = inFlightGetRequests.get(path);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = request(path).finally(() => {
+    inFlightGetRequests.delete(path);
+  });
+
+  inFlightGetRequests.set(path, promise);
+  return promise;
+}
+
 function toQueryString(params = {}) {
   const searchParams = new URLSearchParams();
 
@@ -465,7 +509,9 @@ function toQueryString(params = {}) {
 }
 
 export function listManifests(params) {
-  return request(`/v1/manifestos${toQueryString(params)}`);
+  // Lista branca (manifest-list-query.js): parâmetro que o backend não lê não
+  // sai na URL — nada de filtro fantasma respondendo 200 e devolvendo tudo.
+  return request(`/v1/manifestos${toQueryString(buildManifestListQueryParams(params))}`);
 }
 
 export function getManifestById(id) {
@@ -473,11 +519,11 @@ export function getManifestById(id) {
 }
 
 export function getReceiptResponsibles(params) {
-  return request(`/v1/manifestos/receipt-responsibles${toQueryString(params)}`);
+  return dedupedGet(`/v1/manifestos/receipt-responsibles${toQueryString(params)}`);
 }
 
 export function getCdfResponsibles(params) {
-  return request(`/v1/cdf/responsibles${toQueryString(params)}`);
+  return dedupedGet(`/v1/cdf/responsibles${toQueryString(params)}`);
 }
 
 export function enqueueManifestReceive(payload) {
@@ -511,7 +557,7 @@ export function enqueueCdfDownload(payload) {
 }
 
 export function listCdfCertificates(params = {}) {
-  return request(`/v1/cdf/certificates${toQueryString(params)}`);
+  return dedupedGet(`/v1/cdf/certificates${toQueryString(params)}`);
 }
 
 export async function downloadCdfDocument(documentId, options = {}) {
@@ -642,24 +688,15 @@ export function getCatalog(catalogName, params) {
 }
 
 export function searchPartners(params = {}) {
-  const normalizedParams = {
-    integrationAccountId: params.integrationAccountId,
-    role: params.role,
-    q: params.q,
-    search: params.search ?? params.q,
-    code: params.code,
-    page: params.page,
-    pageSize: params.pageSize,
-    sessionContextId: params.sessionContextId
-  };
-
-  return request(`/v1/partners/search${toQueryString(normalizedParams)}`);
+  return dedupedGet(`/v1/partners/search${toQueryString(buildPartnerSearchQueryParams(params))}`);
 }
 
+// SEM `skipAuth`: `/v1/auth/partner-info` passou a exigir sessão SICAT. O único chamador é
+// `CetesbAccountSelectionView`, cuja rota `/login/cetesb` já é `requiresSicatAuth: true` — o token
+// sempre existe aqui. Sem sessão, a rota é um proxy anônimo de consulta de CNPJ contra a CETESB,
+// feito com a CA e o IP do nosso backend.
 export function getPartnerInfo(document) {
-  return request(`/v1/auth/partner-info${toQueryString({ document })}`, {
-    skipAuth: true
-  });
+  return request(`/v1/auth/partner-info${toQueryString({ document })}`);
 }
 
 export function createManifest(payload) {
@@ -1119,6 +1156,54 @@ export function listAdminAccessSessions(params = {}) {
   return request(`/v1/admin/access/sessions${toQueryString(params)}`);
 }
 
+export function grantAdminAccessRole(userId, roleId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}/grant`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function revokeAdminAccessRole(userId, roleId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function resetAdminAccessUserPassword(userId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/password/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function expireAdminAccessUserPassword(userId, payload = {}) {
+  return request(`/v1/admin/access/users/${encodeURIComponent(userId)}/password/expire`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+/**
+ * Waiver do escudo anti-bombing do vínculo WhatsApp (domínio explicado em
+ * `features/access-admin/shieldWaiverState.js`). Telefone e motivo vão no
+ * CORPO — PII em path/query vira log de acesso do Traefik e cabeçalho Referer.
+ *
+ * contrato pareado com a unidade B1: payload `{ channelType, phone, reason }`,
+ * resposta de sucesso com o telefone apenas MASCARADO.
+ */
+export function grantAdminChannelShieldWaiver(payload = {}) {
+  return request('/v1/admin/access/channel-links/shield-waiver', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 // =============================================================================
 // Centro Operacional SICAT — endpoints operacionais (fase 05-frontend).
 // =============================================================================
@@ -1366,6 +1451,588 @@ export function printMtrProvisorio(id, payload = {}, { idempotencyKey } = {}) {
     method: 'POST',
     headers: buildMtrProvisorioCommandHeaders(idempotencyKey),
     body: JSON.stringify(payload || {})
+  });
+}
+
+// =============================================================================
+// Transporte — vertical de transporte rodoviário de resíduos (DL-103,
+// programa "SICAT Transporte", Onda 1.5/PR-F1 — frontend mínimo). Bounded
+// context SEPARADO do MTR ambiental (DL-103) — NÃO reaproveita `manifest-*`.
+// Contrato em openapi/mtr_automacao_openapi_interna.yaml (`/v1/transporte/*`,
+// tags "Transporte - Regras" / "Transporte - Operações" / "Transporte -
+// Conformidade"). Cadastros/operações/conformidade são SEMPRE síncronos na
+// Fase A (sem 202/job) — o motor de compliance roda inline no mesmo request.
+//
+// Tenancy OBRIGATÓRIA: toda leitura passa `integrationAccountId` explícito em
+// query — sem "conta ativa da sessão" implícita (molde `listManifests`, que
+// filtra client-side; aqui o backend exige o param). As transições
+// (submeter-validacao/contratar/reabrir/cancelar) exigem `version` no corpo
+// para locking otimista — 409 quando defasada (`TRANSPORT_*` problem codes).
+//
+// Idempotency-Key: só `POST /v1/transporte/operacoes` (criação — fora do
+// escopo deste PR, que é list+detalhe+transições+regras read-only) declara o
+// parâmetro no contrato. Nenhuma das rotas usadas abaixo (transições,
+// validar-conformidade, regras) o declara — por isso NÃO mandamos o header
+// aqui: um Idempotency-Key que o servidor não lê sugere uma garantia que não
+// existe (mesmo raciocínio da seção de vínculos de canal, logo abaixo).
+// =============================================================================
+
+export function listTransportOperations(params = {}) {
+  return request(`/v1/transporte/operacoes${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportOperationById(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function getTransportOperationCompliance(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/conformidade${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Avalia UM gate ad-hoc (`triggeredBy=user`), sem aplicar transição alguma. */
+export function validateTransportOperationCompliance(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/validar-conformidade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/**
+ * Orquestra a saída de `draft`: avalia GATE_PROPOSAL e aplica
+ * approve_validation (→ ready_for_contract) ou reject_validation (→ blocked)
+ * no mesmo request. Resposta: `{ operation, evaluation }`.
+ */
+export function submitTransportOperationValidation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/submeter-validacao`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Ativa GATE_CONTRACT (ready_for_contract → contracted). Resposta: `{ operation, evaluation }`. */
+export function contractTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/contratar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Transição sem gate (blocked → draft) — limpa `blockedReasonCode`. */
+export function reopenTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/reabrir`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Cancela a partir de qualquer status não-terminal. `reason` é obrigatório no corpo. */
+export function cancelTransportOperation(operationId, payload = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/cancelar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportRules(params = {}) {
+  return request(`/v1/transporte/regras${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function getTransportRuleByCode(code, params = {}) {
+  return request(
+    `/v1/transporte/regras/${encodeURIComponent(code)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function getTransportRuleHistory(code) {
+  return request(`/v1/transporte/regras/${encodeURIComponent(code)}/historico`, { retry: 1, timeoutMs: 15000 });
+}
+
+/** Único caminho para `blocking=true` (ou reverter) — sempre exige `reviewNotes` + `version`. */
+export function promoteTransportRuleVersion(code, versionLabel, payload = {}) {
+  return request(
+    `/v1/transporte/regras/${encodeURIComponent(code)}/versoes/${encodeURIComponent(versionLabel)}/promover`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Transporte — PR-H2 (frontend completo). Cabeçalho de comando padrão para as
+// rotas assíncronas (202) — `Idempotency-Key` opcional, mesmo contrato do
+// `buildMtrProvisorioCommandHeaders`/`buildDmrCommandHeaders` acima.
+// -----------------------------------------------------------------------------
+
+function buildTransporteCommandHeaders(idempotencyKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = String(idempotencyKey);
+  }
+  return headers;
+}
+
+// ---- Cadastros: transportadores -------------------------------------------
+
+export function createTransportCarrier(payload, { idempotencyKey } = {}) {
+  return request('/v1/transporte/transportadores', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarriers(params = {}) {
+  return request(`/v1/transporte/transportadores${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportCarrierById(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function updateTransportCarrier(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/** `strategy: manual` responde 200 síncrono; `open_data` responde 202 (CommandAccepted). */
+export function verifyTransportCarrierRntrc(partyId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/verificar-rntrc`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierRntrcVerifications(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/verificacoes-rntrc${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function linkTransportCarrierVehicle(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/veiculos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierVehicleLinks(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/veiculos${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- Cadastros: veículos ----------------------------------------------------
+
+export function createTransportVehicle(payload) {
+  return request('/v1/transporte/veiculos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportVehicles(params = {}) {
+  return request(`/v1/transporte/veiculos${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportVehicleById(vehicleId, params = {}) {
+  return request(
+    `/v1/transporte/veiculos/${encodeURIComponent(vehicleId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function updateTransportVehicle(vehicleId, payload) {
+  return request(`/v1/transporte/veiculos/${encodeURIComponent(vehicleId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+// ---- Piso mínimo de frete (MODO SHADOW) ------------------------------------
+
+export function calculateTransportOperationFloor(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/calcular-piso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationFloorCalculations(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/calculos-piso${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Catálogo GLOBAL (sem tenancy) de tabelas de piso carregadas — read-only. */
+export function listTransportFloorTables() {
+  return request('/v1/transporte/piso/tabelas', { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- CIOT -------------------------------------------------------------------
+
+export function preValidateTransportOperationCiot(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/pre-validar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function requestTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/solicitar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function rectifyTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/retificar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function cancelTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/cancelar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function closeTransportOperationCiot(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot/encerrar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getTransportOperationCiot(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/ciot${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- VPO (Vale-Pedágio Obrigatório) -----------------------------------------
+
+export function evaluateTransportOperationVpoApplicability(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/avaliar-aplicabilidade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function registerTransportOperationVpoAcquisition(operationId, payload) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/registrar-aquisicao`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function acquireTransportOperationVpo(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo/adquirir`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getTransportOperationVpo(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/vpo${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Cadastro CONFIGURÁVEL de fornecedoras de VPO — nunca hardcoded na UI. */
+export function listTransportVpoProviders() {
+  return request('/v1/transporte/vpo/fornecedoras', { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- Documentos fiscais (DF-e) ----------------------------------------------
+
+export function importTransportFiscalDocument(payload) {
+  return request('/v1/transporte/documentos-fiscais/importar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function linkTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/vincular`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function unlinkTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/desvincular`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function revalidateTransportFiscalDocument(documentId, payload) {
+  return request(`/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}/revalidar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationFiscalDocuments(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/documentos-fiscais${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function getTransportFiscalDocumentById(documentId, params = {}) {
+  return request(
+    `/v1/transporte/documentos-fiscais/${encodeURIComponent(documentId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- Seguros (apólices/PGR) --------------------------------------------------
+
+export function createTransportCarrierInsurancePolicy(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierInsurancePolicies(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function verifyTransportCarrierInsurancePolicies(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/verificar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateTransportCarrierInsurancePolicy(partyId, policyId, payload) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/${encodeURIComponent(policyId)}`,
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
+}
+
+export function createTransportCarrierPgr(partyId, payload) {
+  return request(`/v1/transporte/transportadores/${encodeURIComponent(partyId)}/pgr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportCarrierPgrs(partyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/pgr${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Centro Operacional — alertas de apólice vencendo/vencida (Pendências). */
+export function listTransportInsuranceExpiryAlerts(params = {}) {
+  return request(`/v1/transporte/seguros/vencimentos${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+// ---- Emissão de DF-e (sandbox-ready) -----------------------------------------
+
+export function requestTransportOperationDfeIssuance(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/emissoes`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationDfeIssuances(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/emissoes${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function cancelTransportDfeIssuance(issuanceId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/emissoes/${encodeURIComponent(issuanceId)}/cancelar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+// ---- Regulatory Watch (PR-H1/PR-H2) — GLOBAL, sem tenancy --------------------
+
+export function listTransportWatchItems(params = {}) {
+  return request(`/v1/transporte/watch${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function getTransportWatchItemById(itemId) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function reviewTransportWatchItem(itemId, payload) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}/revisar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function applyTransportWatchItem(itemId, payload) {
+  return request(`/v1/transporte/watch/${encodeURIComponent(itemId)}/aplicar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function triggerTransportWatchCheck({ idempotencyKey } = {}) {
+  return request('/v1/transporte/watch/verificar-agora', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey)
+  });
+}
+
+// ---- Centro Operacional — visão consolidada (Pendências) --------------------
+
+export function getTransportOperationsOverview(params = {}) {
+  return request(`/v1/transporte/operations/overview${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+// =============================================================================
+// Vínculos de canal (WhatsApp) — cadeia whatsapp-channel-sicat (fase 02).
+//
+// Vinculação de telefone ↔ usuário SICAT por OTP SEMPRE iniciado no app: o
+// usuário autenticado informa o número, recebe 6 dígitos pelo WhatsApp e
+// confirma na tela. A identidade sai do Bearer no backend — nenhuma destas
+// chamadas manda `userId`.
+//
+// O telefone trafega SÓ no corpo do POST de criação; as demais rotas endereçam
+// `challengeId`/`linkId`. PII em path/query vira log de acesso do Traefik e
+// cabeçalho Referer.
+//
+// Estas rotas NÃO mandam `Idempotency-Key`: não existe middleware de idempotência
+// em /v1/sicat/channel-links, e um header que ninguém lê aparenta uma garantia que
+// não existe. A deduplicação real é do servidor — índice único PARCIAL do desafio
+// vivo (`conversation_channel_verifications_live_idx`: canal + telefone + usuário
+// enquanto `consumed_at is null`) mais os limitadores (cooldown de reenvio, teto de
+// envios, teto de vínculos por usuário). `request()` já
+// não repete POST/DELETE (`shouldRetryRequest`), então o cliente não gera duplicata
+// sozinho.
+// =============================================================================
+
+function buildChannelLinkCommandHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+export function listChannelLinks(params = {}) {
+  return request(`/v1/sicat/channel-links${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
+}
+
+export function startChannelLink(payload) {
+  return request('/v1/sicat/channel-links', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function resendChannelLinkChallenge(challengeId) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/resend`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify({})
+  });
+}
+
+export function confirmChannelLinkChallenge(challengeId, payload = {}) {
+  return request(`/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}/confirm`, {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function cancelChannelLinkChallenge(challengeId, params = {}) {
+  return request(
+    `/v1/sicat/channel-links/challenges/${encodeURIComponent(challengeId)}${toQueryString(params)}`,
+    { method: 'DELETE' }
+  );
+}
+
+export function deleteChannelLink(linkId) {
+  return request(`/v1/sicat/channel-links/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+}
+
+// --- Janela de ação do WhatsApp (step-up do N2, fase 05) ---------------------
+//
+// A janela é aberta na SESSÃO WEB autenticada — nunca pelo canal. O corpo leva
+// só duração e orçamento: telefone e conta CETESB são resolvidos no servidor a
+// partir do vínculo `verified` e da conta ativa (nenhum identificador de conta
+// sai do cliente). O DTO devolve o telefone MASCARADO; o E.164 cru nunca chega
+// aqui. Sem `Idempotency-Key` pelo mesmo motivo das rotas acima: o servidor já
+// deduplica (uma janela viva por usuário+telefone) e `request()` não repete
+// POST/DELETE.
+
+export function openWhatsAppActionWindow(payload) {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', {
+    method: 'POST',
+    headers: buildChannelLinkCommandHeaders(),
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export function getWhatsAppActionWindow() {
+  return request('/v1/sicat/channel-links/whatsapp/action-window', { retry: 1, timeoutMs: 15000 });
+}
+
+export function revokeWhatsAppActionWindow(windowId) {
+  return request(`/v1/sicat/channel-links/whatsapp/action-window/${encodeURIComponent(windowId)}`, {
+    method: 'DELETE'
   });
 }
 

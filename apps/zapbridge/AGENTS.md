@@ -2,7 +2,7 @@
 title: "ZapBridge — Contrato de Agentes"
 status: canonical
 applies_to: [zapbridge]
-updated: 2026-06-29
+updated: 2026-07-21
 language: pt-BR
 ---
 
@@ -20,8 +20,9 @@ language: pt-BR
 **ZapBridge** é um **cliente de mensageria** que conecta à conta de WhatsApp do próprio usuário via
 Baileys (QR/pairing). Full-stack na esteura DevOps local sob `https://dev.nvit.com.br/zapbridge` (e
 `nvit.localhost` no dev). Stack em uma linha: **Express + Socket.IO + Prisma/SQLite + Baileys**
-(backend, `server/`) e **Expo/React Native + react-native-web** (cliente mobile + SPA web, `app/`),
-empacotado em **nginx** sob `/zapbridge/`. Idioma de produto: pt-BR. Estado: deployado no lab
+(backend, `server/`) e **React 18 + Vite + TypeScript** (SPA web, `web/`), empacotado em **nginx** sob
+`/zapbridge/`. O cliente **Expo/React Native** em `app/` é **legado/aposentado** (não é o build web).
+Idioma de produto: pt-BR. Estado: deployado no lab
 (`:local`), pods Running. **Uso legítimo apenas** (sem Business API, sem scraping, sem envio em massa).
 
 ## 2. Como começar uma tarefa (sempre)
@@ -39,7 +40,7 @@ empacotado em **nginx** sob `/zapbridge/`. Idioma de produto: pt-BR. Estado: dep
 | 1 | [`AGENTS.md`](./AGENTS.md) | Este arquivo — fronteiras + matriz de decisão |
 | 2 | [`CLAUDE.md`](./CLAUDE.md) | Stack, roteamento, armadilhas, env vars, dev/debug |
 | 3 | [`README.md`](./README.md) | Visão do produto e como rodar local |
-| 4 | [`server/README.md`](./server/README.md) · [`app/README.md`](./app/README.md) | Setup/build/deploy de cada lado |
+| 4 | [`server/README.md`](./server/README.md) · frontend web em `web/` (Vite) · [`app/README.md`](./app/README.md) (Expo legado) | Setup/build/deploy |
 | 5 | [`devops.yaml`](./devops.yaml) | Contrato da esteira (basePath, rotas, build) |
 
 ## 4. Matriz de decisão
@@ -47,9 +48,9 @@ empacotado em **nginx** sob `/zapbridge/`. Idioma de produto: pt-BR. Estado: dep
 | Tipo de tarefa | Comece por | Fronteira |
 |---|---|---|
 | Editar rota/lógica do backend | `server/src/modules/**`, `server/src/index.ts` | segura |
-| Editar tela/componente do app | `app/src/screens/**`, `app/src/components/**` | segura |
+| Editar tela/componente do frontend web | `web/src/pages/**`, `web/src/components/**` (Expo em `app/` é legado) | segura |
 | Alterar schema do banco | `server/prisma/schema.prisma` + `npx prisma migrate dev` (commit migrations) | segura (local) / com aprovação (deploy) |
-| Mudar base path / roteamento / socket path | `app/app.json` + `app/nginx.conf` + `k8s/zapbridge.yaml` + [`hard-constraints.md` §2](../../docs/standards/hard-constraints.md) | com aprovação |
+| Mudar base path / roteamento / socket path | `web/vite.config.ts` (`base`) + `web/nginx.conf` + `k8s/zapbridge.yaml` + [`hard-constraints.md` §2](../../docs/standards/hard-constraints.md) | com aprovação |
 | Build das imagens locais | `docker build` (server / web) — ver [`CLAUDE.md`](./CLAUDE.md) | com aprovação |
 | Publicar/aplicar no cluster | commit dos manifests (Argo auto-sync) ou `kubectl rollout restart` | com aprovação |
 | Editar manifests K8s / Argo Application | `k8s/*.yaml`, `../../platform/argocd/apps/zapbridge.yaml` | com aprovação |
@@ -58,15 +59,15 @@ empacotado em **nginx** sob `/zapbridge/`. Idioma de produto: pt-BR. Estado: dep
 ## 5. Fronteiras de operação
 
 ### ✅ Seguras (autônomas)
-- `npm install`, `npm run dev`/`build` no `server/`; `npx expo start` / `npm run build:web` no `app/` (local).
+- `npm install`, `npm run dev`/`build` no `server/` e no `web/` (frontend Vite) — local.
 - `npx prisma migrate dev` / `prisma generate` local; editar `prisma/schema.prisma` e commitar migrations.
-- Editar `server/src/**`, `app/src/**`, `app/app.json` (conteúdo), READMEs, `docs/**`.
+- Editar `server/src/**`, `web/src/**`, `web/vite.config.ts` (conteúdo), READMEs, `docs/**`.
 - Leitura read-only do cluster: `kubectl get pods,svc,ingressroute -n apps -l app.kubernetes.io/part-of=zapbridge`.
 
 ### ⚠️ Com aprovação do operador
 - `docker build` das imagens `zapbridge-server:local` / `zapbridge-web:local` (gera imagem no nó).
 - `kubectl apply -k apps/zapbridge/k8s` / `kubectl rollout restart deploy/zapbridge-server|zapbridge-web -n apps`.
-- Alterar roteamento (`app.json` baseUrl, `nginx.conf`, `SOCKET_IO_PATH`, IngressRoute), `devops.yaml`,
+- Alterar roteamento (`web/vite.config.ts` base, `web/nginx.conf`, `SOCKET_IO_PATH`, IngressRoute), `devops.yaml`,
   manifests K8s ou a Argo Application — mexem em roteamento/GitOps vivo.
 - Criar/rotacionar o Secret `zapbridge-config`.
 
@@ -86,8 +87,9 @@ empacotado em **nginx** sob `/zapbridge/`. Idioma de produto: pt-BR. Estado: dep
 ```bash
 # backend (apps/zapbridge/server)
 npm run build        # tsc — falha se TS/import quebrar
-# app web (apps/zapbridge/app)
-npm run build:web    # expo export — gera dist/ e injeta PWA
+# frontend web (apps/zapbridge/web)
+npm run build        # Vite (tsc --noEmit && vite build) — gera web/dist/ (base /zapbridge/).
+                     # SEM PWA/service worker: web/public/sw.js é kill-switch do SW antigo (Expo).
 # após publicar no cluster:
 # curl http://nvit.localhost/zapbridge/api/health  -> ok
 # curl http://nvit.localhost/zapbridge/healthz      -> ok (nginx)
@@ -102,7 +104,7 @@ npm run build:web    # expo export — gera dist/ e injeta PWA
 | Mudança | Atualizar |
 |---|---|
 | Nova rota/módulo no backend | `server/README.md` + (se for requisito) `docs/MVP-FUNCIONAL.md` |
-| Nova tela/fluxo no app | `app/README.md` + `docs/MVP-FUNCIONAL.md` |
+| Nova tela/fluxo no frontend web | `web/` + `docs/MVP-FUNCIONAL.md` |
 | Schema do banco / migration | `prisma/schema.prisma` + commitar `prisma/migrations/**` |
 | Base path / roteamento / socket / manifests | `devops.yaml` + `k8s/*.yaml` + `CLAUDE.md` (tabela de rotas) |
 | Publicação no cluster | annotations `devops.flavioneto/*` nos Deployments + nota de estado |

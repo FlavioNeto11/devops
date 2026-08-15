@@ -149,8 +149,6 @@ export function EditableText({ sectionId, path, site = false, value = '', as = '
   });
 }
 
-const stop = (e) => e.stopPropagation();
-
 /** Moldura por seção: contorno + barra de ações (mover/ocultar/publicar/excluir/
  *  adicionar) no hover; clique seleciona (abre painel no console). */
 export function SectionFrame({ section, index, count, children }) {
@@ -166,7 +164,7 @@ export function SectionFrame({ section, index, count, children }) {
   return (
     <SectionIdCtx.Provider value={id}>
       <div className={cn('cms-frame', isSel && 'cms-frame--sel', (hidden || draft) && 'cms-frame--dim')} onClick={(e) => { e.stopPropagation(); sel(); }}>
-        <div className="cms-frame__bar" onClick={stop}>
+        <div className="cms-frame__bar" onClick={(e) => e.stopPropagation()}>
           <div className="cms-frame__bar-pill">
             <span className="cms-frame__tag">{section.kind}</span>
             {draft && <span className="cms-frame__badge">rascunho</span>}
@@ -195,7 +193,7 @@ export function ItemControls({ sectionId, path, index, count }) {
   const sid = sectionId ?? ctxId;
   if (!active) return null;
   return (
-    <div className="cms-item-ctl" onClick={stop}>
+    <div className="cms-item-ctl" onClick={(e) => e.stopPropagation()}>
       <button title="Editar item" onClick={() => emit('cms:select', { sectionId: sid, path: `${path}.${index}` })}><Pencil size={13} /></button>
       <button title="Subir" disabled={index === 0} onClick={() => emit('cms:intent', { action: 'move-item', sectionId: sid, path, index, dir: -1 })}><ArrowUp size={13} /></button>
       <button title="Descer" disabled={index === count - 1} onClick={() => emit('cms:intent', { action: 'move-item', sectionId: sid, path, index, dir: 1 })}><ArrowDown size={13} /></button>

@@ -15,7 +15,10 @@
  * Sem dependências externas. CSP-safe (script-src 'self', sem inline).
  * ========================================================================== */
 
-import { curatedPaths } from './catalog.js';
+// ?v= no import ESM: o cache immutable (30d) do nginx é por URL — sem a query, um
+// portal.js novo importaria um catalog.js VELHO do cache (cards duplicados p/ operador).
+// Bumpar JUNTO com o ?v= do portal.js no index.html sempre que o catálogo mudar.
+import { curatedPaths, PRODUCTS } from './catalog.js?v=14';
 
 /* ------------------------------ helpers puros ----------------------------- */
 
@@ -187,6 +190,19 @@ export function stateMarkup(kind, ctx = {}) {
       '</div>'
     );
   }
+  if (kind === 'expired') {
+    // Sessão do operador expirou (401 após um 200 prévio): aviso leve + CTA de relogin,
+    // em vez de a descoberta sumir em silêncio. O href é montado no chamador (browser).
+    const href = escapeHtml(ctx.loginHref || '/oauth2/start');
+    return (
+      '<div class="state">' +
+      '<div class="state-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></div>' +
+      '<strong>Sua sessão expirou</strong>' +
+      '<span>Entre novamente para ver a descoberta do cluster e as ferramentas de operação.</span>' +
+      `<a class="btn ghost sm" href="${href}">Entrar novamente</a>` +
+      '</div>'
+    );
+  }
   // error
   const msg = escapeHtml(ctx.message || 'não foi possível consultar o cluster agora.');
   return (
@@ -230,6 +246,14 @@ async function fetchWithTimeout(url, ms = TIMEOUT_MS) {
 
 // Evita requisições concorrentes do refresh automático (dedupe simples).
 let clusterLoading = false;
+// Timer do refresh periódico — parado após 401 (anônimo) para não sondar para sempre.
+let refreshTimer = 0;
+// Rearme único por 401: evita acumular listeners de focus a cada 401 repetido.
+let focusRetryArmed = false;
+// Houve ao menos um 200 (operador autenticado) NESTA sessão de página? Distingue o
+// visitante anônimo (nunca autorizou) do operador cuja sessão expirou depois — muda o
+// que fazer no 401 (esconder tudo x avisar) e no erro transitório (ocultar x mostrar).
+let wasOperator = false;
 
 /** Observabilidade leve: encaminha eventos a um coletor opcional (config por env). */
 function track(name, data) {
@@ -353,6 +377,7 @@ async function loadClusterApps({ silent = false } = {}) {
   try {
     const data = await fetchWithTimeout(API_URL);
     clearTimeout(loadingTimer);
+    wasOperator = true; // 200 = a API do Console autorizou → operador nesta sessão de página
     const apps = appsInNamespace(parseIngressRoutes(data), 'apps');
     enrichCuratedCards(livePathSet(apps));
 
@@ -374,31 +399,80 @@ async function loadClusterApps({ silent = false } = {}) {
       stateBox.innerHTML = '';
     }
     applySearch();
+    // Operador confirmado: garante o refresh periódico (retomado após um 401 anterior).
+    if (!refreshTimer && REFRESH_MS > 0) {
+      refreshTimer = setInterval(() => loadClusterApps({ silent: true }), REFRESH_MS);
+    }
     track('cluster_apps_loaded', { extras: extras.length, live: apps.length });
   } catch (err) {
     clearTimeout(loadingTimer);
     track('cluster_apps_error', { message: String((err && err.message) || err) });
-    // Recurso de operador: API restrita (401/403) ⇒ visitante anônimo ⇒ esconde a
-    // descoberta E as ferramentas de operador (site público mostra só o curado).
+    // Recurso de operador: API restrita (401/403). As ferramentas de operador sempre
+    // saem e o refresh periódico para (sem sondar o cluster para sempre). O que a seção
+    // de descoberta mostra depende de já ter havido um 200 nesta sessão de página:
+    //   • anônimo (nunca autorizou) ⇒ esconde a descoberta (site público = só o curado);
+    //   • operador cuja sessão EXPIROU ⇒ aviso leve + CTA de relogin (não some em silêncio).
+    // Retomada única quando a aba recupera o foco — captura o operador que logou em outra aba.
     if (isAuthError(err && err.status)) {
-      if (section) section.hidden = true;
       setOperatorUI(false);
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = 0;
+      }
+      if (wasOperator) {
+        grid.innerHTML = ''; // remove cards de operador da sessão anterior
+        if (section) {
+          section.hidden = false;
+          markRevealed('#cluster-section');
+        }
+        const rd =
+          typeof location !== 'undefined'
+            ? encodeURIComponent(location.pathname + location.search)
+            : '/';
+        stateBox.hidden = false;
+        stateBox.removeAttribute('aria-busy');
+        stateBox.innerHTML = stateMarkup('expired', { loginHref: '/oauth2/start?rd=' + rd });
+      } else if (section) {
+        section.hidden = true;
+      }
       applySearch(); // recalcula a contagem sem tools/cluster
+      // rearma a retomada a CADA 401 (o operador pode logar em outra aba a qualquer momento),
+      // sem acumular listeners (flag zerada quando o focus dispara).
+      if (!focusRetryArmed) {
+        focusRetryArmed = true;
+        window.addEventListener(
+          'focus',
+          () => {
+            focusRetryArmed = false;
+            loadClusterApps({ silent: true });
+          },
+          { once: true },
+        );
+      }
       return;
     }
-    // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial,
-    // não no refresh silencioso (que não pode estragar uma UI boa anterior).
-    if (!silent) {
+    // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial (não no
+    // refresh silencioso) E só para quem JÁ é operador. A home pública NÃO deve revelar a
+    // seção de operador nem o vocabulário de erro interno a um visitante anônimo quando o
+    // Console está fora — para ele a seção permanece oculta (o curado cobre a jornada).
+    if (!silent && wasOperator) {
       const message =
         err && err.name === 'AbortError'
           ? 'o cluster demorou a responder (timeout).'
           : 'a API do Console não respondeu.';
-      if (section) section.hidden = false;
+      if (section) {
+        section.hidden = false;
+        markRevealed('#cluster-section');
+      }
       stateBox.hidden = false;
       stateBox.removeAttribute('aria-busy');
       stateBox.innerHTML = stateMarkup('error', { message });
       const retry = stateBox.querySelector('[data-retry]');
       if (retry) retry.addEventListener('click', () => loadClusterApps(), { once: true });
+    } else if (!silent) {
+      if (section) section.hidden = true;
+      stateBox.hidden = true;
+      stateBox.removeAttribute('aria-busy');
     }
   } finally {
     clusterLoading = false;
@@ -431,6 +505,15 @@ function applySearch() {
       ? `${visible} resultado${visible === 1 ? '' : 's'}`
       : `${available} aplicações`;
   }
+  // Cabeçalhos de seção não ficam órfãos sobre grades vazias durante a busca:
+  // esconde cada .sec-head cuja grade seguinte não tem nenhum card visível.
+  document.querySelectorAll('.sec-head').forEach((head) => {
+    let grid = head.nextElementSibling;
+    while (grid && !grid.matches('.grid, .tools')) grid = grid.nextElementSibling;
+    if (!grid || !grid.querySelector('[data-search]')) return;
+    const anyVisible = [...grid.querySelectorAll('[data-search]')].some((c) => !c.hidden);
+    head.hidden = q.trim() !== '' && !anyVisible;
+  });
   // Estado vazio: query digitada que não casa nada — evita "grade vazia silenciosa".
   const empty = document.getElementById('search-empty');
   if (empty) {
@@ -549,6 +632,13 @@ export function init() {
   if (typeof window !== 'undefined' && window.__pf) clearTimeout(window.__pf);
   const yr = document.getElementById('yr');
   if (yr) yr.textContent = String(new Date().getFullYear());
+  // Stats do hero derivados do catálogo (não voltam a desatualizar).
+  const nProducts = document.getElementById('stat-products');
+  const nPortals = document.getElementById('stat-portals');
+  if (nProducts)
+    nProducts.textContent = String(PRODUCTS.filter((p) => p.type === 'product_software').length);
+  if (nPortals)
+    nPortals.textContent = String(PRODUCTS.filter((p) => p.type === 'cms_portal').length);
   setupHeaderShadow();
   setupMobileMenu();
   setupBackToTop();
@@ -557,7 +647,7 @@ export function init() {
   setupSearch();
   loadClusterApps();
   if (REFRESH_MS > 0) {
-    setInterval(() => loadClusterApps({ silent: true }), REFRESH_MS);
+    refreshTimer = setInterval(() => loadClusterApps({ silent: true }), REFRESH_MS);
   }
 }
 

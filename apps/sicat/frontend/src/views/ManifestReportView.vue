@@ -6,6 +6,8 @@ import { listManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { brDateToIsoDate, formatDateBr, getTodayBr, isoDateToBrDate, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
 import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
@@ -44,6 +46,39 @@ function buildDefaultFilters() {
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE
   };
+}
+
+// O período persistido "envelhece": salvo ontem, a tela reabria terminando ONTEM
+// (ex.: 02/07 a 01/08 em 02/08) e escondia os manifestos do dia. Mesmo bug já
+// corrigido em /manifestos e no DMR. Reancoramos a janela para terminar HOJE,
+// preservando o tamanho de período que o operador tinha escolhido.
+function refreshPersistedDateRange(persisted, fallback) {
+  const savedFrom = String(persisted?.dateFrom || '').trim();
+  const savedTo = String(persisted?.dateTo || '').trim();
+  const todayBr = getTodayBr();
+
+  if (!savedFrom || !savedTo) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  if (savedTo === todayBr) {
+    return { dateFrom: savedFrom, dateTo: savedTo };
+  }
+
+  const fromIso = brDateToIsoDate(savedFrom);
+  const toIso = brDateToIsoDate(savedTo);
+  if (!fromIso || !toIso) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  const spanDays = Math.round(
+    (new Date(`${toIso}T12:00:00`) - new Date(`${fromIso}T12:00:00`)) / 86400000
+  );
+  if (!Number.isFinite(spanDays) || spanDays < 0) {
+    return { dateFrom: fallback.dateFrom, dateTo: fallback.dateTo };
+  }
+
+  return { dateFrom: formatDateOffsetBr(-spanDays), dateTo: todayBr };
 }
 
 function loadPersistedFilters() {
@@ -90,8 +125,9 @@ function formatPartnerLabel(partner) {
   return `Código ${partnerCode}`;
 }
 
+// Rótulo canônico (mesmo da lista/painel) em vez do texto cru da CETESB.
 function resolveManifestStatusLabel(manifest) {
-  return String(manifest?.externalStatus || manifest?.status || '-').trim() || '-';
+  return resolveManifestSituationLabel(manifest);
 }
 
 function resolveOperationalContext() {
@@ -114,14 +150,15 @@ function resolveOperationalContext() {
 
 const persistedFilters = loadPersistedFilters();
 const defaults = buildDefaultFilters();
+const initialDateRange = refreshPersistedDateRange(persistedFilters, defaults);
 
 const filters = reactive({
   status: String(persistedFilters?.status || defaults.status).trim(),
   manifestNumber: String(persistedFilters?.manifestNumber || defaults.manifestNumber).trim(),
   carrierQuery: String(persistedFilters?.carrierQuery || defaults.carrierQuery).trim(),
   receiverQuery: String(persistedFilters?.receiverQuery || defaults.receiverQuery).trim(),
-  dateFrom: String(persistedFilters?.dateFrom || defaults.dateFrom).trim(),
-  dateTo: String(persistedFilters?.dateTo || defaults.dateTo).trim(),
+  dateFrom: initialDateRange.dateFrom,
+  dateTo: initialDateRange.dateTo,
   page: Number(persistedFilters?.page || defaults.page),
   pageSize: Number(persistedFilters?.pageSize || defaults.pageSize)
 });
@@ -135,11 +172,14 @@ const error = ref('');
 const infoMessage = ref('');
 const hasSearched = ref(false);
 
-const pageDescription = computed(() => {
-  const start = items.value.length ? (Number(page.value) - 1) * Number(filters.pageSize) + 1 : 0;
-  const end = items.value.length ? start + items.value.length - 1 : 0;
-  return { start, end };
-});
+// Contador ÚNICO do app: "Mostrando 1–20 de 243 manifestos" (lib/pagination-label.js).
+const resultsCounterLabel = computed(() => formatPageCounter({
+  page: page.value,
+  pageSize: filters.pageSize,
+  itemsOnPage: items.value.length,
+  total: totalItems.value,
+  singular: 'manifesto'
+}));
 
 const activeAccountLabel = computed(() => {
   const account = authStore.activeAccount.value || null;
@@ -196,7 +236,7 @@ function updateDateFilterFeedback(options = {}) {
   dateFilterError.value = '';
 
   if (showWideWindowInfo && Number.isFinite(Number(validation.spanDays)) && Number(validation.spanDays) > DATE_WINDOW_NOTICE_DAYS) {
-    dateFilterInfo.value = 'Janela ampla detectada. Se o retorno vier vazio, tente recortes menores para evitar limites operacionais da integracao CETESB.';
+    dateFilterInfo.value = 'Período longo selecionado. Se o resultado vier vazio, tente períodos menores para evitar os limites operacionais da CETESB.';
     return true;
   }
 
@@ -509,7 +549,7 @@ onMounted(async () => {
           </v-row>
           <div class="d-flex ga-2 mt-2">
             <v-btn color="primary" type="submit" :loading="loading">Aplicar filtros</v-btn>
-            <v-btn variant="outlined" :disabled="loading" @click="resetFilters">Redefinir faixa</v-btn>
+            <v-btn variant="outlined" :disabled="loading" @click="resetFilters">Limpar filtros</v-btn>
           </div>
         </v-form>
       </v-card-text>
@@ -526,10 +566,13 @@ onMounted(async () => {
         <v-row align="center" class="mb-2">
           <v-col>
             <div class="text-subtitle-1 font-weight-semibold">Resultados do relatório</div>
-            <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifesto(s).</div>
+            <div class="text-caption text-medium-emphasis">{{ resultsCounterLabel }}</div>
           </v-col>
         </v-row>
-        <v-table density="compact">
+        <!-- Recarga sobre dados já exibidos: barra + tabela esmaecida (não uma
+             linha de "consultando" empilhada acima dos dados antigos). -->
+        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" aria-label="Consultando manifestos" />
+        <v-table density="compact" :class="{ 'is-refreshing': loading && items.length }">
           <thead>
             <tr>
               <th scope="col">Número MTR</th>
@@ -542,8 +585,8 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
-              <td colspan="7" class="text-center text-medium-emphasis pa-4">Consultando manifestos...</td>
+            <tr v-if="loading && !items.length">
+              <td colspan="7" class="text-center text-medium-emphasis pa-4" aria-live="polite">Consultando manifestos…</td>
             </tr>
             <tr v-else-if="!items.length">
               <td colspan="7" class="text-center text-medium-emphasis pa-4">Nenhum manifesto disponível para os filtros informados.</td>
@@ -558,6 +601,7 @@ onMounted(async () => {
                 <SicatStatusBadge
                   :status="manifest.externalStatus || manifest.status"
                   :label="resolveManifestStatusLabel(manifest)"
+                  :title="resolveManifestRawSituation(manifest) ? `Situação na CETESB: ${resolveManifestRawSituation(manifest)}` : undefined"
                   domain="manifest"
                   with-dot
                 />
@@ -583,6 +627,11 @@ onMounted(async () => {
 <style scoped>
 .report-workspace {
   overflow: hidden;
+}
+
+.is-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .report-workspace-body {

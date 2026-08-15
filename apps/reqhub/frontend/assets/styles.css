@@ -149,6 +149,12 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--bg-1); }
 .group-row td { background: var(--bg-2); font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
 td .rid { font-family: var(--mono); color: var(--fg-1); }
+/* (UX-REQHUB-001) A ação "abrir" da linha vive num <button> REAL na célula do ID — a <tr> voltou a
+   ser linha semântica pura (navegável célula a célula por leitores de tela). O botão herda o visual
+   do ID (mono, via `td .rid`) e ganha o realce de acento no hover/foco; o foco visível reusa o
+   outline global (:focus-visible). A .row-open mantém o cursor/hover de atalho de mouse (tbody tr). */
+.rid-open { display: inline-flex; align-items: center; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.rid-open:hover .rid, .rid-open:focus-visible .rid { color: var(--accent); }
 
 /* badges */
 .b { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line-2); white-space: nowrap; }
@@ -529,6 +535,9 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-cta { font-size: 14.5px; padding: 11px 20px; }
 .fw-status { margin: 10px 0 0; font-size: 13px; }
 .fw-err { color: var(--danger); }
+.fw-generating { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 44px 20px; text-align: center; }
+.fw-generating .fw-lead { max-width: 46ch; margin: 0; }
+.fw-generating .forge-spin { width: 20px; height: 20px; border-width: 3px; }
 
 .fw-lead { font-size: 16px; color: var(--fg-1); line-height: 1.55; margin: 0 0 18px; max-width: 70ch; }
 .fw-lead strong { color: var(--fg); }
@@ -572,6 +581,8 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-prev-step.is-active .fw-prev-dot { background: var(--warn); }
 .fw-prev-step.is-done .fw-prev-dot { background: var(--ok); }
 .fw-prev-step.is-done { color: var(--muted); }
+.fw-prev-step.is-error .fw-prev-dot { background: var(--danger); }
+.fw-prev-step.is-error { color: var(--danger); }
 /* iframe do preview */
 .fw-prev-stage { margin-top: 16px; }
 .fw-prev-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -594,6 +605,31 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-gatebar { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--bg-1)); border-radius: 12px; padding: 14px 16px; margin: 0 0 18px; }
 .fw-gatebar-t { font-size: 14.5px; font-weight: 600; color: var(--fg); margin: 0 0 4px; }
 @media (max-width: 720px) { .fw-prev-iframe { height: 56vh; min-height: 360px; } }
+/* C4 — toggle de viewport (desktop/tablet/mobile) do preview */
+.fw-prev-vp { display: inline-flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.fw-vp { font: inherit; font-size: 12.5px; line-height: 1.4; padding: 4px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.fw-vp:hover { color: var(--fg); }
+.fw-vp.is-on { background: var(--bg-1); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.fw-prev-frame.is-tablet, .fw-prev-frame.is-mobile { display: flex; justify-content: center; background: var(--bg-2); padding: 12px; }
+.fw-prev-frame.is-tablet .fw-prev-iframe { width: 768px; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.fw-prev-frame.is-mobile .fw-prev-iframe { width: 375px; max-width: 100%; border: 1px solid var(--line); border-radius: 12px; }
+/* C3 — resumo executivo de negócio no passo Revisar */
+.fw-exec { border: 1px solid var(--line); background: var(--bg-1); border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+.fw-exec-t { font-size: 14px; margin: 0 0 8px; color: var(--fg); }
+.fw-exec-lead { font-size: 15px; color: var(--fg); margin: 0 0 6px; font-weight: 600; }
+.fw-exec-desc { margin: 0 0 6px; }
+.fw-exec-who { margin: 0 0 6px; font-size: 13.5px; }
+.fw-exec-k { color: var(--muted); font-size: 12.5px; }
+.fw-exec-caps { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.fw-exec-caps .fw-chip { background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; color: var(--fg); }
+.fw-exec-goal { margin: 0 0 6px; font-size: 13.5px; }
+.fw-exec-nums { margin: 8px 0 0; font-size: 12.5px; }
+/* C5 — aviso de pendências (decisões em aberto) no passo Revisar */
+.fw-pending { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--bg-1)); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px; }
+.fw-pending-t { font-size: 14px; font-weight: 600; color: var(--fg); margin: 0 0 8px; }
+.fw-pending-l { margin: 0 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.fw-pending-l li { font-size: 13.5px; color: var(--fg); }
+.fw-pending-l li.is-ess { font-weight: 600; }
 
 /* DAG do build (force-directed, contido) */
 .forge-dag { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1);
@@ -723,6 +759,9 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ed-section.ed-adv > summary { cursor: pointer; padding: 11px 16px; font-size: 13px; color: var(--fg-1); }
 .ed-section.ed-adv .ed-grid { padding: 0 16px 14px; }
 .ed-hint { margin: 2px 6px 11px; font-size: 12px; color: var(--muted); }
+/* (UX-REQHUB-006) a ajuda do token traz um comando kubectl longo — quebra o inline code para não
+   estourar a largura em telas estreitas (375px). */
+.asst-token-help code { overflow-wrap: anywhere; word-break: break-word; }
 .ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; }
 @media (max-width: 620px) { .ed-grid { grid-template-columns: 1fr; } }
 .ed-grid .fld.wide { grid-column: 1 / -1; }
@@ -952,6 +991,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .btn.danger:hover { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); border-color: var(--danger, #dc2626); }
 .forge-danger { margin-top: 28px; padding: 16px; border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--danger, #dc2626) 5%, transparent); }
 .forge-danger h4 { margin: 0 0 6px; color: var(--danger, #dc2626); }
+/* (UX-REQHUB-012) variante PROTEGIDA: informativa, não alarmante — a exclusão está indisponível
+   pela plataforma, então neutraliza o vermelho e mantém só a explicação da salvaguarda. */
+.forge-danger.is-protected { border-color: var(--line-2, var(--line)); background: color-mix(in srgb, var(--muted) 6%, transparent); }
+.forge-danger.is-protected h4 { color: var(--muted); }
 /* Indicador VIVO do build (tela Build) */
 .forge-build-status { margin: 10px 0 6px; }
 .fbuild-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--fg-1); padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
@@ -1109,6 +1152,23 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .cmdk-send { white-space: nowrap; }
 body.cmdk-on { overflow: hidden; }
 
+/* (UX-REQHUB-002/004) diálogo de blast-radius das ações destrutivas da Forja (launch/delete) */
+.blast-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 240; display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px 16px; }
+.blast { width: min(520px, 100%); max-height: 84vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45); padding: 20px 22px; }
+.blast-head { display: flex; align-items: center; gap: 10px; }
+.blast-ic { font-size: 20px; line-height: 1; }
+.blast-title { font-size: 16px; margin: 0; }
+.blast-intro { font-size: 13px; color: var(--fg-1); margin: 0; }
+.blast-legend { margin: 2px 0 0; }
+.blast-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--fg-1); }
+.blast-list code, .blast-req-code { font-family: var(--mono); font-size: 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.blast-warn { font-size: 12.5px; color: var(--fg-1); background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 8px; padding: 8px 11px; margin: 0; }
+.blast-req { font-size: 12.5px; color: var(--muted); display: block; }
+.blast-input { width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; min-height: 40px; font-family: var(--mono); }
+.blast-ack { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--fg-1); }
+.blast-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+body.blast-on { overflow: hidden; }
+
 /* Alvos de toque (telas com ponteiro grosso): chips/botões pequenos sobem p/ ≥40px.
    Só em (pointer: coarse) — não engorda a densidade no desktop com mouse. */
 @media (pointer: coarse) {
@@ -1259,3 +1319,88 @@ body.cmdk-on { overflow: hidden; }
 .forge-telas-item { flex-wrap: wrap; }
 .forge-refine-ta { width: 100%; margin-top: 6px; font: inherit; background: var(--bg-1); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .fw-skip-gate { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; }
+
+/* ─── ETAPA "IDEIA" — copiloto de produto (chat + visão por modo) ─────────────────────────────── */
+.fw-idea-card { max-width: 1140px; }
+.fw-idea-lead { font-size: 13.5px; color: var(--fg-1); margin: 0 0 16px; max-width: 78ch; }
+/* layout 2 colunas: chat + painel (empilha em telas estreitas) */
+.fw-idea { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .fw-idea { grid-template-columns: 1fr; } }
+.fw-idea-m-simples { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+
+/* --- coluna chat --- */
+.fw-idea-chat { display: flex; flex-direction: column; min-width: 0; }
+.fw-idea-log { display: flex; flex-direction: column; gap: 9px; min-height: 220px; max-height: 46vh; overflow-y: auto; padding: 6px 4px 4px; }
+.fw-idea-msg { max-width: 88%; padding: 9px 13px; border-radius: 13px; font-size: 13.5px; line-height: 1.5; border: 1px solid var(--line); animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-msg { animation: none; } }
+.fw-idea-msg.is-user { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent); }
+.fw-idea-msg.is-ai { align-self: flex-start; background: var(--bg-1); }
+.fw-idea-bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fw-idea-typing { margin: 2px 4px 0; }
+.fw-idea-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 2px 0; }
+.fw-idea-chip { animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-chip { animation: none; } }
+.fw-idea-err { color: var(--danger); margin: 8px 2px 0; }
+.fw-idea-err[hidden] { display: none; }
+.fw-idea-composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.fw-idea-input { flex: 1; min-width: 0; }
+.fw-idea-sendbtn { flex: none; align-self: stretch; }
+.fw-idea-attach { margin-top: 8px; }
+
+/* --- painel da visão (nome + view + gate) --- */
+.fw-idea-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fw-idea-name { display: block; }
+.fw-idea-name .fw-fld-l { margin-bottom: 5px; }
+.fw-idea-view { display: flex; flex-direction: column; gap: 12px; }
+.fw-idea-view-t { font-size: 15px; margin: 0 0 2px; color: var(--fg); }
+.fw-idea-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin: 8px 0 4px; }
+.fw-idea-purpose { font-size: 14.5px; color: var(--fg); line-height: 1.5; margin: 0; }
+.fw-idea-who { font-size: 12.5px; margin: 0; }
+/* cartões (guiado) e fieldsets (profissional) */
+.fw-idea-card2, .fw-idea-fieldset { background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-card2, .fw-idea-fieldset { animation: none; } }
+.fw-idea-card-t { font-size: 13px; font-weight: 600; color: var(--fg-1); margin: 0 0 8px; }
+.fw-idea-detail { margin-top: 8px; }
+.fw-idea-detail > summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.fw-idea-detail > summary:hover { color: var(--fg-1); }
+.fw-idea-detail > *:not(summary) { margin-top: 8px; }
+.fw-idea-fin { margin-bottom: 0; }
+/* listas editáveis */
+.fw-idea-list { display: flex; flex-direction: column; gap: 7px; }
+.fw-idea-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fw-idea-item { display: flex; gap: 6px; align-items: center; animation: fwfade 0.2s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-item { animation: none; } }
+.fw-idea-item-in { flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; color: var(--fg); font: inherit; font-size: 13px; padding: 7px 10px; }
+.fw-idea-item-in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.fw-idea-item-ctl { display: inline-flex; gap: 2px; flex: none; }
+.fw-idea-mv, .fw-idea-rm { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 5px; border-radius: 6px; line-height: 1; }
+.fw-idea-mv:hover, .fw-idea-rm:hover { color: var(--fg); background: var(--bg-2); }
+.fw-idea-mv[disabled] { opacity: 0.3; cursor: default; }
+.fw-idea-rm:hover { color: var(--danger); }
+.fw-idea-add { font-size: 13px !important; padding: 7px 10px !important; }
+.fw-idea-empty { font-size: 12.5px; padding: 2px 0; }
+/* perguntas em aberto */
+.fw-idea-oq { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.fw-idea-oq-item { display: flex; gap: 8px; align-items: center; font-size: 13px; animation: fwfade 0.2s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-oq-item { animation: none; } }
+.fw-idea-oq-item.is-essential { font-weight: 500; }
+.fw-idea-oq-t { flex: 1; min-width: 0; }
+.fw-idea-oq-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+
+/* gate: maturidade + avanço + atalho */
+.fw-idea-gate { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.fw-idea-meter { display: flex; align-items: center; gap: 12px; }
+.fw-idea-bar { flex: 1; min-width: 0; }
+.fw-idea-hint { margin: 0; flex: 1; }
+.fw-ring { width: 58px; height: 58px; flex: none; }
+.fw-ring-track { stroke: var(--bg-3); stroke-width: 7; }
+.fw-ring-arc { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-ring-arc { transition: none; } }
+.fw-ring-arc.is-ready { stroke: var(--ok); }
+.fw-ring-v { fill: var(--fg); font-size: 15px; font-weight: 600; font-family: var(--sans); }
+.fw-idea-advance { width: 100%; justify-content: center; }
+.fw-idea-advance[disabled] { opacity: 0.55; cursor: not-allowed; }
+.fw-idea-ready { color: var(--ok) !important; margin: 0; }
+.fw-idea-adv { font-size: 12.5px; color: var(--muted); }
+.fw-idea-adv > summary { cursor: pointer; }
+.fw-idea-skip { margin-top: 8px; }

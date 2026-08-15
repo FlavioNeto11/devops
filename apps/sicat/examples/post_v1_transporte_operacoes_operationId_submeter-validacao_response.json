@@ -1,0 +1,130 @@
+{
+  "operation": {
+    "id": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+    "version": 4,
+    "integrationAccountId": "acc_exemplo_prod",
+    "sessionContextId": null,
+    "referenceCode": "PED-2026-000123",
+    "status": "ready_for_contract",
+    "cargoRegime": "lotacao",
+    "operationClassification": null,
+    "freight": {
+      "offeredAmount": 3800.00,
+      "contractedAmount": null,
+      "floorAmount": null,
+      "tollAmount": null,
+      "vpoAmount": null,
+      "otherComponentsAmount": null,
+      "totalContractValue": null
+    },
+    "currency": "BRL",
+    "paymentMethod": "boleto",
+    "paymentTermDays": 30,
+    "blockedReasonCode": null,
+    "cancelledReason": null,
+    "parties": [
+      {
+        "id": "troppart_2b3c4d5e6f7a8b9c0d1e2f3a4b5c",
+        "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f",
+        "role": "carrier",
+        "partySnapshot": {
+          "documentType": "CNPJ",
+          "documentNumber": "11222333000181",
+          "legalName": "Transportes Exemplo LTDA",
+          "rntrcNumber": "12345678",
+          "rntrcCategory": "TAC",
+          "rntrcStatus": "active"
+        },
+        "createdAt": "2026-08-13T12:15:00Z"
+      }
+    ],
+    "vehicles": [
+      {
+        "id": "tropveh_3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+        "vehicleId": "trveh_9c8b7a6f5e4d3c2b1a0f9e8d7c6b",
+        "position": "traction",
+        "vehicleSnapshot": {
+          "plate": "ABC1D23",
+          "renavam": "12345678901",
+          "vehicleType": "truck",
+          "axlesCount": 3,
+          "cargoBodyType": "baú"
+        },
+        "createdAt": "2026-08-13T12:15:00Z"
+      }
+    ],
+    "cargo": [],
+    "route": {
+      "id": "troproute_4d5e6f7a8b9c0d1e2f3a4b5c6d7e",
+      "originMunicipality": "São Paulo",
+      "originUf": "SP",
+      "originIbgeCode": null,
+      "destinationMunicipality": "Campinas",
+      "destinationUf": "SP",
+      "destinationIbgeCode": null,
+      "distanceKm": 99.5,
+      "routeSource": "manual",
+      "tollExpected": null,
+      "waypoints": [],
+      "createdAt": "2026-08-13T12:15:00Z"
+    },
+    "availableCommands": [
+      "contract",
+      "cancel"
+    ],
+    "createdAt": "2026-08-13T12:15:00Z",
+    "updatedAt": "2026-08-13T12:26:00Z"
+  },
+  "evaluation": {
+    "evaluationId": "cmpeval_3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+    "operationId": "trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+    "gate": "GATE_PROPOSAL",
+    "overallStatus": "WARN",
+    "referenceDate": "2026-08-13",
+    "evaluatedAt": "2026-08-13T12:25:30Z",
+    "checks": [
+      {
+        "ruleCode": "TR-PMF-001",
+        "ruleVersionLabel": "v2026-08-baseline",
+        "status": "PASS",
+        "rawStatus": null,
+        "reasonCode": null,
+        "humanMessage": "Regime de carga \"lotacao\" — piso mínimo de frete aplicável.",
+        "legalBasis": [
+          { "reference": "Lei 13.703/2018" },
+          { "reference": "Res. ANTT 5.867/2020" },
+          { "reference": "Lei 15.485/2026" }
+        ],
+        "evidenceRefs": ["cmpevd_4b5c6d7e8f9a0b1c2d3e4f5a6b7c"]
+      },
+      {
+        "ruleCode": "TR-PMF-002",
+        "ruleVersionLabel": "v2026-08-baseline",
+        "status": "WARN",
+        "rawStatus": null,
+        "reasonCode": "FLOOR_NOT_CALCULATED",
+        "humanMessage": "Piso aplicável, mas ainda não calculado (o motor de cálculo chega na Fase B).",
+        "legalBasis": [
+          { "reference": "Lei 13.703/2018" },
+          { "reference": "Res. ANTT 5.867/2020" },
+          { "reference": "Lei 15.485/2026" }
+        ],
+        "evidenceRefs": ["cmpevd_5c6d7e8f9a0b1c2d3e4f5a6b7c8d"]
+      },
+      {
+        "ruleCode": "TR-PMF-004",
+        "ruleVersionLabel": "v2026-08-baseline",
+        "status": "WARN",
+        "rawStatus": null,
+        "reasonCode": "FLOOR_VERSION_UNAVAILABLE",
+        "humanMessage": "Piso aplicável, mas nenhuma tabela de coeficientes está disponível ainda (pendência P3 do guia).",
+        "legalBasis": [
+          { "reference": "Lei 13.703/2018" },
+          { "reference": "Res. ANTT 5.867/2020" },
+          { "reference": "Lei 15.485/2026" }
+        ],
+        "evidenceRefs": ["cmpevd_6d7e8f9a0b1c2d3e4f5a6b7c8d9e"]
+      }
+    ]
+  }
+}

@@ -2,20 +2,51 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || '/contaviva-pro/api';
 
 // --- Token store (bloco contas-acesso) -------------------------------------
-// Fonte única do access token (localStorage). useAuth.js reusa estes helpers. O 401 LIMPA o token
-// e dispara o evento 'auth:logout' (window) p/ o useAuth derrubar a sessão reativa — sem import cíclico.
+// Fonte única do access token E do refresh token (localStorage). useAuth.js reusa estes helpers.
+// No 401 tentamos RENOVAR o access token com o refresh guardado (POST /auth/refresh — o backend
+// rotaciona) e RETENTAMOS a request original UMA vez; só derrubamos a sessão (evento 'auth:logout'
+// → o useAuth limpa o estado e redireciona a /login) quando não há refresh ou o refresh falha —
+// sem import cíclico com o useAuth.
 const TOKEN_KEY = 'contaviva-pro.accessToken';
+const REFRESH_KEY = 'contaviva-pro.refreshToken';
 export function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } }
 export function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch {} }
+export function getRefresh() { try { return localStorage.getItem(REFRESH_KEY) || ''; } catch { return ''; } }
+export function setRefresh(t) { try { if (t) localStorage.setItem(REFRESH_KEY, t); else localStorage.removeItem(REFRESH_KEY); } catch {} }
 function emitLogout() { try { window.dispatchEvent(new CustomEvent('auth:logout')); } catch {} }
 
-async function request(method, path, body) {
+// Renova o access token a partir do refresh guardado (mesma rota/lógica do bootstrap do useAuth).
+// Deduplica chamadas concorrentes: várias 401 simultâneas compartilham um único POST /auth/refresh.
+// Resolve true se renovou (novo access + refresh rotacionado aplicados); false se não há/refresh falhou.
+let refreshInFlight = null;
+function tryRefresh() {
+  const rt = getRefresh();
+  if (!rt) return Promise.resolve(false);
+  if (!refreshInFlight) {
+    refreshInFlight = auth.refresh(rt)
+      .then((r) => {
+        if (r && r.accessToken) { setToken(r.accessToken); if (r.refreshToken) setRefresh(r.refreshToken); return true; }
+        return false;
+      })
+      .catch(() => false)
+      .finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
+async function request(method, path, body, _retried) {
   const headers = { 'Content-Type': 'application/json' };
   const tok = getToken();
   if (tok) headers['Authorization'] = 'Bearer ' + tok;
   const res = await fetch(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) { setToken(null); emitLogout(); const e = new Error((data && data.error && data.error.message) || 'Sessão expirada.'); e.status = 401; throw e; }
+  if (res.status === 401) {
+    // Renova e RETENTA uma única vez — nunca para a própria rota /auth/refresh (evita loop) nem se já retentamos.
+    const isRefreshCall = path.indexOf('/auth/refresh') === 0;
+    if (!_retried && !isRefreshCall && (await tryRefresh())) return request(method, path, body, true);
+    setToken(null); emitLogout();
+    const e = new Error((data && data.error && data.error.message) || 'Sessão expirada.'); e.status = 401; throw e;
+  }
   if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }
   return data;
 }
@@ -62,22 +93,29 @@ export const users = {
 // Assistente de IA (bloco control-ai-por-app). Aceita ARQUIVOS (multimodal): envia multipart/form-data
 // quando há File[] (campo 'files'); senão JSON (retrocompat). NUNCA setamos Content-Type no multipart
 // (o browser põe o boundary). Erros estruturados (status + message) sobem p/ a view.
-export async function assistant(message, files) {
+// opts: { signal?: AbortSignal } — o signal permite CANCELAR a pergunta em andamento (a view expõe
+// um botão "Cancelar" durante o "Pensando…"). _retried é interno (dedupe do retry pós-refresh).
+export async function assistant(message, files, opts = {}) {
   const list = Array.isArray(files) ? files.filter(Boolean) : [];
   // bloco contas-acesso: anexa o Bearer (sem fixar Content-Type no multipart — o browser põe o boundary).
   const tok = getToken();
   const authHdr = tok ? { Authorization: 'Bearer ' + tok } : {};
+  const signal = opts.signal;
   let res;
   if (list.length) {
     const fd = new FormData();
     fd.append('message', String(message || ''));
     for (const f of list) fd.append('files', f, f.name);
-    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: authHdr, body: fd });
+    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: authHdr, body: fd, signal });
   } else {
-    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHdr }, body: JSON.stringify({ message: String(message || '') }) });
+    res = await fetch(BASE + '/v1/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHdr }, body: JSON.stringify({ message: String(message || '') }), signal });
   }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) { setToken(null); try { window.dispatchEvent(new CustomEvent('auth:logout')); } catch {} }
+  if (res.status === 401) {
+    // Mesmo tratamento do request(): renova e retenta UMA vez antes de derrubar a sessão.
+    if (!opts._retried && (await tryRefresh())) return assistant(message, files, { ...opts, _retried: true });
+    setToken(null); emitLogout();
+  }
   if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }
   return data;
 }

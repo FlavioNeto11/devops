@@ -13,13 +13,20 @@ const props = defineProps({
   /** Mostra botão "Aplicar" explícito. */
   showApply: { type: Boolean, default: true },
   applyLabel: { type: String, default: 'Buscar' },
-  clearLabel: { type: String, default: 'Limpar' }
+  clearLabel: { type: String, default: 'Limpar' },
+  /**
+   * Rótulo do atalho de limpeza no cabeçalho. Vazio mantém o histórico
+   * ("<clearLabel> tudo"); telas que já dizem "Limpar filtros" no corpo passam o
+   * MESMO texto aqui para não conviverem dois vocabulários na mesma tela.
+   */
+  clearAllLabel: { type: String, default: '' }
 });
 
 const emit = defineEmits(['apply', 'clear', 'remove']);
 
 const open = ref(!props.collapsible || props.activeChips.length > 0);
 const hasActiveChips = computed(() => props.activeChips.length > 0);
+const resolvedClearAllLabel = computed(() => props.clearAllLabel.trim() || `${props.clearLabel} tudo`);
 
 function toggle() {
   if (props.collapsible) open.value = !open.value;
@@ -52,7 +59,7 @@ function toggle() {
         @click="emit('clear')"
       >
         <v-icon size="14">mdi-close-circle-outline</v-icon>
-        {{ clearLabel }} tudo
+        {{ resolvedClearAllLabel }}
       </button>
     </header>
 

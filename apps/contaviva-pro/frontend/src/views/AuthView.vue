@@ -100,6 +100,30 @@ async function startSso() {
   } catch (e) { ssoBusy.value = false; toast.error('Não foi possível iniciar o SSO.'); }
 }
 
+// se o IdP recusou o pedido implicit, ele volta com #error=...&error_description=... no fragmento.
+// Sem tratar isso a tela ficava "morta" (só #access_token= era lido) — agora damos uma causa acionável,
+// distinguindo o caso mais comum (client sem implicit habilitado) de uma falha genérica (UX-CVPRO-011).
+function handleSsoError() {
+  const hash = window.location.hash || '';
+  if (!hash.includes('error=')) return false;
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  const code = params.get('error');
+  const desc = params.get('error_description');
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  formError.value = ssoErrorMessage(code, desc);
+  return true;
+}
+
+// mapeia o código OAuth do IdP numa mensagem em pt-BR com a provável causa e ação.
+function ssoErrorMessage(code, desc) {
+  const pretty = desc ? desc.replace(/\+/g, ' ') : '';
+  if (code === 'unsupported_response_type' || code === 'invalid_request') {
+    return 'O login por SSO não está habilitado para este aplicativo (fluxo implicit). Peça ao administrador para revisar a configuração do cliente no Keycloak.';
+  }
+  if (code === 'access_denied') return 'Login por SSO cancelado ou sem permissão para este aplicativo.';
+  return 'Falha no login por SSO' + (pretty ? ': ' + pretty : '.') ;
+}
+
 // se voltamos do IdP com #access_token=... no hash, troca pelo nosso par de tokens e entra.
 async function handleSsoCallback() {
   const hash = window.location.hash || '';
@@ -112,11 +136,18 @@ async function handleSsoCallback() {
     history.replaceState(null, '', window.location.pathname + window.location.search);
     router.push(dest());
     return true;
-  } catch (e) { formError.value = 'Falha no login por SSO.'; return false; }
+  } catch (e) {
+    // o exchange rejeitou o token do IdP (ex.: e-mail não verificado, client/realm divergente).
+    formError.value = e && e.status === 401
+      ? 'O provedor SSO autenticou, mas a conta não pôde ser validada (e-mail não verificado ou aplicativo não autorizado).'
+      : 'Falha ao concluir o login por SSO' + (e && e.message ? ': ' + e.message : '.');
+    return false;
+  }
 }
 
 onMounted(async () => {
   try { const c = await authApi.ssoConfig(); sso.enabled = !!(c && c.enabled); sso.issuer = c && c.issuer || null; sso.clientId = c && c.clientId || null; } catch {}
+  if (handleSsoError()) return; // erro do IdP tem prioridade sobre a tentativa de troca
   if (sso.enabled) await handleSsoCallback();
 });
 </script>

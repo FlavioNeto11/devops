@@ -274,6 +274,20 @@ spec:
         - name: reqhub-api-strip
         - name: secure-headers
           namespace: traefik
+    # SSE do COPILOTO DA IDEIA (etapa 1 do wizard da Forja): conversa que transmite a resposta em
+    # deltas + patch do ideaDraft -> SEM `compress` (bufferizaria o event-stream). priority 40.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/forge/idea/chat`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: console-auth-401
+          namespace: devops-system
+        - name: reqhub-api-strip
+        - name: secure-headers
+          namespace: traefik
     # API -> strip /reqs/api, priority 30 (vence o frontend /reqs priority 10).
     - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api`)
       kind: Rule

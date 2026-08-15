@@ -6,6 +6,7 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
+  const sessionExpired = useAuthStore((s) => s.sessionExpired);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -22,8 +23,18 @@ export function LoginPage() {
           <div className="text-muted mt-1 text-sm">Seu WhatsApp na web</div>
         </div>
 
-        <label className="block text-sm text-muted mb-1">E-mail</label>
+        {sessionExpired && (
+          <div
+            role="status"
+            className="mb-4 rounded-xl bg-surface border border-line px-4 py-3 text-sm text-white"
+          >
+            Sua sessão expirou. Entre novamente para continuar.
+          </div>
+        )}
+
+        <label htmlFor="login-email" className="block text-sm text-muted mb-1">E-mail</label>
         <input
+          id="login-email"
           className="w-full mb-4 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="email"
           autoComplete="username"
@@ -32,8 +43,9 @@ export function LoginPage() {
           placeholder="voce@email.com"
         />
 
-        <label className="block text-sm text-muted mb-1">Senha</label>
+        <label htmlFor="login-password" className="block text-sm text-muted mb-1">Senha</label>
         <input
+          id="login-password"
           className="w-full mb-2 rounded-xl bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50"
           type="password"
           autoComplete="current-password"

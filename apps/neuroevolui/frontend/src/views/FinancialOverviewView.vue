@@ -22,7 +22,7 @@
   >
     <template #actions>
       <UiButton variant="subtle" :loading="loadingTx" @click="reload">Atualizar</UiButton>
-      <UiButton to="/transactions">Ver todas as transações</UiButton>
+      <UiButton to="/payment-transactions">Ver todas as transações</UiButton>
     </template>
 
     <!-- Filtros: período + profissional -->
@@ -106,7 +106,7 @@
       <!-- Receita por dia -->
       <UiCard title="Receita por dia" :subtitle="seriesSubtitle">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/revenue">Painel de receita</UiButton>
+          <UiButton variant="ghost" size="sm" to="/financial">Painel de receita</UiButton>
         </template>
         <UiLoadingState v-if="loadingTx" variant="skeleton" :skeleton-lines="6" />
         <UiErrorState
@@ -148,7 +148,7 @@
         subtitle="Transações agrupadas por provedor de pagamento."
       >
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/transactions">Transações</UiButton>
+          <UiButton variant="ghost" size="sm" to="/payment-transactions">Transações</UiButton>
         </template>
         <UiLoadingState v-if="loadingTx" variant="skeleton" :skeleton-lines="4" />
         <UiErrorState v-else-if="errorTx && !accessDenied" :message="errorMsg" @retry="loadTransactions" />
@@ -174,7 +174,7 @@
     <!-- Tabela de transações paginada -->
     <UiCard title="Transações" :subtitle="tableSubtitle">
       <template #actions>
-        <UiButton variant="ghost" size="sm" to="/transactions">Abrir lista completa</UiButton>
+        <UiButton variant="ghost" size="sm" to="/payment-transactions">Abrir lista completa</UiButton>
       </template>
 
       <UiDataTable

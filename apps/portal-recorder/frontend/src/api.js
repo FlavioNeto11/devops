@@ -101,7 +101,12 @@ async function apiFetch(path, { method = 'GET', body, auth = false } = {}) {
     const friendly = res.status === 503
       ? 'Serviço indisponível no momento — tente novamente em instantes.'
       : res.status === 401 || res.status === 403
-        ? 'Sem permissão — confira o token PORTAL_REC_TOKEN no topo da tela.'
+        ? (auth
+            // Escrita (Bearer): 401/403 aponta para o PORTAL_REC_TOKEN.
+            ? 'Sem permissão — confira o token PORTAL_REC_TOKEN no topo da tela.'
+            // Leitura (sem Bearer): o 401/403 vem do SSO — a sessão OIDC do Console
+            // expirou. O remédio é reautenticar (recarregar), não mexer no token.
+            : 'Sessão expirada — recarregue a página (F5) para entrar novamente.')
         : res.status === 404
           ? 'Registro não encontrado — pode ter sido excluído.'
           : null;
@@ -168,6 +173,10 @@ export const createAnnotation = (id, annotation) =>
     body: annotation,
     auth: true,
   });
+
+/** Anotações (passos) já persistidas de uma sessão — hidrata a captura no reload. */
+export const listAnnotations = (id) =>
+  apiFetch(`/v1/sessions/${encodeURIComponent(id)}/annotations`);
 
 export const takeScreenshot = (id) =>
   apiFetch(`/v1/sessions/${encodeURIComponent(id)}/screenshots`, { method: 'POST', auth: true });

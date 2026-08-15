@@ -85,6 +85,9 @@ import {
 import { config } from '../lib/config.js';
 import { registerDmrRoutes } from './dmr-routes.js';
 import { registerMtrProvisorioRoutes } from './mtr-provisorio-routes.js';
+import { registerChannelLinkRoutes } from './channel-link-routes.js';
+import { registerTransporteRoutes } from './transporte-routes.js';
+import { waiveChannelLinkVictimShieldService } from '../services/conversation-channel-link-service.js';
 
 const { Client } = pg;
 
@@ -189,6 +192,23 @@ function requireSicatUser(req: express.Request): SicatUserContext {
   return sicatUser;
 }
 
+/**
+ * Superfície `/v1` do SICAT.
+ *
+ * REGRA: toda rota exige `sicatAuthMiddleware`. A lista de exceções é FECHADA e cabe aqui:
+ * `GET /v1/ping`, `POST /v1/auth/login` e `POST /v1/sicat/auth/{login,register,refresh,keycloak}`.
+ * São públicas porque a credencial VAI no corpo (ou não há dado a proteger) — não há como exigir um
+ * Bearer de quem ainda não tem sessão. Fora deste arquivo, só o webhook de canal
+ * (`channel-webhook-routes.ts`, autenticado por HMAC do provedor) e `GET /health`
+ * (`system-routes.ts`, sondado pelo Kubernetes).
+ *
+ * O `authMiddleware` GLOBAL de `app.ts` NÃO substitui isto: ele só checa a PRESENÇA de um header
+ * `Bearer <qualquer coisa>` e nem sempre está ligado (`AUTH_REQUIRED` tem default `false`). Quem
+ * verifica assinatura e expiração do token do SICAT é `sicatAuthMiddleware`, e só onde ele está.
+ *
+ * Rota nova nasce FECHADA. `tests/api/v1-auth-coverage.test.js` enumera o router montado e falha se
+ * qualquer caminho fora da lista acima responder algo diferente de 401 sem Authorization.
+ */
 export function createApiRouter() {
   const router = express.Router();
 
@@ -200,12 +220,12 @@ export function createApiRouter() {
     });
   }));
 
-  router.get('/v1/health/system', asyncHandler(async (req, res) => {
+  router.get('/v1/health/system', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const systemHealth = await getSystemHealth();
     res.json(systemHealth);
   }));
 
-  router.get('/v1/health/workers', asyncHandler(async (req, res) => {
+  router.get('/v1/health/workers', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const workerStats = await getWorkerStatistics();
     res.json({
       workers: [],
@@ -226,7 +246,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.get('/v1/health/jobs/active', asyncHandler(async (req, res) => {
+  router.get('/v1/health/jobs/active', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const activeJobs = await listActiveJobs(100);
     const activeCount = activeJobs.length;
 
@@ -269,17 +289,17 @@ export function createApiRouter() {
     });
   }));
 
-  router.post('/v1/health/jobs/active/:jobId/cancel', asyncHandler(async (req, res) => {
+  router.post('/v1/health/jobs/active/:jobId/cancel', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await cancelJobFromActiveQueue(String(req.params.jobId || ''), req.body?.reason);
     res.json(response);
   }));
 
-  router.delete('/v1/health/jobs/active/:jobId', asyncHandler(async (req, res) => {
+  router.delete('/v1/health/jobs/active/:jobId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     await removeJobFromActiveQueue(String(req.params.jobId || ''));
     res.status(204).end();
   }));
 
-  router.get('/v1/health/jobs/dlq', asyncHandler(async (req, res) => {
+  router.get('/v1/health/jobs/dlq', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const dlqJobs = await listDLQJobs(100);
     const dlqCount = dlqJobs.length;
 
@@ -299,7 +319,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.post('/v1/health/jobs/dlq/:jobId/requeue', asyncHandler(async (req, res) => {
+  router.post('/v1/health/jobs/dlq/:jobId/requeue', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const job = await requeueFromDLQ(String(req.params.jobId));
     if (!job) {
       res.status(404).json({ message: 'Job not found' });
@@ -308,12 +328,12 @@ export function createApiRouter() {
     res.json({ jobId: job.jobId, status: job.status, message: 'Job requeued successfully' });
   }));
 
-  router.delete('/v1/health/jobs/dlq/:jobId', asyncHandler(async (req, res) => {
+  router.delete('/v1/health/jobs/dlq/:jobId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     await deleteFromDLQ(String(req.params.jobId));
     res.status(204).end();
   }));
 
-  router.get('/v1/health/metrics/performance', asyncHandler(async (req, res) => {
+  router.get('/v1/health/metrics/performance', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const hoursBackRaw = Number(req.query?.hoursBack);
     const hoursBack = Number.isFinite(hoursBackRaw) && hoursBackRaw > 0
       ? Math.min(Math.floor(hoursBackRaw), 168)
@@ -368,7 +388,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.get('/v1/health/metrics/timeline', asyncHandler(async (req, res) => {
+  router.get('/v1/health/metrics/timeline', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const hoursBackRaw = Number(req.query?.hoursBack);
     const hoursBack = Number.isFinite(hoursBackRaw) && hoursBackRaw > 0
       ? Math.min(Math.floor(hoursBackRaw), 24 * 30)
@@ -385,7 +405,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.get('/v1/health/metrics/endpoints', asyncHandler(async (req, res) => {
+  router.get('/v1/health/metrics/endpoints', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const hoursBackRaw = Number(req.query?.hoursBack);
     const limitRaw = Number(req.query?.limit);
 
@@ -405,7 +425,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.get('/v1/dashboard/overview', asyncHandler(async (req, res) => {
+  router.get('/v1/dashboard/overview', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const hoursBackRaw = Number(req.query?.hoursBack);
     const manifestsPageSizeRaw = Number(req.query?.manifestsPageSize);
 
@@ -537,7 +557,7 @@ export function createApiRouter() {
     });
   }));
 
-  router.post('/v1/maintenance/cleanup', asyncHandler(async (req, res) => {
+  router.post('/v1/maintenance/cleanup', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const { retention_days = 30, batch_size = 1000 } = req.body || {};
 
     const deletedCount = await cleanupOldJobs(retention_days, batch_size);
@@ -555,7 +575,7 @@ export function createApiRouter() {
     res.json(response);
   }));
 
-  router.get('/v1/auth/partner-info', asyncHandler(async (req, res) => {
+  router.get('/v1/auth/partner-info', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getPartnerInfo(String(toSingleString(req.query.document) || ''));
     res.json(response);
   }));
@@ -741,129 +761,140 @@ export function createApiRouter() {
     res.json(response);
   }));
 
-  router.post('/v1/session-contexts', asyncHandler(async (req, res) => {
+  // Waiver administrativo do escudo anti-bombing do vínculo de canal (D-A2). O gate de admin
+  // (`ensureAdminAuthorization`) roda DENTRO do service, como nas demais rotas `/v1/admin/*`.
+  router.post('/v1/admin/channel-links/shield/waive', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await waiveChannelLinkVictimShieldService(
+      requireSicatUser(req),
+      (req.body || {}) as LooseRecord,
+      getCorrelationId(req)
+    );
+    res.json(response);
+  }));
+
+  router.post('/v1/session-contexts', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await createSessionContext(req.body || {});
     res.status(201).json(response);
   }));
 
-  router.get('/v1/session-contexts/:id', asyncHandler(async (req, res) => {
+  router.get('/v1/session-contexts/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getSessionContext(String(req.params.id || ''));
     res.json(response);
   }));
 
-  router.post('/v1/catalog-sync', asyncHandler(async (req, res) => {
+  router.post('/v1/catalog-sync', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueCatalogSync(req.body || {}, toHeaderMap(req.headers || {}), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.get('/v1/catalogs/:catalogName', asyncHandler(async (req, res) => {
+  router.get('/v1/catalogs/:catalogName', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await queryCatalog(String(req.params.catalogName), req.query);
     res.json(response);
   }));
 
-  router.get('/v1/partners/search', asyncHandler(async (req, res) => {
+  router.get('/v1/partners/search', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await searchPartners(req.query);
     res.json(response);
   }));
 
-  router.post('/v1/cadastros', asyncHandler(async (req, res) => {
+  router.post('/v1/cadastros', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await createCadastro(req.body || {}, toHeaderMap(req.headers || {}), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.get('/v1/cadastros/:id', asyncHandler(async (req, res) => {
+  router.get('/v1/cadastros/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getCadastro(String(req.params.id));
     res.json(response);
   }));
 
-  router.post('/v1/manifestos', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await createManifest(req.body || {}, getCorrelationId(req));
     res.status(201).json(response);
   }));
 
-  router.post('/v1/manifestos/batch-create', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/batch-create', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await createManifestBatch(req.body || {}, getCorrelationId(req));
     res.status(201).json(response);
   }));
 
-  router.post('/v1/manifestos/batch-submit', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/batch-submit', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestBatchSubmit(req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.post('/v1/manifestos/batch-cancel', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/batch-cancel', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestBatchCancel(req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.get('/v1/manifestos', asyncHandler(async (req, res) => {
+  router.get('/v1/manifestos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listManifests(req.query as LooseRecord, getCorrelationId(req), toHeaderMap(req.headers || {}));
     res.json(response);
   }));
 
   // IMPORTANTE: registrar antes de '/v1/manifestos/:id' para não ser capturado pelo :id.
-  router.get('/v1/manifestos/receipt-responsibles', asyncHandler(async (req, res) => {
+  router.get('/v1/manifestos/receipt-responsibles', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listReceiptResponsibles(req.query as LooseRecord, getCorrelationId(req), toHeaderMap(req.headers || {}));
     res.json(response);
   }));
 
-  router.get('/v1/manifestos/:id', asyncHandler(async (req, res) => {
+  router.get('/v1/manifestos/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getManifest(String(req.params.id));
     res.json(response);
   }));
 
-  router.post('/v1/manifestos/:id/replicate', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/:id/replicate', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await replicateManifest(String(req.params.id), req.body || {}, getCorrelationId(req));
     res.status(201).json(response);
   }));
 
-  router.delete('/v1/manifestos/:id', asyncHandler(async (req, res) => {
+  router.delete('/v1/manifestos/:id', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await removeManifest(String(req.params.id), getCorrelationId(req));
     res.json(response);
   }));
 
-  router.post('/v1/manifestos/:id/submit', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/:id/submit', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestSubmit(String(req.params.id), req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.post('/v1/manifestos/:id/print', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/:id/print', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestPrint(String(req.params.id), req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.post('/v1/manifestos/:id/cancel', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/:id/cancel', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestCancel(String(req.params.id), req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.post('/v1/manifestos/receive', asyncHandler(async (req, res) => {
+  router.post('/v1/manifestos/receive', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueManifestReceive(req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
   // Responsáveis pela emissão de CDF (lista síncrona da CETESB) para o destinador selecionar.
-  router.get('/v1/cdf/responsibles', asyncHandler(async (req, res) => {
+  router.get('/v1/cdf/responsibles', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listCdfResponsibles(req.query as LooseRecord, getCorrelationId(req), toHeaderMap(req.headers || {}));
     res.json(response);
   }));
 
-  router.post('/v1/cdf/generate', asyncHandler(async (req, res) => {
+  router.post('/v1/cdf/generate', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueCdfGenerate(req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.post('/v1/cdf/download', asyncHandler(async (req, res) => {
+  router.post('/v1/cdf/download', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await enqueueCdfDownload(req.body || {}, toHeaderMap(req.headers), getCorrelationId(req));
     res.status(202).json(response);
   }));
 
-  router.get('/v1/cdf/certificates', asyncHandler(async (req, res) => {
+  router.get('/v1/cdf/certificates', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listCdfCertificates(req.query as LooseRecord, getCorrelationId(req), toHeaderMap(req.headers || {}));
     res.json(response);
   }));
 
-  router.get('/v1/cdf/documents/:documentId', asyncHandler(async (req, res) => {
+  router.get('/v1/cdf/documents/:documentId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const document = await getCdfDocumentBuffer(
       String(req.params.documentId),
       req.query as LooseRecord,
@@ -875,12 +906,12 @@ export function createApiRouter() {
     res.end(document.buffer);
   }));
 
-  router.get('/v1/jobs/search', asyncHandler(async (req, res) => {
+  router.get('/v1/jobs/search', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await jobsSearch((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
-  router.post('/v1/jobs/:jobId/retry', asyncHandler(async (req, res) => {
+  router.post('/v1/jobs/:jobId/retry', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await retryJob(
       String(req.params.jobId),
       toHeaderMap(req.headers || {}),
@@ -889,12 +920,12 @@ export function createApiRouter() {
     res.status(202).json(response);
   }));
 
-  router.get('/v1/jobs/:jobId', asyncHandler(async (req, res) => {
+  router.get('/v1/jobs/:jobId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getJob(String(req.params.jobId));
     res.json(response);
   }));
 
-  router.get('/v1/jobs/:jobId/events', asyncHandler(async (req, res) => {
+  router.get('/v1/jobs/:jobId/events', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const jobId = String(req.params.jobId);
     const snapshot = await getJob(jobId);
     let lastFingerprint = createJobDriftFingerprint(snapshot);
@@ -1012,37 +1043,37 @@ export function createApiRouter() {
     await client.query('LISTEN job_events');
   }));
 
-  router.get('/v1/audit/search', asyncHandler(async (req, res) => {
+  router.get('/v1/audit/search', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await auditSearch((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
-  router.get('/v1/audit/:correlationId', asyncHandler(async (req, res) => {
+  router.get('/v1/audit/:correlationId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await getAuditTrail(String(req.params.correlationId));
     res.json(response);
   }));
 
-  router.get('/v1/operations/overview', asyncHandler(async (_req, res) => {
+  router.get('/v1/operations/overview', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
     const response = await getOperationsOverview();
     res.json(response);
   }));
 
-  router.get('/v1/cetesb/accounts/health', asyncHandler(async (_req, res) => {
+  router.get('/v1/cetesb/accounts/health', sicatAuthMiddleware, asyncHandler(async (_req, res) => {
     const response = await cetesbAccountsHealth();
     res.json(response);
   }));
 
-  router.get('/v1/cetesb/sessions/health', asyncHandler(async (req, res) => {
+  router.get('/v1/cetesb/sessions/health', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await cetesbSessionsHealth((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
-  router.get('/v1/reports/mtrs', asyncHandler(async (req, res) => {
+  router.get('/v1/reports/mtrs', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await reportsMtrSearch((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
-  router.get('/v1/reports/mtrs/export', asyncHandler(async (req, res) => {
+  router.get('/v1/reports/mtrs/export', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const result = await reportsMtrExport((req.query || {}) as LooseRecord);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
@@ -1050,7 +1081,7 @@ export function createApiRouter() {
     res.send(result.csv);
   }));
 
-  router.get('/v1/manifestos/:id/documents/:documentId', asyncHandler(async (req, res) => {
+  router.get('/v1/manifestos/:id/documents/:documentId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const document = await getManifestDocumentStream(String(req.params.id), String(req.params.documentId));
     res.setHeader('Content-Type', document.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
@@ -1062,6 +1093,12 @@ export function createApiRouter() {
 
   // MTR provisório endpoints (cadeia mtr-provisorio-fluxo-base, fase 04)
   registerMtrProvisorioRoutes(router);
+
+  // Vínculo telefone <-> usuário por OTP (cadeia whatsapp-channel-sicat, fase 02)
+  registerChannelLinkRoutes(router);
+
+  // Vertical Transporte — catálogo regulatório read-only (PR-A2, DL-103)
+  registerTransporteRoutes(router);
 
   return router;
 }

@@ -1,0 +1,9 @@
+{
+  "action": "shield_waive",
+  "status": "applied",
+  "channelType": "whatsapp",
+  "phoneMasked": "+55 11 ****-0032",
+  "waivedChallenges": 4,
+  "correlationId": "corr_admin_shield_waive_001",
+  "performedAt": "2026-08-08T14:20:00Z"
+}

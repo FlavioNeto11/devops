@@ -27,6 +27,7 @@ export const REPORT_TYPES = {
   lawyer_report: 'Relatório para advogado',
   tokenization_partner_report: 'Relatório para parceiro de tokenização',
   collateral_analysis_report: 'Relatório para análise de uso como caução',
+  strategy_report: 'Relatório de estratégia (mecanismo + jurisprudência de apoio)',
 };
 
 // --- blocos reutilizaveis ---
@@ -46,8 +47,41 @@ function blockCase(c) {
       { k: 'Banco/escriturador', v: val(c.registrar) },
       { k: 'Tipo de direito', v: label('right_type', c.right_type) },
       { k: 'Situação de liquidez', v: label('liquidity_status', c.liquidity_status) },
+      { k: 'Mecanismo pretendido', v: label('mechanism', c.mechanism) },
+      { k: 'Credor-alvo', v: c.target_creditor_type ? `${label('target_creditor_type', c.target_creditor_type)}${c.target_creditor_name ? ' — ' + c.target_creditor_name : ''}` : '—' },
       { k: 'Valor estimado', v: money(c.derived.estimatedValue) },
     ],
+  };
+}
+
+// Bloco de pericia / atualizacao monetaria (só aparece com dados; casos legados -> vazio).
+function blockPericia(c) {
+  const p = c.pericia || {};
+  if (!p.active) return { heading: 'Perícia / atualização monetária', empty: 'Módulo de perícia não iniciado.' };
+  return {
+    heading: 'Perícia / atualização monetária',
+    kv: [
+      { k: 'Preço de aquisição', v: money(p.acquisition_price) },
+      { k: 'Data-base de aquisição', v: val(p.acquisition_date) },
+      { k: 'Índice de atualização', v: label('monetary_index', p.monetary_index) },
+      { k: 'Valor atualizado (laudo)', v: money(p.updated_value_pericial) },
+      { k: 'Ágio', v: money(p.agio) },
+      { k: 'Perito', v: val(p.perito) },
+      { k: 'Status do laudo', v: label('laudo_status', p.laudo_status) },
+      { k: 'Autenticidade da cártula', v: label('authenticity_status', p.authenticity_status) },
+    ],
+  };
+}
+
+// Precedentes de apoio: resolve os ids de jurisprudencia vinculados ao caso.
+// `resolver` (id -> item) e injetado por buildReport (o dominio nao acopla a coleccao).
+function blockPrecedents(c, resolver) {
+  const ids = Array.isArray(c.precedents) ? c.precedents : [];
+  const items = ids.map((id) => (resolver ? resolver(id) : null)).filter(Boolean);
+  return {
+    heading: 'Jurisprudência de apoio',
+    list: items.map((j) => `${j.title}${j.tribunal ? ' — ' + j.tribunal : ''}${j.year ? ' (' + j.year + ')' : ''}`),
+    empty: items.length === 0 ? 'Nenhum precedente vinculado.' : null,
   };
 }
 
@@ -161,7 +195,7 @@ const DISCLAIMER =
   'parecer, oferta ou distribuição de valores mobiliários, nem recomendação de investimento. Itens marcados como ' +
   '"requer validação jurídica" dependem de análise por profissional habilitado.';
 
-export function buildReport(c, type) {
+export function buildReport(c, type, resolver) {
   const t = REPORT_TYPES[type] ? type : 'full_case_report';
   const base = { type: t, title: REPORT_TYPES[t], caseName: c.holder_name || '(sem titular)', generatedAt: new Date().toISOString(), disclaimer: DISCLAIMER };
   let sections;
@@ -174,9 +208,11 @@ export function buildReport(c, type) {
         { heading: 'Resumo', kv: [
           { k: 'Titular', v: val(c.holder_name) },
           { k: 'Status', v: label('case_status', c.status) },
+          { k: 'Mecanismo', v: label('mechanism', c.mechanism) },
           { k: 'Documentação', v: `${c.derived.docPct}%` },
           { k: 'Pendências', v: String(c.derived.pendencyCount) },
           { k: 'Risco jurídico', v: label('legal_risk', c.derived.risk.level) },
+          { k: 'Ágio (informado)', v: money(c.pericia && c.pericia.agio) },
           { k: 'Valor estimado', v: money(c.derived.estimatedValue) },
         ] },
         blockStatus(c),
@@ -189,14 +225,17 @@ export function buildReport(c, type) {
       sections = [blockMissingDocs(c)];
       break;
     case 'lawyer_report':
-      sections = [blockCase(c), blockProcesses(c), blockLegal(c), blockPendencies(c), blockRisk(c), blockStatus(c)];
+      sections = [blockCase(c), blockProcesses(c), blockPericia(c), blockLegal(c), blockPrecedents(c, resolver), blockPendencies(c), blockRisk(c), blockStatus(c)];
       break;
     case 'tokenization_partner_report':
       sections = [
         { heading: 'Resumo', kv: [
           { k: 'Titular', v: val(c.holder_name) },
           { k: 'Tipo de direito', v: label('right_type', c.right_type) },
+          { k: 'Mecanismo', v: label('mechanism', c.mechanism) },
           { k: 'Liquidez', v: label('liquidity_status', c.liquidity_status) },
+          { k: 'Valor pericial atualizado', v: money(c.pericia && c.pericia.updated_value_pericial) },
+          { k: 'Ágio (informado)', v: money(c.pericia && c.pericia.agio) },
           { k: 'Valor estimado', v: money(c.derived.estimatedValue) },
           { k: 'Risco jurídico', v: label('legal_risk', c.derived.risk.level) },
         ] },
@@ -207,15 +246,31 @@ export function buildReport(c, type) {
       ];
       break;
     case 'collateral_analysis_report':
-      sections = [blockCase(c), blockCollateral(c), blockLegal(c), blockRisk(c), blockPendencies(c)];
+      sections = [blockCase(c), blockCollateral(c), blockPericia(c), blockLegal(c), blockRisk(c), blockPendencies(c)];
+      break;
+    case 'strategy_report':
+      sections = [
+        blockCase(c),
+        { heading: 'Estratégia de liquidação', kv: [
+          { k: 'Mecanismo pretendido', v: label('mechanism', c.mechanism) },
+          { k: 'Credor-alvo', v: c.target_creditor_type ? `${label('target_creditor_type', c.target_creditor_type)}${c.target_creditor_name ? ' — ' + c.target_creditor_name : ''}` : '—' },
+          { k: 'Base legal invocada', v: val(c.legal_basis_notes) },
+        ] },
+        blockPericia(c),
+        blockPrecedents(c, resolver),
+        blockRisk(c),
+        blockStatus(c),
+      ];
       break;
     case 'full_case_report':
     default:
       sections = [
         blockCase(c),
         blockProcesses(c),
+        blockPericia(c),
         blockDocuments(c),
         blockLegal(c),
+        blockPrecedents(c, resolver),
         blockTokenization(c, true),
         blockTokenization(c, false),
         blockCollateral(c),

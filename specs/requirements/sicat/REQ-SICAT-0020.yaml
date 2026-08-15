@@ -1,0 +1,52 @@
+id: REQ-SICAT-0020
+slug: req-sicat-0020
+title: "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)"
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve expor a vertical Transporte sob /v1/transporte/* seguindo o contract-first do
+  SICAT (OpenAPI, exemplos e operações geradas em lockstep no mesmo PR): CRUD de operações de
+  transporte, consulta e disparo de avaliação de conformidade, catálogo de regras regulatórias
+  (com filtro de vigência por data) e cadastros de transportadores/veículos; comandos honram
+  Idempotency-Key, preservam correlationId e retornam erro em application/problem+json.
+business_rationale: >-
+  Manter o padrão de contrato auditável do SICAT para a vertical nova, em vez de controladores
+  especiais fora da arquitetura (baseline deep-research 2026-08-13, "APIs propostas").
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+capability_blocks:
+  - contract-openapi
+  - idempotencia
+acceptance_criteria:
+  - "Toda rota nova de /v1/transporte/* nasce atrás de sicatAuthMiddleware (padrão da casa — enforcement por permission_key hoje existe só no gate conversacional); chaves RBAC transporte.read/transporte.write entram quando houver mecanismo de enforcement por rota HTTP ou tools conversacionais da vertical, sem alargar o papel-piso sicat.reader."
+  - "GET /v1/transporte/regras aceita filtro vigenteEm e devolve a versão da regra resolvida na data."
+  - "Alterações de superfície HTTP evoluem OpenAPI, exemplos, operações geradas (os dois geradores), rotas e testes de contrato no mesmo PR; npm run validate:openapi permanece verde."
+  - "Na Fase A não há job type novo: avaliação de conformidade é síncrona (200); o padrão 202/command-accepted entra quando houver integração externa (Fase C)."
+verification_method: [test-integration, test-unit]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0017
+  - type: depends_on
+    target: REQ-SICAT-0019
+version:
+  baseline_version: 1.0.0
+  item_revision: 2
+  semantic_change: patch
+  change_reason: alinhamento do critério de RBAC ao padrão da casa (PR-A2 — enforcement por chave só existe no gate conversacional; meta-teste do catálogo rejeita chave sem consumidor)
+allocation:
+  service_refs:
+    - svc-sicat-api
+  infra_refs:
+    - infra-postgres

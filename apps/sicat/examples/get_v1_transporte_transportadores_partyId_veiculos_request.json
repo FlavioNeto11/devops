@@ -1,0 +1,11 @@
+{
+  "params": {
+    "partyId": "trparty_4f6a1e2b3c4d5e6f7a8b9c0d1e2f"
+  },
+  "query": {
+    "integrationAccountId": "acc_exemplo_prod"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_vinculo_veiculo_list"
+  }
+}

@@ -86,11 +86,51 @@ Na plataforma: `basePath: /sicat`, namespace `apps`, hosts `dev.nvit.com.br` (p�
     múltiplas vezes (resposta HTTP + trilha de auditoria) e **estourava o heap** (OOM → CrashLoop →
     Cloudflare "invalid/incomplete response"). A tela `/v1/cdf/certificates` mantém o payload do contrato.
     Backend roda com `NODE_OPTIONS=--max-old-space-size=1536` e limite 2Gi (`k8s/backend.yaml`).
-11. **Deploy sob Argo (`selfHeal: true`)**: imagem é `:local` (build local) — `docker build` + recriar
+11. **Validar deploy do frontend: afirme o HASH do bundle a cada navegação.** `Cache-Control:
+    no-cache` no `index.html` **não** conserta a cópia que o navegador **já** guardou sem
+    validador (`ETag`/`Last-Modified`): ele aplica *frescor heurístico* e serve a cópia velha
+    **sem consultar o servidor** — na PRIMEIRA transição depois do deploy o avaliador continua
+    no bundle antigo (autocura nas seguintes). Já custou uma rodada inteira de revalidação:
+    achados "grandes" que eram cache do browser. Protocolo: **hard reload** + comparar, **a cada
+    tela**, `assets/index-<hash>.js` do `curl` no servidor com
+    `performance.getEntriesByType('resource')` da página aberta. E **`grep` no bundle não prova
+    comportamento** — o build minifica (identificadores locais viram `a`, `b`, `c`; só literais
+    de string sobrevivem). Verifique no **código-fonte** e com **teste**: lógica pura em
+    `frontend/tests/unit` (`cd frontend/tests/unit && node --test`), layout/interação em
+    `frontend/tests/ui` (Playwright — ex.: `fab-overlap-audit.spec.js`, que mede sobreposição do
+    FAB por hit-test e traz um *controle negativo* para provar que o medidor enxerga). Detalhe
+    em [`../../TROUBLESHOOTING.md`](../../TROUBLESHOOTING.md) §14.3.
+12. **Deploy sob Argo (`selfHeal: true`)**: imagem é `:local` (build local) — `docker build` + recriar
     pod basta para **código**. Mudança de **manifesto** (memória/env) tem de ir pelo **git**: `apply`
     solto é revertido pelo selfHeal. Sequência: build → commit → push → forçar refresh
     (`kubectl annotate application sicat -n argocd argocd.argoproj.io/refresh=hard --overwrite`) → Argo
     sincroniza o commit novo. Detalhes do incidente em [`../../TROUBLESHOOTING.md`](../../TROUBLESHOOTING.md).
+13. **`runMigrations` NÃO tem advisory lock** — este arquivo e `k8s/backend.yaml` afirmavam que tinha;
+    os dois foram corrigidos na fase 4.5. `src/db/migrate.ts` faz `select 1 from schema_migrations` →
+    `begin` → SQL → `insert` → `commit`, sem lock. Com `AUTO_MIGRATE=true` na **api** e no **worker**
+    (ambos `strategy: Recreate`), dois bootstraps simultâneos podem colidir em `23505` na PK de
+    `schema_migrations`; o perdedor faz rollback e o processo **lança** — `server.ts` não tem
+    try/catch no top-level await e `worker.ts` faz `exit 1`, logo **api + worker em CrashLoop
+    simultâneo**, não "chat degradado". Autocura no restart. Migration inédita → **rollout
+    escalonado**: api primeiro, worker só depois de Ready.
+14. **RBAC do chat: nunca "desative a permissão para destravar alguém".** `listPermissionKeysByUserId`
+    filtra `ap.is_active = true`, e a integridade do gate é avaliada **por chave**: desativar uma
+    permissão a remove do conjunto de **todos** e torna aquela ação insatisfazível para o mundo
+    inteiro, inclusive os admins — transforma um incidente de 3 usuários em incidente de 5. A alavanca
+    intuitiva faz o oposto do que parece. **Destravar é sempre CONCEDER papel.** Duas restrições duras
+    que sustentam o rollback: o seed **nunca** renomeia/desativa/reescreve `admin.global` (é a escada
+    de saída — `ensureAdminAuthorization` decide por NOME de papel e nunca lê `access_permissions`), e
+    o seed é **aditivo** (`do nothing`/`do update`, nunca `delete`) — trocá-lo por
+    `replaceAdminAccessRolePermissions` faria o primeiro restart desfazer um rollback de emergência.
+    Três armadilhas de verbo/alavanca que já custaram uma rodada de revisão: (a) quem desativa a chave
+    é o **`DELETE`**, não o `PATCH {isActive:false}` (esse é NO-OP), e o `DELETE` **não tem volta pela
+    API** — as 8 chaves do catálogo passaram a ser recusadas com 409 `ACCESS_PERMISSION_IS_CATALOG_KEY`;
+    (b) **alargar o papel-PISO não é rollback** — o piso é o que o `POST /v1/sicat/auth/register`
+    PÚBLICO concede, então alargá-lo promove a internet inteira, sobrevive a restart e some da métrica;
+    o rollback de regime é `CONVERSATION_PERMISSION_ENFORCEMENT=observe`, reversível por env; (c) o
+    piso é condicionado a **não ter nenhuma CHAVE EFETIVA**, não a "não ter papel" — papel vazio não
+    suprime o piso, e grant de piso expirado é revivido.
+    Runbook: [`docs/05-operacao/runbook-rbac-conversacional.md`](./docs/05-operacao/runbook-rbac-conversacional.md).
 
 ## Variáveis de ambiente chave
 
@@ -107,8 +147,9 @@ PORT=8080
 DATABASE_URL=postgres://...@sicat-postgres:5432/mtr_automation   # secret sicat-db
 DATABASE_SSL=false
 STORAGE_DIR=/data/storage         # PVC compartilhado api↔worker (docs MTR/CDF gerados)
-AUTO_MIGRATE=true                 # migrations no boot (idempotente, advisory-lock)
-AUTO_SEED=true                    # seed no boot
+AUTO_MIGRATE=true                 # migrations no boot — ⚠️ SEM advisory lock (ver armadilha 13)
+AUTO_SEED=true                    # seed no boot (base-data + catálogo RBAC, idempotente)
+CONVERSATION_PERMISSION_ENFORCEMENT=enforce  # gate RBAC do chat: enforce (default) | observe
 NODE_EXTRA_CA_CERTS=/opt/certs/cetesb-chain.pem   # CA CETESB (ConfigMap sicat-certs)
 
 # Backend — CETESB (modo real é o padrão)

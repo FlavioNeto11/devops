@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { setUnauthorizedHandler } from './api/client';
+import { disconnectSocket } from './realtime/socket';
 import { useAuthStore } from './store/auth.store';
 import { useSessionStore } from './store/session.store';
 import { useChatsStore } from './store/chats.store';
@@ -18,6 +20,18 @@ export default function App() {
   const bootstrapping = useAuthStore((s) => s.bootstrapping);
   const user = useAuthStore((s) => s.user);
   const bootstrap = useAuthStore((s) => s.bootstrap);
+
+  // Sessão expirada (401 em requisição autenticada, ou auth do socket recusada):
+  // limpa o usuário e o estado em memória e leva de volta ao /login com aviso.
+  // Registrado antes do bootstrap para já cobrir a revalidação inicial do token.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      useAuthStore.getState().markSessionExpired();
+      useChatsStore.getState().clearChats();
+      disconnectSocket();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Revalida o token salvo ao abrir (seed de dev já rodou no main.tsx).
   useEffect(() => {

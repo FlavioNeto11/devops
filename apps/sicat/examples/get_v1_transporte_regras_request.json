@@ -1,0 +1,9 @@
+{
+  "query": {
+    "domain": "CIOT",
+    "vigenteEm": "2026-08-13"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_transporte_regras_list"
+  }
+}

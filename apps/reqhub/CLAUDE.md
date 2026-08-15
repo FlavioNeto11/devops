@@ -24,7 +24,8 @@ produtos com KPIs, briefing e progresso vivo — cercada por: **Explorador**, **
 Versões & diffs + Fila de reprocessamento, sub-abas na mesma tela). As ex-abas **Visão
 geral/Desenvolvimento/Usabilidade morreram**: KPIs e briefing migraram para o hub; Pipeline e
 Usabilidade migram para o detalhe do produto no Studio (A1b). Deep-links antigos (`#/overview`,
-`#/dev`, `#/usability`) redirecionam via `LEGACY_HASH` em `assets/app.js`. Servido sob `/reqs`
+`#/dev`) redirecionam via `LEGACY_HASH` em `assets/app.js`; `#/usability` voltou a ser roteável —
+a tela de Usabilidade vive como sub-aba de **Cobertura** (`coverageTabs`). Servido sob `/reqs`
 (`stripPrefix: false`, `priority: 10`), namespace `apps`.
 
 > **Read-only por design.** A fonte da verdade e a **autoria** dos requisitos continuam no git

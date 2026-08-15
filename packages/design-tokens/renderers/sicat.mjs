@@ -30,8 +30,14 @@ const STATUS_ORDER = [
   'status-error-bg', 'status-error-fg',
   'status-warning-bg', 'status-warning-fg',
 ];
+// `on-primary` é DECLARADO (não derivado): o Vuetify só inventa a cor do texto
+// quando ela falta (genOnColors) e, pela regra dele ("prefira branco quando os
+// dois passarem no APCA"), punha BRANCO sobre o verde do tema escuro — 2,59:1,
+// abaixo do mínimo AA de 4,5:1. O valor vem do token que a paleta CSS já usava
+// nos botões próprios (`--color-primary-contrast`), então o Vuetify passa a
+// dizer o mesmo que o CSS. Travado em frontend/tests/unit/theme-contrast.test.js.
 const VUETIFY_ORDER = [
-  'primary', 'secondary', 'success', 'warning', 'error', 'info',
+  'primary', 'on-primary', 'secondary', 'success', 'warning', 'error', 'info',
   'background', 'surface', 'surface-bright', 'surface-light',
 ];
 
@@ -161,13 +167,15 @@ export function renderSicatVuetifyTheme(brand) {
   out.push('// escala neutra de cinza-frio; UM acento verde-petróleo escuro. Sincronia com os');
   out.push('// tokens CSS é garantida na fonte (packages/design-tokens/tokens.json).');
   out.push('export const sicatVuetifyThemes = {');
-  out.push('  vuexy: {');
+  // Nomes de tema do PRODUTO (`sicat`/`sicatDark`). Antes eram `vuexy`/`vuexyDark`,
+  // herança do template comprado: o nome vazava para o DOM em `class="v-theme--vuexy"`.
+  out.push('  sicat: {');
   out.push('    dark: false,');
   out.push('    colors: {');
   out.push(...vuetifyColorsBlock(resolveVuetify(brand, 'light'), '      '));
   out.push('    }');
   out.push('  },');
-  out.push('  vuexyDark: {');
+  out.push('  sicatDark: {');
   out.push('    dark: true,');
   out.push('    colors: {');
   out.push(...vuetifyColorsBlock(resolveVuetify(brand, 'dark'), '      '));

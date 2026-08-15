@@ -26,7 +26,7 @@ export default function App() {
             <span className="brand-dot" aria-hidden="true" />
             <strong>portal<b>recorder</b></strong>
           </button>
-          <span className="topbar__sub" aria-current="page">
+          <span className="topbar__sub">
             {route.name === 'capture' && 'Captura'}
             {route.name === 'review' && 'Revisao'}
             {route.name === 'portals' && 'Portais & Sessoes'}
@@ -114,6 +114,10 @@ function TokenBar() {
           <button className="btn btn-primary" onClick={save} disabled={!token.trim()}>
             Salvar
           </button>
+          <span className="tokenbar__hint muted small">
+            Onde obter: Secret <code>portal-recorder-config</code> (namespace <code>apps</code>),
+            chave <code>PORTAL_REC_TOKEN</code> — peça ao operador da plataforma se não tiver.
+          </span>
         </>
       ) : (
         <>

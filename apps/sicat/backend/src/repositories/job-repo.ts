@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import type { PoolClient, QueryResultRow } from 'pg';
+import { CHANNEL_LANE_OPERATIONS, type WorkerLane } from '../lib/job-lanes.js';
 
 type DbClient = Pick<PoolClient, 'query'> | null;
 type JobStatus = 'queued' | 'running' | 'retry_wait' | 'failed' | 'succeeded' | 'dlq' | 'cancelled';
@@ -248,6 +249,57 @@ export async function insertJobDeduplicated(input: JobInsertInput, client: DbCli
   return insertJobInternal(input, { deduplicateActive: true, client });
 }
 
+/**
+ * INSERE SE O `command_id` AINDA NÃO EXISTE — a barreira "não notificar duas vezes" da fase 6.
+ *
+ * `jobs.command_id` é `text not null unique` e o unique é GLOBAL e PERMANENTE (ao contrário do índice
+ * parcial `ux_jobs_active_entity_operation`, que só cobre `queued|running|retry_wait`). Com
+ * `commandId = 'wa:notice:<ticketId>'`, o segundo aviso do mesmo ticket é IMPOSSÍVEL — mesmo com
+ * retry do job de ação, mesmo com dois workers, mesmo com o turno de confirmação reprocessado.
+ * Não existe `if` para neutralizar num teste nem para esquecer numa revisão.
+ *
+ * ⚠️ NÃO use `insertJobDeduplicated` para isto: o alvo de conflito dele é
+ * `(entity_type, entity_id, operation) where status in ('queued','running','retry_wait')`. Um aviso
+ * JÁ TERMINAL não dispara o `do nothing`, o INSERT prossegue e levanta 23505 no `command_id` — e
+ * dentro de uma transação isso abortaria também a escrita vizinha.
+ *
+ * `created: false` significa "já existe", nunca erro.
+ */
+export async function insertJobIfCommandAbsent(input: JobInsertInput, client: DbClient = null) {
+  const execute = getQueryExecutor(client);
+  const result = await execute<JobRow>(
+    `insert into jobs(
+      job_id, command_id, entity_type, entity_id, operation, payload, status, max_attempts,
+      correlation_id, idempotency_key, priority, retry_strategy, base_delay_ms, max_delay_ms, tags
+    ) values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+    on conflict (command_id) do nothing
+    returning *`,
+    [
+      input.jobId,
+      input.commandId,
+      input.entityType,
+      input.entityId,
+      input.operation,
+      JSON.stringify(input.payload || {}),
+      input.status,
+      input.maxAttempts,
+      input.correlationId,
+      input.idempotencyKey || null,
+      input.priority ?? 0,
+      input.retryStrategy || 'exponential',
+      input.baseDelayMs ?? 1000,
+      input.maxDelayMs ?? 300000,
+      JSON.stringify(input.tags || [])
+    ]
+  );
+
+  if ((result.rowCount || 0) === 0) return { job: null, created: false };
+
+  const mapped = mapJob(result.rows[0]);
+  await emitJobNotification(mapped, 'job.created');
+  return { job: mapped, created: true };
+}
+
 export async function findJobById(jobId: string, client: DbClient = null) {
   const execute = getQueryExecutor(client);
   const result = await execute<JobRow>('select * from jobs where job_id = $1', [jobId]);
@@ -391,8 +443,25 @@ export async function updateJobWithOptimisticLock(jobId: string, expectedVersion
   return mapJob(result.rows[0]);
 }
 
-export async function claimJobs(batchSize: number) {
+/**
+ * Predicado de raia (`job-lanes.ts`). `all` é o comportamento histórico: NENHUM predicado extra e
+ * nenhum parâmetro extra, para que o SQL seja idêntico ao de antes da fase 3.
+ *
+ * `<> all(...)` em Postgres é "diferente de todos os elementos" = NOT IN; `= any(...)` é IN. As duas
+ * metades saem da mesma constante para não dessincronizarem.
+ */
+function buildLanePredicate(lane: WorkerLane): { sql: string; operations: string[] | null } {
+  if (lane === 'default') return { sql: 'and operation <> all($3::text[])', operations: [...CHANNEL_LANE_OPERATIONS] };
+  if (lane === 'channel') return { sql: 'and operation = any($3::text[])', operations: [...CHANNEL_LANE_OPERATIONS] };
+  return { sql: '', operations: null };
+}
+
+export async function claimJobs(batchSize: number, options: { lane?: WorkerLane } = {}) {
   const workerName = process.env.WORKER_NAME || `worker-${process.pid}`;
+  const lane = buildLanePredicate(options.lane ?? 'all');
+  const params: unknown[] = lane.operations
+    ? [batchSize, workerName, lane.operations]
+    : [batchSize, workerName];
 
   return withTransaction(async (client) => {
     const result = await client.query(
@@ -401,6 +470,7 @@ export async function claimJobs(batchSize: number) {
          from jobs
          where status in ('queued', 'retry_wait')
            and coalesce(next_retry_at, now()) <= now()
+           ${lane.sql}
          order by priority desc, queued_at asc
          for update skip locked
          limit $1
@@ -416,7 +486,7 @@ export async function claimJobs(batchSize: number) {
        from candidate
        where j.job_id = candidate.job_id
        returning j.*`,
-      [batchSize, workerName]
+      params
     );
     return result.rows.map((row) => mapJob(row)).filter((row): row is JobEntity => row != null);
   });
@@ -588,8 +658,12 @@ export async function requeueFromDLQ(jobId: string) {
       [jobId]
     );
 
+    // AUSÊNCIA não é conflito: devolve `null` para o chamador traduzir em 404. Lançar `Error` puro
+    // aqui virava 500 no `error-handler` (ele só honra `.status`/`.statusCode`), e o `if (!job)` que
+    // os dois chamadores já escreveram — a rota `POST /v1/health/jobs/dlq/:jobId/requeue` e
+    // `retryJob` em `operations-service` — era código morto.
     if (dlqResult.rows.length === 0) {
-      throw new Error(`Job ${jobId} not found in DLQ`);
+      return null;
     }
 
     // Lock otimista DL-022: bloqueia a linha do job e captura a version atual
@@ -602,8 +676,9 @@ export async function requeueFromDLQ(jobId: string) {
       'select status, version from jobs where job_id = $1 for update',
       [jobId]
     );
+    // Mesma regra: linha órfã na DLQ sem job correspondente também é AUSÊNCIA, não conflito.
     if (currentResult.rowCount === 0) {
-      throw new Error(`Job ${jobId} not found`);
+      return null;
     }
     const current = currentResult.rows[0];
     if (current?.status !== 'dlq') {

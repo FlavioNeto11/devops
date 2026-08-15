@@ -208,7 +208,7 @@ domínio permanecem intocados (escopo das fases 03 fechada / 04 fechada
 | Markdown links | `npm run validate:md-links` | **ok** — 671 arquivos, 0 problemas |
 
 Flake F4 (`test:integration` 1/124 não reproduzível, registrada no
-[estado-atual §3.1](../../10-estado-atual/estado-atual.md#31-follow-ups-de-estabilidade))
+[estado-atual §3.1](../../10-estado-atual/estado-atual.md#37-follow-ups-de-estabilidade-herdados))
 **não reapareceu** nesta execução — 124/124 verdes.
 
 ## Bloqueios

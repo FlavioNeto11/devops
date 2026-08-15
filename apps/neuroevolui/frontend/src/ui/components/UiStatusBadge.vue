@@ -22,9 +22,11 @@ const text = computed(() => statusLabel(props.status, props.label));
 .ui-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: var(--ui-text-xs); padding: 3px 9px; border-radius: var(--ui-radius-pill); line-height: 1.4; white-space: nowrap; }
 .ui-badge[data-size="lg"] { font-size: var(--ui-text-sm); padding: 4px 11px; }
 .ui-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.ui-badge[data-tone="neutral"] { background: rgb(var(--ui-muted) / 0.16); color: rgb(var(--ui-muted)); }
-.ui-badge[data-tone="success"] { background: rgb(var(--ui-ok) / 0.16); color: rgb(var(--ui-ok)); }
-.ui-badge[data-tone="warning"] { background: rgb(var(--ui-warn) / 0.18); color: rgb(var(--ui-warn)); }
-.ui-badge[data-tone="error"] { background: rgb(var(--ui-danger) / 0.16); color: rgb(var(--ui-danger)); }
-.ui-badge[data-tone="running"] { background: rgb(var(--ui-accent) / 0.16); color: rgb(var(--ui-accent-strong)); }
+/* Par tintado bg/fg (fundo sólido + texto validado ≥4,5:1 sobre ele, gerado em
+   design-tokens/forge-brand.mjs). Antes: cor crua do tom sobre rgb(tom / α) reprovava AA. */
+.ui-badge[data-tone="neutral"] { background: rgb(var(--ui-neutral-badge-bg)); color: rgb(var(--ui-neutral-badge-fg)); }
+.ui-badge[data-tone="success"] { background: rgb(var(--ui-ok-badge-bg)); color: rgb(var(--ui-ok-badge-fg)); }
+.ui-badge[data-tone="warning"] { background: rgb(var(--ui-warn-badge-bg)); color: rgb(var(--ui-warn-badge-fg)); }
+.ui-badge[data-tone="error"] { background: rgb(var(--ui-danger-badge-bg)); color: rgb(var(--ui-danger-badge-fg)); }
+.ui-badge[data-tone="running"] { background: rgb(var(--ui-accent-badge-bg)); color: rgb(var(--ui-accent-badge-fg)); }
 </style>

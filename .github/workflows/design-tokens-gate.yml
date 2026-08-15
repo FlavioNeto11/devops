@@ -25,13 +25,20 @@ jobs:
     name: Design tokens (drift)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Validar sincronia dos tokens gerados
         run: node packages/design-tokens/build.mjs --check
       - name: Validar sincronia da casca global (platform-shell)
         run: node packages/platform-shell/build.mjs --check
+      - name: Validar sincronia do kit ui-vue (apps da Forja) + CSP
+        run: node packages/ui-vue/build.mjs --check
+      - name: Testes de derivação + contraste AA dos tokens (design-tokens)
+        run: node --test packages/design-tokens/forge-brand.test.mjs
       - name: Testes das funções puras da casca
         run: node --test packages/platform-shell/shell.test.js
+      - name: Testes das funções puras do kit ui-vue
+        run: node --test
+        working-directory: packages/ui-vue

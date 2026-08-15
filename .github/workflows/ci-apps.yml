@@ -48,7 +48,7 @@ jobs:
     outputs:
       include: ${{ steps.f.outputs.include }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: f
@@ -62,7 +62,7 @@ jobs:
           # Tabela canonica dos apps (path = subpasta de apps/ com o package.json).
           cat > "$RUNNER_TEMP/apps.json" <<'JSON'
           [
-            {"app":"sicat","path":"sicat","pm":"npm","prep":"","checks":"lint build:frontend"},
+            {"app":"sicat","path":"sicat","pm":"npm","prep":"","checks":"lint test:unit:frontend build:frontend"},
             {"app":"gymops","path":"gymops","pm":"pnpm","prep":"pnpm --filter @gymops/db run generate && pnpm --filter \"./packages/*\" run build","checks":"lint typecheck"},
             {"app":"rmambiental","path":"rmambiental","pm":"npm","prep":"","checks":"build"},
             {"app":"anarabottini","path":"anarabottini","pm":"npm","prep":"","checks":"typecheck build"},
@@ -70,6 +70,7 @@ jobs:
             {"app":"portal-recorder-frontend","path":"portal-recorder/frontend","pm":"npm","prep":"","checks":"build"},
             {"app":"ai-control-plane-api","path":"ai-control-plane/api","pm":"npm","prep":"","checks":"test"},
             {"app":"reqhub-api","path":"reqhub/api","pm":"npm","prep":"","checks":"test"},
+            {"app":"besc-api","path":"besc/api","pm":"npm","prep":"","checks":"test"},
             {"app":"zapbridge-server","path":"zapbridge/server","pm":"npm","prep":"npx prisma generate","checks":"build"}
           ]
           JSON
@@ -113,7 +114,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - shell: bash
@@ -166,16 +167,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         if: matrix.pm == 'pnpm'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 

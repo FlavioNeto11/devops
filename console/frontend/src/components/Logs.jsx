@@ -119,12 +119,20 @@ export default function Logs({ initialApp = null }) {
       setStreaming(false);
       return undefined;
     }
+    // Reconexão do EventSource (queda de rede/restart do pod): o backend REENVIA o
+    // tail inicial, o que duplicaria as linhas já exibidas. O reset é ADIADO até a
+    // primeira leva de linhas do stream novo — limpar direto no onopen apagaria o
+    // scrollback ANTES de haver reposição (tela vazia em follow pausado/pod morto).
+    let openedOnce = false;
+    let pendingReset = false;
     const flush = () => {
       if (!alive || followBufRef.current.length === 0) return;
       const incoming = followBufRef.current;
       followBufRef.current = [];
+      const reset = pendingReset;
+      pendingReset = false;
       setLogText((prev) => {
-        const lines = (prev ? prev.split('\n') : []).concat(incoming);
+        const lines = (reset ? [] : prev ? prev.split('\n') : []).concat(incoming);
         const trimmed = lines.length > MAX_LINES ? lines.slice(lines.length - MAX_LINES) : lines;
         return trimmed.join('\n');
       });
@@ -132,6 +140,14 @@ export default function Logs({ initialApp = null }) {
       setNowTick(Date.now());
     };
     const flushId = setInterval(flush, 250);
+    es.onopen = () => {
+      if (!alive) return;
+      if (openedOnce) {
+        followBufRef.current = [];
+        pendingReset = true;
+      }
+      openedOnce = true;
+    };
     es.addEventListener('line', (evt) => {
       try { followBufRef.current.push(JSON.parse(evt.data)); } catch { /* frame inválido */ }
     });
@@ -269,9 +285,18 @@ export default function Logs({ initialApp = null }) {
             </div>
           )}
           {!loadingMeta && !groups.length && (
-            <p className="muted" style={{ margin: 4 }}>
-              {appFilter ? `Nenhum pod encontrado para o app "${appFilter}".` : 'Nenhum pod encontrado.'}
-            </p>
+            (appFilter || ns) ? (
+              <div className="state state--empty" role="status" style={{ margin: 4 }}>
+                Nenhum resultado para{' '}
+                {[appFilter && `app "${appFilter}"`, ns && `namespace "${ns}"`].filter(Boolean).join(' e ')}.{' '}
+                <button type="button" className="btn" style={{ marginTop: 8 }}
+                  onClick={() => { setAppFilter(''); setNs(''); }}>
+                  Limpar filtro
+                </button>
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 4 }}>Nenhum pod encontrado.</p>
+            )
           )}
           {groups.map(([app, items]) => (
             <div key={app}>
@@ -331,7 +356,13 @@ export default function Logs({ initialApp = null }) {
               <div className="logbox-wrap">
                 <div ref={boxRef} onScroll={onScroll} className={'logbox logbox--lines' + (wrap ? ' logbox--wrap' : '')} aria-label={`Logs de ${selected.name}`}>
                   {visibleLines.length === 0 ? (
-                    <span className="logline muted">{loadingLogs ? '' : '(sem logs para exibir)'}</span>
+                    <span className="logline muted">
+                      {loadingLogs
+                        ? ''
+                        : (filterOnly && search && allLines.length > 0
+                          ? `Nenhum resultado para "${search}"`
+                          : '(sem logs para exibir)')}
+                    </span>
                   ) : (
                     visibleLines.map((line, idx) => {
                       const lvl = classify(line);

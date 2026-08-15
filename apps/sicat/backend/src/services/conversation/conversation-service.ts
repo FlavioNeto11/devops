@@ -5,7 +5,8 @@ import { insertConversationActionLog } from '../../repositories/conversation-act
 import { insertConversationMessage, listConversationMessages } from '../../repositories/conversation-message-repo.js';
 import { upsertConversationSession } from '../../repositories/conversation-session-repo.js';
 import { buildConversationContext } from './conversation-context-service.js';
-import { getAiConfig } from './ai-config.js';
+import type { ConversationPrincipal } from './conversation-principal.js';
+import { getAiConfig, hasOpenAiApiKey, type AiConfig } from './ai-config.js';
 import {
   evaluateConversationPolicy,
   getConversationToolPolicies,
@@ -81,6 +82,12 @@ type IngestManifestSummary = {
 
 type ProcessTurnInput = {
   body: ConversationTurnBody;
+  /**
+   * Identidade confiável do turno, montada no servidor (`conversation-principal.ts`). Define canal,
+   * usuário e conta CETESB — o `body` não decide mais nada disso. Quem chama é a rota HTTP
+   * (via `sicatAuthMiddleware`) ou o adaptador de canal externo.
+   */
+  principal: ConversationPrincipal;
   correlationId: string | null;
   headers: Record<string, string | undefined>;
   idempotencyKey?: string;
@@ -115,6 +122,13 @@ type ProcessTurnOutput = {
     reason: string | null;
     requiresConfirmation: boolean;
     riskLevel: string | null;
+    /**
+     * Lacuna de permissão do turno (fase 4.5). Presente também quando `allowed: true` — é assim que o
+     * modo `observe` e a degradação de catálogo aparecem na trilha, que já carrega o `userId`. O
+     * contador Prometheus não pode ter `userId` como label (cardinalidade + PII), então este campo é
+     * o único lugar onde "QUEM precisaria de qual chave" fica registrado.
+     */
+    permissionShortfall?: { required: string; catalogSatisfiable: boolean } | null;
   };
   context: {
     integrationAccountId: string | null;
@@ -284,7 +298,7 @@ function buildSensitiveActionTemplateFromToolCall(toolCall: LlmToolCall | null, 
 
   if (intent === 'cdf.generate_from_manifest_selection') {
     actionLabel = `Gerar CDF/CDR para os manifesto(s): ${manifestLabel}.`;
-    preRequirements = 'Sessao CETESB ativa, manifesto(s) elegivel(is) e cdfPayload validado com dados obrigatorios.';
+    preRequirements = 'Sessao CETESB ativa, manifesto(s) elegivel(is) e dados obrigatorios do certificado conferidos.';
   } else if (intent.includes('manifest')) {
     actionLabel = `Executar acao operacional ${intent} para: ${manifestLabel}.`;
     preRequirements = 'Conta/sessao CETESB ativa, conjunto validado em preview e snapshot de confirmacao valido.';
@@ -413,7 +427,7 @@ function resolveOperationalErrorMessageByCode(code: string, context: LooseRecord
   }
 
   if (code === 'CONVERSATION_RECEIPT_PAYLOAD_REQUIRED') {
-    return 'Para receber manifesto preciso de receiptPayload. Envie os dados de recebimento (hash/codigo, quantidades e observacao).';
+    return 'Para dar baixa no manifesto preciso dos dados do recebimento: numero (ou codigo) do MTR, as quantidades efetivamente recebidas e a observacao, quando houver.';
   }
 
   if (code === 'CONVERSATION_BATCH_LIMIT_EXCEEDED') {
@@ -438,7 +452,7 @@ function resolveOperationalErrorMessageByCode(code: string, context: LooseRecord
   }
 
   if (code === 'CONVERSATION_CDF_PAYLOAD_REQUIRED') {
-    return 'Para gerar CDF/CDR envie cdfPayload com os dados obrigatorios e confirme a acao.';
+    return 'Para gerar o certificado (CDF/CDR) informe os dados obrigatorios do certificado (responsavel e manifestos que entram nele) e confirme a acao.';
   }
 
   if (code === 'CONVERSATION_CDF_DOCUMENT_SET_REQUIRED') {
@@ -745,7 +759,24 @@ function buildConversationTracePayload(input: {
         reasonCode: input.policy.reasonCode,
         reason: input.policy.reason,
         riskLevel: input.policy.riskLevel,
-        requiresConfirmation: input.policy.requiresConfirmation
+        requiresConfirmation: input.policy.requiresConfirmation,
+        /**
+         * ⚠️ SEM ESTA LINHA a janela `observe` não mede nada acionável.
+         *
+         * O contador `sicat_conversation_permission_decision_total` não tem — e não pode ter — label
+         * `userId` (cardinalidade + PII). Logo, `would_deny{permission="manifest.submit"} 47` diz
+         * QUANTAS vezes e nunca A QUEM conceder `sicat.operator`, que é o passo "CONCEDER ANTES DE
+         * NEGAR" do runbook e o pré-requisito do flip. Esta é a ÚNICA superfície que cruza a lacuna
+         * com o usuário: `persistConversationAction` grava `userId` ao lado.
+         *
+         * No canal WhatsApp é ainda mais crítico: lá o objeto de resposta é consumido pelo composer e
+         * descartado dentro do processo — sem a trilha, a informação não existe em lugar nenhum.
+         *
+         * PII: o campo é `{ required, catalogSatisfiable }` — chave de permissão e um booleano.
+         * Nenhum telefone, nome ou dado pessoal. Ampliá-lo com identificador de canal quebraria a
+         * mesma decisão de privacidade que `requestedBy: whatsapp:<mascarado>` honra.
+         */
+        permissionShortfall: input.policy.permissionShortfall ?? null
       }
       : null,
     confirmation: input.policy
@@ -859,6 +890,27 @@ async function maybePostToolReroute(input: {
     activeWindowBlock
   });
   if (verdict.answersIntent || !verdict.reroute) return null;
+
+  // ── O GATE TAMBÉM VALE PARA A TOOL RE-ROTEADA ────────────────────────────────────────────────
+  // A tool de destino é ESCOLHIDA PELO LLM e despachada direto, sem passar de novo pelo funil do
+  // turno. O raciocínio "policy roda uma vez" vale para o agente de diagnóstico (cuja allow-list foi
+  // fechada), mas não aqui: o GATILHO inclui `orchestrate_manifest_operation`, cujos intents de ação
+  // exigem `manifest.cancel`/`submit`/`create`/`receive`/`replicate`, enquanto TODO alvo de reroute
+  // exige `manifest.read`. Um papel CUSTOMIZADO com chave de ação e sem `manifest.read` executaria
+  // `list_manifests` sem a chave. Inalcançável com os papéis semeados — e é exatamente por isso que
+  // não pode depender deles: o gate tem de ser a fronteira ÚNICA, inclusive no dia em que alguém
+  // criar um papel fino pela API administrativa.
+  //
+  // Negado → mantém o resultado original. O caminho já degrada sem quebrar (o `catch` abaixo).
+  const reroutePolicy = evaluateConversationPolicy({
+    toolName: verdict.reroute.name,
+    toolArgs: verdict.reroute.arguments || {},
+    channel: context.channel,
+    confirmed: false,
+    allowActions: false,
+    context
+  });
+  if (!reroutePolicy.allowed) return null;
 
   try {
     const rawResult = await dispatchConversationTool({
@@ -1027,7 +1079,7 @@ async function executeToolWithFallback(input: {
       });
     });
 
-    const assistantResponseText = await resolveAssistantResponseText(llmPlan.outputText, enrichedToolResult, input.messageText, input.synthesizer);
+    const assistantResponseText = await resolveAssistantResponseText(llmPlan.outputText, enrichedToolResult, input.messageText, input.synthesizer, context.channel);
 
     const resultingJobId = (enrichedToolResult as { jobId?: string | null }).jobId || null;
     const conversationMemory = buildToolConversationMemory({
@@ -1190,7 +1242,8 @@ async function executeToolWithFallback(input: {
           userMessage: input.messageText,
           toolName: toolCall.name,
           reasonCode,
-          correlationId: context.correlationId
+          correlationId: context.correlationId,
+          channel: context.channel
         });
       } catch (unsupportedError: unknown) {
         if (unsupportedError instanceof AppError && unsupportedError.code === 'PROVIDER_UNAVAILABLE') {
@@ -1770,10 +1823,15 @@ export type ConversationSynthesizer = (input: {
   userMessage: string;
   evidence: string;
   fallbackSummary: string | null;
+  /**
+   * Canal de entrega, resolvido no servidor. Opcional para não quebrar synthesizers injetados por
+   * teste; quem ignora o campo mantém exatamente o comportamento anterior.
+   */
+  channel?: string | null;
 }) => Promise<string | null>;
 
-const defaultConversationSynthesizer: ConversationSynthesizer = async ({ userMessage, evidence }) =>
-  synthesizeNaturalResponse({ userMessage, toolSummary: evidence });
+const defaultConversationSynthesizer: ConversationSynthesizer = async ({ userMessage, evidence, channel }) =>
+  synthesizeNaturalResponse({ userMessage, toolSummary: evidence, channel });
 
 /**
  * Serializa a EVIDÊNCIA estruturada de consultas de manifesto por recência para o
@@ -1884,6 +1942,7 @@ async function synthesizeToolResponse(input: {
   evidence: string;
   fallbackSummary: string | null;
   synthesizer: ConversationSynthesizer;
+  channel?: string | null;
 }): Promise<string> {
   if (input.fallbackSummary && shouldBypassNaturalSynthesis(input.toolResult)) {
     return input.fallbackSummary;
@@ -1895,7 +1954,8 @@ async function synthesizeToolResponse(input: {
       synthesized = await input.synthesizer({
         userMessage: input.userMessage,
         evidence: input.evidence,
-        fallbackSummary: input.fallbackSummary
+        fallbackSummary: input.fallbackSummary,
+        channel: input.channel ?? null
       });
     } catch (error: unknown) {
       // Síntese indisponível: degrada para o resumo determinístico quando houver.
@@ -1927,7 +1987,8 @@ async function resolveAssistantResponseText(
   defaultText: string,
   toolResult: unknown,
   userMessage: string,
-  synthesizer: ConversationSynthesizer
+  synthesizer: ConversationSynthesizer,
+  channel?: string | null
 ): Promise<string> {
   const hasExecutionPlaceholder = /^executando acao:/i.test(normalizeDefaultAssistantText(defaultText));
   const { assistantSummary, evidence } = resolveResponseInputs(toolResult);
@@ -1938,7 +1999,8 @@ async function resolveAssistantResponseText(
       userMessage,
       evidence,
       fallbackSummary: assistantSummary,
-      synthesizer
+      synthesizer,
+      channel
     });
   }
 
@@ -1954,6 +2016,9 @@ async function resolveUnsupportedToolResponseText(input: {
   toolName: string;
   reasonCode: string;
   correlationId: string;
+  /** Segundo call site do canal: aqui `synthesizeNaturalResponse` é chamado DIRETO, fora do
+   *  synthesizer injetável. Sem isto, o "não sei fazer isso" sairia em prosa de navegador. */
+  channel?: string | null;
 }): Promise<string> {
   const toolSummary = [
     `Falha tecnica: ${input.reasonCode}.`,
@@ -1964,7 +2029,8 @@ async function resolveUnsupportedToolResponseText(input: {
 
   const synthesized = await synthesizeNaturalResponse({
     userMessage: input.userMessage,
-    toolSummary
+    toolSummary,
+    channel: input.channel ?? null
   });
 
   if (synthesized) {
@@ -2041,7 +2107,47 @@ async function persistAuditEntry(input: Parameters<typeof insertAuditEntry>[0]) 
   });
 }
 
-async function buildProviderUnavailableResponse(context: ReturnType<typeof buildConversationContext>, providerError: string): Promise<ProcessTurnOutput> {
+/**
+ * Nome dos modelos que vão para a TRILHA do turno (`llm.agentModelUsed`/`llm.synthesisModelUsed`).
+ *
+ * POR QUE ISTO NÃO É `getAiConfig()` DIRETO
+ * -----------------------------------------
+ * `getAiConfig()` LANÇA `AppError(503, PROVIDER_UNAVAILABLE)` quando falta `OPENAI_API_KEY`. Este
+ * serviço, porém, não fala com a OpenAI: quem planeja é o `llmProvider` INJETADO em
+ * `createConversationService`, e quem redige é o `synthesizer` — os dois substituíveis. Ler a config
+ * real aqui transformava uma dependência INJETÁVEL numa dependência OCULTA e não-injetável: todo
+ * chamador que trouxesse o próprio provider (canal, ai-core, teste) morria em 503 antes mesmo de o
+ * provider ser chamado, e o caminho de fallback — que existe justamente para quando a IA está fora —
+ * era o que mais dependia da IA estar configurada.
+ *
+ * Aqui só precisamos dos NOMES dos modelos, que são rótulo de observabilidade e não credencial.
+ * A leitura é LAZY (só quando o nome é de fato necessário) e guardada por `hasOpenAiApiKey()` — o
+ * mesmo idioma já usado por `conversation-evidence-verifier`, `conversation-knowledge-service`,
+ * `knowledge-ingestion`, `conversation-vector-memory-service` e `conversation-working-memory-service`.
+ *
+ * Sem credencial não há modelo escolhido, e o rótulo diz isso — em vez de mentir um nome plausível.
+ */
+const UNKNOWN_AI_MODEL = 'unknown';
+
+function resolveAiModelTrace(aiConfig?: AiConfig | null): {
+  agentModelUsed: string;
+  synthesisModelUsed: string;
+} {
+  const config = aiConfig ?? (hasOpenAiApiKey() ? getAiConfig() : null);
+  if (!config) {
+    return { agentModelUsed: UNKNOWN_AI_MODEL, synthesisModelUsed: UNKNOWN_AI_MODEL };
+  }
+  return {
+    agentModelUsed: config.openAiAgentModel,
+    synthesisModelUsed: config.openAiSynthesisModel
+  };
+}
+
+async function buildProviderUnavailableResponse(
+  context: ReturnType<typeof buildConversationContext>,
+  providerError: string,
+  aiConfig?: AiConfig | null
+): Promise<ProcessTurnOutput> {
   const fallbackReasonCode = 'PROVIDER_UNAVAILABLE';
   const fallbackResponseText = buildProviderUnavailableResponseText(context.correlationId);
 
@@ -2129,7 +2235,7 @@ async function buildProviderUnavailableResponse(context: ReturnType<typeof build
     })
   });
 
-  const config = getAiConfig();
+  const modelTrace = resolveAiModelTrace(aiConfig);
 
   return {
     conversationSessionId: context.conversationSessionId,
@@ -2141,8 +2247,8 @@ async function buildProviderUnavailableResponse(context: ReturnType<typeof build
     llm: {
       provider: 'provider-unavailable',
       confidence: 0,
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     },
     toolCall: null,
     policy: {
@@ -2168,6 +2274,7 @@ async function buildInvalidLlmProviderResponse(input: {
   context: ReturnType<typeof buildConversationContext>;
   provider: string;
   reason: string;
+  aiConfig?: AiConfig | null;
 }): Promise<ProcessTurnOutput> {
   const reasonCode = 'INVALID_LLM_PROVIDER';
   const responseText = buildInvalidLlmProviderResponseText(input.context.correlationId, input.provider);
@@ -2258,7 +2365,7 @@ async function buildInvalidLlmProviderResponse(input: {
     })
   });
 
-  const config = getAiConfig();
+  const modelTrace = resolveAiModelTrace(input.aiConfig);
   return {
     conversationSessionId: input.context.conversationSessionId,
     conversationTurnId: input.context.conversationTurnId,
@@ -2269,8 +2376,8 @@ async function buildInvalidLlmProviderResponse(input: {
     llm: {
       provider: input.provider,
       confidence: 0,
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     },
     toolCall: null,
     policy: {
@@ -2361,10 +2468,13 @@ async function resolveLlmPlanForTurn(input: {
   context: ReturnType<typeof buildConversationContext>;
   planningState: ConversationPlanningState;
   userContent?: Array<Record<string, unknown>> | null;
+  aiConfig?: AiConfig | null;
 }): Promise<LlmPlan | ProcessTurnOutput> {
-  const config = getAiConfig();
-
+  // A config de IA é lida SÓ nos ramos que precisam do nome do modelo — nunca no topo. Ler aqui
+  // em cima derrubava o turno inteiro (503) antes de `input.llmProvider.plan` ser chamado, mesmo
+  // com um provider injetado que não usa OpenAI nenhuma. Ver `resolveAiModelTrace`.
   if (input.explicitTool) {
+    const modelTrace = resolveAiModelTrace(input.aiConfig);
     return {
       provider: 'explicit-tool-request' as const,
       confidence: 1,
@@ -2374,8 +2484,8 @@ async function resolveLlmPlanForTurn(input: {
         arguments: input.explicitTool.arguments,
         confirmed: input.explicitTool.confirmed
       },
-      agentModelUsed: config.openAiAgentModel,
-      synthesisModelUsed: config.openAiSynthesisModel
+      agentModelUsed: modelTrace.agentModelUsed,
+      synthesisModelUsed: modelTrace.synthesisModelUsed
     };
   }
 
@@ -2397,7 +2507,8 @@ async function resolveLlmPlanForTurn(input: {
       return buildInvalidLlmProviderResponse({
         context: input.context,
         provider: normalizedProvider,
-        reason: `Provider ${normalizedProvider} nao e permitido para respostas conversacionais reais.`
+        reason: `Provider ${normalizedProvider} nao e permitido para respostas conversacionais reais.`,
+        aiConfig: input.aiConfig
       });
     }
 
@@ -2407,7 +2518,7 @@ async function resolveLlmPlanForTurn(input: {
     };
   } catch (error: unknown) {
     const providerError = error instanceof Error ? error.message : 'provider unavailable';
-    return buildProviderUnavailableResponse(input.context, providerError);
+    return buildProviderUnavailableResponse(input.context, providerError, input.aiConfig);
   }
 }
 
@@ -2426,16 +2537,24 @@ export function listConversationTools() {
 export function createConversationService(dependencies?: {
   llmProvider?: LlmProvider;
   synthesizer?: ConversationSynthesizer;
+  /**
+   * Config de IA usada APENAS para rotular a trilha do turno com o modelo em uso. Opcional pelo
+   * mesmo motivo que `llmProvider` e `synthesizer` são: quem injeta o próprio provider não deve ser
+   * obrigado a ter `OPENAI_API_KEY` no ambiente. Ausente → leitura lazy e guardada
+   * (ver `resolveAiModelTrace`), nunca um 503 no meio do turno.
+   */
+  aiConfig?: AiConfig;
 }) {
   // F4: CONVERSATION_ENGINE=ai-core roteia o planejamento pelo grafo da plataforma
   // (fallback gracioso ao planner legado); default permanece o provider legado.
   const llmProvider = dependencies?.llmProvider || resolveLlmProvider();
   const synthesizer = dependencies?.synthesizer || defaultConversationSynthesizer;
+  const aiConfig = dependencies?.aiConfig ?? null;
 
   return {
     async processTurn(input: ProcessTurnInput): Promise<ProcessTurnOutput> {
       const context = buildConversationContext({
-        channel: input.body.channel,
+        principal: input.principal,
         conversationSessionId: input.body.conversationSessionId,
         context: input.body.context,
         metadata: input.body.metadata,
@@ -2455,8 +2574,11 @@ export function createConversationService(dependencies?: {
         upsertConversationSession({
           id: context.conversationSessionId,
           channelType: context.channel,
-          channelSessionKey: rawContext.channelSessionKey,
-          userId: rawContext.userId || context.requestedBy,
+          // Chave de sessão e usuário saem do principal — antes vinham do corpo (`rawContext`), o que
+          // permitia a um cliente assumir a sessão conversacional de outro usuário só declarando a
+          // mesma `channelSessionKey`.
+          channelSessionKey: context.channelSessionKey,
+          userId: context.userId,
           accountId: rawContext.accountId,
           integrationAccountId: context.integrationAccountId,
           sessionContextId: context.sessionContextId,
@@ -2473,13 +2595,23 @@ export function createConversationService(dependencies?: {
           lastTurnAt: new Date().toISOString()
         })
       );
-      // Adota o id CANÔNICO da sessão: quando já existe uma para este (channel_type, channel_session_key),
-      // o upsert reutiliza a linha existente e devolve o id original. Sem isto, um conversationSessionId
-      // novo a cada turno (front não reenvia um estável) faria as escritas filhas (mensagens, working-memory,
-      // trilhas, action logs) referenciarem uma sessão inexistente e cairem por FK. Propaga p/ todo o turno
-      // e p/ a resposta (assim o front passa a reenviar o id canônico).
-      if (upsertedSession?.id && upsertedSession.id !== context.conversationSessionId) {
+      // O id que passa a valer para TODAS as escritas filhas e para a leitura do histórico é o que o
+      // upsert DEVOLVEU — nunca o `conversationSessionId` declarado pelo cliente. Dois casos:
+      //  (a) upsert OK: quando já existe uma sessão para este (channel_type, channel_session_key), a
+      //      linha existente é reutilizada e devolve o id canônico — adotamos, e o front passa a
+      //      reenviar esse id. Sem isto, um id novo a cada turno faria as escritas filhas (mensagens,
+      //      working-memory, trilhas, action logs) referenciarem uma sessão inexistente e caírem por FK.
+      //  (b) upsert FALHOU (`undefined`, engolido por `persistSafely`): o caso perigoso é um
+      //      `conversationSessionId` de cliente que COLIDE na PK com a sessão de OUTRO usuário — o
+      //      `on conflict (channel_session_key)` não cobre a PK, o 23505 sobe e é engolido. Seguir com o
+      //      id declarado gravaria as mensagens DESTE turno na sessão da vítima (mesma conta CETESB, ou
+      //      ambos sem conta) e leria o histórico DELA para o LLM. Regeneramos um id próprio: o turno
+      //      degrada sem persistência de sessão (as escritas filhas caem por FK e `persistSafely` as
+      //      engole), mas JAMAIS escreve ou lê sob um id que não provamos ser nosso.
+      if (upsertedSession?.id) {
         context.conversationSessionId = upsertedSession.id;
+      } else {
+        context.conversationSessionId = createPrefixedId('csn');
       }
 
       await persistSafely('insert conversation_messages(user)', async () => {
@@ -2511,7 +2643,8 @@ export function createConversationService(dependencies?: {
         messageText,
         context,
         planningState,
-        userContent: input.userContent ?? null
+        userContent: input.userContent ?? null,
+        aiConfig
       });
 
       if ('status' in planningResult) {
@@ -2730,7 +2863,8 @@ export function createConversationService(dependencies?: {
         reasonCode: policyDecision.reasonCode,
         reason: policyDecision.reason,
         requiresConfirmation: policyDecision.requiresConfirmation,
-        riskLevel: policyDecision.riskLevel
+        riskLevel: policyDecision.riskLevel,
+        permissionShortfall: policyDecision.permissionShortfall ?? null
       };
 
       if (!policyDecision.allowed) {
@@ -2867,7 +3001,8 @@ export function createConversationService(dependencies?: {
           userMessage: messageText,
           toolName: toolCall.name,
           reasonCode,
-          correlationId: context.correlationId
+          correlationId: context.correlationId,
+          channel: context.channel
         });
         const structuredError = normalizeConversationStructuredError({
           correlationId: context.correlationId,

@@ -8,10 +8,18 @@ const messages = ref([]); // {role:'user'|'assistant', text, route?}
 const input = ref('');
 const streaming = ref(false);
 const bodyEl = ref(null);
+const liveMsg = ref(''); // regiao aria-live: anuncia a resposta ao fechar o turno (nao por delta)
+let es = null;          // EventSource ativo, para permitir interromper o streaming
 
 onMounted(async () => { try { status.value = await api.aiStatus(); } catch { /* noop */ } });
 
 async function scrollDown() { await nextTick(); if (bodyEl.value) bodyEl.value.scrollTop = bodyEl.value.scrollHeight; }
+
+function stop() {
+  if (es) { es.close(); es = null; }
+  streaming.value = false;
+  liveMsg.value = 'Resposta interrompida.';
+}
 
 function send() {
   const q = input.value.trim();
@@ -20,9 +28,10 @@ function send() {
   input.value = '';
   const idx = messages.value.push({ role: 'assistant', text: '', route: null }) - 1;
   streaming.value = true;
+  liveMsg.value = '';
   scrollDown();
 
-  const es = new EventSource(api.aiStreamUrl(q));
+  es = new EventSource(api.aiStreamUrl(q));
   es.addEventListener('route', (e) => {
     const d = JSON.parse(e.data);
     messages.value[idx].route = d;
@@ -37,13 +46,15 @@ function send() {
     const d = JSON.parse(e.data);
     messages.value[idx].meta = d;
     streaming.value = false;
-    es.close();
+    liveMsg.value = messages.value[idx].text || 'Resposta recebida.';
+    es.close(); es = null;
     scrollDown();
   });
   es.addEventListener('error', () => {
     if (!messages.value[idx].text) messages.value[idx].text = '(falha na conexão com o assistente)';
     streaming.value = false;
-    es.close();
+    liveMsg.value = messages.value[idx].text;
+    es.close(); es = null;
   });
 }
 
@@ -85,8 +96,12 @@ const suggestions = [
       </div>
       <form class="chat-input" @submit.prevent="send">
         <input v-model="input" :disabled="streaming" placeholder="Escreva para a orquestra de IAs…" />
-        <button type="submit" :disabled="streaming || !input.trim()"><Icon name="spark" :size="16" /></button>
+        <button v-if="streaming" type="button" class="chat-stop" @click="stop">Parar</button>
+        <button type="submit" aria-label="Enviar" :disabled="streaming || !input.trim()"><Icon name="spark" :size="16" /></button>
       </form>
     </div>
+
+    <!-- Anuncio para leitores de tela ao concluir o turno (evita leitura por delta). -->
+    <div class="sr-only" aria-live="polite" role="status">{{ liveMsg }}</div>
   </div>
 </template>

@@ -1,0 +1,50 @@
+id: REQ-SICAT-0026
+slug: req-sicat-0026
+title: "Transporte: Vale-Pedágio Obrigatório — applicability engine, antecipação e evidência"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve determinar a aplicabilidade do Vale-Pedágio Obrigatório por operação (VPO não é
+  checkbox universal — Lei 10.209/2001 e Res. ANTT 6.024/2023 têm hipóteses e exceções), exigir
+  antecipação separada do frete quando aplicável (provedor habilitado, referência, valor,
+  evidência e vínculo com MDF-e quando tecnicamente exigido) e registrar justificativa auditável
+  também quando NOT_APPLICABLE; o valor do VPO permanece sempre separado do valor do frete.
+business_rationale: >-
+  Erro clássico de produto é somar pedágio ao frete e perder a distinção; até a regra
+  NOT_APPLICABLE precisa deixar evidência do motivo (baseline deep-research 2026-08-13,
+  "Vale-Pedágio Obrigatório"). Fornecedoras habilitadas são cadastro configurável, nunca
+  hardcoded. Fase D do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+risk_tags: [external-dependency]
+capability_blocks:
+  - gateway-externo
+acceptance_criteria:
+  - "Fornecedoras VPO habilitadas em cadastro sincronizável/configurável (pendência P6 do guia [EXTERNAL DEPENDENCY])."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0019
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase D)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

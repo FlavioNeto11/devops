@@ -1,0 +1,128 @@
+[
+  {
+    "id": "lib_0390897258c1",
+    "slug": "aquisicao-societaria-do-besc-pela-uniao",
+    "title": "Aquisição societária do BESC pela União",
+    "kind": "historia",
+    "summary": "Contrato nº 012/98/STN/COAFI de confissão, assunção, consolidação e refinanciamento de dívidas entre a União e o Estado de Santa Catarina, com interveniência do BESC e do Banco do Brasil. Documenta a base contratual da relação entre o Estado, o BESC e a União no contexto do ajuste fiscal.",
+    "body": "Trata-se do Contrato de Confissão, Assunção, Consolidação e Refinanciamento de Dívidas celebrado entre a União (representada pelo Ministro da Fazenda interino Pedro Pullen Parente) e o Estado de Santa Catarina (representado pelo Governador Paulo Afonso Evangelista Vieira), com a interveniência do BESC (na qualidade de depositário das receitas do Estado) e do Banco do Brasil S.A. (na qualidade de agente financeiro do Tesouro Nacional). O contrato tem por base o Protocolo de Acordo de 16 de abril de 1997, a Lei nº 9.496/1997 e a Lei Estadual nº 10.542/1997, no âmbito do Programa de Apoio à Reestruturação e ao Ajuste Fiscal dos Estados.\n\nNa Cláusula Primeira, o Estado se confessa devedor de R$ 1.552.400.375,83, correspondente ao somatório da dívida mobiliária, dos contratos com a Caixa Econômica Federal, com o Banco do Brasil e com o BRDE, discriminados por categoria. As cláusulas seguintes tratam da assunção das dívidas pela União, do refinanciamento (dívida refinanciada de R$ 1.390.768.703,06), da metodologia de cálculo, dos limites de comprometimento da receita líquida, das prestações mensais durante 1998 e 1999 e da atualização monetária pelo IGP-DI.\n\nO documento serve como fundamento histórico e jurídico da relação societária e financeira envolvendo o BESC, o Estado de Santa Catarina, o Banco do Brasil e a União.",
+    "tags": [
+      "historia"
+    ],
+    "sourceFilename": "Aquisição societária do BESC pela União.pdf",
+    "fileRef": {
+      "stored": true,
+      "ext": ".pdf",
+      "mime": "application/pdf",
+      "sizeBytes": 5373965
+    },
+    "hasText": true,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  },
+  {
+    "id": "lib_3164299ba869",
+    "slug": "pdf-consolidado-jurisprudencia-sobre-acoes-do-besc-para-comp",
+    "title": "Jurisprudência sobre ações do BESC para compensação de passivos (consolidado)",
+    "kind": "base_legal",
+    "summary": "Documento-síntese: pontos-chave (sem direito automático; depende de avaliação/homologação; titularidade obrigatória) e uma tabela de precedentes positivos (TJSP/TJSC/TRF4/TJPB).",
+    "body": "## Jurisprudência sobre ações do BESC para compensação de passivos (consolidado)\n\nO BESC foi incorporado pelo Banco do Brasil em 2008. Devedores e herdeiros utilizam as ações para compensação/quitação de dívidas. Pontos-chave:\n\n- **não há** direito automático à compensação;\n- depende de **avaliação judicial, homologação ou acordo formal**;\n- a **comprovação da titularidade** das ações é obrigatória.\n\n### Precedentes positivos citados no documento-fonte\n\n| Processo | Tribunal | Ano | Resumo |\n|---|---|---|---|\n| 0008335-02.2010.8.26.0602 | TJSP | 2012 | Compensação parcial de passivo bancário, mediante perícia e homologação |\n| 5001234-45.2016.8.24.0023 | TJSC | 2017 | Ações preferenciais como parte do pagamento, com avaliação judicial |\n| 5045678-22.2017.4.04.7000 | TRF4 | 2018 | Liquidação parcial de débito tributário, com comprovação de titularidade |\n| 0304567-21.2018.8.24.0023 | TJSC | 2019 | Herdeiros compensaram dívida com o BB via conversão em numerário (acordo homologado) |\n| 0023456-89.2019.8.24.0023 | TJSC | 2020 | Reconhecimento parcial do valor para pagamento, com perícia |\n| 5067890-11.2020.4.04.7000 | TRF4 | 2021 | Compensação parcial após liquidação e depósito judicial |\n| 0801045-57.2023.8.15.0761 | TJPB | 2023 | Compensação condicionada a avaliação, homologação e titularidade |\n\n> Tabela transcrita do documento-fonte — algumas entradas podem ser ilustrativas; **conferir**. As decisões reais catalogadas estão na aba **Jurisprudência** (100 decisões com ementas).",
+    "tags": [
+      "base_legal"
+    ],
+    "sourceFilename": "PDF Consolidado- Jurisprudência sobre Ações do BESC para Compensação de Passivos.docx",
+    "fileRef": {
+      "stored": true,
+      "ext": ".docx",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sizeBytes": 9784
+    },
+    "hasText": false,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  },
+  {
+    "id": "lib_50ddd5611b1c",
+    "slug": "acao-besc-de-conversao-e-compensacao",
+    "title": "Ação BESC de Conversão e Compensação",
+    "kind": "modelo",
+    "summary": "Material de consultoria (Maxxii Consultoria) apresentando as ações preferenciais do BESC, sua origem, a incorporação pelo Banco do Brasil e as possibilidades de uso judicial dessas ações como garantia e para compensação de dívidas, incluindo exemplo de jurisprudência.",
+    "body": "Documento produzido pela Maxxii Consultoria (Av. Paulista, 1439, São Paulo) que se apresenta como escritório de consultoria jurídica e financeira. O material explica que as ações preferenciais do Banco do Estado de Santa Catarina (BESC), classes A e B, foram incorporadas pelo Banco do Brasil e que, por serem títulos, vêm sendo aceitas por meio de ações judiciais. Segundo o texto, em 30 de janeiro de 2008 o Banco do Brasil S.A. incorporou o BESC, tornando-se responsável por seus ativos e passivos, e o Decreto nº 6.380, de 20 de fevereiro de 2008, excluiu o BESC e a BESCRI do PND; menciona ainda que a incorporação foi aprovada em 30 de setembro de 2008 pelas assembleias de acionistas.\n\nO documento descreve que essas ações poderiam servir como garantia para liberação de penhoras, quitação de contratos e impostos, liberação de CND, entre outros usos (substituição em penhora, dação em pagamento, caução, antecipação de tutela, etc.), afirmando obter êxito com redução de 70% do total da dívida. Trata também da transferência das ações via Escritura Pública de Cessão de direitos ou procuração pública, e da necessidade de laudos de avaliação e de autenticidade elaborados por peritos.\n\nAo final, cita jurisprudência favorável: o desembargador Roger Raupp Rios, do TRF-4, reconheceu, em decisão liminar, que as ações do BESC seriam passíveis de garantir débito para fins de certidão de regularidade fiscal, registrando que a matéria é controvertida na corte (com precedentes favoráveis e desfavoráveis) e que os títulos, emitidos na década de 1980, teriam atualização de 8% ao ano (processo 5016710-94.2019.4.04.0000/PR — \"TRF-4 aceita ações de banco extinto como caução de débito fiscal\").",
+    "tags": [
+      "modelo"
+    ],
+    "sourceFilename": "Ação Besc de conversão e compensação.pdf",
+    "fileRef": {
+      "stored": true,
+      "ext": ".pdf",
+      "mime": "application/pdf",
+      "sizeBytes": 3212496
+    },
+    "hasText": true,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  },
+  {
+    "id": "lib_9a88b86a132c",
+    "slug": "porque-utilizar-as-bescs-para-quitacao-de-passivos",
+    "title": "Por que utilizar as ações do BESC para quitação de passivos",
+    "kind": "fundamento",
+    "summary": "Documento-síntese da proposta de valor: segurança (uso judicial + perícia), liquidez (2º grau de penhora no CPC), versatilidade (tributário/bancário/empresas privadas) e a evolução da jurisprudência por instância.",
+    "body": "## Por que utilizar as ações do BESC para quitação de passivos\n\n**Segurança.** As ações do BESC só são utilizadas na esfera **judicial**, pois não são mais comercializadas em mercado desde que o BACEN autorizou a incorporação pelo Banco do Brasil. No processo, as ações são periciadas quanto à **autenticidade** e passam por análise de **atualização monetária** para confirmar se é possível liquidar o passivo na totalidade; os laudos periciais são anexados aos autos.\n\n**Liquidez.** Muitos tribunais reconhecem as ações como idôneas e de liquidez comparável a títulos da dívida pública, situando-as em **2ª posição na hierarquia de penhoras do CPC**. A responsabilidade sobre o BESC era da União (~99%) antes da incorporação; depois, ficou compartilhada entre Banco do Brasil e União.\n\n**Versatilidade.** Podem ser usadas na quitação de passivos **tributários, bancários e junto a empresas privadas**, bem como para **substituição de penhora** e garantias em execuções.\n\n**Jurisprudência.** Por ser tema ainda pouco difundido, há decisões desfavoráveis em 1ª instância; a jurisprudência positiva **cresce a partir da 2ª instância** e se **consolida na 3ª (STJ/STF)**.",
+    "tags": [
+      "fundamento"
+    ],
+    "sourceFilename": "PORQUÊ UTILIZAR AS BESCS PARA QUITAÇÃO DE PASSIVOS.docx",
+    "fileRef": {
+      "stored": true,
+      "ext": ".docx",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "sizeBytes": 9335
+    },
+    "hasText": false,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  },
+  {
+    "id": "lib_b3a134a8ef9e",
+    "slug": "1984-besc-airton-2022-51-516",
+    "title": "Laudo de atualização monetária — ações BESC (Airton, 2022, 51.516 ações)",
+    "kind": "atualizacao_monetaria",
+    "summary": "Laudo econômico de atualização monetária de 51.516 ações preferenciais do BESC emitidas em 1984, elaborado por economista credenciada. Serve para demonstrar o valor atualizado dos títulos em processos judiciais.",
+    "body": "Laudo de Atualização Monetária elaborado pela economista Marli Terezinha Minozzo (Corecon-RS 6383-5), em Porto Alegre, datado de 24 de agosto de 2022. O objeto são 51.516 ações Preferenciais Nominativas Classe \"B\" do BESC – Banco do Estado de Santa Catarina S/A, título múltiplo nº 145.224 (de 12.594.449.062 a 12.594.500.577), emitidas em 29 de novembro de 1984, de titularidade de Jairo Borges de Oliveira Sobrinho. Consta valor unitário de face de Cr$ 1,00, juros contratuais de 6,0% ao ano até 1º de outubro de 1988 e 12,0% após (capitalização anual), e juros moratórios de 8,0% ao ano.\n\nO laudo detalha a metodologia, incluindo considerações sobre o IGP-DI (FGV) e sua composição, a taxa SELIC, a tabela de expurgos inflacionários por mês/ano e o histórico das unidades monetárias vigentes desde 1942 até o Real (1994). Traz também o histórico do BESC, banco fundado em 1962 para estimular o desenvolvimento de Santa Catarina, que em 2006 atingiu presença em 100% dos municípios do estado.\n\nA conclusão apura o valor unitário atualizado de R$ 793,36 por ação, resultando em valor total atualizado de R$ 40.870.733,76 para as 51.516 ações na data do laudo. O documento ressalva que se restringe à atualização monetária, não se pronunciando sobre a autenticidade do título, e que só tem validade com firma reconhecida da perita e na forma original.",
+    "tags": [
+      "modelo"
+    ],
+    "sourceFilename": "1984 Besc Airton 2022 51.516.pdf",
+    "fileRef": {
+      "stored": true,
+      "ext": ".pdf",
+      "mime": "application/pdf",
+      "sizeBytes": 191027
+    },
+    "hasText": true,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  },
+  {
+    "id": "lib_cb3e8c6fe5dc",
+    "slug": "inicial-com-bescs",
+    "title": "Petição inicial com oferecimento de BESCs em caução",
+    "kind": "modelo",
+    "summary": "Trecho de petição-modelo que fundamenta o oferecimento de ações do BESC como caução/pagamento, invocando sub-rogação pelo Banco do Brasil e jurisprudência favorável. Útil como modelo argumentativo em execuções e demandas judiciais.",
+    "body": "Trecho de petição inicial que trata do oferecimento de ações do BESC como caução em garantia. O documento aborda a sub-rogação: conforme o protocolo de incorporação (item 1.2, letra \"F\"), o Banco do Brasil assumiu os direitos e obrigações dos títulos incorporados, tornando-se responsável por eles. Argumenta que, tendo a União determinado a assunção da dívida pelo Banco do Brasil (sociedade de economia mista de titularidade majoritária da União), não caberia recusar a caução por títulos cuja origem é o próprio banco, configurando obrigação sinalagmática nos termos do Código Civil.\n\nO texto reproduz as relações de substituição para conversão das ações informadas no site do Banco do Brasil: 1 ação ON do BB para 12,13308922 ações ON do BESC; 1 ação ON do BB para 12,13308922 ações Preferenciais Nominativas Classe \"A\"; 1 ação ON do BB para 12,13308922 ações PNB; e 1 ação ON do BB para 1.592,26162712 ações ON da BESC. Invoca o princípio da menor onerosidade da execução (art. 805 do CPC) e sustenta que os Tribunais vêm aceitando as ações do BESC como caução e dação em pagamento.\n\nA peça caracteriza as BESCs como títulos de dívida pública, equiparados a dinheiro em espécie, de notória liquidez, pertencentes a instituição de idoneidade patrimonial (Banco do Brasil), com rendimentos de dividendos de liquidez imediata e passíveis de uso como caução por lei (referência à Lei 719/1961). Cita ainda a Circular do Banco Central nº 3569, de 22 de dezembro de 2011, e menciona precedente do Desembargador Irineu Fava, da 17ª Câmara de Direito Privado, como caso semelhante.",
+    "tags": [
+      "modelo"
+    ],
+    "sourceFilename": "Inicial com BESCs.pdf",
+    "fileRef": {
+      "stored": true,
+      "ext": ".pdf",
+      "mime": "application/pdf",
+      "sizeBytes": 399228
+    },
+    "hasText": true,
+    "externalLinks": [],
+    "createdAt": "2026-07-04"
+  }
+]

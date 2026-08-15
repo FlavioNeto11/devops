@@ -70,10 +70,23 @@ export function AiChatWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Ao abrir, foca o campo de pergunta (UX-GYMOPS-020).
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  // Fecha o painel e devolve o foco ao botão flutuante (Esc / retorno de foco).
+  function closePanel() {
+    setOpen(false);
+    buttonRef.current?.focus();
+  }
 
   if (!organizationId) return null;
 
@@ -151,8 +164,11 @@ export function AiChatWidget() {
   return (
     <>
       <button
+        ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         aria-label="Assistente IA"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         data-tutorial="ai-assistant-button"
         className={`fixed right-5 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:scale-105 ${
           onboardingVisible && !open ? 'bottom-48' : 'bottom-5'
@@ -162,7 +178,12 @@ export function AiChatWidget() {
       </button>
 
       {open && (
-        <div className="fixed bottom-24 right-5 z-[60] flex h-[min(72vh,560px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        <div
+          role="dialog"
+          aria-label="Assistente IA"
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closePanel(); } }}
+          className="fixed bottom-24 right-5 z-[60] flex h-[min(72vh,560px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl"
+        >
           <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <div className="flex-1">
@@ -171,7 +192,13 @@ export function AiChatWidget() {
             </div>
           </div>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+          <div
+            ref={scrollRef}
+            role="log"
+            aria-live="polite"
+            aria-label="Conversa com o assistente"
+            className="flex-1 space-y-3 overflow-y-auto p-4"
+          >
             {messages.length === 0 && (
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p>
@@ -278,9 +305,11 @@ export function AiChatWidget() {
             className="flex items-center gap-2 border-t p-3"
           >
             <input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Pergunte algo…"
+              aria-label="Pergunte ao assistente"
               className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
             />
             <button

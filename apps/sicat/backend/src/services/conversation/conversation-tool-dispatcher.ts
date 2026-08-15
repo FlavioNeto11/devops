@@ -40,6 +40,10 @@ import {
   normalizeManifestDetailResult,
   normalizeManifestListResult
 } from './tools/tool-normalizer.js';
+import {
+  describeManifestStatusFilterPtBr,
+  resolveManifestSituationLabelPtBr
+} from './conversation-status-vocabulary.js';
 
 export type ConversationDispatchInput = {
   toolName: string;
@@ -610,6 +614,9 @@ function summarizeManifestReference(item: ManifestListItem) {
     expeditionDate: item.expeditionDate,
     status: item.status,
     externalStatus: item.externalStatus,
+    // Rótulo pt-BR do MESMO vocabulário das telas — o compositor da resposta lê
+    // este campo e deixa de imprimir termo técnico em inglês ("received").
+    statusLabel: resolveManifestSituationLabelPtBr(item),
     externalHashCode: item.externalHashCode,
     generator: item.generatorDescription,
     carrier: item.carrierDescription,
@@ -676,6 +683,43 @@ function getOperationalTodayIso(): string {
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
+}
+
+/**
+ * Resumo pt-BR da tool `list_manifests`. Antes a tool devolvia só o payload cru
+ * e o compositor da resposta imprimia uma seção "Resultado:" VAZIA + o filtro em
+ * inglês ("Filtro: status = received"). Aqui o período e a situação já saem no
+ * vocabulário das telas, com o total explícito.
+ */
+function buildManifestListToolSummary(input: {
+  dateFrom: string | null;
+  dateTo: string | null;
+  status: string | null;
+  totalItems: number;
+  items: ManifestListItem[];
+}): string {
+  const periodText = buildPeriodText({ dateFrom: input.dateFrom, dateTo: input.dateTo })
+    || 'sem recorte de periodo (janela operacional corrente)';
+  const statusLabel = describeManifestStatusFilterPtBr(input.status);
+  const filterText = statusLabel ? `Filtro de situacao: ${statusLabel}.` : 'Sem filtro de situacao.';
+
+  if (input.totalItems === 0 || input.items.length === 0) {
+    return `Consulta de manifestos: ${periodText}. ${filterText} Resumo: total encontrado=0, ausencia de dados=sim. `
+      + `Data operacional atual: ${getOperationalTodayIso()}.`;
+  }
+
+  const sample = input.items.slice(0, 10).map((item) => {
+    const number = item.manifestNumber ? String(item.manifestNumber) : item.id;
+    const dateLabel = item.expeditionDate || item.lastSyncAt || 'sem data';
+    return `${number} (data: ${dateLabel}; situacao: ${resolveManifestSituationLabelPtBr(item, 'sem situacao registrada')})`;
+  });
+
+  const situations = Array.from(new Set(input.items.map((item) => resolveManifestSituationLabelPtBr(item, 'sem situacao registrada'))))
+    .slice(0, 5)
+    .join(', ');
+
+  return `Consulta de manifestos: ${periodText}. ${filterText} Resumo: total encontrado=${input.totalItems}, `
+    + `situacoes relevantes=${situations}, ausencia de dados=nao. Amostra: ${sample.join('; ')}.`;
 }
 
 function buildQueryNoDataSummary(input: {
@@ -823,7 +867,7 @@ function buildJobsListSummary(input: {
 
   if (isErrorNavigation) {
     if (input.totalItems === 0) {
-      return 'Para consultar jobs com erro no SICAT, use o modulo Jobs e, para diagnostico detalhado, o Centro Operacional > Console de jobs. No fluxo SICAT/CETESB, esses jobs representam etapas assicronas como submit, print, generate ou download que falharam, entraram em retry ou foram para DLQ. Acao recomendada: revisar o filtro, abrir o job ou correlationId correspondente e cruzar com Auditoria antes de reenfileirar. Causa: a origem costuma aparecer no motivo do job/DLQ, por exemplo sessao CETESB invalida, payload inconsistente ou erro retornado pela integracao. Limitacao: esta orientacao explica onde consultar e como ler a falha, sem afirmar que existe um job especifico com erro neste momento.';
+      return 'Para consultar jobs com erro no SICAT, use o modulo Jobs e, para diagnostico detalhado, o Centro Operacional > Console de jobs. No fluxo SICAT/CETESB, esses jobs representam etapas assicronas como submit, print, generate ou download que falharam, entraram em retry ou foram para DLQ. Acao recomendada: revisar o filtro, abrir o job ou correlationId correspondente e cruzar com Auditoria antes de reenfileirar. Causa: a origem costuma aparecer no motivo do job/DLQ, por exemplo sessao CETESB invalida, dados do manifesto inconsistentes ou erro retornado pela CETESB. Limitacao: esta orientacao explica onde consultar e como ler a falha, sem afirmar que existe um job especifico com erro neste momento.';
     }
 
     const topOperations = Array.from(new Set(input.items
@@ -1069,7 +1113,10 @@ function buildDashboardOverviewSummary(input: { dashboard: Record<string, unknow
   }
 
   if (!hasOperationalData) {
-    return 'Resumo do dia (dashboard): hoje (timezone America/Sao_Paulo). Resumo: total encontrado=0, status relevantes=jobs/workers/performance, ausencia de dados=sim. Justificativa: nao houve indicadores operacionais consolidados para o dia ate o momento. Proximo passo operacional: valide ingestao de metricas e reexecute a consulta em alguns minutos.';
+    // LINGUAGEM DE OPERADOR: "validar a ingestao de metricas" nao e uma acao que
+    // quem opera MTR consiga executar (nem sabe onde). O proximo passo agora
+    // aponta para tela e gesto que existem no SICAT.
+    return 'Resumo do dia (dashboard): hoje (timezone America/Sao_Paulo). Resumo: total encontrado=0, status relevantes=jobs/workers/performance, ausencia de dados=sim. Justificativa: ainda nao ha movimento consolidado para o dia de hoje. Proximo passo operacional: se voce ja enviou ou recebeu MTR hoje, aguarde alguns minutos e consulte de novo (o painel consolida aos poucos); se continuar zerado, abra o modulo Jobs para ver se alguma etapa ficou parada.';
   }
 
   return `Resumo do dia (dashboard): hoje (timezone America/Sao_Paulo). Resumo: total encontrado=${activeJobsTotal}, status relevantes=jobs/workers/performance, ausencia de dados=nao. Indicadores: workers ativos=${activeWorkers}, workers nao saudaveis=${unhealthyWorkers}, jobs ativos=${activeJobsTotal}, itens dlq entre jobs ativos=${dlqItems}, job_success_rate_24h=${successRate}%.`;
@@ -1133,10 +1180,11 @@ function buildSelectionSummary(args: {
     const position = args.skipMostRecent + index + 1;
     const number = item.manifestNumber ? String(item.manifestNumber) : item.id;
     const dateLabel = item.expeditionDate || item.lastSyncAt || 'sem data';
-    // Status user-facing (padrao do portal: salvo/recebido/...) tem prioridade sobre
-    // o status interno do SICAT, alinhando o chat com o que aparece na grid.
-    const statusLabel = item.externalStatus || item.status || 'sem status';
-    return `${number} (${positionLabel(position)}; data: ${dateLabel}; status: ${statusLabel})`;
+    // Situacao user-facing no vocabulario pt-BR das telas ("Aguardando baixa",
+    // "Recebido"), e nao o termo cru da CETESB ("Salvo") nem o status interno em
+    // ingles ("received") — chat e grid falam a mesma lingua.
+    const statusLabel = resolveManifestSituationLabelPtBr(item, 'sem situacao registrada');
+    return `${number} (${positionLabel(position)}; data: ${dateLabel}; situacao: ${statusLabel})`;
   });
 
   const listText =
@@ -1581,7 +1629,7 @@ async function handleManifestCreatePreviewFromPayload(input: ConversationDispatc
       assistantSummary:
         `${missingSummary} `
         + 'Previa/simulacao (modo smoke sem mutacao): ainda nao executei criacao real de manifesto. '
-        + 'Impacto e risco: criar manifesto sem payload completo pode gerar rejeicao operacional e inconsistencias. '
+        + 'Impacto e risco: criar manifesto com dados incompletos pode gerar rejeicao na CETESB e inconsistencia na trilha. '
         + 'Pre-requisitos: enviar os campos faltantes e validar dados de gerador, transportador, destinador e residuos. '
         + 'Confirmacao explicita obrigatoria: somente apos revisar a previa final, responda "confirmo manifest.create_from_payload" para autorizar a acao. '
         + 'Acao ainda nao executada: estou apenas em modo simulacao/smoke. Voce confirma esse fluxo de criacao somente apos a previa final?',
@@ -1620,7 +1668,9 @@ async function handleManifestCreatePreviewFromPayload(input: ConversationDispatc
         }
       }
     ],
-    assistantSummary: 'Preview de criacao pronto em modo simulacao/smoke; nenhuma criacao real foi executada. Pre-requisitos validados com payload congelado. Impacto e risco: criacao real altera trilha operacional. Confirmacao explicita obrigatoria: responda "confirmo manifest.create_from_payload" para prosseguir. Voce confirma?',
+    // O texto entre aspas e um TOKEN que o operador digita de volta para
+    // confirmar (a policy compara literalmente): nao traduzir nem reescrever.
+    assistantSummary: 'Preview de criacao pronto em modo simulacao/smoke; nenhuma criacao real foi executada. Pre-requisitos validados com os dados que voce revisou (congelados ate a confirmacao). Impacto e risco: criacao real altera trilha operacional. Confirmacao explicita obrigatoria: responda "confirmo manifest.create_from_payload" para prosseguir. Voce confirma?',
     jobId: null
   };
 }
@@ -1638,7 +1688,7 @@ async function handleManifestReceiveWithReceipt(input: ConversationDispatchInput
     throw new AppError(
       400,
       'Bad Request',
-      'Para confirmar o recebimento, envie os dados em receiptPayload (ex.: hash do manifesto, quantidade recebida, observacao).',
+      'Para confirmar o recebimento, informe os dados da baixa: numero (ou codigo) do MTR, quantidade efetivamente recebida e observacao, quando houver.',
       {
         code: 'CONVERSATION_RECEIPT_PAYLOAD_REQUIRED'
       }
@@ -2047,7 +2097,7 @@ async function handleCdfGenerateFromManifestSelection(input: ConversationDispatc
 
   const cdfPayload = toPayloadRecord(args.cdfPayload || args.payload);
   if (Object.keys(cdfPayload).length === 0) {
-    throw new AppError(400, 'Bad Request', 'Para gerar CDF/CDR informe cdfPayload com os dados obrigatorios.', {
+    throw new AppError(400, 'Bad Request', 'Para gerar o certificado (CDF/CDR) informe os dados obrigatorios: responsavel pelo certificado e os manifestos que entram nele.', {
       code: 'CONVERSATION_CDF_PAYLOAD_REQUIRED'
     });
   }
@@ -2918,11 +2968,23 @@ export async function dispatchConversationTool(input: ConversationDispatchInput)
       );
 
       const normalized = normalizeManifestListResult(response);
+      const listRecord = toRecord(response);
+      const listItems = asListResponseItems(response).map(toManifestListItem).filter(Boolean) as ManifestListItem[];
+      const totalItems = toOptionalNumber(listRecord.totalItems) ?? listItems.length;
 
       return withNormalizedShape({
         legacyKind: 'query',
         data: response,
-        normalized
+        normalized,
+        // Sem este resumo a resposta final saia com a secao "Resultado:" VAZIA
+        // (o compositor recebia so o payload cru) e com o filtro em ingles.
+        assistantSummary: buildManifestListToolSummary({
+          dateFrom,
+          dateTo,
+          status: toNullableString(args.status),
+          totalItems,
+          items: listItems
+        })
       });
     }
 

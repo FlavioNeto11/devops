@@ -75,6 +75,48 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # Gate RBAC conversacional. O default de CÓDIGO é `enforce`; com o catálogo ainda
+            # VAZIO (o seed da fase 4.5 nunca rodou nesta base), `enforce` negaria criar/enviar/
+            # receber/cancelar no chat para TODO MUNDO, inclusive administradores. `observe`
+            # permite e REGISTRA o que negaria — é o modo de entrada. O flip para `enforce` é um
+            # commit próprio, e é o ponto de rollback.
+            - name: CONVERSATION_PERMISSION_ENFORCEMENT
+              value: "observe"
+            # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
+            # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
+            # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
+            # Secret o provedor não resolve e o webhook responde 404, sem
+            # derrubar o pod.
+            # O portão do N2 foi ABERTO em 2026-08-09 (o literal
+            # WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED passou a `true`). Emitir e dar
+            # baixa pelo canal dependem agora só da 3ª tranca: marcar `whatsapp`
+            # em allowChannels no AI Control Center — que é também o rollback
+            # mais rápido (segundos, sem deploy).
+            - name: WHATSAPP_PROVIDER
+              value: "twilio"
+            - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            # Segunda tranca do N2. O literal WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED foi aberto
+            # em 2026-08-09 por decisão do operador; esta env é a outra metade do `||`.
+            # Rollback mais rápido que este arquivo: revogar `allowChannels` no AI Control
+            # Center (segundos, sem deploy). Este aqui é o segundo mais rápido (minutos).
+            - name: WHATSAPP_ACTION_NOTICE_ENABLED
+              value: "true"
+            - name: WHATSAPP_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
+            - name: WHATSAPP_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_AUTH_TOKEN, optional: true }
+            - name: WHATSAPP_TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_FROM, optional: true }
+            - name: WHATSAPP_META_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_ACCESS_TOKEN, optional: true }
+            - name: WHATSAPP_META_VERIFY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_VERIFY_TOKEN, optional: true }
             # ── Observabilidade de IA (F0): Langfuse da plataforma, default ON ──
             # Chaves vêm do Secret sicat-langfuse (criado fora do git; optional:
             # sem ele o provider degrada para desligado, sem quebrar o pod).
@@ -207,6 +249,12 @@ spec:
             - secretRef:
                 name: sicat-config
           env:
+            # PASSO 2 DE 2 da raia (E2): este worker deixa de enxergar as operações de canal.
+            # `default` = `operation <> all(CHANNEL_LANE_OPERATIONS)`, o complemento exato do que a
+            # `sicat-worker-channel` reivindica. Só foi ligado DEPOIS de a raia nova estar Ready —
+            # a ordem inversa deixaria job de canal sem consumidor nenhum, em silêncio.
+            - name: WORKER_LANE
+              value: "default"
             - name: NODE_OPTIONS
               value: "--max-old-space-size=1536"
             - name: DATABASE_URL
@@ -224,6 +272,46 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # Paridade OBRIGATÓRIA com a api: api e worker são a mesma imagem e leem a mesma env.
+            # Divergir aqui faz o chat permitir e o job negar (ou o contrário), com o motivo
+            # aparecendo só na trilha.
+            - name: CONVERSATION_PERMISSION_ENFORCEMENT
+              value: "observe"
+            # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
+            # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
+            # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
+            # Secret o provedor não resolve e o webhook responde 404, sem
+            # derrubar o pod.
+            # O portão do N2 foi ABERTO em 2026-08-09 (o literal
+            # WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED passou a `true`). Emitir e dar
+            # baixa pelo canal dependem agora só da 3ª tranca: marcar `whatsapp`
+            # em allowChannels no AI Control Center — que é também o rollback
+            # mais rápido (segundos, sem deploy).
+            - name: WHATSAPP_PROVIDER
+              value: "twilio"
+            - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            # Segunda tranca do N2. O literal WHATSAPP_OUTBOUND_NOTICE_IMPLEMENTED foi aberto
+            # em 2026-08-09 por decisão do operador; esta env é a outra metade do `||`.
+            # Rollback mais rápido que este arquivo: revogar `allowChannels` no AI Control
+            # Center (segundos, sem deploy). Este aqui é o segundo mais rápido (minutos).
+            - name: WHATSAPP_ACTION_NOTICE_ENABLED
+              value: "true"
+            - name: WHATSAPP_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
+            - name: WHATSAPP_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_AUTH_TOKEN, optional: true }
+            - name: WHATSAPP_TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_FROM, optional: true }
+            - name: WHATSAPP_META_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_ACCESS_TOKEN, optional: true }
+            - name: WHATSAPP_META_VERIFY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_VERIFY_TOKEN, optional: true }
             # ── Observabilidade de IA (paridade com a api) ──
             - name: LANGFUSE_ENABLED
               value: "true"
@@ -275,6 +363,150 @@ spec:
           configMap:
             name: sicat-certs
 ---
+# ═══════════════════════════════════════════════════════════════════════════════
+# RAIA DEDICADA DO CANAL (evidência E2 do portão do N2)
+#
+# O PROBLEMA que isto resolve: o worker é consumidor SERIAL ÚNICO — `replicas: 1`
+# e `for (const job of jobs) await processClaimedJob(job)`. Medido em produção em
+# 2026-08-09: um turno conversacional levou **24,5 s** (gpt-5 planeja → gateway
+# consulta a CETESB → gpt-5 sintetiza). Com uma raia só, esses 24,5 s ficam na
+# frente de um `manifest.submit` na fila. Prioridade ORDENA a fila, não a
+# paraleliza; a única correção real é ter DOIS consumidores lendo subconjuntos
+# disjuntos.
+#
+# A disjunção é garantida em SQL, não por convenção: `buildLanePredicate`
+# (`repositories/job-repo.ts`) monta `operation = any($3)` para a raia `channel`
+# e `operation <> all($3)` para a `default`, das MESMAS operações declaradas em
+# `lib/job-lanes.ts` — complementares por construção, sem sobreposição e sem
+# órfão.
+#
+# ⚠️ AUTO_MIGRATE=false AQUI, DE PROPÓSITO. `src/db/migrate.ts` NÃO tem advisory
+# lock (armadilha 13 do CLAUDE.md). Com api + worker já disputando o boot, um
+# TERCEIRO processo migrando elevaria a chance de colisão `23505` na PK de
+# `schema_migrations` — cujo perdedor LANÇA e entra em CrashLoop. Quem migra é a
+# api; esta raia só consome fila. Mesmo motivo para AUTO_SEED.
+# ═══════════════════════════════════════════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sicat-worker-channel
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: sicat-worker-channel
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: sicat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sicat-worker-channel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sicat-worker-channel
+        app.kubernetes.io/part-of: sicat
+    spec:
+      containers:
+        - name: worker
+          image: sicat-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "worker"]
+          envFrom:
+            - secretRef:
+                name: sicat-config
+          env:
+            - name: WORKER_LANE
+              value: "channel"
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=1536"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sicat-db
+                  key: DATABASE_URL
+            - name: DATABASE_SSL
+              value: "false"
+            - name: STORAGE_DIR
+              value: "/data/storage"
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/opt/certs/cetesb-chain.pem"
+            # Ver o aviso no cabeçalho: quem migra e semeia é a api.
+            - name: AUTO_MIGRATE
+              value: "false"
+            - name: AUTO_SEED
+              value: "false"
+            # Paridade OBRIGATÓRIA com api e worker: mesma imagem, mesmo gate.
+            - name: CONVERSATION_PERMISSION_ENFORCEMENT
+              value: "observe"
+            - name: WHATSAPP_PROVIDER
+              value: "twilio"
+            - name: WHATSAPP_ACTIONS_ENABLED
+              value: "true"
+            - name: WHATSAPP_ACTION_NOTICE_ENABLED
+              value: "true"
+            - name: WHATSAPP_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_ACCOUNT_SID, optional: true }
+            - name: WHATSAPP_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_AUTH_TOKEN, optional: true }
+            - name: WHATSAPP_TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_TWILIO_FROM, optional: true }
+            - name: WHATSAPP_META_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_ACCESS_TOKEN, optional: true }
+            - name: WHATSAPP_META_VERIFY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: sicat-whatsapp, key: WHATSAPP_META_VERIFY_TOKEN, optional: true }
+            - name: LANGFUSE_ENABLED
+              value: "true"
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse.observability.svc.cluster.local:3000"
+            - name: LANGFUSE_PUBLIC_BASE_URL
+              value: "http://langfuse.localhost"
+            - name: LANGFUSE_PROJECT_ID
+              value: "nvit-ai"
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_PUBLIC_KEY, optional: true }
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_SECRET_KEY, optional: true }
+          ports:
+            - name: metrics
+              containerPort: 9464
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: certs
+              mountPath: /opt/certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: sicat-storage
+        - name: certs
+          configMap:
+            name: sicat-certs
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -289,6 +521,52 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    - name: metrics
+      port: 9464
+      targetPort: metrics
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# MÉTRICA DOS WORKERS (item O1b do runbook)
+#
+# Estes dois Services não servem tráfego: existem só para que o ServiceMonitor
+# `sicat-api-ai` (selector `app.kubernetes.io/part-of: sicat`) tenha alvo. Um
+# ServiceMonitor raspa SERVICES — sem Service, o `/metrics` do worker é servido e
+# nunca coletado.
+#
+# Isso não é cosmético: o critério objetivo documentado para virar
+# CONVERSATION_PERMISSION_ENFORCEMENT de `observe` para `enforce` é "a soma de
+# `would_deny` estável em zero". Enquanto só a api era raspada, essa soma ignorava
+# os workers — que avaliam o MESMO gate ao processar jobs. Decidir o flip assim
+# era decidir com metade dos dados achando que se tinha todos.
+# ═══════════════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: sicat-worker-metrics
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: sicat-worker
+  ports:
+    - name: metrics
+      port: 9464
+      targetPort: metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sicat-worker-channel-metrics
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: sicat-worker-channel
+  ports:
     - name: metrics
       port: 9464
       targetPort: metrics

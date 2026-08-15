@@ -3,7 +3,35 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { enqueueCdfGenerate, getCdfResponsibles, getManifestById, listManifests } from '../services/api.js';
 import { useCdfOperationalContext } from '../composables/useCdfOperationalContext.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel } from '../lib/status-map.js';
+import { formatPageCounter } from '../lib/pagination-label.js';
+import { pluralize } from '../lib/plural-pt.js';
+import { isoToday } from '../utils/date-format.js';
+import {
+  CDF_PAGE_SIZE_OPTIONS,
+  clampPage,
+  formatCandidateDetailLabel,
+  formatCandidateSelectionLabel,
+  paginateRows,
+  resolveTotalPages
+} from '../features/cdf/cdfTableState.js';
+// Quem decide elegibilidade para CDF é `manifestHelpers`, via este módulo — esta
+// tela NÃO tem opinião própria. Ela já teve: a cópia local não conhecia
+// `submit_unconfirmed` e oferecia como elegível o manifesto que a listagem
+// bloqueia de propósito (ver o cabeçalho de cdfCandidateEligibility.js).
+import {
+  areAllEligibleSelected,
+  buildCdfCandidateEntry,
+  collectEligibleSnapshots,
+  resolveEligibleSelectionToggle
+} from '../features/cdf/cdfCandidateEligibility.js';
+import {
+  normalizeDocument,
+  resolveManifestIdentifier,
+  toIntegerOrNull
+} from '../features/mtr/list/manifestHelpers.js';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
+import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import SicatCard from '../components/sicat/SicatCard.vue';
 import SicatDataTable from '../components/sicat/SicatDataTable.vue';
@@ -13,14 +41,6 @@ import SicatInlineAlert from '../components/sicat/SicatInlineAlert.vue';
 
 const route = useRoute();
 const router = useRouter();
-
-function pad2(value) {
-  return String(value).padStart(2, '0');
-}
-
-function formatLocalDateInput(date = new Date()) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
 
 function toStartOfDayIso(value) {
   const normalized = String(value || '').trim();
@@ -47,105 +67,6 @@ function toNoonIso(value) {
   return Number.isNaN(candidate.getTime()) ? '' : candidate.toISOString();
 }
 
-function toIntegerOrNull(value) {
-  const normalized = String(value ?? '').trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-function normalizeDocument(documentValue) {
-  return String(documentValue || '').replaceAll(/\D/g, '');
-}
-
-function resolveManifestIdentifier(manifest) {
-  return String(
-    manifest?.id
-    || manifest?.manifestId
-    || manifest?.entityId
-    || manifest?.manifestNumber
-    || manifest?.externalCode
-    || ''
-  ).trim();
-}
-
-function resolveManifestIdentifiers(manifest) {
-  const externalReference = manifest?.externalReference || manifest?.externalSnapshot || {};
-  const externalSnapshot = manifest?.externalSnapshot || {};
-
-  return {
-    manCodigo: externalReference?.manCodigo ?? externalSnapshot?.manCodigo ?? null,
-    manNumero: externalReference?.manNumero ?? externalSnapshot?.manNumero ?? null,
-    manHashCode: manifest?.externalHashCode || externalSnapshot?.manHashCode || null
-  };
-}
-
-function resolveManifestSnapshot(manifest) {
-  if (!manifest) {
-    return null;
-  }
-
-  const identifiers = resolveManifestIdentifiers(manifest);
-  const generatorDocument = normalizeDocument(manifest?.generator?.document);
-
-  return {
-    ...identifiers,
-    parceiroGerador: generatorDocument ? { parCnpj: generatorDocument } : undefined
-  };
-}
-
-function formatManifestLabel(manifest) {
-  return String(manifest?.manifestNumber || manifest?.externalCode || resolveManifestIdentifier(manifest) || 'manifesto').trim();
-}
-
-function normalizedStatusValue(manifest) {
-  return `${String(manifest?.status || '').toLowerCase()} ${String(manifest?.externalStatus || '').toLowerCase()}`.trim();
-}
-
-function hasIssuedCdfReference(manifest) {
-  const externalSnapshot = manifest?.externalSnapshot || {};
-  const externalReference = manifest?.externalReference || {};
-
-  return [
-    manifest?.cdfEmitidoNumero,
-    externalSnapshot?.cdfEmitidoNumero,
-    externalReference?.cdfEmitidoNumero,
-    manifest?.certificateCode,
-    manifest?.certificateId
-  ].some((value) => String(value ?? '').trim());
-}
-
-function describeCdfManifestRestriction(manifest, hasRemoteIdentity) {
-  const status = normalizedStatusValue(manifest);
-  const alreadyCancelled = status.includes('cancel');
-  const hasFailure = status.includes('fail') || status.includes('erro') || status.includes('error') || status.includes('dlq');
-
-  if (!hasRemoteIdentity) {
-    return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
-  }
-
-  if (hasIssuedCdfReference(manifest)) {
-    return 'Este manifesto já tem um certificado (CDF).';
-  }
-
-  if (alreadyCancelled) {
-    return 'Este manifesto foi cancelado.';
-  }
-
-  if (hasFailure) {
-    return 'Este manifesto teve um problema. Reenvie antes de gerar o certificado.';
-  }
-
-  if (!status.includes('receb')) {
-    return 'Ainda não foi recebido. O certificado só sai depois do recebimento.';
-  }
-
-  return '';
-}
-
 const {
   activeAccount,
   integrationAccountId,
@@ -161,10 +82,19 @@ const requestedManifestIds = computed(() => {
   return Array.from(new Set(raw.split(',').map((id) => id.trim()).filter(Boolean)));
 });
 
+// Derivado de `isoToday()` (utils/date-format.js) para não haver uma SEGUNDA
+// formatação de data local nesta tela — era daí que vinha o `pad2` duplicado.
+function isoFirstDayOfCurrentMonth() {
+  return `${isoToday().slice(0, 8)}01`;
+}
+
+// Período pré-preenchido de forma SIMÉTRICA (mês corrente até hoje). Antes só a
+// "Data final" vinha preenchida e a "Data inicial" ficava vazia, o que parecia
+// erro de carregamento — o operador segue livre para trocar as duas datas.
 const cdfForm = reactive({
-  issueAt: formatLocalDateInput(new Date()),
-  dateFrom: '',
-  dateTo: formatLocalDateInput(new Date()),
+  issueAt: isoToday(),
+  dateFrom: isoFirstDayOfCurrentMonth(),
+  dateTo: isoToday(),
   responsibleCode: null,
   observation: ''
 });
@@ -181,6 +111,11 @@ const cdfResponsibleOptions = computed(() => (Array.isArray(cdfResponsibles.valu
   .filter((option) => option.value != null && option.value !== ''));
 
 const manifests = ref([]);
+// Teto desta tela: carregamos uma única página de candidatos. Guardamos o total
+// devolvido pela API para dizer ao operador quando a lista está truncada
+// (antes o "Candidatos: 100" parecia o universo inteiro).
+const CANDIDATES_PAGE_SIZE = 120;
+const candidatesTotalItems = ref(0);
 const manifestsLoading = ref(false);
 const manifestsLoaded = ref(false);
 const manifestsError = ref('');
@@ -192,78 +127,118 @@ const cdfLoading = ref(false);
 
 const selectedManifestEntries = computed(() => (Array.isArray(manifests.value) ? manifests.value : [])
   .filter((manifest) => selectedManifestIds.value.includes(resolveManifestIdentifier(manifest)))
-  .map((manifest) => {
-    const snapshot = resolveManifestSnapshot(manifest);
-    const hasRemoteIdentity = Boolean(snapshot?.manCodigo || snapshot?.manNumero || snapshot?.manHashCode);
-    const reason = describeCdfManifestRestriction(manifest, hasRemoteIdentity);
-    const eligible = hasRemoteIdentity && !reason;
+  .map((manifest) => buildCdfCandidateEntry(manifest)));
 
-    return {
-      manifest,
-      snapshot,
-      eligible,
-      reason,
-      manifestId: resolveManifestIdentifier(manifest),
-      manifestLabel: formatManifestLabel(manifest)
-    };
-  }));
-
-const selectedManifestSnapshots = computed(() => selectedManifestEntries.value
-  .filter((entry) => entry.eligible && entry.snapshot)
-  .map((entry) => entry.snapshot));
+const selectedManifestSnapshots = computed(() => collectEligibleSnapshots(selectedManifestEntries.value));
 
 const selectedManifestCount = computed(() => selectedManifestEntries.value.length);
 const eligibleManifestCount = computed(() => selectedManifestSnapshots.value.length);
 const blockedManifestCount = computed(() => selectedManifestCount.value - eligibleManifestCount.value);
 
 const candidateManifestEntries = computed(() => (Array.isArray(manifests.value) ? manifests.value : []).map((manifest) => {
-  const snapshot = resolveManifestSnapshot(manifest);
-  const hasRemoteIdentity = Boolean(snapshot?.manCodigo || snapshot?.manNumero || snapshot?.manHashCode);
-  const reason = describeCdfManifestRestriction(manifest, hasRemoteIdentity);
-  const eligible = hasRemoteIdentity && !reason;
-  const manifestId = resolveManifestIdentifier(manifest);
+  const entry = buildCdfCandidateEntry(manifest);
 
   return {
-    manifest,
-    snapshot,
-    eligible,
-    reason,
-    manifestId,
-    manifestLabel: formatManifestLabel(manifest),
-    selected: selectedManifestIds.value.includes(manifestId)
+    ...entry,
+    selected: selectedManifestIds.value.includes(entry.manifestId)
   };
 }));
 
 const eligibleCandidates = computed(() => candidateManifestEntries.value.filter((entry) => entry.eligible));
 const blockedCandidates = computed(() => candidateManifestEntries.value.filter((entry) => !entry.eligible));
 
+// Aviso de truncamento: a API tem mais manifestos do que esta tela carregou.
+const candidatesTruncatedNotice = computed(() => {
+  const total = Number(candidatesTotalItems.value || 0);
+  const loaded = candidateManifestEntries.value.length;
+  if (!total || total <= loaded) {
+    return '';
+  }
+  return `Esta tela avalia os ${loaded} manifestos mais recentes da conta (de ${total} no total). Se o manifesto que você procura não estiver na lista, abra-o em Manifestos e use “Gerar CDF” por lá.`;
+});
+
 const candidateTableHeaders = [
   { title: 'Sel.', key: 'select', sortable: false, width: '64' },
   { title: 'MTR', key: 'mtr', sortable: false },
   { title: 'Gerador', key: 'generator', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Situação', key: 'status', sortable: false },
   { title: 'Condição', key: 'condition', sortable: false },
   { title: 'Ação', key: 'actions', sortable: false, align: 'end' }
 ];
 
-const candidateTableRows = computed(() => candidateManifestEntries.value.map((entry) => ({
+// Filtro de leitura: sem isto, entender "38 bloqueados" exigia varrer a tabela
+// inteira procurando as linhas com motivo na coluna Condição.
+const showOnlyBlockedCandidates = ref(false);
+
+const visibleCandidateEntries = computed(() => (showOnlyBlockedCandidates.value
+  ? candidateManifestEntries.value.filter((entry) => !entry.eligible)
+  : candidateManifestEntries.value));
+
+const candidateTableRows = computed(() => visibleCandidateEntries.value.map((entry) => ({
   id: entry.manifestId,
   manifestId: entry.manifestId,
   mtr: entry.manifestLabel,
   generator: entry.manifest?.generator?.description || '-',
-  status: entry.manifest?.externalStatus || entry.manifest?.status || '-',
+  // Mesmo vocabulário pt-BR da lista de manifestos (nada de "Salvo"/"draft" cru).
+  status: resolveManifestSituationLabel(entry.manifest),
+  rawStatus: resolveManifestRawSituation(entry.manifest),
   eligible: entry.eligible,
   reason: entry.reason,
-  selected: entry.selected
+  selected: entry.selected,
+  // Dez checkboxes sem nome e dez botões chamados "Ver detalhe" são
+  // indistinguíveis fora da tabela visual (lista de links, navegação por voz).
+  selectionLabel: formatCandidateSelectionLabel(entry.manifestLabel),
+  detailLabel: formatCandidateDetailLabel(entry.manifestLabel)
 })));
-const allEligibleSelected = computed(() => {
-  const ids = eligibleCandidates.value.map((entry) => entry.manifestId).filter(Boolean);
-  if (!ids.length) {
-    return false;
-  }
 
-  return ids.every((id) => selectedManifestIds.value.includes(id));
+// ---- Paginação da TELA -------------------------------------------------
+// A lista de candidatos vem inteira numa página só da API (CANDIDATES_PAGE_SIZE).
+// O rodapé genérico do v-data-table escrevia "Mostrando 0–0 de 0" — 0 de quê? —
+// então quem pagina e quem conta é a tela, com o contador canônico
+// (lib/pagination-label.js) e o substantivo do domínio.
+const candidatesPageSize = ref(10);
+const candidatesPage = ref(1);
+
+const candidatesTotalRows = computed(() => candidateTableRows.value.length);
+const candidatesTotalPages = computed(() => resolveTotalPages(candidatesTotalRows.value, candidatesPageSize.value));
+const pagedCandidateRows = computed(() => paginateRows(candidateTableRows.value, {
+  page: candidatesPage.value,
+  pageSize: candidatesPageSize.value
+}));
+
+const candidatesCounterLabel = computed(() => formatPageCounter({
+  page: candidatesPage.value,
+  pageSize: candidatesPageSize.value,
+  itemsOnPage: pagedCandidateRows.value.length,
+  total: candidatesTotalRows.value,
+  singular: 'manifesto candidato',
+  plural: 'manifestos candidatos'
+}));
+
+// O contador conta o que a tabela está listando. Com o filtro "só os bloqueados"
+// ligado, o total é o do RECORTE — e a frase diz isso, senão ele contradiz o chip
+// "Candidatos na lista" do topo.
+const candidatesCounterFullLabel = computed(() => (showOnlyBlockedCandidates.value
+  ? `${candidatesCounterLabel.value} · filtro “só os bloqueados” ativo`
+  : candidatesCounterLabel.value));
+
+const canGoPreviousCandidatesPage = computed(() => candidatesPage.value > 1 && !manifestsLoading.value);
+const canGoNextCandidatesPage = computed(() => candidatesPage.value < candidatesTotalPages.value && !manifestsLoading.value);
+
+function changeCandidatesPage(nextPage) {
+  candidatesPage.value = clampPage(nextPage, candidatesTotalRows.value, candidatesPageSize.value);
+}
+
+// Trocar de filtro/de tamanho de página, ou encolher a lista, não pode deixar o
+// operador numa página que não existe mais (tabela vazia sem explicação).
+watch([candidatesPageSize, showOnlyBlockedCandidates], () => {
+  candidatesPage.value = 1;
 });
+
+watch(candidatesTotalRows, () => {
+  candidatesPage.value = clampPage(candidatesPage.value, candidatesTotalRows.value, candidatesPageSize.value);
+});
+const allEligibleSelected = computed(() => areAllEligibleSelected(candidateManifestEntries.value, selectedManifestIds.value));
 
 const generatorPartners = computed(() => {
   const seen = new Set();
@@ -333,7 +308,7 @@ async function appendRequestedManifest(items = []) {
         merged.unshift(detail);
       }
     } catch {
-      manifestsFeedback.value = `Nao foi possivel carregar automaticamente o manifesto ${requestedId}.`;
+      manifestsFeedback.value = `Não foi possível carregar automaticamente o manifesto ${requestedId}.`;
     }
   }
 
@@ -366,9 +341,10 @@ async function loadManifestCandidates(options = {}) {
       integrationAccountId: integrationAccountId.value,
       sessionContextId: sessionContextId.value,
       page: 1,
-      pageSize: 120
+      pageSize: CANDIDATES_PAGE_SIZE
     });
 
+    candidatesTotalItems.value = Number(response?.totalItems || 0);
     const baseItems = Array.isArray(response?.items) ? response.items : [];
     const merged = includeRequestedManifest ? await appendRequestedManifest(baseItems) : [...baseItems];
 
@@ -381,7 +357,7 @@ async function loadManifestCandidates(options = {}) {
 
     selectRequestedManifestIfPresent(manifests.value);
   } catch (error) {
-    manifestsError.value = error?.message || 'Falha ao carregar manifestos para geracao de CDF.';
+    manifestsError.value = error?.message || 'Falha ao carregar manifestos para geração de CDF.';
     manifests.value = [];
     manifestsLoaded.value = true;
   } finally {
@@ -403,15 +379,7 @@ function toggleManifestSelection(manifestId) {
 }
 
 function toggleAllEligibleManifests() {
-  if (allEligibleSelected.value) {
-    const eligibleIds = new Set(eligibleCandidates.value.map((entry) => entry.manifestId));
-    selectedManifestIds.value = selectedManifestIds.value.filter((id) => !eligibleIds.has(id));
-    return;
-  }
-
-  const next = new Set(selectedManifestIds.value);
-  eligibleCandidates.value.forEach((entry) => next.add(entry.manifestId));
-  selectedManifestIds.value = Array.from(next);
+  selectedManifestIds.value = resolveEligibleSelectionToggle(candidateManifestEntries.value, selectedManifestIds.value);
 }
 
 function openManifest(manifestId) {
@@ -453,16 +421,16 @@ async function submitCdfGenerate() {
     await ensureOperationalContext();
 
     if (!receiverPartnerCode.value) {
-      throw new Error('Nao foi possivel identificar o destinador ativo para gerar o CDF.');
+      throw new Error('Não foi possível identificar o destinador ativo para gerar o CDF.');
     }
 
     if (!eligibleManifestCount.value) {
-      throw new Error('Selecione ao menos um manifesto elegivel para gerar o CDF.');
+      throw new Error('Selecione ao menos um manifesto elegível para gerar o CDF.');
     }
 
     const responsibleCode = toIntegerOrNull(cdfForm.responsibleCode);
     if (!responsibleCode) {
-      throw new Error('Selecione o responsavel pela emissao do CDF.');
+      throw new Error('Selecione o responsável pela emissão do CDF.');
     }
 
     const cerData = toNoonIso(cdfForm.issueAt);
@@ -470,11 +438,11 @@ async function submitCdfGenerate() {
     const cerDataFinal = toEndOfDayIso(cdfForm.dateTo);
 
     if (!cerData || !cerDataInicial || !cerDataFinal) {
-      throw new Error('Informe uma data de emissao e um periodo validos para o CDF.');
+      throw new Error('Informe uma data de emissão e um período válidos para o CDF.');
     }
 
     if (new Date(cerDataInicial) > new Date(cerDataFinal)) {
-      throw new Error('A data inicial do CDF nao pode ser maior que a data final.');
+      throw new Error('A data inicial do CDF não pode ser maior que a data final.');
     }
 
     const accepted = await enqueueCdfGenerate({
@@ -502,10 +470,10 @@ async function submitCdfGenerate() {
       }
     });
 
-    cdfFeedback.value = `Geracao de CDF solicitada para ${eligibleManifestCount.value} manifesto(s). Job ${accepted.jobId} criado com sucesso.`;
+    cdfFeedback.value = `Geração de CDF solicitada para ${eligibleManifestCount.value} ${pluralize(eligibleManifestCount.value, 'manifesto')}. Processamento ${accepted.jobId} criado com sucesso.`;
     await loadManifestCandidates({ includeRequestedManifest: true });
   } catch (error) {
-    cdfFeedbackError.value = error?.message || 'Falha ao solicitar geracao de CDF.';
+    cdfFeedbackError.value = error?.message || 'Falha ao solicitar geração de CDF.';
   } finally {
     cdfLoading.value = false;
   }
@@ -550,28 +518,36 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-container class="cdf-create-view py-6" fluid>
-    <SicatPageHeader
-      kicker="Certificados · CDF"
-      title="Gerar CDF"
-      description="Selecione manifestos elegíveis, valide bloqueios e solicite a emissão de novo Certificado de Destinação Final."
-      compact
-    />
+  <!-- O cabeçalho vai no slot #header do SicatPageLayout: é ele que avisa o shell
+       que a página já tem header próprio (usePageChrome). Solto num v-container,
+       o shell continuava desenhando o header genérico e a tela mostrava DOIS. -->
+  <SicatPageLayout class="cdf-create-view">
+    <template #header>
+      <SicatPageHeader
+        kicker="Certificados · CDF"
+        title="Gerar CDF"
+        description="Selecione manifestos elegíveis, valide bloqueios e solicite a emissão de novo Certificado de Destinação Final."
+        compact
+      />
+    </template>
 
     <SicatCard
-      class="mt-4"
       title="Manifestos para emissão"
-      subtitle="Fluxo operacional de criação. Esta rota não exibe listagem de CDF emitido."
+      subtitle="Esta tela é só para emitir um certificado novo. Para consultar os certificados já emitidos, use “Certificados · CDF › Emitidos”."
     >
+      <!-- Escopo explícito: estes contadores falam da LISTA carregada abaixo.
+           Os do "Resumo da seleção" falam só do que está marcado. Antes ambos
+           diziam apenas "Elegíveis/Bloqueados" e se contradiziam na tela. -->
       <template #header-actions>
         <div class="cdf-create-view__chips">
-          <span class="cdf-create-view__chip">Candidatos: {{ candidateManifestEntries.length }}</span>
-          <span class="cdf-create-view__chip">Elegíveis: {{ eligibleCandidates.length }}</span>
-          <span class="cdf-create-view__chip warning">Bloqueados: {{ blockedCandidates.length }}</span>
+          <span class="cdf-create-view__chip">Candidatos na lista: {{ candidateManifestEntries.length }}</span>
+          <span class="cdf-create-view__chip">Elegíveis na lista: {{ eligibleCandidates.length }}</span>
+          <span class="cdf-create-view__chip warning">Bloqueados na lista: {{ blockedCandidates.length }}</span>
         </div>
       </template>
 
-      <SicatInlineAlert v-if="requestedManifestIds.length" tone="info" :message="`Pré-seleção via link para ${requestedManifestIds.length} manifesto(s): ${requestedManifestIds.join(', ')}.`" class="mb-2" />
+      <SicatInlineAlert v-if="candidatesTruncatedNotice" tone="info" :message="candidatesTruncatedNotice" class="mb-2" />
+      <SicatInlineAlert v-if="requestedManifestIds.length" tone="info" :message="`Pré-seleção via link para ${requestedManifestIds.length} ${pluralize(requestedManifestIds.length, 'manifesto')}: ${requestedManifestIds.join(', ')}.`" class="mb-2" />
       <SicatInlineAlert v-if="!contextReady" tone="warning" message="O contexto operacional CETESB ainda não está pronto para geração de CDF." class="mb-2" />
       <SicatInlineAlert v-if="manifestsFeedback" tone="info" :message="manifestsFeedback" class="mb-2" />
       <SicatInlineAlert v-if="manifestsError" tone="error" :message="manifestsError" class="mb-2" />
@@ -579,30 +555,84 @@ onMounted(() => {
       <div class="cdf-create-view__table-actions">
         <v-btn variant="tonal" size="small" :loading="manifestsLoading" :disabled="manifestsLoading || !contextReady" @click="loadManifestCandidates({ includeRequestedManifest: true })">Atualizar manifestos</v-btn>
         <v-btn variant="outlined" size="small" :disabled="!eligibleCandidates.length" @click="toggleAllEligibleManifests">{{ allEligibleSelected ? 'Limpar elegíveis' : 'Selecionar todos elegíveis' }}</v-btn>
+        <v-btn
+          :variant="showOnlyBlockedCandidates ? 'flat' : 'text'"
+          :color="showOnlyBlockedCandidates ? 'warning' : undefined"
+          size="small"
+          :disabled="!blockedCandidates.length"
+          @click="showOnlyBlockedCandidates = !showOnlyBlockedCandidates"
+        >
+          {{ showOnlyBlockedCandidates ? 'Mostrar todos' : `Ver só os bloqueados (${blockedCandidates.length})` }}
+        </v-btn>
+      </div>
+      <p class="cdf-create-view__hint">A coluna “Condição” explica, linha a linha, por que um manifesto está bloqueado.</p>
+
+      <div class="cdf-create-view__table-toolbar">
+        <span class="text-caption text-medium-emphasis">{{ candidatesCounterFullLabel }}</span>
+        <v-select
+          v-model.number="candidatesPageSize"
+          :items="CDF_PAGE_SIZE_OPTIONS"
+          label="Itens por página"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="width: 160px"
+        />
       </div>
 
+      <!-- Paginação é da TELA (o rodapé padrão do v-data-table escrevia
+           "Mostrando 0–0 de 0", sem dizer de quê) — desligado aqui. -->
       <SicatDataTable
         :headers="candidateTableHeaders"
-        :items="candidateTableRows"
+        :items="pagedCandidateRows"
         :loading="manifestsLoading"
         density="compact"
+        :show-footer="false"
+        :items-per-page="-1"
         :empty="{ title: 'Nenhum manifesto disponível', description: 'Não há manifestos para avaliação.', icon: 'mdi-file-search-outline' }"
       >
         <template #[`item.select`]="{ item }">
-          <v-checkbox-btn :model-value="item.selected" density="compact" @update:model-value="toggleManifestSelection(item.manifestId)" />
+          <v-checkbox-btn
+            :model-value="item.selected"
+            density="compact"
+            :aria-label="item.selectionLabel"
+            :title="item.selectionLabel"
+            @update:model-value="toggleManifestSelection(item.manifestId)"
+          />
+        </template>
+        <template #[`item.status`]="{ item }">
+          <span :title="item.rawStatus ? `Situação na CETESB: ${item.rawStatus}` : undefined">{{ item.status }}</span>
         </template>
         <template #[`item.condition`]="{ item }">
           <SicatStatusBadge :tone="item.eligible ? 'success' : 'error'" :label="item.eligible ? 'Elegível' : item.reason" />
         </template>
         <template #[`item.actions`]="{ item }">
-          <v-btn variant="text" size="small" @click="openManifest(item.manifestId)">Ver detalhe</v-btn>
+          <v-btn
+            variant="text"
+            size="small"
+            :aria-label="item.detailLabel"
+            :title="item.detailLabel"
+            @click="openManifest(item.manifestId)"
+          >Ver detalhe</v-btn>
+        </template>
+        <template #footer>
+          <v-btn variant="text" size="small" :disabled="!canGoPreviousCandidatesPage" prepend-icon="mdi-chevron-left" @click="changeCandidatesPage(candidatesPage - 1)">
+            Anterior
+          </v-btn>
+          <span class="text-caption text-medium-emphasis">{{ candidatesCounterFullLabel }}</span>
+          <v-btn variant="text" size="small" :disabled="!canGoNextCandidatesPage" append-icon="mdi-chevron-right" @click="changeCandidatesPage(candidatesPage + 1)">
+            Próxima
+          </v-btn>
         </template>
       </SicatDataTable>
 
       <section class="cdf-create-view__summary">
         <h4>Resumo da seleção</h4>
         <p class="text-medium-emphasis">
-          Selecionados: {{ selectedManifestCount }} · Elegíveis: {{ eligibleManifestCount }} · Bloqueados: {{ blockedManifestCount }}
+          Selecionados: {{ selectedManifestCount }} · Elegíveis na seleção: {{ eligibleManifestCount }} · Bloqueados na seleção: {{ blockedManifestCount }}
+        </p>
+        <p v-if="!selectedManifestCount" class="text-medium-emphasis">
+          Nada marcado ainda — marque manifestos na tabela acima. Os contadores do topo se referem à lista inteira.
         </p>
         <ul v-if="blockedManifestCount" class="cdf-create-view__blocked-list">
           <li v-for="entry in selectedManifestEntries.filter((item) => !item.eligible)" :key="`blocked-${entry.manifestId}`">
@@ -611,28 +641,35 @@ onMounted(() => {
         </ul>
       </section>
 
-      <SicatFormSection title="Dados da emissão" class="mt-4">
-        <SicatFormField label="Data da emissão">
+      <!-- Período coberto: as duas datas são um PAR. As dicas são curtas e simétricas
+           (antes só a "Data inicial" tinha uma frase longa, que escorria para
+           debaixo da "Data final") e ambas já vêm preenchidas. -->
+      <SicatFormSection
+        title="Dados da emissão"
+        description="Campos marcados com * são obrigatórios. O período define quais manifestos o certificado cobre."
+        class="mt-4"
+      >
+        <SicatFormField label="Data da emissão" required>
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.issueAt" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Responsável pela emissão">
+        <SicatFormField label="Responsável pela emissão" required>
           <template #default="{ id }">
             <v-select :id="id" v-model="cdfForm.responsibleCode" :items="cdfResponsibleOptions" item-title="title" item-value="value" :loading="cdfResponsiblesLoading" :disabled="cdfLoading || cdfResponsiblesLoading" placeholder="Selecione o responsável" density="comfortable" variant="outlined" hide-details="auto" no-data-text="Nenhum responsável disponível" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Data inicial" hint="Início do período dos manifestos cobertos pelo certificado.">
+        <SicatFormField label="Data inicial" required hint="Primeiro dia do período coberto.">
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.dateFrom" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Data final">
+        <SicatFormField label="Data final" required hint="Último dia do período coberto.">
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.dateTo" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Observação" full-width>
+        <SicatFormField label="Observação" hint="Opcional." full-width>
           <template #default="{ id }">
             <v-textarea :id="id" v-model="cdfForm.observation" rows="3" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>
@@ -645,10 +682,10 @@ onMounted(() => {
 
       <div class="cdf-create-view__actions-row mt-3">
         <v-btn color="primary" variant="flat" :loading="cdfLoading" :disabled="cdfLoading || !contextReady || !eligibleManifestCount" @click="submitCdfGenerate">Gerar CDF</v-btn>
-        <span class="cdf-create-view__hint">O backend revalida a elegibilidade remota antes de emitir o certificado.</span>
+        <span class="cdf-create-view__hint">Antes de emitir, o SICAT confere na CETESB se os manifestos selecionados continuam elegíveis.</span>
       </div>
     </SicatCard>
-  </v-container>
+  </SicatPageLayout>
 </template>
 
 <style scoped>
@@ -720,6 +757,15 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.cdf-create-view__table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .cdf-create-view__table-shell {

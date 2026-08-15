@@ -114,22 +114,22 @@
             </template>
           </UiFormField>
 
-          <!-- CPF -->
+          <!-- CPF (persistido na coluna `document` do backend — mesmo campo do Edit) -->
           <UiFormField
             label="CPF"
-            :error="f.errors.cpf"
+            :error="f.errors.document"
             hint="Somente números ou no formato 000.000.000-00."
           >
             <template #default="{ id, describedBy }">
               <UiInput
                 :id="id"
                 :described-by="describedBy"
-                :model-value="f.values.cpf"
-                :error="!!f.errors.cpf"
+                :model-value="f.values.document"
+                :error="!!f.errors.document"
                 inputmode="numeric"
                 placeholder="000.000.000-00"
                 autocomplete="off"
-                @update:model-value="f.setField('cpf', $event)"
+                @update:model-value="f.setField('document', $event)"
               />
             </template>
           </UiFormField>
@@ -366,8 +366,10 @@ const askConfirm = useConfirm();
 // O backend é a fonte da verdade (retorna 401/403 no POST). Aqui fazemos o check
 // preventivo via me() para UX antecipada — se me() falhar com 401/403/404,
 // tratamos como otimista e deixamos o POST ser o guard real.
+// A régua espelha api/src/rbac.js (patient < professional < clinic_manager < owner).
+// Papel reconhecido porém insuficiente (ex.: patient) OU desconhecido → deny.
 const ROLE_RANK = {
-  viewer: 0, member: 1, professional: 2, clinic_manager: 3, manager: 3, admin: 4, owner: 5,
+  patient: 1, professional: 2, clinic_manager: 3, owner: 4,
 };
 const MIN_ROLE = 'professional';
 const authState = ref('loading'); // loading | ok | denied | error
@@ -396,9 +398,11 @@ async function checkAccess() {
     authState.value = 'error';
     return;
   }
+  // Sem role identificável no me() → otimista (o POST é o guard real).
   if (!role) { authState.value = 'ok'; return; }
+  // Role conhecido: aplica a régua. Role desconhecido → deny-by-default.
   const rank = ROLE_RANK[role];
-  if (rank === undefined) { authState.value = 'ok'; return; }
+  if (rank === undefined) { authState.value = 'denied'; return; }
   authState.value = rank >= ROLE_RANK[MIN_ROLE] ? 'ok' : 'denied';
 }
 
@@ -434,7 +438,7 @@ const f = useForm({
   initial: {
     full_name: '',
     birth_date: '',
-    cpf: '',
+    document: '',
     email: '',
     phone: '',
     guardian_name: '',
@@ -445,7 +449,7 @@ const f = useForm({
   },
   rules: {
     full_name: [validators.required('Informe o nome completo.'), validators.minLen(2)],
-    cpf: [validators.pattern(cpfPattern, 'CPF inválido. Use 11 dígitos ou 000.000.000-00.')],
+    document: [validators.pattern(cpfPattern, 'CPF inválido. Use 11 dígitos ou 000.000.000-00.')],
     email: [validators.email()],
     phone: [validators.pattern(phonePattern, 'Telefone inválido. Informe DDD + número.')],
     // guardian_name: validação condicional — obrigatório apenas quando o paciente é menor de idade.
@@ -517,7 +521,7 @@ const idempotencyKey = ref(newIdempotencyKey());
 function isDirty() {
   const v = f.values;
   return Boolean(
-    v.full_name || v.birth_date || v.cpf || v.email || v.phone ||
+    v.full_name || v.birth_date || v.document || v.email || v.phone ||
     v.guardian_name || v.gender || v.notes || v.external_ref ||
     v.status,
   );
@@ -529,10 +533,15 @@ async function submit() {
     const payload = {
       full_name: vals.full_name.trim(),
       birth_date: vals.birth_date || null,
-      cpf: vals.cpf ? vals.cpf.trim() : null,
+      // CPF vai na coluna real `document` (mesmo campo que o Edit persiste). Antes ia como
+      // `cpf`, que o backend descartava (createPatient só grava `document`) — dado perdido.
+      document: vals.document ? vals.document.trim() : null,
       email: vals.email ? vals.email.trim().toLowerCase() : null,
       phone: vals.phone ? vals.phone.trim() : null,
       guardian_name: vals.guardian_name ? vals.guardian_name.trim() : null,
+      // NOTA (backend): `gender` e `external_ref` NÃO têm coluna em patients (ver
+      // api/src/repositories/patients-repo.js). São enviados por paridade com o Edit, mas o
+      // backend os ignora. Persistir de verdade exige decisão de schema/API (fora do escopo UX).
       gender: vals.gender || null,
       status: vals.status,
       notes: vals.notes ? vals.notes.trim() : null,

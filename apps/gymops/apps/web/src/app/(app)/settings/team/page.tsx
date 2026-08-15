@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/ui/avatar';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { UserPlus, Mail, Trash2, Users, Loader2, Clock, Pencil, Check, X } from 'lucide-react';
 import { TutorialTrigger } from '@/features/tutorial';
 
@@ -69,13 +70,13 @@ export default function TeamPage() {
   };
 
   // Load ALL memberships (org + unit + area) in one query
-  const { data: membersData, isLoading: membersLoading } = useQuery({
+  const { data: membersData, isLoading: membersLoading, isError: membersError, refetch: refetchMembers } = useQuery({
     queryKey: ['memberships-all', organizationId],
     queryFn: () => membershipsApi.list({ organizationId: organizationId! }),
     enabled: !!organizationId,
   });
 
-  const { data: invitationsData, isLoading: invLoading } = useQuery({
+  const { data: invitationsData, isLoading: invLoading, isError: invError, refetch: refetchInvitations } = useQuery({
     queryKey: ['invitations', organizationId],
     queryFn: () => invitationsApi.list(organizationId!),
     enabled: !!organizationId && tab === 'invitations',
@@ -154,8 +155,18 @@ export default function TeamPage() {
         ))}
       </div>
 
+      {tab === 'members' && membersError && membersData && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetchMembers()}
+        />
+      )}
       {tab === 'members' && (
-        membersLoading ? (
+        membersError && !membersData ? (
+          <QueryErrorState onRetry={() => refetchMembers()} />
+        ) : membersLoading ? (
           <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         ) : members.length === 0 ? (
           <div className="text-center py-16 border rounded-lg">
@@ -196,7 +207,17 @@ export default function TeamPage() {
             ))}
           </div>
 
-          {invLoading ? (
+          {invError && invitationsData && (
+            <QueryErrorState
+              className="mb-4 py-4"
+              title="Não foi possível atualizar"
+              description="Exibindo os últimos dados carregados."
+              onRetry={() => refetchInvitations()}
+            />
+          )}
+          {invError && !invitationsData ? (
+            <QueryErrorState onRetry={() => refetchInvitations()} />
+          ) : invLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : filteredInvitations.length === 0 ? (
             <div className="text-center py-16 border rounded-lg">

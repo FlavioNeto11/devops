@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { activitiesApi, type ActivityListItem } from '@/lib/activities-api';
 import { unitsApi, areasApi, savedViewsApi, type SavedViewRecord } from '@/lib/admin-api';
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import { TutorialTrigger } from '@/features/tutorial';
 import { ActivityDrawer } from '@/components/activities/ActivityDrawer';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import type { ApiResponse } from '@gymops/shared';
 
 type ActivityStatusValue = 'novo' | 'em_andamento' | 'aguardando_terceiro' | 'aguardando_aprovacao' | 'concluido' | 'cancelado';
@@ -124,19 +126,35 @@ export default function ActivitiesPage() {
   const patchFilters = (patch: Partial<ActiveFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const hasFilters = Object.values(filters).some(Boolean);
 
+  // Debounce só do termo de busca: o input segue responsivo (filters.search),
+  // mas a query — a listagem mais pesada do produto — só dispara ~300ms após a
+  // última tecla, evitando uma request por caractere e respostas fora de ordem
+  // (UX-GYMOPS-011). Os demais filtros (selects) continuam aplicando na hora.
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
+  const queryFilters = useMemo<ActiveFilters>(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+
   // Infinite query for cursor pagination
   const {
     data: pagesData,
     isLoading,
     isFetching,
+    isError,
+    isFetchNextPageError,
     fetchNextPage,
     hasNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['activities-central', organizationId, filters],
+    queryKey: ['activities-central', organizationId, queryFilters],
     queryFn: ({ pageParam }) => {
       if (!organizationId) throw new Error('Missing organizationId');
-      const params = buildListParams(filters, organizationId);
+      const params = buildListParams(queryFilters, organizationId);
       if (pageParam) params.after = pageParam as string;
       return activitiesApi.list(params) as Promise<ApiResponse<ActivityListItem[]> & { meta: { total: number; nextCursor?: string } }>;
     },
@@ -256,7 +274,15 @@ export default function ActivitiesPage() {
     }
   };
 
+  // Falha ao buscar a próxima página (ou refetch com dados já presentes):
+  // erro inline junto ao "Carregar mais" — NUNCA descartar a lista já carregada.
+  const nextPageError = isFetchNextPageError || (isError && !!pagesData);
+
   const renderContent = (): ReactNode => {
+    if (isError && !pagesData) {
+      return <QueryErrorState onRetry={() => void refetch()} />;
+    }
+
     if (isLoading) {
       return (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
@@ -317,12 +343,15 @@ export default function ActivitiesPage() {
           </table>
         </div>
 
-        {/* Load more */}
-        {hasNextPage && (
-          <div className="flex justify-center pt-4">
-            <Button variant="outline" size="sm" onClick={() => fetchNextPage()} disabled={isFetching} className="gap-2">
+        {/* Load more — falha de página seguinte mostra erro inline, mantendo a lista */}
+        {(hasNextPage || nextPageError) && (
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {nextPageError && (
+              <p role="alert" className="text-sm text-destructive">Não foi possível carregar mais atividades.</p>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void fetchNextPage()} disabled={isFetching} className="gap-2">
               {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Carregar mais
+              {nextPageError ? 'Tentar novamente' : 'Carregar mais'}
             </Button>
           </div>
         )}
@@ -339,24 +368,50 @@ export default function ActivitiesPage() {
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <TutorialTrigger tutorialId="activities-center" />
-          {/* Saved views dropdown */}
+          {/* Saved views — menu controlado por clique (Radix): abre por clique/Enter
+              e no toque, navega por teclado e confirma a exclusão. Antes era um
+              dropdown só-hover (inacessível no toque/teclado) e a lixeira apagava
+              a view em 1 clique sem undo (UX-GYMOPS-009). */}
           {savedViews.length > 0 && (
-            <div className="relative group">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Bookmark className="h-4 w-4" />
-                <span className="hidden md:inline">Views salvas</span>
-              </Button>
-              <div className="absolute right-0 top-full mt-1 z-10 hidden group-hover:block bg-background border rounded-md shadow-md min-w-[180px]">
-                {savedViews.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 gap-2">
-                    <button className="text-sm truncate flex-1 text-left" onClick={() => applySavedView(v)}>{v.name}</button>
-                    <button onClick={() => deleteSavedViewMutation.mutate(v.id)} aria-label="Excluir view" className="shrink-0">
-                      <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Bookmark className="h-4 w-4" />
+                  <span className="hidden md:inline">Views salvas</span>
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  sideOffset={4}
+                  className="z-[70] min-w-[200px] rounded-md border bg-background p-1 shadow-md"
+                >
+                  {savedViews.map((v) => (
+                    <div key={v.id} className="flex items-center gap-1 rounded-sm hover:bg-muted/50">
+                      <DropdownMenu.Item
+                        className="min-w-0 flex-1 cursor-pointer truncate rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-muted"
+                        onSelect={() => applySavedView(v)}
+                      >
+                        {v.name}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        aria-label={`Excluir view ${v.name}`}
+                        className="shrink-0 cursor-pointer rounded-sm p-1.5 outline-none focus:bg-muted"
+                        onSelect={(e) => {
+                          // Mantém o menu aberto para o confirm; só exclui após o "OK".
+                          e.preventDefault();
+                          if (window.confirm(`Excluir a view "${v.name}"? Esta ação não pode ser desfeita.`)) {
+                            deleteSavedViewMutation.mutate(v.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </DropdownMenu.Item>
+                    </div>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           )}
           {hasFilters && (
             <Button variant="outline" size="sm" onClick={() => setShowSaveView(true)} className="gap-2">
@@ -382,18 +437,18 @@ export default function ActivitiesPage() {
         </div>
       )}
 
-      {/* KPI strip */}
+      {/* KPI strip — '—' quando os dados não carregaram (evita zeros enganosos) */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold">{total}</p>
+          <p className="text-2xl font-bold">{isError && !pagesData ? '—' : total}</p>
           <p className="text-xs text-muted-foreground">Total</p>
         </div>
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
+          <p className="text-2xl font-bold text-red-600">{isError && !pagesData ? '—' : overdueCount}</p>
           <p className="text-xs text-muted-foreground">Atrasadas</p>
         </div>
         <div className="rounded-lg border p-3 text-center">
-          <p className="text-2xl font-bold text-green-600">{doneCount}</p>
+          <p className="text-2xl font-bold text-green-600">{isError && !pagesData ? '—' : doneCount}</p>
           <p className="text-xs text-muted-foreground">Concluídas</p>
         </div>
       </div>
@@ -428,17 +483,17 @@ export default function ActivitiesPage() {
 
         {showFilters && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <select value={filters.status} onChange={(e) => patchFilters({ status: e.target.value as ActivityFilterStatus })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <select aria-label="Filtrar por status" value={filters.status} onChange={(e) => patchFilters({ status: e.target.value as ActivityFilterStatus })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <select value={filters.priority} onChange={(e) => patchFilters({ priority: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <select aria-label="Filtrar por prioridade" value={filters.priority} onChange={(e) => patchFilters({ priority: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <select value={filters.unitId} onChange={(e) => patchFilters({ unitId: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <select aria-label="Filtrar por unidade" value={filters.unitId} onChange={(e) => patchFilters({ unitId: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">Todas as unidades</option>
               {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
-            <select value={filters.areaId} onChange={(e) => patchFilters({ areaId: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <select aria-label="Filtrar por área" value={filters.areaId} onChange={(e) => patchFilters({ areaId: e.target.value })} className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">Todas as áreas</option>
               {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
@@ -533,21 +588,28 @@ function ActivityRow({ activity: a, selected, showSelect, onToggleSelect, onOpen
 }>) {
   return (
     <tr
-      className={`border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer ${selected ? 'bg-primary/5' : ''}`}
-      onClick={onOpenDrawer}
+      className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${selected ? 'bg-primary/5' : ''}`}
     >
       {showSelect && (
-        <td className="py-2 pr-3" onClick={(e) => e.stopPropagation()}>
-          <button onClick={onToggleSelect} aria-label="Selecionar">
+        <td className="py-2 pr-3">
+          <button type="button" onClick={onToggleSelect} aria-label="Selecionar">
             {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
           </button>
         </td>
       )}
       <td className="py-2 pr-4 max-w-[240px]">
-        <div className="flex items-center gap-2">
+        {/* Acessibilidade (WCAG 2.1.1): abrir a atividade fica num <button> real
+            no título — operável por teclado (Tab + Enter/Espaço) e anunciado por
+            leitores de tela — em vez de um `<tr onClick>` só de mouse. O <tr> não
+            vira role=button para não aninhar o botão de seleção acima. */}
+        <button
+          type="button"
+          onClick={onOpenDrawer}
+          className="flex max-w-full items-center gap-2 rounded-sm text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        >
           {a.isOverdue && <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />}
-          <span className="truncate font-medium">{a.title}</span>
-        </div>
+          <span className="min-w-0 truncate">{a.title}</span>
+        </button>
         {a.checklistProgress.total > 0 && (
           <div className="text-xs text-muted-foreground mt-0.5">
             {a.checklistProgress.done}/{a.checklistProgress.total} checklist

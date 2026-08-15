@@ -2,7 +2,7 @@
 title: "Documentação SICAT — Índice"
 status: reference
 applies_to: [sicat]
-updated: 2026-06-09
+updated: 2026-08-13
 language: pt-BR
 ---
 
@@ -54,9 +54,42 @@ Checkpoints da cadeia (em `docs/handoffs/centro-operacional-sicat/`):
 - [09-qa-validation.md](handoffs/centro-operacional-sicat/09-qa-validation.md)
 - [10-documentation-final.md](handoffs/centro-operacional-sicat/10-documentation-final.md)
 
+## Canal conversacional externo — WhatsApp (cadeia `whatsapp-channel-sicat`, DL-101)
+
+Canal entregue **desligado por default** e **inerte no cluster**. A manchete — emitir MTR pelo
+WhatsApp — **não** está entregue (N2 fechado por constante de código).
+
+- [docs/CHANGELOG-WHATSAPP-CHANNEL.md](CHANGELOG-WHATSAPP-CHANNEL.md) — release notes da cadeia (fases 0–7), o que ficou de fora e a dívida escrita.
+- [docs/05-operacao/runbook-canal-whatsapp.md](05-operacao/runbook-canal-whatsapp.md) — **ativação e desligamento**: sequência numerada, pontos de não-retorno e as 12 decisões pendentes do operador (seção canônica).
+- [docs/05-operacao/runbook-rbac-conversacional.md](05-operacao/runbook-rbac-conversacional.md) — regime de permissão do chat: catálogo, gate de 3 estados, flip e rollback.
+- [docs/handoffs/whatsapp-channel-sicat/](handoffs/whatsapp-channel-sicat/) — checkpoints `00` a `09`.
+- [docs/copilot/13-decision-log.md](copilot/13-decision-log.md) — **DL-101** (decisões estruturais e recusas).
+
+## Programa SICAT Transporte (vertical em construção)
+
+Vertical nova de transporte rodoviário remunerado de cargas (RNTRC, piso mínimo, CIOT,
+Vale-Pedágio, NF-e/CT-e/MDF-e, seguros/PGR) como bounded context separado do ambiental, em
+`docs/30-transporte/`:
+
+- [docs/30-transporte/transporte-guia.md](30-transporte/transporte-guia.md) — **começe por aqui**: guia vivo do programa (status da baseline, tabela de adoção, matriz de rastreabilidade TR-*, pendências LEGAL/EXTERNAL, ondas).
+- [docs/30-transporte/deep-research-report.md](30-transporte/deep-research-report.md) — baseline regulatória e arquitetural (snapshot imutável de 13/08/2026).
+
+## Comercial (pricing e go-to-market)
+
+Trilha comercial do produto (planos, preços, custos e benchmark) em `docs/20-comercial/`:
+
+- [docs/20-comercial/00-plano-comercial-pricing.md](20-comercial/00-plano-comercial-pricing.md) — doc-mãe: modelo híbrido (assinatura + franquia de DOs + excedente), planos por porte, add-on fiscal (roadmap), cenários e riscos.
+- [docs/20-comercial/01-pesquisa-mercado.md](20-comercial/01-pesquisa-mercado.md) — benchmark verificado (concorrentes, emissores fiscais, infra/IA, TAM/regulatório) com fonte + data + confiança.
+- [docs/20-comercial/plano-comercial-sicat.xlsx](20-comercial/plano-comercial-sicat.xlsx) — calculadora (4 abas) + CSVs espelho para diff.
+- [docs/20-comercial/one-pager-plano-comercial-sicat.pdf](20-comercial/one-pager-plano-comercial-sicat.pdf) — resumo executivo A4.
+- [docs/20-comercial/tools/README.md](20-comercial/tools/README.md) — fonte única (`premissas.json`) + geradores versionados (xlsx/PDF) + golden check.
+- [docs/20-comercial/vendas/README.md](20-comercial/vendas/README.md) — **kit de vendas**: deck cliente (pptx), battlecard interno do vendedor (PDF), deck SICAT Embedded para parcerias B2B2B (pptx) e one-pager de parceria (PDF) — todos gerados da fonte única, com a identidade visual do app.
+
 ## Estrutura atual
 
 - cetesb/: evidencias reais e HARs da CETESB.
+- 20-comercial/: plano comercial de pricing (doc-mãe, benchmark, calculadora, one-pager, geradores).
+- 30-transporte/: programa SICAT Transporte (baseline regulatória imutável + guia vivo do programa).
 - copilot/: trilha canônica de contexto, decisoes, guias e artefatos de governanca Copilot.
 - handoffs/: checkpoints versionados por work_id.
 - legado/: guias, relatórios e notas preservados por historico, fora da trilha canônica atual.

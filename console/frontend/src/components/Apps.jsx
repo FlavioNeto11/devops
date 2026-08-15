@@ -58,6 +58,8 @@ export default function Apps() {
     return () => ctrl.abort();
   }, [load]);
 
+  const visible = apps.filter((a) => !filter || a.app.toLowerCase().includes(filter.toLowerCase()));
+
   return (
     <section className="apps" aria-label="Aplicacoes">
       <PageHeader
@@ -88,7 +90,17 @@ export default function Apps() {
         />
       )}
 
-      {apps.filter((a) => !filter || a.app.toLowerCase().includes(filter.toLowerCase())).map((app) => {
+      {/* Filtro sem correspondência: estado vazio com ação de limpar (não sumir em silêncio). */}
+      {!loading && !error && apps.length > 0 && visible.length === 0 && (
+        <div className="state state--empty" role="status">
+          Nenhum resultado para "{filter}".{' '}
+          <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => setFilter('')}>
+            Limpar filtro
+          </button>
+        </div>
+      )}
+
+      {visible.map((app) => {
         const restarts = asCount(app.restarts);
         const t = app.appType || types[app.app] || null;
         return (
@@ -136,6 +148,18 @@ export default function Apps() {
                   rel="noopener noreferrer"
                 >
                   Requisitos ↗
+                </a>
+                {/* deep-links INTERNOS: mudar o hash dispara hashchange → o apply() do App
+                    troca a seção e pré-filtra pelo app (gramática #logs?app=X já suportada).
+                    A navegação interna usa replaceState, então o clique num <a href="#…">
+                    sempre representa mudança real de hash. */}
+                <a href={`#logs?app=${encodeURIComponent(app.app)}`} className="quick-link"
+                  title={`Ver logs dos pods de ${app.app}`}>
+                  Logs
+                </a>
+                <a href={`#publications?app=${encodeURIComponent(app.app)}`} className="quick-link"
+                  title={`Ver publicações de ${app.app}`}>
+                  Publicações
                 </a>
               </div>
             </header>

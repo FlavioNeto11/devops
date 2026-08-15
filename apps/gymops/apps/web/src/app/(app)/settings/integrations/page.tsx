@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { CheckCircle, XCircle, AlertTriangle, Trash2, ExternalLink, MessageCircle, Link2, RefreshCw, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { integrationsApi } from '@/lib/imports-api';
 import { notificationsApi } from '@/lib/activities-api';
 import { integrationsExtApi } from '@/lib/admin-api';
@@ -38,7 +39,7 @@ export default function IntegrationsPage() {
       .finally(() => setTrelloConnecting(false));
   }, [organizationId, qc]);
 
-  const { data: integrationsData, isLoading } = useQuery({
+  const { data: integrationsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['integrations', organizationId],
     queryFn: () => integrationsApi.getAll(organizationId!),
     enabled: !!organizationId,
@@ -132,6 +133,14 @@ export default function IntegrationsPage() {
         </div>
         <TutorialTrigger tutorialId="integrations" />
       </div>
+
+      {/* Falha ao carregar: o status "Não conectado" abaixo pode não ser real */}
+      {isError && (
+        <QueryErrorState
+          description="O status das integrações exibido abaixo pode não ser o real."
+          onRetry={() => refetch()}
+        />
+      )}
 
       {/* Trello */}
       <section className="space-y-3">

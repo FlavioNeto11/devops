@@ -67,6 +67,13 @@ export default function AppLayout({ children }: { readonly children: React.React
   return (
     <TutorialProvider>
       <div className="flex h-screen flex-col overflow-hidden">
+        {/* Skip-link: visível apenas ao receber foco (navegação por teclado) */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          Pular para o conteúdo
+        </a>
         {/* Mobile top bar */}
         <div className="flex h-14 shrink-0 items-center border-b bg-background px-4 md:hidden">
           <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu de navegação" title="Menu de navegação" aria-expanded={mobileNavOpen} aria-controls="app-sidebar">
@@ -90,7 +97,7 @@ export default function AppLayout({ children }: { readonly children: React.React
             mobileOpen={mobileNavOpen}
             onMobileClose={() => setMobileNavOpen(false)}
           />
-          <main className="flex-1 overflow-y-auto bg-background">
+          <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background focus:outline-none">
             {children}
           </main>
         </div>

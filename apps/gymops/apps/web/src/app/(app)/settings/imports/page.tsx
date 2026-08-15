@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RefreshCw, AlertCircle, CheckCircle2, Clock, Loader2, RotateCcw, X, ChevronRight } from 'lucide-react';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
@@ -31,7 +32,7 @@ export default function ImportsPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['imports', organizationId],
     queryFn: () => importsApi.list(organizationId!),
     enabled: !!organizationId,
@@ -80,7 +81,17 @@ export default function ImportsPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isError && data && (
+        <QueryErrorState
+          className="mb-4 py-4"
+          title="Não foi possível atualizar"
+          description="Exibindo os últimos dados carregados."
+          onRetry={() => refetch()}
+        />
+      )}
+      {isError && !data ? (
+        <QueryErrorState onRetry={() => refetch()} />
+      ) : isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
       ) : jobs.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">

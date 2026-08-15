@@ -1,0 +1,53 @@
+id: REQ-SICAT-NFR-0011
+slug: req-sicat-nfr-0011
+title: LGPD e minimização de dados no domínio Transporte
+type: non-functional
+status: proposed
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve atender ao atributo de qualidade "minimização de dados": no domínio Transporte,
+  armazenar a evidência necessária não significa copiar integralmente tudo que órgão/provedor
+  retornou; dados pessoais de motoristas e de sistemas de análise de risco são minimizados
+  (reason code regulatório + evidência, nunca coleção indiscriminada), certificados/tokens/
+  credenciais ficam fora de git e de logs, e o acesso a dados sensíveis é controlado e auditado —
+  em linha com a disciplina que a Lei 15.485/2026 impõe a bancos de gerenciamento de risco (LGPD).
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Integração externa (ANTT, provedor CIOT, seguradora, gerenciadora de risco) respondendo a uma verificação
+    stimulus: "Resposta externa contém dados pessoais além do necessário para a decisão de compliance (ex.: perfil completo de motorista)"
+    environment: Produção, gateways das fases C–F ativos, auditoria de trocas habilitada
+    artifact: compliance_evidence, audit_logs (sanitizados) e tabelas do domínio Transporte
+    response: Apenas o subconjunto necessário à decisão é persistido (status, reason code, identificadores, vigências); cabeçalhos/corpos auditados passam por sanitização; nenhum certificado, token ou credencial aparece em log ou git
+    response_measure: "Mapeamento de dados sensíveis do domínio (CPF/CNPJ, motoristas, apólices, certificados, credenciais) documentado com finalidade/retenção/acesso; zero segredos em git (secret-scan verde); campos sensíveis mascarados na trilha de auditoria; retenção definida para evidências com dado pessoal"
+verification_method: [architecture-review, test-integration, manual-review]
+links:
+  - type: constrains
+    target: REQ-SICAT-0024
+  - type: constrains
+    target: REQ-SICAT-0025
+  - type: constrains
+    target: REQ-SICAT-0028
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; vigora a partir da Fase C)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres
+    - infra-sealed-secrets

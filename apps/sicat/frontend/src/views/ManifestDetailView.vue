@@ -3,13 +3,26 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getManifestById, streamJobEvents } from '../services/api.js';
 import { useOperationalContextStore } from '../stores/operationalContext.js';
-import { formatDateBr } from '../utils/date-format.js';
+import { formatDateBr, formatDateTimeBr } from '../utils/date-format.js';
+import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
+import SicatStatusTimeline from '../components/sicat/SicatStatusTimeline.vue';
+// Mesmo resolvedor de rótulo da listagem: o detalhe precisa dizer "Recebido"
+// exatamente como a lista diz, e não o código cru do backend ("submitted").
+import { resolveManifestStatusLabel } from '../features/mtr/list/manifestHelpers.js';
+import { useNotification } from '../composables/useNotification.js';
+// Tradução única de "não encontrado" (mesma das outras telas de detalhe):
+// mensagem em pt-BR, sem o identificador interno, com caminho de volta.
+import { describeDetailLoadError } from '../lib/detail-load-error.js';
+import SicatErrorState from '../components/sicat/SicatErrorState.vue';
 
 const route = useRoute();
 const router = useRouter();
 const operationalContextStore = useOperationalContextStore();
+const notify = useNotification();
 const loading = ref(false);
-const error = ref('');
+// Descritor de erro já traduzido (nunca a mensagem crua do backend: ela vinha
+// em inglês e com o id interno dentro — "Manifesto man_… was not found.").
+const loadError = ref(null);
 const manifest = ref(null);
 const autoRefreshing = ref(false);
 const autoRefreshTerminalReached = ref(false);
@@ -38,6 +51,89 @@ const cancelFailureMessage = computed(() => {
 
   return String(cancelResult.userMessage || cancelResult.lastErrorMessage || '').trim();
 });
+
+// Situação exibida: a CETESB devolve a situação em pt-BR (externalStatus);
+// o status interno só entra quando não há situação externa.
+const statusValue = computed(() => manifest.value?.externalStatus || manifest.value?.status || null);
+const statusLabel = computed(() => (manifest.value ? resolveManifestStatusLabel(manifest.value) : ''));
+const statusKey = computed(() => String(statusValue.value || '').toLowerCase());
+
+const isReceivedStatus = computed(() => statusKey.value.includes('receb') || statusKey.value === 'received');
+const isInProgressStatus = computed(
+  () => statusKey.value.includes('process') || statusKey.value.includes('queue') || statusKey.value.includes('pend')
+);
+const wasSentToCetesb = computed(() => {
+  if (!manifest.value) return false;
+  if (manifest.value.lastSubmittedAt || manifest.value.manifestNumber || manifest.value.externalCode) return true;
+  return ['submitted', 'succeeded', 'completed', 'received'].includes(statusKey.value) || isReceivedStatus.value;
+});
+
+function formatDateTime(value) {
+  return value ? formatDateTimeBr(value) : '';
+}
+
+// Linha do tempo do MTR — usa o design system (SicatStatusTimeline) e só campos
+// que o backend realmente devolve (createdAt, lastSubmittedAt, updatedAt).
+const timelineSteps = computed(() => {
+  if (!manifest.value) return [];
+
+  const sentState = isErrorStatus.value ? 'error' : wasSentToCetesb.value ? 'done' : isInProgressStatus.value ? 'current' : 'pending';
+  const receivedState = isReceivedStatus.value ? 'done' : (!isErrorStatus.value && wasSentToCetesb.value ? 'current' : 'pending');
+
+  return [
+    {
+      title: 'Manifesto criado no SICAT',
+      timestamp: formatDateTime(manifest.value.createdAt),
+      state: 'done'
+    },
+    {
+      title: 'Enviado à CETESB',
+      description: wasSentToCetesb.value ? '' : 'Ainda não enviado ao SIGOR.',
+      timestamp: formatDateTime(manifest.value.lastSubmittedAt),
+      state: sentState
+    },
+    {
+      title: 'Recebido pelo destinador',
+      description: isReceivedStatus.value ? 'Pronto para emissão do CDF.' : 'Aguardando confirmação de recebimento.',
+      timestamp: isReceivedStatus.value ? formatDateTime(manifest.value.updatedAt) : '',
+      state: receivedState
+    }
+  ];
+});
+
+// Participantes: a CETESB só devolve nome e código do parceiro na consulta de
+// manifestos — o CNPJ não vem no payload. Em vez de um "-" mudo, mostramos o
+// código do parceiro (que serve para conferência) e dizemos o que falta.
+const participants = computed(() => [
+  { key: 'generator', label: 'Gerador', partner: manifest.value?.generator || null },
+  { key: 'carrier', label: 'Transportador', partner: manifest.value?.carrier || null },
+  { key: 'receiver', label: 'Destinador', partner: manifest.value?.receiver || null }
+]);
+
+function partnerIdentification(partner) {
+  if (!partner) return '';
+  const document = String(partner.document || '').trim();
+  if (document) return `CNPJ/CPF ${document}`;
+  const partnerCode = String(partner.partnerCode ?? '').trim();
+  if (partnerCode) return `Código do parceiro na CETESB: ${partnerCode}`;
+  return 'CNPJ não informado pela CETESB';
+}
+
+async function copyInternalId() {
+  const value = String(manifest.value?.id || route.params.id || '').trim();
+  if (!value) return;
+
+  try {
+    if (globalThis.navigator?.clipboard?.writeText) {
+      await globalThis.navigator.clipboard.writeText(value);
+      notify.success('Identificador copiado para a área de transferência.');
+      return;
+    }
+    notify.info(`Identificador do manifesto: ${value}`);
+  } catch {
+    notify.error('Não foi possível copiar o identificador.');
+  }
+}
 
 const displayManifestLabel = computed(() => {
   if (!manifest.value) return '-';
@@ -141,19 +237,31 @@ function extractAvailableDocuments(currentManifest) {
 
 async function loadManifest() {
   const id = route.params.id;
-  if (!id) return;
+  if (!id) {
+    manifest.value = null;
+    loadError.value = describeDetailLoadError({ status: 404 }, 'manifest');
+    loading.value = false;
+    return;
+  }
 
   loading.value = true;
-  error.value = '';
+  loadError.value = null;
 
   try {
     manifest.value = await getManifestById(id);
   } catch (err) {
-    error.value = err?.message || 'Falha ao carregar detalhe do manifesto.';
+    manifest.value = null;
+    loadError.value = describeDetailLoadError(err, 'manifest');
   } finally {
     loading.value = false;
   }
 }
+
+// Texto único do estado de erro: mensagem + orientação, sem id interno.
+const loadErrorText = computed(() => {
+  if (!loadError.value) return '';
+  return [loadError.value.message, loadError.value.hint].filter(Boolean).join(' ');
+});
 
 function goBack() {
   const shouldForceSync = autoRefreshTerminalReached.value || String(route.query.autoRefresh || '') === '1';
@@ -235,15 +343,12 @@ onUnmounted(() => {
       <v-card-text>
         <v-row align="center">
           <v-col>
-            <div class="text-overline text-primary mb-1">Detalhe operacional</div>
-            <h2 class="text-h5 font-weight-semibold mb-1">Detalhe do Manifesto</h2>
-            <p class="text-body-2 text-medium-emphasis mb-2">ID: {{ route.params.id }}</p>
-            <div class="d-flex flex-wrap ga-2 align-center">
-              <v-chip size="small" :color="isErrorStatus ? 'error' : 'success'" variant="tonal">
-                {{ manifest?.status || manifest?.externalStatus || 'draft' }}
-              </v-chip>
-              <span class="text-caption text-medium-emphasis">Acompanhe participantes, dados operacionais e resíduos deste manifesto.</span>
-            </div>
+            <!-- Sem título aqui: o cabeçalho da página (shell) já anuncia
+                 "MTR · Detalhe do manifesto". Repetir gerava dois títulos, com
+                 capitalização diferente entre eles. -->
+            <p v-if="!loadError" class="text-body-2 text-medium-emphasis mb-0">Acompanhe participantes, dados operacionais e resíduos deste manifesto.</p>
+            <!-- Sem manifesto carregado, prometer "acompanhe participantes…" seria mentira. -->
+            <p v-else class="text-body-2 text-medium-emphasis mb-0">Não há manifesto para exibir neste endereço.</p>
           </v-col>
           <v-col cols="auto">
             <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="goBack">Voltar</v-btn>
@@ -252,14 +357,27 @@ onUnmounted(() => {
       </v-card-text>
     </v-card>
 
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
+    <SicatErrorState
+      v-if="loadError"
+      :title="loadError.title"
+      :message="loadErrorText"
+      :code="loadError.code"
+      :icon="loadError.notFound ? 'mdi-file-search-outline' : 'mdi-alert-circle-outline'"
+      class="mb-3"
+    >
+      <template #actions>
+        <v-btn color="primary" variant="flat" prepend-icon="mdi-format-list-bulleted" @click="goBack">
+          Voltar para a listagem de manifestos
+        </v-btn>
+      </template>
+    </SicatErrorState>
     <v-card v-else-if="loading" class="mb-3">
-      <v-card-text class="text-medium-emphasis">Carregando detalhes...</v-card-text>
+      <v-card-text class="text-medium-emphasis">Carregando detalhes…</v-card-text>
     </v-card>
 
     <template v-else-if="manifest">
       <v-alert v-if="autoRefreshing" type="info" variant="tonal" class="mb-3" density="compact">
-        Atualizando status automaticamente...
+        Atualizando a situação deste manifesto automaticamente…
       </v-alert>
 
       <v-alert v-if="cancelFailureMessage" type="warning" variant="tonal" class="mb-3">{{ cancelFailureMessage }}</v-alert>
@@ -267,41 +385,28 @@ onUnmounted(() => {
       <v-card class="mb-4">
         <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-2">
           <h3 class="text-h6">{{ displayManifestLabel }}</h3>
-          <v-chip :color="isErrorStatus ? 'error' : 'success'" variant="tonal">
-            {{ manifest.status || manifest.externalStatus || 'draft' }}
-          </v-chip>
+          <SicatStatusBadge :status="statusValue" :label="statusLabel" domain="manifest" size="lg" with-dot />
         </v-card-text>
       </v-card>
 
       <v-alert v-if="isErrorStatus" type="error" variant="tonal" class="mb-3">
-        {{ manifest.externalStatus || 'Processo com erro de integração. Verifique auditoria/job relacionado para detalhes técnicos.' }}
+        {{ manifest.externalStatus || 'O envio deste manifesto à CETESB não foi concluído. Tente novamente pela listagem de manifestos; se o erro persistir, acione o suporte.' }}
       </v-alert>
 
+      <v-card class="mb-4">
+        <v-card-title class="text-subtitle-1 font-weight-semibold">Andamento</v-card-title>
+        <v-card-text>
+          <SicatStatusTimeline :steps="timelineSteps" />
+        </v-card-text>
+      </v-card>
+
       <v-row class="mb-4">
-        <v-col cols="12" sm="4">
+        <v-col v-for="participant in participants" :key="participant.key" cols="12" sm="4">
           <v-card>
             <v-card-text>
-              <div class="text-caption text-medium-emphasis">Gerador</div>
-              <div class="font-weight-semibold">{{ manifest.generator?.description || '-' }}</div>
-              <div class="text-caption">{{ manifest.generator?.document || '-' }}</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" sm="4">
-          <v-card>
-            <v-card-text>
-              <div class="text-caption text-medium-emphasis">Transportador</div>
-              <div class="font-weight-semibold">{{ manifest.carrier?.description || '-' }}</div>
-              <div class="text-caption">{{ manifest.carrier?.document || '-' }}</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" sm="4">
-          <v-card>
-            <v-card-text>
-              <div class="text-caption text-medium-emphasis">Destinador</div>
-              <div class="font-weight-semibold">{{ manifest.receiver?.description || '-' }}</div>
-              <div class="text-caption">{{ manifest.receiver?.document || '-' }}</div>
+              <div class="text-caption text-medium-emphasis">{{ participant.label }}</div>
+              <div class="font-weight-semibold">{{ participant.partner?.description || 'Não informado' }}</div>
+              <div class="text-caption text-medium-emphasis">{{ partnerIdentification(participant.partner) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -319,6 +424,21 @@ onUnmounted(() => {
             <v-col cols="12" sm="4"><div class="text-caption text-medium-emphasis">Hash CETESB</div><div class="manifest-detail-hash">{{ manifest.externalHashCode || '-' }}</div></v-col>
             <v-col cols="12"><div class="text-caption text-medium-emphasis">Observações</div><div>{{ manifest.notes || '-' }}</div></v-col>
           </v-row>
+
+          <!-- Identificador interno fica atrás de "detalhes técnicos": serve para
+               suporte, não para a leitura do dia a dia do operador. -->
+          <details class="manifest-detail-tech">
+            <summary class="manifest-detail-tech__summary">Detalhes técnicos (para suporte)</summary>
+            <div class="manifest-detail-tech__body">
+              <div>
+                <div class="text-caption text-medium-emphasis">Identificador do manifesto no SICAT</div>
+                <div class="manifest-detail-hash">{{ manifest.id || route.params.id }}</div>
+              </div>
+              <v-btn size="small" variant="outlined" prepend-icon="mdi-content-copy" @click="copyInternalId">
+                Copiar identificador
+              </v-btn>
+            </div>
+          </details>
         </v-card-text>
       </v-card>
 
@@ -357,7 +477,10 @@ onUnmounted(() => {
           </thead>
           <tbody>
             <tr v-if="!manifest.residues?.length">
-              <td colspan="4" class="text-center text-medium-emphasis pa-4">Sem resíduos cadastrados.</td>
+              <td colspan="4" class="text-center text-medium-emphasis pa-4">
+                <div>Nenhuma linha de resíduo disponível para este manifesto.</div>
+                <div class="text-caption">A consulta da CETESB nem sempre devolve os resíduos do MTR; confira os itens no PDF do manifesto.</div>
+              </td>
             </tr>
             <tr v-for="(residue, index) in manifest.residues || []" :key="`res-${index}`">
               <td>{{ residue.residue?.ibamaCode || '-' }}</td>
@@ -370,7 +493,20 @@ onUnmounted(() => {
       </v-card>
     </template>
 
-    <v-alert v-else type="info" variant="tonal" density="compact">Manifesto não encontrado.</v-alert>
+    <!-- Rede de segurança: sem manifesto, sem erro e sem carregamento em curso.
+         Nunca deixa a tela muda nem presa em "Carregando…". -->
+    <SicatErrorState
+      v-else
+      title="Manifesto não encontrado"
+      message="Este manifesto não existe ou não pertence à conta CETESB ativa nesta sessão. Confira o número do MTR na listagem de manifestos."
+      icon="mdi-file-search-outline"
+    >
+      <template #actions>
+        <v-btn color="primary" variant="flat" prepend-icon="mdi-format-list-bulleted" @click="goBack">
+          Voltar para a listagem de manifestos
+        </v-btn>
+      </template>
+    </SicatErrorState>
   </section>
 </template>
 
@@ -383,6 +519,35 @@ onUnmounted(() => {
 .manifest-detail-hash {
   font-family: var(--font-family-mono);
   font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.manifest-detail-tech {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--v-border-color), 0.14);
+}
+
+.manifest-detail-tech__summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.manifest-detail-tech__summary:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.manifest-detail-tech__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 @media (max-width: 767px) {

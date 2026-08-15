@@ -86,6 +86,16 @@ test('refinement: state com name VAZIO reprova', () => {
   assert.equal(validate(d), false);
 });
 
+test('refinement: marcador contract (existing|proposed) aceito em data e interactions; fora do enum reprova', () => {
+  const d = valid();
+  d.behavior.data = [{ field: 'type', source: 'api:/v1/reports', editable: false, contract: 'existing' }];
+  d.behavior.interactions = [{ trigger: 'salvar', action: 'POST /v1/reports', result: 'criado', contract: 'proposed' }];
+  assert.equal(validate(d), true, JSON.stringify(validate.errors));
+  const bad = valid();
+  bad.behavior.data = [{ field: 'type', source: 'api:/v1/reports', editable: false, contract: 'imaginado' }];
+  assert.equal(validate(bad), false);
+});
+
 // --- GUARD de drift de enum: os enums compartilhados são DUPLICADOS entre os dois
 // schemas (JSON Schema 2020-12 não dá $ref de enum cross-file trivial). Este teste falha
 // se alguém evoluir um enum num schema e esquecer o outro.

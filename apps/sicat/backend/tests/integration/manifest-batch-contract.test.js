@@ -2,10 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 
-const openapiFile = path.resolve(process.cwd(), 'openapi/mtr_automacao_openapi_interna.yaml');
-const examplesDir = path.resolve(process.cwd(), 'examples');
+// Âncora no ARQUIVO, nunca em `process.cwd()`: `openapi/` mora em
+// `apps/sicat/backend/`, mas `examples/` mora na RAIZ do app (`apps/sicat/examples`).
+// Nenhum cwd único resolve os dois — com `process.cwd()` (= `backend/`) o teste
+// procurava `backend/examples`, que nunca existiu.
+const testDir = path.dirname(fileURLToPath(import.meta.url)); // backend/tests/integration
+const backendRoot = path.resolve(testDir, '..', '..'); // backend
+const appRoot = path.resolve(backendRoot, '..'); // apps/sicat
+
+const openapiFile = path.resolve(backendRoot, 'openapi/mtr_automacao_openapi_interna.yaml');
+const examplesDir = path.resolve(appRoot, 'examples');
 
 function loadOpenApi() {
   return YAML.parse(fs.readFileSync(openapiFile, 'utf8'));

@@ -34,6 +34,17 @@ test('validate: requirements não-vazio e limite', () => {
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: many }).code, 'TOO_MANY');
 });
 
+test('validate: id explícito fora do schema de REQ → 400 claro (bug do slug hifenizado, PR #212)', () => {
+  const bad = validateLaunchInput({ product: 'besc-next', mode: 'pr', requirements: [{ id: 'REQ-BESC-NEXT-0001', title: 'x' }] });
+  assert.equal(bad.code, 'INVALID_REQ_ID');
+  const okExplicit = validateLaunchInput({ product: 'besc-next', mode: 'pr', requirements: [{ id: 'REQ-BESCNEXT-0001', title: 'x' }] });
+  assert.equal(okExplicit.ok, true);
+  const okNfr = validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ id: 'REQ-MEUAPP-NFR-001', title: 'x' }] });
+  assert.equal(okNfr.ok, true);
+  const okSemId = validateLaunchInput({ product: 'besc-next', mode: 'pr', requirements: [{ title: 'x' }] });
+  assert.equal(okSemId.ok, true); // sem id → writer deriva um válido (segmento sem hífens)
+});
+
 test('validate: skipPreviewGate (gate de preview) default false; só true se explícito', () => {
   // default: gate ATIVO (skipPreviewGate=false) — o caminho greenfield exige preview ready.
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }] }).value.skipPreviewGate, false);

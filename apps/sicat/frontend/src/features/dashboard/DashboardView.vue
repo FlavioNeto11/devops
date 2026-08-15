@@ -1,11 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { getDashboardOverview } from '../../services/api.js';
 import { useAuthStore } from '../../stores/auth.js';
 import { usePersona } from '../../composables/usePersona.js';
 import { formatDateBr, getTodayBr, toApiDate } from '../../utils/date-format.js';
-import { resolveManifestStatusTone } from '../../lib/status-map.js';
+import { resolveManifestRawSituation, resolveManifestSituationLabel, resolveManifestStatusTone } from '../../lib/status-map.js';
+import { pluralize } from '../../lib/plural-pt.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../../components/shell/SicatPageHeader.vue';
 import SicatCard from '../../components/sicat/SicatCard.vue';
@@ -16,7 +17,6 @@ import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
 import SicatEmptyState from '../../components/sicat/SicatEmptyState.vue';
 import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
 
-const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { isReceiver, isCarrier } = usePersona();
@@ -40,19 +40,6 @@ const activeAccountLabel = computed(() => {
   if (name && code) return `${name} (cód. ${code})`;
   return name || code || account.accountId || 'Conta ativa';
 });
-
-const adminAccessNotice = computed(() => {
-  if (String(route.query?.notice || '').trim() !== 'admin-access-denied') return '';
-  const deniedRoute = String(route.query?.deniedRoute || '/admin/acessos').trim();
-  return `Você não possui permissão para acessar ${deniedRoute}.`;
-});
-
-function clearAdminAccessNotice() {
-  const nextQuery = { ...route.query };
-  delete nextQuery.notice;
-  delete nextQuery.deniedRoute;
-  router.replace({ path: route.path, query: nextQuery }).catch(() => {});
-}
 
 function statusBucket(status) {
   const tone = resolveManifestStatusTone(status);
@@ -108,10 +95,13 @@ const primaryActions = computed(() => {
 });
 
 // Texto de boas-vindas por perfil (onboarding).
+// O “?” de ajuda (SicatHelpHint) existe nos FORMULÁRIOS (criar manifesto, conta
+// CETESB) — não neste painel. Prometê-lo aqui mandava o operador procurar um
+// ícone que não existe nesta tela; o texto agora aponta para onde ele aparece.
 const welcomeText = computed(() => {
-  if (isReceiver.value) return 'Aqui você dá baixa nos manifestos que chegam e gera o certificado (CDF). Se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
-  if (isCarrier.value) return 'Aqui você acompanha os manifestos das suas viagens. Se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
-  return 'Aqui você cria e acompanha os documentos da CETESB sem complicação. Comece criando um manifesto — e se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
+  if (isReceiver.value) return 'Aqui você dá baixa nos manifestos que chegam e gera o certificado (CDF). Escolha abaixo o que quer fazer — nos formulários, o “?” ao lado de cada campo explica os termos.';
+  if (isCarrier.value) return 'Aqui você acompanha os manifestos das suas viagens. Escolha abaixo o que quer fazer — nos formulários, o “?” ao lado de cada campo explica os termos.';
+  return 'Aqui você cria e acompanha os documentos da CETESB sem complicação. Comece criando um manifesto — nos formulários, o “?” ao lado de cada campo explica os termos.';
 });
 
 const pendingActions = computed(() => {
@@ -121,7 +111,7 @@ const pendingActions = computed(() => {
       key: 'failed',
       icon: 'mdi-alert-circle-outline',
       tone: 'error',
-      title: `${summary.value.failed} MTR(s) com falha`,
+      title: `${summary.value.failed} ${pluralize(summary.value.failed, 'MTR', 'MTRs')} com falha`,
       description: 'Revise o erro e reemita para regularizar.',
       actionLabel: 'Resolver',
       to: { path: '/manifestos', query: { focus: 'failed' } }
@@ -132,7 +122,7 @@ const pendingActions = computed(() => {
       key: 'draft',
       icon: 'mdi-file-edit-outline',
       tone: 'warning',
-      title: `${summary.value.draft} rascunho(s) em aberto`,
+      title: `${summary.value.draft} ${pluralize(summary.value.draft, 'rascunho')} em aberto`,
       description: 'Finalize a emissão dos manifestos pendentes.',
       actionLabel: 'Continuar',
       to: { path: '/manifestos', query: { focus: 'draft' } }
@@ -141,11 +131,13 @@ const pendingActions = computed(() => {
   return actions;
 });
 
+// "Destinador" é o termo usado nas demais listas (e no cadastro CETESB) —
+// "Destinatário" era um sinônimo solto só deste painel.
 const recentHeaders = [
   { title: 'Manifesto', key: 'label', sortable: false },
-  { title: 'Destinatário', key: 'receiver', sortable: false },
+  { title: 'Destinador', key: 'receiver', sortable: false },
   { title: 'Data', key: 'date', sortable: false },
-  { title: 'Status', key: 'status', sortable: false, align: 'end' }
+  { title: 'Situação', key: 'status', sortable: false, align: 'end' }
 ];
 
 const recentRows = computed(() =>
@@ -154,9 +146,39 @@ const recentRows = computed(() =>
     label: manifest.manifestNumber || (manifest.externalCode ? `Código CETESB ${manifest.externalCode}` : 'Rascunho (nº pendente)'),
     receiver: manifest.receiver?.description || '-',
     date: formatDateBr(manifest.expeditionDate),
-    status: manifest.status || manifest.externalStatus || ''
+    // Situação CETESB tem precedência (mesma regra da lista de manifestos).
+    status: manifest.externalStatus || manifest.status || '',
+    // Mesmo rótulo canônico da lista de manifestos (evita o mesmo MTR aparecer
+    // como "Enviado" aqui e "Salvo" lá).
+    statusLabel: resolveManifestSituationLabel(manifest),
+    rawStatus: resolveManifestRawSituation(manifest)
   }))
 );
+
+// Vazio do painel: aponta para uma ação que EXISTE no hub deste perfil.
+// O destinador não emite manifesto — o texto antigo mandava clicar em
+// "Criar um manifesto", botão que não aparece para ele.
+const recentEmptyState = computed(() => {
+  if (isReceiver.value) {
+    return {
+      title: 'Nenhum manifesto chegou hoje',
+      description: 'Quando o transportador enviar, ele aparece aqui. Use "Receber manifestos" acima para ver todos.',
+      icon: 'mdi-file-document-outline'
+    };
+  }
+  if (isCarrier.value) {
+    return {
+      title: 'Nenhum manifesto hoje',
+      description: 'Use "Ver os manifestos" acima para acompanhar as viagens.',
+      icon: 'mdi-file-document-outline'
+    };
+  }
+  return {
+    title: 'Você ainda não criou manifestos hoje',
+    description: 'Use "Criar um manifesto" acima para começar.',
+    icon: 'mdi-file-document-outline'
+  };
+});
 
 const lastUpdatedLabel = computed(() => {
   if (!lastUpdatedAt.value) return '';
@@ -227,14 +249,9 @@ onMounted(loadDashboard);
       </SicatPageHeader>
     </template>
 
+    <!-- Acesso negado a área administrativa é avisado pelo próprio guard de rota
+         (useNotification), sem query string e sem expor o caminho interno. -->
     <template #banner>
-      <SicatInlineAlert
-        v-if="adminAccessNotice"
-        tone="warning"
-        :message="adminAccessNotice"
-        dismissible
-        @dismiss="clearAdminAccessNotice"
-      />
       <SicatInlineAlert v-if="error" tone="error" :message="error">
         <template #actions>
           <v-btn size="small" variant="text" :loading="loading" @click="loadDashboard">Tentar novamente</v-btn>
@@ -306,11 +323,18 @@ onMounted(loadDashboard);
         :headers="recentHeaders"
         :items="recentRows"
         density="compact"
-        :empty="{ title: 'Você ainda não criou manifestos hoje', description: 'Use \'Criar um manifesto\' acima para começar.', icon: 'mdi-file-document-outline' }"
+        count-noun="manifesto"
+        :empty="recentEmptyState"
         @row-click="(row) => row?.id && router.push(`/manifestos/${row.id}`)"
       >
         <template #[`item.status`]="{ item }">
-          <SicatStatusBadge :status="item.status" domain="manifest" with-dot />
+          <SicatStatusBadge
+            :status="item.status"
+            :label="item.statusLabel"
+            :title="item.rawStatus ? `Situação na CETESB: ${item.rawStatus}` : undefined"
+            domain="manifest"
+            with-dot
+          />
         </template>
       </SicatDataTable>
     </SicatCard>

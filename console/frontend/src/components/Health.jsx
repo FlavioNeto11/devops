@@ -18,6 +18,9 @@ import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
  *    refetch periodico nao necessario aqui — usamos o fetch inicial e o SSE
  *    apenas para os pods).
  */
+/** Label que agrupa recursos por app — mesma chave que a aba Logs usa para agrupar pods. */
+const PART_OF = 'app.kubernetes.io/part-of';
+
 export default function Health({ streamData, streamStatus }) {
   const [pods, setPods] = useState([]);
   const [deployments, setDeployments] = useState([]);
@@ -132,9 +135,9 @@ export default function Health({ streamData, streamStatus }) {
 
   if (loading && pods.length === 0 && deployments.length === 0) {
     return (
-      <section className="health" aria-label="Saude do cluster">
+      <section className="health" aria-label="Saúde do cluster">
         <h2 className="section-title">Pods</h2>
-        <TableSkeleton rows={6} cols={6} />
+        <TableSkeleton rows={6} cols={7} />
         <h2 className="section-title">Deployments</h2>
         <TableSkeleton rows={3} cols={4} />
       </section>
@@ -142,18 +145,21 @@ export default function Health({ streamData, streamStatus }) {
   }
 
   return (
-    <section className="health" aria-label="Saude do cluster">
+    <section className="health" aria-label="Saúde do cluster">
       {error && (
         <div className="state state--error" role="alert">
-          Erro ao carregar saude: {error}
+          Erro ao carregar saúde: {error}
           {streamStatus === 'open' && ' (aguardando proximo frame em tempo real…)'}
+          <button type="button" className="btn" style={{ marginLeft: 12 }} onClick={() => load()}>
+            Tentar de novo
+          </button>
         </div>
       )}
 
       <div className="health-summary" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="badge badge-ok">{summary.ok} saudaveis</span>
-        <span className="badge badge-warn">{summary.warn} atencao</span>
-        <span className="badge badge-err">{summary.err} criticos</span>
+        <span className="badge badge-ok">{summary.ok} saudáveis</span>
+        <span className="badge badge-warn">{summary.warn} atenção</span>
+        <span className="badge badge-err">{summary.err} críticos</span>
         {streamStatus && streamStatus !== 'open' && (
           <span className="muted" style={{ fontSize: '.8rem' }}>tempo real indisponível — dados podem estar defasados</span>
         )}
@@ -167,24 +173,38 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <SortableTh label="Saude" sortKey="health" sort={podSort} />
+              <SortableTh label="Saúde" sortKey="health" sort={podSort} />
               <SortableTh label="Nome" sortKey="name" sort={podSort} />
               <SortableTh label="Namespace" sortKey="namespace" sort={podSort} />
               <SortableTh label="Fase" sortKey="phase" sort={podSort} />
               <SortableTh label="Ready" sortKey="ready" sort={podSort} />
               <SortableTh label="Restarts" sortKey="restarts" sort={podSort} className="num" />
+              <th><span className="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody>
-            {evaluated.length === 0 && (
+            {!error && evaluated.length === 0 && (
               <tr>
-                <td colSpan={6} className="table__empty">
+                <td colSpan={7} className="table__empty">
                   Nenhum pod encontrado.
+                </td>
+              </tr>
+            )}
+            {evaluated.length > 0 && visiblePods.length === 0 && (
+              <tr>
+                <td colSpan={7} className="table__empty">
+                  Nenhum resultado para "{filter}".{' '}
+                  <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => setFilter('')}>
+                    Limpar filtro
+                  </button>
                 </td>
               </tr>
             )}
             {visiblePods.map((p) => {
               const restarts = asCount(p.restartCount);
+              // Deep-link interno para a aba Logs, pré-filtrada pelo app do pod
+              // (label part-of; fallback no namespace — mesma chave de agrupamento de Logs).
+              const logsApp = (p.labels && p.labels[PART_OF]) || p.namespace;
               return (
                 <tr key={`${p.namespace}/${p.name}`}>
                   <td>
@@ -202,6 +222,12 @@ export default function Health({ streamData, streamStatus }) {
                   <td className={`num ${restarts > 0 ? 'warn-text' : ''}`}>
                     {restarts}
                   </td>
+                  <td>
+                    <a className="quick-link" href={`#logs?app=${encodeURIComponent(logsApp)}`}
+                      title={`Abrir a aba Logs filtrada por ${logsApp}`}>
+                      ver logs
+                    </a>
+                  </td>
                 </tr>
               );
             })}
@@ -214,7 +240,7 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <SortableTh label="Saude" sortKey="health" sort={depSort} />
+              <SortableTh label="Saúde" sortKey="health" sort={depSort} />
               <SortableTh label="Nome" sortKey="name" sort={depSort} />
               <SortableTh label="Tipo" sortKey="type" sort={depSort} />
               <SortableTh label="Namespace" sortKey="namespace" sort={depSort} />
@@ -222,10 +248,20 @@ export default function Health({ streamData, streamStatus }) {
             </tr>
           </thead>
           <tbody>
-            {deployments.length === 0 && (
+            {!error && deployments.length === 0 && (
               <tr>
                 <td colSpan={5} className="table__empty">
                   Nenhum deployment encontrado.
+                </td>
+              </tr>
+            )}
+            {deployments.length > 0 && visibleDeployments.length === 0 && (
+              <tr>
+                <td colSpan={5} className="table__empty">
+                  Nenhum resultado para "{filter}".{' '}
+                  <button type="button" className="btn" style={{ marginLeft: 8 }} onClick={() => setFilter('')}>
+                    Limpar filtro
+                  </button>
                 </td>
               </tr>
             )}
@@ -356,7 +392,7 @@ function podHealth(p) {
 
 /** Rotulo acessivel para cada estado de saude. */
 function healthLabel(h) {
-  if (h === 'ok') return 'Saudavel';
-  if (h === 'warn') return 'Atencao';
-  return 'Critico';
+  if (h === 'ok') return 'Saudável';
+  if (h === 'warn') return 'Atenção';
+  return 'Crítico';
 }

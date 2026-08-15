@@ -31,7 +31,7 @@ export default function RichTextField({ value, onChange }) {
       onMouseDown={(e) => { e.preventDefault(); on(); }}
       style={{
         border: '1px solid var(--line2)', background: active ? 'var(--accent-soft)' : 'transparent',
-        color: active ? 'var(--accent)' : 'var(--text)', borderRadius: 6, padding: '3px 8px',
+        color: active ? 'var(--accent-text)' : 'var(--text)', borderRadius: 6, padding: '3px 8px',
         fontSize: '.8rem', cursor: 'pointer', fontWeight: 600,
       }}
     >

@@ -4,6 +4,7 @@
 // responde 503. fetch nativo (Node 20) — sem octokit. Funções puras + dispatch injetável (testáveis).
 
 const PRODUCT_RE = /^[a-z][a-z0-9-]{1,30}$/;
+const REQ_ID_RE = /^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$/; // = requirement.schema.json (e specs/tools/forge-greenfield.mjs)
 const MAX_PAYLOAD_BYTES = 60 * 1024; // teto defensivo (repository_dispatch client_payload ~64KB)
 const MAX_REQS = 12;
 
@@ -36,6 +37,10 @@ export function validateLaunchInput(body) {
     : [];
   if (!requirements.length) return { ok: false, code: 'NO_REQUIREMENTS', message: 'requirements (array não-vazio de objetos) é obrigatório' };
   if (requirements.length > MAX_REQS) return { ok: false, code: 'TOO_MANY', message: `máximo ${MAX_REQS} requisitos por lançamento` };
+  // id EXPLÍCITO deve casar com o schema de requisito (sem id, o writer deriva um válido — slug
+  // hifenizado vira segmento SEM hífens). Erro claro AQUI, não YAML inválido no git (bug do PR #212).
+  const badId = requirements.find((r) => r.id != null && !REQ_ID_RE.test(String(r.id)));
+  if (badId) return { ok: false, code: 'INVALID_REQ_ID', message: `requirement id '${badId.id}' inválido (pattern ${REQ_ID_RE}; ex.: slug besc-next → REQ-BESCNEXT-0001)` };
   const architecture = (b.architecture && typeof b.architecture === 'object' && !Array.isArray(b.architecture)) ? b.architecture : {};
   return {
     ok: true,

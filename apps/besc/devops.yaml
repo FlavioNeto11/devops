@@ -1,7 +1,19 @@
 app: { name: besc, namespace: apps, host: nvit.localhost, basePath: /besc }
-# Plataforma de Levantamento BESC Tokenizacao — sistema SIMPLES, SEM login, sem banco
-# externo (store JSON em PVC), que NAO tokeniza de verdade. Apenas levantamento,
-# checklists, pendencias automaticas, matriz de risco e relatorios. Escopo em ESCOPO-FUNCIONAL.md.
+# Plataforma de Levantamento BESC Tokenizacao — portal de conhecimento publico +
+# levantamento por caso, que NAO tokeniza de verdade. Fase 0 (fundacao): Postgres
+# dedicado p/ identidade/RBAC/auditoria (cases/conteudo continuam no store JSON em
+# PVC — docs/evolution/adr/ADR-002) e login local + SSO Keycloak (realm `besc`).
+# Escopo em ESCOPO-FUNCIONAL.md; evolucao em docs/evolution/.
 services:
   frontend: { type: frontend, image: besc-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
   api: { type: api, image: besc-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
+dependencies:
+  postgres:
+    image: pgvector/pgvector:pg16
+    db: besc
+    service: besc-postgres
+    port: 5432
+secrets:
+  # SealedSecrets versionados (k8s/sealed-*.yaml); exemplo em k8s/secret.example.yaml.tmpl.
+  - besc-db       # POSTGRES_* + DATABASE_URL
+  - besc-config   # SESSION_SECRET + BESC_BOOTSTRAP_EMAIL/PASSWORD

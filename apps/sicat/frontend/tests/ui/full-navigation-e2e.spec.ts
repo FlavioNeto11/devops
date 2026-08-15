@@ -336,7 +336,7 @@ test.describe('SICAT — Navegação completa E2E', () => {
     await goToDashboard(page);
 
     // O copiloto está no /dashboard (ou qualquer rota autenticada)
-    const launcherBtn = page.locator('button:has-text("Copiloto"), [aria-label*="copiloto"], [aria-label*="Copiloto"]').first();
+    const launcherBtn = page.locator('[aria-label="Abrir assistente contextual"]').first();
     const hasLauncher = await launcherBtn.isVisible({ timeout: 8_000 }).catch(() => false);
 
     if (!hasLauncher) {

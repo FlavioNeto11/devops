@@ -2,12 +2,32 @@ import { resolveApiUrl } from '@/lib/api-url';
 
 const API_URL = resolveApiUrl();
 
+// Handler global de sessão expirada (UX-GYMOPS-007). Registrado pelo AuthBootstrap
+// para levar o usuário ao /login com aviso quando o refresh token morre — em vez
+// de deixar cada tela presa no genérico "Verifique sua conexão".
+type SessionExpiredHandler = () => void;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+let sessionExpiredNotified = false;
+
+export function setSessionExpiredHandler(fn: SessionExpiredHandler | null) {
+  sessionExpiredHandler = fn;
+}
+
 class ApiClient {
   private token: string | null = null;
   private refreshPromise: Promise<string | null> | null = null;
 
   setToken(token: string | null) {
     this.token = token;
+    // Novo token válido = sessão viva de novo; rearma o aviso de expiração.
+    if (token) sessionExpiredNotified = false;
+  }
+
+  // Dispara o handler de sessão expirada uma única vez por sessão morta.
+  private notifySessionExpired() {
+    if (sessionExpiredNotified) return;
+    sessionExpiredNotified = true;
+    sessionExpiredHandler?.();
   }
 
   async refreshSession(): Promise<string | null> {
@@ -42,6 +62,7 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
+    const hadToken = this.token !== null;
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
@@ -55,6 +76,8 @@ class ApiClient {
     if (res.status === 401 && retry) {
       const newToken = await this.silentRefresh();
       if (newToken) return this.request<T>(path, options, false);
+      // Refresh falhou numa requisição autenticada → sessão expirada.
+      if (hadToken) this.notifySessionExpired();
     }
 
     if (res.status === 204) return undefined as T;
@@ -78,6 +101,7 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
+    const hadToken = this.token !== null;
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
@@ -91,6 +115,7 @@ class ApiClient {
     if (res.status === 401 && retry) {
       const newToken = await this.silentRefresh();
       if (newToken) return this.requestBlob(path, options, false);
+      if (hadToken) this.notifySessionExpired();
     }
 
     if (!res.ok) {
@@ -119,6 +144,7 @@ class ApiClient {
 
   async postRaw<T>(path: string, body: unknown): Promise<T> {
     const headers: Record<string, string> = {};
+    const hadToken = this.token !== null;
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
     const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
@@ -130,6 +156,7 @@ class ApiClient {
     if (res.status === 401) {
       const newToken = await this.silentRefresh();
       if (newToken) return this.postRaw<T>(path, body);
+      if (hadToken) this.notifySessionExpired();
     }
 
     if (res.status === 204) return undefined as T;

@@ -5,7 +5,7 @@
   "files": [
     {
       "path": "apps/neuroevolui/tests/locked/_lib.mjs",
-      "sha256": "3df6f2a295df1d5c6c9323663f2d4be2d124171365ce67ab8c5d56f8762f5107"
+      "sha256": "63c43dfd9e6b157ec2f3cd187c4f8b3167c371c5c5d99752ae9408bc90e0786e"
     },
     {
       "path": "apps/neuroevolui/tests/locked/capability/camadas-rigidas.test.mjs",

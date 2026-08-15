@@ -16,9 +16,10 @@ Convencao de roteamento (critica):
     Middleware StripPrefix (remove o prefixo COMPLETO), com priority MAIOR para
     vencer o frontend no mesmo host (o prefixo mais especifico ganha).
 
-Hosts: por padrao incluimos app.host E dev.nvit.com.br (quando diferentes)
-usando a forma Host(`a`, `b`) do Traefik, para que o mesmo layout de paths
-funcione no host local e no dominio real.
+Hosts: por padrao incluimos app.host E dev.nvit.com.br (quando diferentes).
+Traefik v3: Host() aceita UM argumento — multiplos hosts viram
+(Host(`a`) || Host(`b`)); a forma v2 Host(`a`, `b`) e REJEITADA no parse e
+derruba o router inteiro (404 com tudo Running).
 
 Multi-env opt-in (Forja 4.0 B2): quando .Values.app.hosts (lista) esta setado
 (compile com --env), a clausula Host(...) usa EXATAMENTE esses hosts — sem
@@ -40,8 +41,9 @@ HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 {{- end -}}
 {{- $hostClause := "" -}}
 {{- range $i, $h := $hosts -}}
-{{- if $i -}}{{- $hostClause = printf "%s, `%s`" $hostClause $h -}}{{- else -}}{{- $hostClause = printf "`%s`" $h -}}{{- end -}}
+{{- if $i -}}{{- $hostClause = printf "%s || Host(`%s`)" $hostClause $h -}}{{- else -}}{{- $hostClause = printf "Host(`%s`)" $h -}}{{- end -}}
 {{- end -}}
+{{- if gt (len $hosts) 1 -}}{{- $hostClause = printf "(%s)" $hostClause -}}{{- end -}}
 {{- /* Ha api/api2 e/ou frontend expostos? (cada grupo tem a SUA IngressRoute).
        $svc pode ser null (compilador apaga services por null explícito). */ -}}
 {{- $hasApi := false -}}
@@ -67,7 +69,7 @@ spec:
     {{- if and $svc $svc.expose (or (eq $svc.type "api") (eq $svc.type "api2")) }}
     {{- $prefix := include "app-template.fullPrefix" (dict "root" $root "svc" $svc) }}
     - kind: Rule
-      match: Host({{ $hostClause }}) && PathPrefix(`{{ $prefix }}`)
+      match: {{ $hostClause }} && PathPrefix(`{{ $prefix }}`)
       {{- /* priority por service (regra de ouro: api2 > api > frontend, ex.: 40 > 30 > 10).
              Sem override mantem 100 (comportamento historico do chart). */}}
       priority: {{ $svc.priority | default 100 }}
@@ -98,7 +100,7 @@ spec:
     {{- range $name, $svc := .Values.services }}
     {{- if and $svc $svc.expose (eq $svc.type "frontend") }}
     - kind: Rule
-      match: Host({{ $hostClause }}) && PathPrefix(`{{ $root.Values.app.basePath }}`)
+      match: {{ $hostClause }} && PathPrefix(`{{ $root.Values.app.basePath }}`)
       priority: {{ $svc.priority | default 10 }}
       services:
         - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}

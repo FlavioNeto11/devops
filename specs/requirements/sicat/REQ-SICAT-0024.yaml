@@ -1,0 +1,51 @@
+id: REQ-SICAT-0024
+slug: req-sicat-0024
+title: "Transporte: elegibilidade RNTRC de transportador e veículo com verificação evidenciada"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve verificar e evidenciar a regularidade RNTRC do transportador (categorias
+  TAC/ETC/CTC) e a compatibilidade dos veículos nos momentos de risco (contratação e liberação),
+  distinguindo cache informativo (dados abertos) de consulta operacional de regularidade, e
+  registrando status, fonte, data de verificação e versão da regra aplicada; a revalidação anual
+  introduzida pela Lei 15.485/2026 só se torna bloqueante quando a regulamentação ANTT
+  correspondente confirmar exigibilidade (regra TR-RNTRC-003 em AWAITING_REGULATION).
+business_rationale: >-
+  Dados abertos periódicos não bastam como evidência para liberar viagem sensível (baseline
+  deep-research 2026-08-13, "Transporte rodoviário e RNTRC"). Fase C do programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+risk_tags: [external-dependency]
+capability_blocks:
+  - gateway-externo
+acceptance_criteria:
+  - "Verificação via gateway dedicado (nunca de routes/services); dependência de credenciamento ANTT registrada como pendência P4 do guia [EXTERNAL DEPENDENCY]; enquanto indisponível, estratégia de evidência manual com fonte explícita."
+verification_method: [test-integration, manual-review]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0017
+  - type: depends_on
+    target: REQ-SICAT-0018
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase C)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

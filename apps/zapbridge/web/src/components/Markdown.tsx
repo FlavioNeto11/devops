@@ -69,8 +69,12 @@ export function Markdown({ text }: { text: string }) {
     const ul = /^\s*[-*]\s+(.*)$/.exec(line);
     if (h) {
       flushList(key + 'l');
-      const sz = h[1].length === 1 ? 'text-lg' : h[1].length === 2 ? 'text-base' : 'text-sm';
-      blocks.push(<div key={key} className={`font-bold ${sz} mt-2 mb-1`}>{inline(h[2], key)}</div>);
+      // Títulos reais (h3/h4/h5) para navegação por cabeçalhos em leitores de tela.
+      // (WCAG 1.3.1) — h1/h2 ficam para a estrutura da página que embute a resposta.
+      const lvl = h[1].length;
+      const sz = lvl === 1 ? 'text-lg' : lvl === 2 ? 'text-base' : 'text-sm';
+      const Heading = (lvl === 1 ? 'h3' : lvl === 2 ? 'h4' : 'h5') as 'h3' | 'h4' | 'h5';
+      blocks.push(<Heading key={key} className={`font-bold ${sz} mt-2 mb-1`}>{inline(h[2], key)}</Heading>);
     } else if (ol) {
       if (!list || !list.ordered) { flushList(key + 'l'); list = { ordered: true, items: [] }; }
       list.items.push(ol[1]);

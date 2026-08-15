@@ -2,7 +2,7 @@
 <template>
   <Teleport to="body">
     <div v-if="open" class="ui-modal-backdrop" @click.self="onBackdrop">
-      <div ref="dialog" class="ui-modal" :data-width="width" role="dialog" aria-modal="true" :aria-label="title || 'Diálogo'" tabindex="-1" @keydown.esc="onEsc">
+      <div ref="dialog" class="ui-modal" :data-width="width" role="dialog" aria-modal="true" :aria-label="title || 'Diálogo'" tabindex="-1" @keydown.esc="onEsc" @keydown.tab="onTab">
         <header class="ui-modal-head">
           <h2 class="ui-modal-title">{{ title }}</h2>
           <button class="ui-modal-x" aria-label="Fechar" @click="close">✕</button>
@@ -28,6 +28,17 @@ let lastFocus = null;
 function close() { emit('update:open', false); emit('close'); }
 function onBackdrop() { if (!props.persistent) close(); }
 function onEsc() { if (!props.persistent) close(); }
+// focus trap: Tab circula dentro do diálogo (aria-modal sozinho não segura o foco).
+function onTab(e) {
+  const root = dialog.value; if (!root) return;
+  const all = root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  // só focáveis VISÍVEIS (v-show/hidden fariam o ciclo apontar para um alvo infocável)
+  const els = [...all].filter((el) => el.offsetParent !== null || el === document.activeElement);
+  if (!els.length) { e.preventDefault(); return; }
+  const first = els[0], last = els[els.length - 1], active = document.activeElement;
+  if (e.shiftKey && (active === first || active === root)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+}
 
 watch(() => props.open, async (v) => {
   if (typeof document === 'undefined') return;

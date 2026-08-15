@@ -27,6 +27,7 @@ import { broadcast } from './events.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
+// GET / é CONTRATO do gate forge-tests: o CI confere {"app":"contaviva-360"} antes dos testes LOCKED.
 app.get('/', async () => ({ app: 'contaviva-360', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/me', async (req) => ({ role: req.role, user: req.user, tenantId: req.tenantId }));
@@ -53,7 +54,12 @@ app.addHook('onSend', async (req, reply, payload) => {
 
 // Records (base) com idempotência em criação
 app.get('/v1/records', async (req) => ({ data: await listRecords(req.tenantId) }));
-app.post('/v1/records', async (req, reply) => {
+// Guard RBAC no POST (mesmo mecanismo do DELETE :abaixo — requireRole/authContext). LIMITAÇÃO CONHECIDA:
+// o cv360 NÃO tem auth real (JWT) — a identidade vem de header stand-in X-Role (authContext), cujo piso é
+// 'member'. Logo requireRole('member') marca a rota como gated pelo RBAC, mas NÃO bloqueia escrita anônima
+// por si só (requisição sem X-Role já resolve para 'member'). Fechar de verdade exige adotar JWT (padrão
+// requireAuth do contaviva-pro) ou ForwardAuth na borda — trabalho fora deste escopo de blast-radius.
+app.post('/v1/records', { preHandler: requireRole('member') }, async (req, reply) => {
   const b = req.body || {};
   if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; }
   const key = req.headers['idempotency-key'];

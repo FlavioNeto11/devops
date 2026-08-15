@@ -1,9 +1,12 @@
-# Contrato da esteira DevOps para o Reqhub (Requirements Hub) — o WORKBENCH da base
-# de requisitos (specs/). App SOMENTE-FRONTEND estatico (nginx) que LE a baseline
-# gerada (specs/baseline/*.json, assada na imagem) e renderiza as 6 telas: Explorador,
-# Workspace do requisito, Versoes & mudancas, Mapa de impacto, Cobertura e Fila de
-# reprocessamento. Fonte da verdade e autoria continuam no git (specs/) — aqui e
-# visualizacao/analise read-only. Ver docs/decisions/0002-requirements-as-source-of-truth.md.
+# Contrato da esteira DevOps para o Reqhub (Requirements Hub) — o WORKBENCH +
+# Product Studio (Forja) da base de requisitos (specs/). App SOMENTE-FRONTEND estatico
+# (nginx) que LE a baseline gerada (specs/baseline/*.json, assada na imagem) e renderiza
+# a Forja (hub, view default), Explorador, Workspace, Editor, Mapa de impacto, Cobertura
+# e Mudancas. Fonte da verdade e autoria continuam no git (specs/) — o workbench nao
+# escreve requisitos direto; a Forja/Studio, porem, dispara launch (cria/auto-mescla PR)
+# e delete (apaga codigo+baseline+Argo+cluster) via o backend api, com salvaguardas
+# (gate de preview, denylist, confirmacao de blast-radius). Ver
+# docs/decisions/0002-requirements-as-source-of-truth.md.
 #
 # basePath /reqs ; frontend sem strip (HTML com <base href="/reqs/">) ; priority 10.
 # Build com CONTEXTO = raiz do repo (precisa de specs/baseline/ + apps/reqhub/frontend/),

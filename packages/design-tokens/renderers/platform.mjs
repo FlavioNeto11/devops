@@ -17,8 +17,13 @@
 // casar com rgb(var(--p-x) / <alpha>)), escalas estruturais e sombras por modo.
 // =============================================================================
 
+import { badgePair } from '../forge-brand.mjs';
+
 // Ordem EXATA das variáveis (espelha o platform-tokens.css histórico da casca).
 const PALETTE_ORDER = ['bg', 'surface', 'surface2', 'fg', 'muted', 'neon', 'on-neon', 'accent2', 'ok', 'warn', 'danger', 'border', 'ink'];
+// tons de status que ganham par de BADGE tintado (bg sólido + fg validado ≥4,5:1 sobre ele).
+const BADGE_TONES = ['ok', 'warn', 'danger'];
+const parseTriplet = (s) => String(s).trim().split(/\s+/).map(Number);
 const TEXT_ORDER = ['xs', 'sm', 'md', 'lg'];
 const SPACE_ORDER = ['1', '2', '3', '4', '5', '6'];
 const RADIUS_ORDER = ['sm', 'md', 'lg', 'pill'];
@@ -38,6 +43,21 @@ function shadowLines(shadows, indent, ctx) {
   return SHADOW_ORDER.map((k) => `${indent}--p-shadow-${k}: ${req(shadows, k, ctx)};`);
 }
 
+// Pares de BADGE (par bg tintado SÓLIDO + fg validado ≥4,5:1 sobre ele) — o modelo correto
+// dos status. Antes os consumidores usavam `color: rgb(var(--p-warn))` sobre `rgb(var(--p-warn)
+// / 0.12)` e o texto reprovava AA (medido 2,80:1 warn / 2,88:1 ok). O bg é composto no mesmo α
+// 0.12 dos aliases `-soft` (zero mudança visível no fundo; só o texto escurece/clareia).
+function badgeLines(palette, indent, ctx) {
+  const surface = parseTriplet(req(palette, 'surface', ctx));
+  const lines = [];
+  for (const k of BADGE_TONES) {
+    const { bg, fg } = badgePair(parseTriplet(req(palette, k, ctx)), surface, { alpha: 0.12 });
+    lines.push(`${indent}--p-${k}-badge-bg: ${bg.join(' ')};`);
+    lines.push(`${indent}--p-${k}-badge-fg: ${fg.join(' ')};`);
+  }
+  return lines;
+}
+
 // corpo do modo escuro (cores + sombras) — usado 2x: no bloco explícito
 // ([data-theme=dark] / .dark) e no fallback @media (prefers-color-scheme: dark),
 // que assim ficam SEMPRE espelhados (antes eram duplicados à mão).
@@ -45,6 +65,7 @@ function darkBody(brand, indent) {
   return [
     `${indent}color-scheme: dark;`,
     ...paletteLines(brand.palette.dark, indent, 'brands.platform.palette.dark'),
+    ...badgeLines(brand.palette.dark, indent, 'brands.platform.palette.dark'),
     ...shadowLines(brand.shadows.dark, indent, 'brands.platform.shadows.dark'),
   ];
 }
@@ -56,6 +77,7 @@ export function renderPlatformTokensBlock(brand) {
   out.push(':root {');
   out.push('  color-scheme: light;');
   out.push(...paletteLines(brand.palette.light, '  ', 'brands.platform.palette.light'));
+  out.push(...badgeLines(brand.palette.light, '  ', 'brands.platform.palette.light'));
   out.push('');
   out.push('  /* ---- escalas ESTRUTURAIS (independentes de tema) ----------------------------');
   out.push('     Promovem os "números mágicos" da casca a tokens: tipografia, espaçamento,');

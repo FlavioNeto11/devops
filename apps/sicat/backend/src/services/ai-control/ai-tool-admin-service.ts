@@ -18,9 +18,8 @@ import {
   listAiToolVersions,
   type AiToolVersionRecord
 } from '../../repositories/ai-tool-admin-repo.js';
-import type { AiRiskLevel, AiRuntimeTool, AiRuntimeToolPolicy, AiRuntimeToolStats } from './ai-control-types.js';
+import type { AiRuntimeTool, AiRuntimeToolPolicy, AiRuntimeToolStats } from './ai-control-types.js';
 
-const VALID_RISK = new Set<string>(['R1', 'R2', 'R3', 'R4']);
 const KNOWN_CHANNELS = new Set<string>(['whatsapp', 'native_chat', 'inapp']);
 
 function buildSchemaMap(): Map<string, Record<string, unknown>> {
@@ -49,16 +48,36 @@ function statsForTool(toolName: string): AiRuntimeToolStats {
   };
 }
 
-function normalizeRiskLevel(value: unknown, fallback: AiRiskLevel): AiRiskLevel {
-  return typeof value === 'string' && VALID_RISK.has(value) ? (value as AiRiskLevel) : fallback;
+/**
+ * Canais do PATCH, validados ENTRADA A ENTRADA.
+ *
+ * O comportamento anterior era `.filter(KNOWN_CHANNELS.has)`: um `allowChannels: ['whatsap']`
+ * (digitado errado) virava lista vazia e caía no fallback SILENCIOSAMENTE — o operador via a tela
+ * confirmar a mudança e nada tinha mudado. Com canal externo em jogo, silêncio é o modo de falha
+ * errado: agora é 400 explícito.
+ */
+function requireKnownChannels(value: unknown, fallback: string[]): string[] {
+  if (value === undefined) return fallback;
+  if (!Array.isArray(value)) {
+    throw new AppError(400, 'Bad Request', 'allowChannels deve ser uma lista de canais.', {
+      code: 'AI_TOOL_ALLOW_CHANNELS_INVALID'
+    });
+  }
+  const unknown = value.filter((entry) => typeof entry !== 'string' || !KNOWN_CHANNELS.has(entry));
+  if (unknown.length > 0) {
+    throw new AppError(400, 'Bad Request', `Canal desconhecido em allowChannels: ${unknown.map(String).join(', ')}.`, {
+      code: 'AI_TOOL_ALLOW_CHANNELS_INVALID'
+    });
+  }
+  return [...new Set(value as string[])];
 }
 
-function normalizeChannels(value: unknown, fallback: string[]): string[] {
-  if (!Array.isArray(value)) return fallback;
-  const normalized = value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .filter((entry) => KNOWN_CHANNELS.has(entry));
-  return normalized.length > 0 ? normalized : fallback;
+/** Canais externos: adicionar um deles exige confirmação explícita na rota + auditoria. */
+export const EXTERNAL_ADMIN_CHANNELS: ReadonlySet<string> = new Set<string>(['whatsapp']);
+
+export function listAddedExternalChannels(current: readonly string[], next: readonly string[]): string[] {
+  const before = new Set(current);
+  return next.filter((channel) => EXTERNAL_ADMIN_CHANNELS.has(channel) && !before.has(channel));
 }
 
 export async function listRuntimeTools(): Promise<AiRuntimeTool[]> {
@@ -106,14 +125,28 @@ export async function patchRuntimeTool(
     throw new AppError(404, 'Not Found', `Tool ${toolName} nao encontrada no runtime.`, { code: 'TOOL_NOT_FOUND' });
   }
 
+  // `riskLevel` e `isAction` NÃO são graváveis: o gate de permissão e a classificação leitura×ação
+  // leem sempre o default de código (`resolveCodeIsAction`, `normalizePolicyOverride`). Persistir um
+  // valor divergente criaria uma tela que mente sobre o que o motor obedece.
+  //
+  // `requiresConfirmation` só ENDURECE: `false` vindo do PATCH é ignorado. Zerar a confirmação de uma
+  // ação por esta tela é o caminho mais curto para executar sem ticket num canal externo.
   const newPolicy: AiRuntimeToolPolicy = {
-    riskLevel: normalizeRiskLevel(patch.riskLevel, current.policy.riskLevel),
-    allowChannels: normalizeChannels(patch.allowChannels, current.policy.allowChannels),
-    requiresConfirmation:
-      typeof patch.requiresConfirmation === 'boolean' ? patch.requiresConfirmation : current.policy.requiresConfirmation,
-    isAction: typeof patch.isAction === 'boolean' ? patch.isAction : current.policy.isAction
+    riskLevel: current.policy.riskLevel,
+    allowChannels: requireKnownChannels(patch.allowChannels, current.policy.allowChannels),
+    requiresConfirmation: patch.requiresConfirmation === true ? true : current.policy.requiresConfirmation,
+    isAction: current.policy.isAction
   };
   const enabled = typeof patch.enabled === 'boolean' ? patch.enabled : current.enabled;
+
+  // O mapa por INTENT vive no mesmo jsonb (`default_policy_json.intents`) e não pode ser clobberado
+  // por um PATCH que só mexe em canais da tool.
+  const existingOverride = await findAiToolOverride(toolName);
+  const existingIntents = (existingOverride?.defaultPolicyJson as Record<string, unknown> | null | undefined)?.intents;
+  const policyJson: Record<string, unknown> = { ...(newPolicy as unknown as Record<string, unknown>) };
+  if (existingIntents && typeof existingIntents === 'object' && !Array.isArray(existingIntents)) {
+    policyJson.intents = existingIntents;
+  }
 
   const override = await upsertAiToolOverride({
     toolName,
@@ -121,7 +154,7 @@ export async function patchRuntimeTool(
     objective: current.objective,
     dependencies: current.dependencies,
     schemaJson: current.schema ?? undefined,
-    defaultPolicyJson: newPolicy as unknown as Record<string, unknown>,
+    defaultPolicyJson: policyJson,
     enabled,
     source: 'db'
   });
@@ -131,7 +164,7 @@ export async function patchRuntimeTool(
       toolId: override.id,
       version: new Date().toISOString(),
       schemaJson: current.schema ?? undefined,
-      policyJson: newPolicy as unknown as Record<string, unknown>,
+      policyJson: policyJson,
       changelog: patch.changelog ?? `policy/enabled atualizado por ${actorUserId}`,
       createdBy: actorUserId
     });

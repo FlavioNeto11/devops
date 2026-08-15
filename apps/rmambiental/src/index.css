@@ -60,6 +60,17 @@ body {
     border-color: rgb(var(--neon) / var(--btn-ghost-hover-border-alpha));
     background: rgb(var(--fg) / var(--btn-ghost-hover-bg-alpha));
   }
+
+  /* Skip-link (WCAG 2.4.1): fora da tela até receber foco por teclado. */
+  .skip-link {
+    @apply absolute left-4 top-3 z-[100] -translate-y-24 rounded-xl px-4 py-2 text-sm font-semibold transition-transform;
+    background: rgb(var(--neon));
+    color: rgb(var(--on-neon));
+  }
+  .skip-link:focus {
+    @apply translate-y-0 outline-none;
+    box-shadow: 0 0 0 2px rgb(var(--bg)), 0 0 0 4px rgb(var(--neon));
+  }
 }
 
 /* Grid técnico sutil — linhas baseadas no fg (adaptam ao tema). */

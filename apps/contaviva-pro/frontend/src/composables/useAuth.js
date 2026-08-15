@@ -3,16 +3,17 @@
 // (refresh persistido em localStorage p/ sobreviver a reload). login/register/logout/me + bootstrap.
 // O api.js dispara 'auth:logout' no 401 -> derrubamos a sessão reativa. SSO Keycloak é aditivo/opcional.
 import { ref, computed } from 'vue';
-import { auth as authApi, getToken, setToken } from '../api.js';
+import { auth as authApi, getToken, setToken, getRefresh, setRefresh } from '../api.js';
 
-const REFRESH_KEY = 'contaviva-pro.refreshToken';
 const user = ref(null);
 const ready = ref(false); // true após a 1ª tentativa de hidratar (bootstrap)
 const isAdmin = computed(() => !!user.value && user.value.role === 'admin');
 let bootPromise = null;
 
-function readRefresh() { try { return localStorage.getItem(REFRESH_KEY) || ''; } catch { return ''; } }
-function writeRefresh(t) { try { if (t) localStorage.setItem(REFRESH_KEY, t); else localStorage.removeItem(REFRESH_KEY); } catch {} }
+// refresh token: fonte única no api.js (mesma chave/store do access token). Reusamos os helpers p/
+// que o interceptor de 401 do api.js possa renovar a sessão antes de deslogar.
+function readRefresh() { return getRefresh(); }
+function writeRefresh(t) { setRefresh(t); }
 
 // guarda tokens + usuário a partir da resposta de register/login/sso.
 function applySession(res) {
@@ -59,10 +60,24 @@ async function bootstrap() {
 // atualiza o próprio perfil (nome/senha) e reflete o nome no estado reativo.
 async function updateMe(payload) { const r = await authApi.updateMe(payload); if (r && r.user) user.value = r.user; return user.value; }
 
-// o api.js derruba o token no 401 e emite este evento — sincroniza o estado reativo (uma vez).
+// Sessão derrubada de fato (refresh ausente/inválido): manda o usuário ao /login preservando a rota
+// atual em ?redirect= — sem acoplar o router aqui (navegação por URL sob o base do app). Idempotente:
+// não redireciona se já estamos no login (evita loop quando duas 401 disparam o evento).
+function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+  const base = import.meta.env.BASE_URL || '/';
+  const loc = window.location;
+  const full = loc.pathname + loc.search;
+  const appPath = full.indexOf(base) === 0 ? full.slice(base.length - 1) : full; // mantém a '/' inicial
+  if (appPath.indexOf('/login') === 0) return; // já no login — nada a fazer
+  try { loc.assign(base + 'login?redirect=' + encodeURIComponent(appPath)); } catch {}
+}
+
+// o api.js só emite este evento quando o refresh falhou/está ausente: sincroniza o estado reativo
+// (uma vez) e tira o usuário do beco sem saída, levando-o ao /login (fim de UX-CVPRO-003/004).
 if (typeof window !== 'undefined' && !window.__authLogoutWired) {
   window.__authLogoutWired = true;
-  window.addEventListener('auth:logout', () => { writeRefresh(null); user.value = null; });
+  window.addEventListener('auth:logout', () => { writeRefresh(null); user.value = null; redirectToLogin(); });
 }
 
 export function useAuth() {

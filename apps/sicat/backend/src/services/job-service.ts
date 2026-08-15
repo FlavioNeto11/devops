@@ -39,7 +39,17 @@ export async function getJob(jobId: string) {
       printUrl: job.payload?.printUrl || null
     },
     links: {
-      entity: job.entityType === 'manifest' ? `/v1/manifestos/${job.entityId}` : job.entityType === 'cadastro' ? `/v1/cadastros/${job.entityId}` : `/v1/jobs/${job.jobId}`,
+      entity: job.entityType === 'manifest'
+        ? `/v1/manifestos/${job.entityId}`
+        : job.entityType === 'cadastro'
+          ? `/v1/cadastros/${job.entityId}`
+          : job.entityType === 'transport_party'
+            ? `/v1/transporte/transportadores/${job.entityId}`
+            // `entityId` de `ciot_operation` é o id da `transport_operations` PAI (dedupe por
+            // operação) — o GET do ciclo do CIOT vive sob a operação, não tem rota por id próprio.
+            : job.entityType === 'ciot_operation'
+              ? `/v1/transporte/operacoes/${job.entityId}/ciot`
+              : `/v1/jobs/${job.jobId}`,
       audit: `/v1/audit/${job.correlationId}`
     }
   };

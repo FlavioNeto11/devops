@@ -9,34 +9,44 @@ const scope = ref('');
 const items = ref([]);
 const cash = ref(null);
 const loading = ref(true);
+const loadError = ref('');
 const showForm = ref(false);
+const saving = ref(false);
+const formError = ref('');
 const form = ref({ scope: 'pj', kind: 'despesa', category: 'outros', amount: null, description: '' });
 const aiText = ref('');
 const aiBusy = ref(false);
+const aiMsg = ref('');
+const aiErr = ref(false);
 const report = ref('');
 const reportBusy = ref(false);
 
 async function load() {
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try {
     const params = scope.value ? { scope: scope.value } : undefined;
     items.value = (await api.list('financeiro', params)).data;
     cash.value = await api.list('financeiro/cashflow', params);
-  } finally { loading.value = false; }
+  } catch (e) { loadError.value = e.message || 'Falha ao carregar o financeiro.'; }
+  finally { loading.value = false; }
 }
 async function save() {
-  try { await api.create('financeiro', { ...form.value, amount: Number(form.value.amount) }); showForm.value = false; form.value = { scope: 'pj', kind: 'despesa', category: 'outros', amount: null, description: '' }; await load(); }
-  catch (e) { alert(e.message); }
+  saving.value = true; formError.value = '';
+  try {
+    await api.create('financeiro', { ...form.value, amount: Number(form.value.amount) });
+    showForm.value = false; form.value = { scope: 'pj', kind: 'despesa', category: 'outros', amount: null, description: '' };
+    await load();
+  } catch (e) { formError.value = e.message; } finally { saving.value = false; }
 }
 async function aiCategorize() {
   const m = aiText.value.match(/(\d[\d.,]*)/);
   const amount = m ? Number(m[1].replace(/\./g, '').replace(',', '.')) : 0;
   if (!aiText.value.trim()) return;
-  aiBusy.value = true;
+  aiBusy.value = true; aiMsg.value = ''; aiErr.value = false;
   try {
     const r = await api.create('financeiro/categorize', { description: aiText.value, amount });
-    if (r.dormant) alert(r.message); else { aiText.value = ''; await load(); }
-  } catch (e) { alert(e.message); } finally { aiBusy.value = false; }
+    if (r.dormant) { aiMsg.value = r.message; aiErr.value = false; } else { aiText.value = ''; await load(); }
+  } catch (e) { aiMsg.value = e.message; aiErr.value = true; } finally { aiBusy.value = false; }
 }
 async function genReport() {
   reportBusy.value = true; report.value = '';
@@ -50,7 +60,7 @@ onMounted(load);
   <div class="ap-page">
     <div class="ap-page-head ap-head-row">
       <div><h1><Icon name="wallet" :size="22" /> Financeiro PJ/PF</h1><p>Empresarial x pessoal, categorização por IA e fluxo de caixa.</p></div>
-      <button class="im-btn-primary" @click="showForm = true"><Icon name="plus" :size="16" /> Lançamento</button>
+      <button class="im-btn-primary" @click="showForm = true; formError = ''"><Icon name="plus" :size="16" /> Lançamento</button>
     </div>
 
     <div class="ap-tabs">
@@ -72,22 +82,26 @@ onMounted(load);
       <input v-model="aiText" placeholder="IA: “paguei R$ 350 de anúncios no Instagram”" @keyup.enter="aiCategorize" />
       <button class="im-btn-primary" :disabled="aiBusy || !aiText.trim()" @click="aiCategorize">{{ aiBusy ? '…' : 'Categorizar (GPT)' }}</button>
     </div>
+    <p v-if="aiMsg" class="im-notice" :class="{ err: aiErr }" style="margin-bottom:14px">{{ aiMsg }}</p>
 
     <div v-if="loading" class="im-notice">Carregando…</div>
+    <div v-else-if="loadError" class="im-notice err ap-error"><span>{{ loadError }}</span><button class="im-btn-primary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!items.length" class="ap-empty"><Icon name="wallet" :size="34" /><p>Nenhum lançamento ainda.</p></div>
-    <table v-else class="ap-table">
-      <thead><tr><th>Descrição</th><th>Escopo</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th></tr></thead>
-      <tbody>
-        <tr v-for="t in items" :key="t.id">
-          <td>{{ t.description }}<span v-if="t.aiCategorized" title="categorizado por IA"> 🤖</span></td>
-          <td><span class="ap-scope" :class="t.scope">{{ t.scope.toUpperCase() }}</span></td>
-          <td>{{ t.category }}</td>
-          <td>{{ t.kind }}</td>
-          <td :class="t.kind === 'receita' ? 'pos' : 'neg'">{{ brl(t.amount) }}</td>
-          <td><small>{{ dateBr(t.date) }}</small></td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="ap-table-wrap">
+      <table class="ap-table">
+        <thead><tr><th>Descrição</th><th>Escopo</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th></tr></thead>
+        <tbody>
+          <tr v-for="t in items" :key="t.id">
+            <td>{{ t.description }}<span v-if="t.aiCategorized" title="categorizado por IA"> 🤖</span></td>
+            <td><span class="ap-scope" :class="t.scope">{{ t.scope.toUpperCase() }}</span></td>
+            <td>{{ t.category }}</td>
+            <td>{{ t.kind }}</td>
+            <td :class="t.kind === 'receita' ? 'pos' : 'neg'">{{ brl(t.amount) }}</td>
+            <td><small>{{ dateBr(t.date) }}</small></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <Modal :open="showForm" title="Novo lançamento" @close="showForm = false">
       <div class="ap-form">
@@ -97,7 +111,8 @@ onMounted(load);
         <label>Categoria<input v-model="form.category" /></label>
         <label>Valor<input v-model="form.amount" type="number" /></label>
       </div>
-      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="!form.description || !form.amount" @click="save">Lançar</button></template>
+      <p v-if="formError" class="im-notice err" style="margin-top:12px">{{ formError }}</p>
+      <template #footer><button class="im-linkbtn" @click="showForm = false">Cancelar</button><button class="im-btn-primary" :disabled="saving || !form.description || !form.amount" @click="save">{{ saving ? 'Salvando…' : 'Lançar' }}</button></template>
     </Modal>
   </div>
 </template>

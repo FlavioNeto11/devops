@@ -41,7 +41,7 @@ const currentPageTitle = computed(() => breadcrumbs.value[breadcrumbs.value.leng
 const currentPageSection = computed(() => breadcrumbs.value[0] || 'SICAT');
 const currentPageDescription = computed(
   () => getShellScreenDescription(route.name)
-    || 'Operação integrada do SICAT com experiência visual unificada em light e dark.'
+    || 'Acompanhe e execute as operações de MTR, CDF e DMR da conta CETESB ativa.'
 );
 
 // Oculta o header genérico do shell quando a route pede, em chat, ou quando a
@@ -54,10 +54,22 @@ function handleNavigate(path) {
   isMobileMenuOpen.value = false;
   emit('navigate', path);
 }
+
+// Skip-link: foca o <main> direto (âncora por href brigaria com o history router).
+function skipToContent() {
+  const el = document.getElementById('sicat-conteudo');
+  if (el) {
+    el.focus();
+    el.scrollIntoView();
+  }
+}
 </script>
 
 <template>
   <div class="sicat-shell">
+    <a class="sicat-skip-link" href="#sicat-conteudo" @click.prevent="skipToContent">
+      Pular para o conteúdo
+    </a>
     <SicatTopbar
       :groups="groups"
       :is-desktop="isDesktop"
@@ -89,6 +101,8 @@ function handleNavigate(path) {
 
     <div class="sicat-shell__page">
       <main
+        id="sicat-conteudo"
+        tabindex="-1"
         class="sicat-shell__content"
         :class="{ 'sicat-shell__content--chat': isChatRoute }"
       >
@@ -113,7 +127,7 @@ function handleNavigate(path) {
       <footer class="sicat-shell__footer">
         <div class="sicat-shell__footer-inner">
           <span>SICAT MTR CETESB</span>
-          <span>Shell unificado · navegação por intenção · light e dark</span>
+          <span>Emissão e acompanhamento de MTR, CDF e DMR junto à CETESB-SP</span>
         </div>
       </footer>
     </div>
@@ -122,6 +136,11 @@ function handleNavigate(path) {
 
 <style scoped>
 .sicat-shell {
+  /* Faixa reservada no rodapé do conteúdo para o lançador flutuante do
+     assistente (fixo em baixo/direita) não cobrir o último bloco da página.
+     A medida vem dos tokens do FAB (styles/base.css) para as duas camadas não
+     saírem de sincronia. */
+  --assistant-launcher-space: var(--sicat-launcher-space, 88px);
   display: flex;
   min-height: 100vh;
   flex-direction: column;
@@ -138,7 +157,7 @@ function handleNavigate(path) {
 
 .sicat-shell__content {
   flex: 1;
-  padding: 22px 0 34px;
+  padding: 22px 0 calc(34px + var(--assistant-launcher-space, 0px));
   overflow-y: auto;
 }
 
@@ -160,10 +179,27 @@ function handleNavigate(path) {
 }
 
 .sicat-shell__container {
+  --sicat-container-pad: clamp(18px, 2.2vw, 28px);
   width: 100%;
   max-width: var(--app-max-width);
   margin-inline: auto;
-  padding: 0 clamp(18px, 2.2vw, 28px);
+  padding: 0 var(--sicat-container-pad);
+}
+
+/* Calha do FAB: em desktop o conteúdo cede à direita exatamente o que faltar
+   para o lançador do assistente caber FORA da coluna de conteúdo. Enquanto a
+   viewport é larga (calha natural >= rail) o padding é o normal e nada muda;
+   abaixo disso o conteúdo desloca no máximo ~50px, e a coluna de ações das
+   tabelas deixa de passar por baixo do botão em qualquer posição de rolagem.
+   Em mobile (<960px) não há calha a reservar (custaria largura demais numa tela
+   estreita) — lá vale a faixa inferior `--assistant-launcher-space`. */
+@media (min-width: 960px) {
+  .sicat-shell__container:not(.sicat-shell__container--chat) {
+    padding-right: max(
+      var(--sicat-container-pad),
+      calc(var(--sicat-launcher-rail, 80px) - max(0px, (100vw - var(--app-max-width)) / 2))
+    );
+  }
 }
 
 .sicat-shell__footer {

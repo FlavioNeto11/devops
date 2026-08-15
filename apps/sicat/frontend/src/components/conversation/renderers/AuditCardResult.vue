@@ -32,11 +32,11 @@ const correlation = computed(() => toNullableText(props.correlationId) || '-');
         <dd>{{ total }}</dd>
       </div>
       <div class="result-row">
-        <dt>Correlation</dt>
+        <dt>Código de rastreio</dt>
         <dd>{{ correlation }}</dd>
       </div>
       <div class="result-row" v-if="toNullableText(firstItem.actionType)">
-        <dt>Ultima acao</dt>
+        <dt>Última ação</dt>
         <dd>{{ firstItem.actionType }}</dd>
       </div>
     </dl>

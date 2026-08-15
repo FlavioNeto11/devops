@@ -26,7 +26,7 @@
     @retry="loadAll"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/dashboard">Voltar ao dashboard</UiButton>
+      <UiButton variant="ghost" to="/">Voltar ao dashboard</UiButton>
     </template>
 
     <!-- Layout lateral: sidebar + conteúdo principal -->

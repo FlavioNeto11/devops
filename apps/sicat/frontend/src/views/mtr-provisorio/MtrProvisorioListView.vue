@@ -171,11 +171,16 @@ onMounted(async () => {
     </template>
 
     <SicatCard :title="totalLabel" flush-body>
+      <!-- Paginação é SERVIDORA (filters.page/pageSize no footer abaixo). O footer
+           padrão do v-data-table pagina só as linhas já baixadas e duplicava o
+           paginador na tela — desligado aqui, mesmo padrão da DMR. -->
       <SicatDataTable
         :headers="headers"
         :items="rows"
         :loading="loadingList"
         :error="listError"
+        :show-footer="false"
+        :items-per-page="-1"
         :empty="{ title: 'Nenhum MTR provisório encontrado', description: 'Ajuste os filtros ou emita um novo.', icon: 'mdi-file-clock-outline' }"
         @row-click="(row) => row?.id && goToDetail(row.id)"
       >
@@ -187,7 +192,9 @@ onMounted(async () => {
         </template>
         <template #footer>
           <v-btn variant="text" :disabled="!canPrevious" prepend-icon="mdi-chevron-left" @click="changePage(-1)">Anterior</v-btn>
-          <span class="text-caption text-medium-emphasis">página {{ filters.page || 1 }} de {{ totalPages || 1 }}</span>
+          <span class="text-caption text-medium-emphasis">
+            Página {{ filters.page || 1 }} de {{ totalPages || 1 }} · {{ Number(totalItems || 0) }} no total
+          </span>
           <v-btn variant="text" :disabled="!canNext" append-icon="mdi-chevron-right" @click="changePage(1)">Próxima</v-btn>
         </template>
       </SicatDataTable>

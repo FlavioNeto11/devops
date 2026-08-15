@@ -33,7 +33,16 @@ function validateQueueContract(doc) {
     '/v1/manifestos/{id}/print',
     '/v1/manifestos/{id}/cancel',
     '/v1/catalog-sync',
-    '/v1/cadastros'
+    '/v1/cadastros',
+    '/v1/transporte/transportadores/{partyId}/verificar-rntrc',
+    '/v1/transporte/operacoes/{operationId}/ciot/solicitar',
+    '/v1/transporte/operacoes/{operationId}/ciot/retificar',
+    '/v1/transporte/operacoes/{operationId}/ciot/cancelar',
+    '/v1/transporte/operacoes/{operationId}/ciot/encerrar',
+    '/v1/transporte/operacoes/{operationId}/vpo/adquirir',
+    '/v1/transporte/operacoes/{operationId}/emissoes',
+    '/v1/transporte/emissoes/{issuanceId}/cancelar',
+    '/v1/transporte/watch/verificar-agora'
   ];
 
   for (const endpoint of commandEndpoints) {

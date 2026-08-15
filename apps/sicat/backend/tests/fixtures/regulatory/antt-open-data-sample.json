@@ -1,0 +1,109 @@
+{
+  "_comment": "Fixture do shape REAL do CKAN da ANTT (dados.antt.gov.br), capturado na sondagem do PR-C1 (2026-08-14). Nomes de campo, tipos e o envelope package_show/datastore_search são REAIS; os VALORES dos registros são FICTÍCIOS (não é um export do dado publicado) — LGPD/minimização. CNPJs reaproveitam os mesmos números fictícios já usados em tests/api/transporte-cadastros.test.js.",
+  "packageShow": {
+    "help": "https://dados.antt.gov.br/packages?ver=%2F3&name=package_show&logic_function=help_show",
+    "success": true,
+    "result": {
+      "id": "b4a055d1-97a2-46f1-9461-cb17fbc6b6b3",
+      "name": "rntrc",
+      "resources": [
+        {
+          "id": "res-datastore-ativo-fixture",
+          "format": "CSV",
+          "name": "Fixture — mês com datastore ativo",
+          "url": "https://dados.antt.gov.br/dataset/fixture/resource/res-datastore-ativo-fixture/download/transportadores_rntrc_fixture.csv",
+          "datastore_active": true,
+          "last_modified": "2026-02-10T09:08:27.838858",
+          "created": "2026-02-10T09:08:27.838858"
+        }
+      ]
+    }
+  },
+  "datastoreSearchFound": {
+    "help": "https://dados.antt.gov.br/packages?ver=%2F3&name=datastore_search&logic_function=help_show",
+    "success": true,
+    "result": {
+      "resource_id": "res-datastore-ativo-fixture",
+      "fields": [
+        { "type": "int", "id": "_id" },
+        { "type": "text", "id": "nome_transportador" },
+        { "type": "numeric", "id": "numero_rntrc" },
+        { "type": "timestamp", "id": "data_primeiro_cadastro" },
+        { "type": "text", "id": "situacao_rntrc" },
+        { "type": "text", "id": "cpfcnpjtransportador" },
+        { "type": "text", "id": "categoria_transportador" },
+        { "type": "text", "id": "cep" },
+        { "type": "text", "id": "municipio" },
+        { "type": "text", "id": "uf" },
+        { "type": "text", "id": "equiparado" },
+        { "type": "timestamp", "id": "data_situacao_rntrc" }
+      ],
+      "records": [
+        {
+          "_id": 1,
+          "nome_transportador": "TRANSPORTADORA FICTICIA UM LTDA",
+          "numero_rntrc": 50085788,
+          "data_primeiro_cadastro": "2017-05-23T00:00:00",
+          "situacao_rntrc": "ATIVO",
+          "cpfcnpjtransportador": "11.222.333/0001-81",
+          "categoria_transportador": "ETC",
+          "cep": "14095-290",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "SP",
+          "equiparado": "Sim",
+          "data_situacao_rntrc": "2026-02-01T00:00:00"
+        }
+      ],
+      "total": 1
+    }
+  },
+  "datastoreSearchNotFound": {
+    "help": "https://dados.antt.gov.br/packages?ver=%2F3&name=datastore_search&logic_function=help_show",
+    "success": true,
+    "result": {
+      "resource_id": "res-datastore-ativo-fixture",
+      "fields": [
+        { "type": "int", "id": "_id" },
+        { "type": "text", "id": "nome_transportador" },
+        { "type": "numeric", "id": "numero_rntrc" },
+        { "type": "text", "id": "situacao_rntrc" },
+        { "type": "text", "id": "cpfcnpjtransportador" },
+        { "type": "text", "id": "categoria_transportador" },
+        { "type": "text", "id": "uf" },
+        { "type": "timestamp", "id": "data_situacao_rntrc" }
+      ],
+      "records": [],
+      "total": 0
+    }
+  },
+  "datastoreSearchPendente": {
+    "help": "https://dados.antt.gov.br/packages?ver=%2F3&name=datastore_search&logic_function=help_show",
+    "success": true,
+    "result": {
+      "resource_id": "res-datastore-ativo-fixture",
+      "fields": [
+        { "type": "int", "id": "_id" },
+        { "type": "text", "id": "nome_transportador" },
+        { "type": "numeric", "id": "numero_rntrc" },
+        { "type": "text", "id": "situacao_rntrc" },
+        { "type": "text", "id": "cpfcnpjtransportador" },
+        { "type": "text", "id": "categoria_transportador" },
+        { "type": "text", "id": "uf" },
+        { "type": "timestamp", "id": "data_situacao_rntrc" }
+      ],
+      "records": [
+        {
+          "_id": 2,
+          "nome_transportador": "TRANSPORTADORA FICTICIA DOIS LTDA",
+          "numero_rntrc": 49967299,
+          "situacao_rntrc": "PENDENTE",
+          "cpfcnpjtransportador": "11.444.777/0001-61",
+          "categoria_transportador": "TAC",
+          "uf": "SP",
+          "data_situacao_rntrc": "2026-05-05T00:00:00"
+        }
+      ],
+      "total": 1
+    }
+  }
+}

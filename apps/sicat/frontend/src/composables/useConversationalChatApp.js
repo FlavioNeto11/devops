@@ -84,7 +84,7 @@ function buildConfirmationAction(response) {
 
   return {
     type: 'confirm_tool_execution',
-    label: 'Confirmar execucao',
+    label: 'Confirmar execução',
     payload: {
       name: toolName,
       arguments: response?.toolCall?.arguments || {}
@@ -117,7 +117,10 @@ function mapBackendActionToUiAction(action) {
   if (action.type === 'open_job') {
     return {
       kind: 'navigate',
-      label: action.label || 'Abrir jobs',
+      // "Jobs" é o nome da TELA administrativa (menu Sistema › Jobs) — o rótulo
+      // de navegação precisa casar com o menu. O conceito, na prosa, é
+      // "processamento".
+      label: action.label || 'Abrir Jobs',
       to: '/sistema/jobs'
     };
   }
@@ -126,8 +129,8 @@ function mapBackendActionToUiAction(action) {
     const operation = toTrimmedString(payload.operation);
     const manifestId = toTrimmedString(payload.manifestId);
     const prompt = operation && manifestId
-      ? `Verifique novamente a operacao ${operation} para o manifesto ${manifestId}.`
-      : 'Verifique novamente o status da ultima operacao.';
+      ? `Verifique novamente a operação ${operation} para o manifesto ${manifestId}.`
+      : 'Verifique novamente o status da última operação.';
 
     return {
       kind: 'backend',
@@ -146,18 +149,10 @@ function mapBackendActionToUiAction(action) {
 
   return {
     kind: 'backend_action',
-    label: action.label || 'Executar acao',
+    label: action.label || 'Executar ação',
     payload,
     type: action.type
   };
-}
-
-function buildRequestedBy(user) {
-  if (!user || typeof user !== 'object') {
-    return null;
-  }
-
-  return toNullableString(user.userId) || toNullableString(user.email) || toNullableString(user.name);
 }
 
 function buildUserId(user) {
@@ -166,14 +161,6 @@ function buildUserId(user) {
   }
 
   return toNullableString(user.userId) || toNullableString(user.email);
-}
-
-function buildChannelSessionKey(userId, integrationAccountId) {
-  return [
-    'native_chat',
-    userId || 'anonymous',
-    integrationAccountId || 'no-account'
-  ].join(':');
 }
 
 function detectSensitiveAction(text) {
@@ -210,9 +197,9 @@ function summarizeManifestDetails(data, resultKind) {
 function summarizeDashboard(data, resultKind) {
   return {
     facts: [
-      `Jobs em fila: ${Number(data?.health?.statistics?.jobs_queued || 0)}`,
-      `Jobs executando: ${Number(data?.health?.statistics?.jobs_running || 0)}`,
-      `Workers ativos: ${Number(data?.health?.statistics?.workers_active_5m || 0)}`
+      `Processamentos na fila: ${Number(data?.health?.statistics?.jobs_queued || 0)}`,
+      `Processamentos em andamento: ${Number(data?.health?.statistics?.jobs_running || 0)}`,
+      `Processadores ativos: ${Number(data?.health?.statistics?.workers_active_5m || 0)}`
     ],
     resultKind: resultKind || 'query'
   };
@@ -221,7 +208,7 @@ function summarizeDashboard(data, resultKind) {
 function summarizeJobStatus(data, resultKind) {
   return {
     facts: [
-      `Job: ${toTrimmedString(data?.jobId) || '-'}`,
+      `Processamento: ${toTrimmedString(data?.jobId) || '-'}`,
       `Status: ${toTrimmedString(data?.status) || '-'}`,
       `Tipo: ${toTrimmedString(data?.jobType || data?.type) || '-'}`
     ],
@@ -258,12 +245,12 @@ function summarizeConversationResult(response) {
     const confirmationAction = response?.policy?.requiresConfirmation ? buildConfirmationAction(response) : null;
     return {
       facts: [
-        ...(response?.policy?.reason ? [`Policy: ${response.policy.reason}`] : []),
-        ...(response?.policy?.requiresConfirmation ? ['A policy exige confirmacao explicita para esse tipo de acao.'] : [])
+        ...(response?.policy?.reason ? [`Motivo do bloqueio: ${response.policy.reason}`] : []),
+        ...(response?.policy?.requiresConfirmation ? ['A regra de segurança do sistema exige confirmação explícita para esse tipo de ação.'] : [])
       ],
       actions: confirmationAction ? [confirmationAction] : [],
       confirmationAction,
-      confirmationText: response?.policy?.reason || 'Confirme para executar esta acao sensivel.',
+      confirmationText: response?.policy?.reason || 'Confirme para executar esta ação sensível.',
       resultKind: 'blocked'
     };
   }
@@ -313,14 +300,14 @@ export function useConversationalChatApp() {
   const accountLabel = computed(() => {
     const account = authStore.activeAccount.value || null;
     if (!account) {
-      return 'Conta CETESB nao selecionada';
+      return 'Conta CETESB não selecionada';
     }
 
     const partnerName = toTrimmedString(account.partnerName);
     const partnerCode = toTrimmedString(account.partnerCode);
 
     if (partnerName && partnerCode) {
-      return `${partnerName} (cod. ${partnerCode})`;
+      return `${partnerName} (cód. ${partnerCode})`;
     }
 
     return partnerName || partnerCode || toTrimmedString(account.accountId) || 'Conta ativa';
@@ -329,7 +316,7 @@ export function useConversationalChatApp() {
   const quickActions = computed(() => CONVERSATIONAL_CHAT_QUICK_ACTIONS);
 
   const composerPlaceholder = computed(() => {
-    return 'Pergunte sobre manifestos, jobs, auditoria e dashboard. Este app opera em modo consultivo.';
+    return 'Pergunte sobre manifestos, processamentos, auditoria e o painel. Este app apenas consulta — não executa operações.';
   });
 
   function appendMessage(message) {
@@ -397,10 +384,10 @@ export function useConversationalChatApp() {
 
     appendMessage(createMessage({
       role: 'assistant',
-      text: 'SICAT Conversacional pronto. Posso responder consultas operacionais guiadas com base na sua sessao autenticada.',
+      text: 'SICAT Conversacional pronto. Posso responder consultas operacionais guiadas com base na sua sessão autenticada.',
       facts: [
-        'Modo consultivo ativo: acoes sensiveis nao sao executadas neste app simplificado.',
-        'Conta CETESB ativa e session context sao obrigatorios para consultar o backend conversacional.'
+        'Modo consulta ativo: ações sensíveis não são executadas neste app simplificado.',
+        'É preciso ter uma conta CETESB ativa e uma sessão válida para fazer consultas.'
       ]
     }));
   }
@@ -409,11 +396,11 @@ export function useConversationalChatApp() {
     const requires = Array.isArray(action?.requires) ? action.requires : [];
 
     if (requires.includes('manifestId') && !toTrimmedString(focusedManifestId.value)) {
-      return 'Informe um manifesto em foco para usar esta acao guiada.';
+      return 'Informe um manifesto em foco para usar esta ação guiada.';
     }
 
     if (requires.includes('jobId') && !toTrimmedString(focusedJobId.value)) {
-      return 'Informe um job em foco para usar esta acao guiada.';
+      return 'Informe um processamento em foco para usar esta ação guiada.';
     }
 
     return '';
@@ -433,15 +420,15 @@ export function useConversationalChatApp() {
       if (controller.signal.aborted) {
         appendMessage(createMessage({
           role: 'assistant',
-          text: 'Consulta interrompida. Se a operação já tinha começado, o backend a conclui em segundo plano.',
+          text: 'Consulta interrompida. Se a operação já tinha começado, o sistema a conclui em segundo plano.',
           status: 'blocked'
         }));
       } else {
-        const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
+        const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o assistente.';
         error.value = message;
         appendMessage(createMessage({
           role: 'assistant',
-          text: 'Nao consegui falar com o backend conversacional agora.',
+          text: 'Não consegui falar com o assistente agora.',
           status: 'failed',
           facts: [message]
         }));
@@ -460,9 +447,6 @@ export function useConversationalChatApp() {
   }
 
   async function sendToBackend(userInput, options = {}) {
-    const user = authStore.user.value || null;
-    const requestedBy = buildRequestedBy(user);
-    const userId = buildUserId(user);
     const metadata = {
       source: 'native-chat-app-simplified',
       app: 'conversational-chat-app'
@@ -478,16 +462,14 @@ export function useConversationalChatApp() {
       message: {
         text: userInput
       },
+      // Identidade (usuário, conta CETESB, sessão CETESB, chave de sessão do canal) é resolvida NO
+      // SERVIDOR a partir do token SICAT — ver backend `conversation-principal.ts`. Enviá-la daqui
+      // não teria efeito e daria a falsa impressão de que o cliente a controla.
       context: {
-        integrationAccountId: integrationAccountId.value,
-        sessionContextId: sessionContextId.value,
         accountId: accountId.value,
-        requestedBy,
-        userId,
         manifestId: toNullableString(focusedManifestId.value),
         jobId: toNullableString(focusedJobId.value),
-        currentScreen: 'native_chat_app_simplified',
-        channelSessionKey: buildChannelSessionKey(userId, integrationAccountId.value)
+        currentScreen: 'native_chat_app_simplified'
       },
       metadata,
       ...(options.toolRequest ? { toolRequest: options.toolRequest } : {}),
@@ -506,7 +488,7 @@ export function useConversationalChatApp() {
     const mergedActions = Array.isArray(summary.actions) ? summary.actions.concat(resultActions) : resultActions;
     appendMessage(createMessage({
       role: 'assistant',
-      text: response?.responseText || 'Nao consegui montar uma resposta agora.',
+      text: response?.responseText || 'Não consegui montar uma resposta agora.',
       source: 'backend',
       status: toTrimmedString(response?.status) || 'ready',
       facts: summary.facts,
@@ -539,7 +521,7 @@ export function useConversationalChatApp() {
     }
 
     // Guardado: confirma com a UI travada (loading) e cancelável pelo Parar.
-    await runGuardedTurn((signal) => sendToBackend('Confirmar execucao da acao sensivel.', {
+    await runGuardedTurn((signal) => sendToBackend('Confirmar execução da ação sensível.', {
       signal,
       toolRequest: {
         name: toolName,
@@ -635,9 +617,9 @@ export function useConversationalChatApp() {
     if (!operationalScopeReady.value) {
       appendMessage(createMessage({
         role: 'assistant',
-        text: 'Este app exige sessao SICAT valida, conta CETESB ativa e contexto operacional completo.',
+        text: 'Este app exige sessão SICAT válida, conta CETESB ativa e contexto operacional completo.',
         status: 'blocked',
-        facts: ['Acesse a tela de sessao para ativar ou revisar a conta CETESB antes de tentar uma consulta.']
+        facts: ['Acesse a tela de sessão para ativar ou revisar a conta CETESB antes de tentar uma consulta.']
       }));
       return;
     }
@@ -700,7 +682,7 @@ export function useConversationalChatApp() {
         role: 'assistant',
         source: 'local',
         status: 'ready',
-        text: 'Confirmacao cancelada. Nenhuma acao sensivel foi executada.'
+        text: 'Confirmação cancelada. Nenhuma ação sensível foi executada.'
       }));
       return;
     }

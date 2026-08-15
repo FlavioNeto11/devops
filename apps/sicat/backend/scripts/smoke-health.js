@@ -5,7 +5,13 @@ const baseUrl = (process.env.SMOKE_BASE_URL || process.env.BASE_URL || 'http://l
 /**
  * Smoke test para os 7 health endpoints do sistema.
  * Valida conectividade, status HTTP e estrutura de resposta.
+ *
+ * Exceto `GET /v1/ping`, todos exigem sessão SICAT desde o fechamento da superfície `/v1` — inclusive
+ * `POST /v1/maintenance/cleanup`, que APAGA jobs. Exporte `SMOKE_ACCESS_TOKEN` com um access token do
+ * SICAT (o mesmo do `POST /v1/sicat/auth/login`) antes de rodar; sem ele o smoke falha cedo, com
+ * mensagem, em vez de reportar sete 401 como se fosse a API fora do ar.
  */
+const accessToken = String(process.env.SMOKE_ACCESS_TOKEN || '').trim();
 
 const ENDPOINTS = [
   { method: 'GET', path: '/v1/ping', expectedStatus: 200, requiredFields: ['status', 'timestamp'] },
@@ -24,7 +30,8 @@ async function testEndpoint(endpoint) {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'X-Correlation-Id': `smoke-${Date.now()}`
+      'X-Correlation-Id': `smoke-${Date.now()}`,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
     }
   };
 
@@ -75,6 +82,13 @@ async function testEndpoint(endpoint) {
 async function main() {
   console.log('🚀 Iniciando smoke tests de health endpoints...\n');
   console.log(`Base URL: ${baseUrl}\n`);
+
+  if (!accessToken) {
+    console.error('❌ SMOKE_ACCESS_TOKEN ausente.');
+    console.error('   Seis dos sete endpoints exigem sessão SICAT (o sétimo é GET /v1/ping).');
+    console.error('   Obtenha um access token em POST /v1/sicat/auth/login e exporte SMOKE_ACCESS_TOKEN.');
+    process.exit(1);
+  }
 
   const results = [];
   let failed = 0;

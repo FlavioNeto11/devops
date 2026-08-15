@@ -1,0 +1,54 @@
+id: REQ-SICAT-0027
+slug: req-sicat-0027
+title: "Transporte: importação e validação de NF-e/CT-e/MDF-e com schema registry e vínculos"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve importar, validar e relacionar documentos fiscais eletrônicos (NF-e, CT-e, MDF-e)
+  a operações de transporte — chave de acesso, XML com hash e referência de storage, versão de
+  schema e de Nota Técnica, status de autorização, protocolo, vínculos CIOT↔MDF-e e VPO↔MDF-e —
+  usando um schema registry versionado (nenhuma regra XML depende de schema "eterno"); emissão
+  fiscal fica explicitamente fora deste requisito (ver REQ-SICAT-0029).
+business_rationale: >-
+  Começar por importação+validação reduz drasticamente o risco da primeira entrega fiscal e
+  antecipa em teste as rejeições da NT MDF-e 2026.001 (CIOT no MDF-e) antes de o ambiente de
+  produção recusá-las (baseline deep-research 2026-08-13, "NF-e, CT-e e MDF-e"). Fase E do
+  programa.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: critical
+criticality: high
+architectural_significance: true
+risk_tags: [external-dependency]
+capability_blocks:
+  - migrations-versionadas
+acceptance_criteria:
+  - "XMLs reais de clientes/design partner e cronograma da NT MDF-e 2026.001 são pendência P7 do guia [EXTERNAL DEPENDENCY]."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0017
+  - type: relates_to
+    target: REQ-SICAT-0025
+  - type: relates_to
+    target: REQ-SICAT-0026
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase E)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

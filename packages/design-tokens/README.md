@@ -40,7 +40,7 @@ console, portal-recorder). Mapeamento 1:1 (detalhado no `note` de `brands.platfo
 `--p-<nome>` ↔ `palette.<modo>.<nome>` · `--p-font-*`/`--p-text-*`/`--p-space-*`/`--p-radius-*`/
 `--p-z-*` ↔ `structural.*` · `--p-shadow-<t>` ↔ `shadows.<modo>.<t>`.
 
-## Marcas ADOTADAS (brownfield: sicat/gymops)
+## Marcas ADOTADAS (brownfield — hoje: sicat; gymops/imobia ainda não adotados)
 Apps adotados pela Forja (`origin: adopted` em `specs/products/`) têm frontend pré-Forja com paleta
 artesanal própria — o `discoverForgeApps()` os **pula de propósito** (não sobrescreve com a marca
 default). A adoção dos tokens é **opt-in explícito por marca** no `build.mjs`, com renderer próprio

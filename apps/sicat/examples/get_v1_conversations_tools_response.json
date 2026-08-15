@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "toolName": "list_manifests",
+      "riskLevel": "R1",
+      "allowChannels": [
+        "whatsapp",
+        "native_chat",
+        "inapp"
+      ],
+      "requiresConfirmation": false,
+      "isAction": false,
+      "objective": "Listar manifestos por contexto operacional.",
+      "dependencies": [
+        "manifest-service"
+      ],
+      "category": "manifest"
+    },
+    {
+      "toolName": "submit_manifest",
+      "riskLevel": "R3",
+      "allowChannels": [
+        "native_chat",
+        "inapp"
+      ],
+      "requiresConfirmation": true,
+      "isAction": true,
+      "objective": "Submeter manifesto para CETESB.",
+      "dependencies": [
+        "manifest-service",
+        "job-service"
+      ],
+      "category": "manifest"
+    }
+  ],
+  "count": 2
+}

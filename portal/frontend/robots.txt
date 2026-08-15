@@ -5,6 +5,7 @@ Allow: /$
 Allow: /assets/
 Allow: /rmambiental
 Allow: /anarabottini
+Allow: /besc
 Disallow: /devops
 Disallow: /argocd
 Disallow: /grafana

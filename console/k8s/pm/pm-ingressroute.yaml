@@ -42,7 +42,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/pm`) && Headers(`Accept`, `text/event-stream`)
+    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/pm`) && Header(`Accept`, `text/event-stream`)
       kind: Rule
       priority: 40
       services:

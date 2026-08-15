@@ -1,5 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Âncora no ARQUIVO, nunca em `process.cwd()`: `.github/` mora na RAIZ do app
+// (`apps/sicat/.github`), mas este script roda com cwd = `apps/sicat/backend`
+// (é assim que `npm run validate:agents` e a suíte o invocam). Com `process.cwd()`
+// a validação procurava `backend/.github/agents`, que nunca existiu.
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url)); // backend/scripts
+const BACKEND_ROOT = path.resolve(scriptsDir, '..'); // backend
+const APP_ROOT = path.resolve(BACKEND_ROOT, '..'); // apps/sicat
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message);
@@ -121,7 +130,7 @@ function validateOrchestratorHandoffs(rootDir, agentNames) {
 }
 
 try {
-  const rootDir = process.cwd();
+  const rootDir = APP_ROOT;
   const agentNames = validateAgentFiles(rootDir);
   validatePromptMappings(rootDir, agentNames);
   validateOrchestratorHandoffs(rootDir, agentNames);

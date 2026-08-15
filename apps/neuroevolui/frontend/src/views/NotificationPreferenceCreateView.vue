@@ -6,7 +6,7 @@
     width="narrow"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/notifications">Voltar</UiButton>
+      <UiButton variant="ghost" to="/notification-preferences">Voltar</UiButton>
     </template>
 
     <!-- Banner informativo sobre canais -->
@@ -329,7 +329,7 @@ function selectChannel(value) {
 }
 
 function cancel() {
-  router.push('/notifications');
+  router.push('/notification-preferences');
 }
 
 // ── Submit ───────────────────────────────────────────────────────────────────
@@ -347,7 +347,7 @@ async function submit() {
     try {
       await notificationPreferences.create(body);
       toast.success('Preferência de notificação cadastrada com sucesso.');
-      router.push('/notifications');
+      router.push('/notification-preferences');
     } catch (e) {
       toast.error(
         e && e.message ? e.message : 'Não foi possível cadastrar a preferência.',

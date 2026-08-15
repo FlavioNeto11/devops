@@ -2,7 +2,7 @@
 title: "RM Ambiental — Manual para Claude Code"
 status: canonical
 applies_to: [rmambiental]
-updated: 2026-06-09
+updated: 2026-07-21
 language: pt-BR
 ---
 
@@ -53,11 +53,17 @@ no dev local), basePath `/rmambiental`. Encaixa na esteira como um app `frontend
    estático** para `/rmambiental/assets/` e `/rmambiental/images/` (nunca `alias` com captura de
    regex). E os nomes de asset usam separador por ponto (`[name].[hash].js`) em `vite.config.ts` para
    evitar cache antigo do Cloudflare. Ver TROUBLESHOOTING da plataforma (seções 13/14).
-3. **Conteúdo placeholder tratado como real** → números de autoridade
-   (`src/components/AuthoritySection.tsx`), cases (`src/data/projects.ts`) e contato
-   (`src/lib/site.ts`, campos `AJUSTAR`) são **ilustrativos**. Não publicar como fato sem dado real.
-4. **Imagens** → o portal é 100% SVG/CSS hoje; fotos reais (com direitos) vão em
-   `public/images/` e são servidas por `/rmambiental/images/` (rota já prevista no nginx).
+3. **Conteúdo ilustrativo vs. real** → o **único** dado fictício restante são os **números de
+   autoridade** (bloco `stats` em `src/data/content.default.ts`, marcado pela nota
+   `* Indicadores ilustrativos`) — trocar pelos oficiais via CMS. Já são **reais**: a **galeria**
+   (`src/data/projects.ts` → `galleryPhotos`, 24 fotos com `alt` descritivo) e o **contato**
+   (`src/lib/site.ts`: e-mail e WhatsApp reais, **sem** `AJUSTAR`). O único `AJUSTAR` que sobra no
+   código é o link de Política de Privacidade em `src/components/Footer.tsx`. (Não existe
+   `AuthoritySection.tsx` — os stats moram no `SectionRenderer`/`content.default.ts`.)
+4. **Imagens** → a galeria já usa **fotos reais** em `public/images/gallery/` (24 arquivos `gXX.jpg`),
+   servidas por `/rmambiental/images/` (rota prevista no `nginx.conf`) e listadas em
+   `src/data/projects.ts`. Ilustrações SVG/CSS permanecem em `public/images/decor/`. Novas fotos:
+   soltar o arquivo em `public/images/gallery/` e adicionar a entrada em `projects.ts`.
 
 ## Variáveis de ambiente chave
 

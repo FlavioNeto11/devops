@@ -16,6 +16,9 @@ metadata: { name: neuroevolui-frontend, namespace: apps, labels: { app.kubernete
 spec: { selector: { app.kubernetes.io/name: neuroevolui-frontend }, ports: [ { port: 80, targetPort: 80 } ] }
 ---
 # Frontend NÃO faz strip (regra de ouro) e priority 10 < 40 da API -> /neuroevolui/api vai p/ a API.
+# SSO de borda (UX-NEURO-001): a SPA operacional não tem guard nem fluxo de login próprio; o middleware
+# console-auth-redirect (ForwardAuth do oauth2-proxy, ns devops-system) faz 302 -> login do Keycloak
+# quando não há sessão. Mesmo padrão canônico já usado pela rota da API (console-auth-401).
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata: { name: neuroevolui-frontend, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui } }
@@ -26,3 +29,4 @@ spec:
       kind: Rule
       priority: 10
       services: [ { name: neuroevolui-frontend, port: 80 } ]
+      middlewares: [ { name: console-auth-redirect, namespace: devops-system } ]

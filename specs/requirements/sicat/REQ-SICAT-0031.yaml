@@ -1,0 +1,49 @@
+id: REQ-SICAT-0031
+slug: req-sicat-0031
+title: "Transporte: Centro Operacional com buckets e métricas da vertical"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve estender o Centro Operacional existente do SICAT (não criar um segundo framework
+  de observabilidade) com os buckets e métricas da vertical Transporte: saúde por integração
+  (ANTT, provedor CIOT, SEFAZ, VPO, seguros), operações criadas/bloqueadas, bloqueios por regra,
+  ofertas abaixo do piso impedidas, CIOTs pendentes/falhos, divergências MDF-e, RNTRC irregulares,
+  seguros vencendo, jobs em retry/DLQ por integração, tempo de liberação e regras regulatórias
+  próximas de mudança de vigência.
+business_rationale: >-
+  O Centro Operacional já oferece jobs/retry/DLQ/auditoria/health/relatórios; a vertical nova se
+  encaixa nos mesmos registries de status operacional (baseline deep-research 2026-08-13,
+  "Hardening e Centro Operacional"). Entrega incremental nas fases C–H.
+source:
+  stakeholder: sicat
+  origin: deep-research 2026-08-13 (baseline regulatória aceita) + plano do programa Transporte
+  source_paths:
+    - apps/sicat/docs/30-transporte/deep-research-report.md
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: medium
+criticality: medium
+architectural_significance: false
+capability_blocks:
+  - observabilidade
+verification_method: [test-integration, monitoring, demo]
+links:
+  - type: relates_to
+    target: REQ-SICAT-0013
+  - type: relates_to
+    target: REQ-SICAT-0014
+  - type: depends_on
+    target: REQ-SICAT-0019
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação incremental C–H)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-frontend

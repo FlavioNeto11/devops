@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
   "counts": {
-    "total": 381,
+    "total": 400,
     "by_status": {
       "deployed": 329,
-      "done": 52
+      "done": 52,
+      "not_started": 19
     },
     "refinements": {
       "total": 63,
@@ -1945,6 +1946,66 @@
       "deployed_at": "2026-06-15",
       "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
+    "REQ-SICAT-0017": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0018": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0019": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0020": {
+      "status": "not_started",
+      "req_revision": 2
+    },
+    "REQ-SICAT-0021": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0022": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0023": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0024": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0025": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0026": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0027": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0028": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0029": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0030": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
     "REQ-SICAT-NFR-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -1992,6 +2053,22 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
+    },
+    "REQ-SICAT-NFR-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-NFR-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-NFR-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-NFR-0012": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-SPECS-0001": {
       "status": "deployed",

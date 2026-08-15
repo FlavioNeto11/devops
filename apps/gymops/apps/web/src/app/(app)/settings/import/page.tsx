@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Upload, FileJson, Wifi, ChevronRight, RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { TutorialTrigger } from '@/features/tutorial';
 import { importsApi, integrationsApi } from '@/lib/imports-api';
 import type { BoardPreview, BoardMapping, ListMapping, ImportMapping } from '@/lib/imports-api';
@@ -72,7 +73,11 @@ export default function ImportPage() {
   }
 
   // Trello boards for API mode
-  const { data: trelloBoardsData } = useQuery({
+  const {
+    data: trelloBoardsData,
+    isError: boardsError,
+    refetch: refetchBoards,
+  } = useQuery({
     queryKey: ['trello-boards', organizationId],
     queryFn: () => integrationsApi.getTrelloBoards(organizationId!),
     enabled: mode === 'api' && step === 'boards',
@@ -223,8 +228,17 @@ export default function ImportPage() {
 
           {mode === 'json' && (
             <div
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors"
+              role="button"
+              tabIndex={0}
+              aria-label="Selecionar arquivo JSON do Trello"
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               onClick={() => fileRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileRef.current?.click();
+                }
+              }}
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">Clique para selecionar o arquivo JSON do Trello</p>
@@ -265,7 +279,20 @@ export default function ImportPage() {
       {step === 'boards' && (
         <div className="space-y-4">
           <p className="text-sm font-medium">Selecione os boards a importar:</p>
-          {trelloBoards.length === 0 ? (
+          {boardsError && trelloBoardsData && (
+            <QueryErrorState
+              className="py-4"
+              title="Não foi possível atualizar"
+              description="Exibindo os últimos boards carregados."
+              onRetry={() => refetchBoards()}
+            />
+          )}
+          {boardsError && !trelloBoardsData ? (
+            <QueryErrorState
+              description="Não foi possível listar os boards do Trello."
+              onRetry={() => refetchBoards()}
+            />
+          ) : trelloBoards.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Carregando boards do Trello...

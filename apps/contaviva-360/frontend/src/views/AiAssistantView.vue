@@ -35,6 +35,61 @@
                     <span class="aiv-file-meta">{{ f.type }} · {{ f.status }}</span>
                   </li>
                 </ul>
+
+                <!-- Fontes citadas (grounding) — UX-CV360-009 -->
+                <div v-if="m.citations && m.citations.length" class="aiv-cites">
+                  <p class="aiv-cites-title">Fontes citadas</p>
+                  <ul class="aiv-cites-list">
+                    <li v-for="(c, ci) in m.citations" :key="ci" class="aiv-cite">
+                      <span class="aiv-cite-type">{{ c.source_type }}<template v-if="c.source_id"> #{{ c.source_id }}</template></span>
+                      <span v-if="c.descricao" class="aiv-cite-desc">{{ c.descricao }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Rascunho proposto: confirmação humana antes de persistir — UX-CV360-009 -->
+                <section v-if="m.draft && m.draftState !== 'descartado'" class="aiv-draft" :data-state="m.draftState" aria-label="Rascunho proposto pela IA">
+                  <header class="aiv-draft-head">
+                    <span class="aiv-draft-badge">Rascunho proposto</span>
+                    <span class="aiv-draft-type">{{ draftTipoLabel(m.draft.tipo) }}</span>
+                  </header>
+                  <p class="aiv-draft-title">{{ m.draft.titulo || 'Rascunho' }}</p>
+
+                  <dl class="aiv-draft-fields">
+                    <div v-for="(row, ri) in draftRows(m.draft)" :key="ri" class="aiv-draft-row">
+                      <dt>{{ row.label }}</dt>
+                      <dd>{{ row.value }}</dd>
+                    </div>
+                  </dl>
+
+                  <div v-if="m.draft.campos_principais" class="aiv-draft-sub">
+                    <p class="aiv-draft-subtitle">Campos principais</p>
+                    <dl class="aiv-draft-fields">
+                      <div v-for="(v, k) in m.draft.campos_principais" :key="k" class="aiv-draft-row">
+                        <dt>{{ humanize(k) }}</dt>
+                        <dd>{{ v }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div v-if="m.draft.por_categoria && m.draft.por_categoria.length" class="aiv-draft-sub">
+                    <p class="aiv-draft-subtitle">Por categoria</p>
+                    <ul class="aiv-draft-cats">
+                      <li v-for="(cat, cti) in m.draft.por_categoria" :key="cti">
+                        <span>{{ cat.categoria }} · {{ cat.tipo }}</span>
+                        <span>{{ cat.total }}</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <p v-if="m.draft.aviso" class="aiv-draft-aviso">{{ m.draft.aviso }}</p>
+
+                  <p v-if="m.draftState === 'confirmado'" class="aiv-draft-done" role="status">✓ Rascunho confirmado e salvo.</p>
+                  <div v-else class="aiv-draft-actions">
+                    <UiButton variant="ghost" size="sm" :disabled="m.draftState === 'confirmando'" @click="discardDraft(m)">Descartar</UiButton>
+                    <UiButton size="sm" :loading="m.draftState === 'confirmando'" @click="confirmDraftFor(m)">Confirmar rascunho</UiButton>
+                  </div>
+                </section>
               </template>
             </div>
           </article>
@@ -59,16 +114,17 @@
       </UiCard>
     </div>
 
-    <template #footer><p>Os arquivos são processados só para responder à sua pergunta. Sem chave de IA o assistente fica desligado (fail-closed).</p></template>
+    <template #footer><p>As respostas são geradas por IA e podem conter erros — confira valores e datas antes de agir. Os arquivos são processados só para responder à sua pergunta. Sem chave de IA o assistente fica desligado (fail-closed).</p></template>
   </UiPageLayout>
 </template>
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue';
-import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast } from '../ui/index.js';
-import { assistant, assistantHealth, health as apiHealth } from '../api.js';
+import { UiPageLayout, UiCard, UiButton, UiFormField, UiFileDrop, UiStatusBadge, UiEmptyState, UiLoadingState, useToast, useConfirm } from '../ui/index.js';
+import { assistant, assistantHealth, confirmDraft, health as apiHealth } from '../api.js';
 
 const toast = useToast();
+const confirm = useConfirm();
 const health = ref('checking'); // checking | online | offline | error
 const healthLabel = computed(() => ({ checking: 'Verificando…', online: 'IA no ar', offline: 'IA desligada', error: 'IA com erro' }[health.value] || 'IA'));
 const messages = ref([]);
@@ -109,7 +165,20 @@ async function onAsk() {
   thinking.value = true; scrollEnd();
   try {
     const r = await assistant(q, fl);
-    messages.value.push({ id: ++mid, role: 'assistant', text: (r && (r.answer || r.text)) || 'Sem resposta.', files: (r && r.files) || [] });
+    // Preserva citations/draft/grounded devolvidos pela API (antes descartados — UX-CV360-009):
+    // fontes viram lista de referências e o draft vira um cartão "Rascunho proposto" com
+    // Confirmar/Descartar (loop de confirmação humana, mecanismo de segurança da IA).
+    messages.value.push({
+      id: ++mid,
+      role: 'assistant',
+      text: (r && (r.answer || r.text)) || 'Sem resposta.',
+      files: (r && r.files) || [],
+      citations: (r && r.citations) || [],
+      draft: (r && r.draft) || null,
+      draftState: 'proposto', // proposto | confirmando | confirmado | descartado
+      grounded: !!(r && r.grounded),
+      conversationId: (r && r.conversation_id) || null,
+    });
   } catch (e) {
     if (e && e.status === 503) health.value = 'offline';
     messages.value.push({ id: ++mid, role: 'assistant', error: errMsg(e) });
@@ -126,7 +195,43 @@ function errMsg(e) {
   return e.message || 'Falha ao falar com o assistente.';
 }
 
-function clearAll() { messages.value = []; }
+// --- Rascunho proposto pela IA + fontes (UX-CV360-009) ---
+const DRAFT_TIPO_LABEL = {
+  declaracao_irpf: 'Declaração IRPF',
+  guia_pagamento: 'Guia de pagamento',
+  analise_contabil: 'Análise contábil',
+  relatorio_receitas_despesas: 'Relatório de receitas e despesas',
+};
+// Campos tratados à parte (título/aviso) ou renderizados em blocos próprios (campos_principais,
+// por_categoria); o resto dos primitivos vira uma lista rótulo -> valor.
+const DRAFT_HIDE = new Set(['draft_id', 'tipo', 'status', 'titulo', 'aviso', 'campos_principais', 'por_categoria']);
+function draftTipoLabel(t) { return DRAFT_TIPO_LABEL[t] || 'Rascunho'; }
+function humanize(k) { return String(k || '').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()); }
+function draftRows(d) {
+  return Object.entries(d || {})
+    .filter(([k, v]) => !DRAFT_HIDE.has(k) && (typeof v === 'string' || typeof v === 'number'))
+    .map(([k, v]) => ({ label: humanize(k), value: String(v) }));
+}
+
+async function confirmDraftFor(m) {
+  if (!m || !m.draft || m.draftState === 'confirmando' || m.draftState === 'confirmado') return;
+  m.draftState = 'confirmando';
+  try {
+    await confirmDraft({ draftId: m.draft.draft_id, draftType: m.draft.tipo, draftData: m.draft, conversationId: m.conversationId });
+    m.draftState = 'confirmado';
+    toast.success('Rascunho confirmado e salvo.');
+  } catch (e) {
+    m.draftState = 'proposto';
+    toast.error(e && e.message ? e.message : 'Não foi possível confirmar o rascunho. Tente novamente.');
+  }
+}
+function discardDraft(m) { if (m) m.draftState = 'descartado'; }
+
+async function clearAll() {
+  if (!messages.value.length) return;
+  const ok = await confirm({ title: 'Apagar conversa', message: 'Apagar toda a conversa e as análises de anexos? Isso não pode ser desfeito.', confirmLabel: 'Apagar', danger: true });
+  if (ok) messages.value = [];
+}
 
 onMounted(checkHealth);
 </script>
@@ -154,5 +259,33 @@ onMounted(checkHealth);
 .aiv-textarea:disabled { opacity: .6; cursor: not-allowed; }
 .aiv-composer-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); flex-wrap: wrap; }
 .aiv-hint { margin: 0; font-size: var(--ui-text-xs); }
+
+/* Fontes citadas (UX-CV360-009) */
+.aiv-cites { margin-top: var(--ui-space-3); padding-top: var(--ui-space-2); border-top: 1px dashed rgb(var(--ui-border)); }
+.aiv-cites-title { margin: 0 0 var(--ui-space-1); font-size: var(--ui-text-xs); font-weight: 700; color: rgb(var(--ui-muted)); text-transform: uppercase; letter-spacing: .05em; }
+.aiv-cites-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.aiv-cite { display: flex; flex-wrap: wrap; gap: var(--ui-space-2); font-size: var(--ui-text-sm); }
+.aiv-cite-type { font-weight: 600; color: rgb(var(--ui-accent-strong)); }
+.aiv-cite-desc { color: rgb(var(--ui-muted)); }
+
+/* Cartão "Rascunho proposto" — loop de confirmação humana (UX-CV360-009) */
+.aiv-draft { margin-top: var(--ui-space-3); border: 1px solid rgb(var(--ui-accent) / 0.35); border-radius: var(--ui-radius-md); background: rgb(var(--ui-accent) / 0.06); padding: var(--ui-space-3) var(--ui-space-4); }
+.aiv-draft[data-state="confirmado"] { border-color: rgb(var(--ui-ok) / 0.45); background: rgb(var(--ui-ok) / 0.08); }
+.aiv-draft-head { display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
+.aiv-draft-badge { font-size: var(--ui-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: rgb(var(--ui-accent-fg)); background: rgb(var(--ui-accent)); border-radius: var(--ui-radius-pill); padding: 2px 10px; }
+.aiv-draft-type { font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); }
+.aiv-draft-title { margin: var(--ui-space-2) 0; font-weight: 700; color: rgb(var(--ui-fg)); }
+.aiv-draft-fields { margin: 0; display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 4px var(--ui-space-3); }
+.aiv-draft-row { display: contents; }
+.aiv-draft-fields dt { font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); }
+.aiv-draft-fields dd { margin: 0; font-size: var(--ui-text-sm); font-weight: 600; color: rgb(var(--ui-fg)); }
+.aiv-draft-sub { margin-top: var(--ui-space-3); }
+.aiv-draft-subtitle { margin: 0 0 var(--ui-space-1); font-size: var(--ui-text-xs); font-weight: 700; color: rgb(var(--ui-muted)); text-transform: uppercase; letter-spacing: .05em; }
+.aiv-draft-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.aiv-draft-cats li { display: flex; justify-content: space-between; gap: var(--ui-space-3); font-size: var(--ui-text-sm); }
+.aiv-draft-aviso { margin: var(--ui-space-3) 0 0; font-size: var(--ui-text-xs); color: rgb(var(--ui-warn)); }
+.aiv-draft-done { margin: var(--ui-space-3) 0 0; font-size: var(--ui-text-sm); font-weight: 600; color: rgb(var(--ui-ok)); }
+.aiv-draft-actions { margin-top: var(--ui-space-3); display: flex; justify-content: flex-end; gap: var(--ui-space-2); }
+
 @media (max-width: 560px) { .aiv-msg-body { max-width: 92%; } .aiv-composer-actions { flex-direction: column; align-items: stretch; } }
 </style>

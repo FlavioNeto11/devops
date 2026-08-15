@@ -145,3 +145,13 @@ test('stateMarkup cobre loading, empty e error', () => {
   assert.match(err, /data-retry/);
   assert.match(err, /timeout x/);
 });
+
+test('stateMarkup expired: aviso de sessão + CTA de relogin com href escapado', () => {
+  const html = stateMarkup('expired', { loginHref: '/oauth2/start?rd=%2F' });
+  assert.match(html, /Sua sessão expirou/);
+  assert.match(html, /href="\/oauth2\/start\?rd=%2F"/);
+  // href é escapado (sem aspas cruas injetadas)
+  const evil = stateMarkup('expired', { loginHref: '"/x"><script>' });
+  assert.ok(!evil.includes('"/x"><script>'));
+  assert.match(evil, /&quot;/);
+});

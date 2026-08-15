@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import Icon from '../components/Icon.vue';
 import { MODULES } from '../nav';
+import { roleLabel } from '../utils/format';
 import { useAuthStore } from '../stores/auth';
 
 const auth = useAuthStore();
@@ -13,6 +14,14 @@ function logout() {
   auth.logout();
   router.push('/');
 }
+
+// Fechar o drawer mobile por teclado (Esc) — o backdrop é apenas apresentacional
+// (fecha-ao-clicar com o mouse); o Esc dá o equivalente por teclado (WCAG 2.1.1).
+function onKeydown(e) {
+  if (e.key === 'Escape' && open.value) open.value = false;
+}
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
@@ -38,7 +47,7 @@ function logout() {
           <div class="ap-avatar">{{ (auth.user?.name || '?').slice(0, 1).toUpperCase() }}</div>
           <div class="ap-usermeta">
             <strong>{{ auth.user?.name }}</strong>
-            <small>{{ auth.organization?.name }} · {{ auth.role }}</small>
+            <small>{{ auth.organization?.name }} · {{ roleLabel(auth.role) }}</small>
           </div>
         </div>
         <button class="ap-logout" @click="logout" title="Sair"><Icon name="logout" :size="16" /></button>

@@ -4,8 +4,10 @@ import { api } from '../api.js';
 import {
   StatusBadge, RiskBadge, Progress, Field, EnumSelect, Banner, Loading,
   ConfirmButton, formatMoney, formatBytes, useLabel, useMeta, HelpCallout,
+  LegalStatusBadge, friendly,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
 
 // input que salva no blur (evita chamada por tecla)
 function BlurInput({ value, onSave, textarea, ...rest }) {
@@ -16,8 +18,14 @@ function BlurInput({ value, onSave, textarea, ...rest }) {
   return <El {...rest} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} />;
 }
 
-const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'tokenizacao', collateral: 'caucao' };
+const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'tokenizacao', collateral: 'caucao', pericia: 'pericia' };
 const SEV = { blocker: { c: 'b-red', l: 'Bloqueante' }, high: { c: 'b-amber', l: 'Alta' }, medium: { c: 'b-blue', l: 'Média' }, info: { c: 'b-grey', l: 'Informativa' } };
+// tipo de credor-alvo do caso -> categoria da jurisprudencia (p/ deep-link cruzado)
+const CREDITOR_TO_CATEGORY = {
+  banco_do_brasil: 'banco_do_brasil', banco_privado: 'bancos_privados', caixa: 'caixa_economica',
+  empresa_privada: 'empresas_privadas', tributo_federal: 'tributos_federais',
+  tributo_estadual: 'tributos_estaduais', tributo_municipal: 'tributos_municipais',
+};
 
 export default function CaseDetail() {
   const { id } = useParams();
@@ -27,12 +35,12 @@ export default function CaseDetail() {
   const [tab, setTab] = useState('resumo');
   const label = useLabel();
 
-  const load = () => api.get(id).then(setC).catch((e) => setError(e.message));
+  const load = () => api.get(id).then(setC).catch((e) => setError(friendly(e.message)));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
   const patch = async (promise) => {
     setError(null);
-    try { setC(await promise); } catch (e) { setError(e.message); }
+    try { setC(await promise); } catch (e) { setError(friendly(e.message)); }
   };
 
   if (!c) return error ? <Banner>{error}</Banner> : <Loading />;
@@ -44,6 +52,7 @@ export default function CaseDetail() {
     { k: 'processos', label: 'Processos', icon: 'briefcase', count: (c.lawsuits || []).length },
     { k: 'documentos', label: 'Documentos', icon: 'file', count: `${d.docPct}%` },
     { k: 'juridico', label: 'Jurídico', icon: 'landmark' },
+    { k: 'pericia', label: 'Perícia', icon: 'scale' },
     { k: 'tokenizacao', label: 'Tokenização', icon: 'coins' },
     { k: 'caucao', label: 'Caução', icon: 'shield' },
     { k: 'pendencias', label: 'Pendências', icon: 'alert', count: d.pendencyCount, warn: d.blockerCount > 0 },
@@ -55,7 +64,7 @@ export default function CaseDetail() {
 
   return (
     <>
-      <div className="crumbs"><Link to="/">Casos</Link> / {name}</div>
+      <div className="crumbs"><Link to="/casos">Casos</Link> / {name}</div>
 
       <div className="case-summary">
         <div className="cs-top">
@@ -70,7 +79,7 @@ export default function CaseDetail() {
               className="btn danger sm"
               label={<><Icon name="trash" /> Excluir</>}
               confirmLabel="Confirmar exclusão?"
-              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/'); } catch (e) { setError(e.message); } }}
+              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/casos'); } catch (e) { setError(friendly(e.message)); } }}
             />
           </div>
         </div>
@@ -78,17 +87,20 @@ export default function CaseDetail() {
           <div className="cs-metric"><span className="m-k">Status</span><span className="m-v"><StatusBadge status={c.status} /></span></div>
           <div className="cs-metric"><span className="m-k">Risco jurídico</span><span className="m-v"><RiskBadge level={d.risk.level} /></span></div>
           <div className="cs-metric"><span className="m-k">Documentação</span><span className="m-v"><Progress pct={d.docPct} /></span></div>
+          <div className="cs-metric"><span className="m-k">Mecanismo</span><span className="m-v" style={{ fontSize: 14 }}>{label('mechanism', c.mechanism)}</span></div>
           <div className="cs-metric"><span className="m-k">Pendências</span><span className="m-v">{d.pendencyCount}{d.blockerCount ? ` · ${d.blockerCount} bloq.` : ''}</span></div>
           <div className="cs-metric"><span className="m-k">Valor estimado</span><span className="m-v">{formatMoney(d.estimatedValue)}</span></div>
         </div>
       </div>
+
+      <MarketplaceBridge caseId={id} c={c} />
 
       <Banner kind="err">{error}</Banner>
 
       <div className="detail-layout">
         <nav className="tab-rail">
           {tabs.map((t) => (
-            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+            <button key={t.k} className={tab === t.k ? 'active' : ''} aria-current={tab === t.k ? 'true' : undefined} onClick={() => setTab(t.k)}>
               <Icon name={t.icon} />
               <span>{t.label}</span>
               {t.count !== undefined && t.count !== 0 && <span className={`tab-count ${t.warn ? 'warn' : ''}`}>{t.count}</span>}
@@ -101,6 +113,7 @@ export default function CaseDetail() {
           {tab === 'processos' && <ProcessosTab c={c} id={id} patch={patch} />}
           {tab === 'documentos' && <DocumentosTab c={c} id={id} patch={patch} />}
           {tab === 'juridico' && <JuridicoTab c={c} id={id} patch={patch} />}
+          {tab === 'pericia' && <PericiaTab c={c} id={id} patch={patch} />}
           {tab === 'tokenizacao' && <TokenizacaoTab c={c} id={id} patch={patch} />}
           {tab === 'caucao' && <CaucaoTab c={c} id={id} patch={patch} />}
           {tab === 'pendencias' && <PendenciasTab c={c} goResolve={goResolve} />}
@@ -108,6 +121,78 @@ export default function CaseDetail() {
         </div>
       </div>
     </>
+  );
+}
+
+// Ponte caso -> marketplace (só para quem tem titles:create, i.e. Gestor/admin). Tanto criar o
+// título quanto "Abrir título →" levam à área de GESTÃO (gated por titles:create); auditor com
+// titles:read só de leitura não deve ver esta ponte (cairia em "Acesso restrito"). Ver UX-BESC-002.
+// Se o caso já originou um título, linka para o detalhe; se é elegível, permite criar; senão, explica.
+function MarketplaceBridge({ caseId, c }) {
+  const { hasPerm } = useAuth();
+  const navigate = useNavigate();
+  const canManage = hasPerm('titles:create');
+  const [title, setTitle] = useState(undefined); // undefined = carregando · null = nenhum
+  const [err, setErr] = useState(null);
+  const [override, setOverride] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!canManage) { setTitle(null); return undefined; }
+    let alive = true;
+    api.mkt.titles()
+      .then((ts) => { if (alive) setTitle((ts || []).find((t) => t.case_id === caseId) || null); })
+      .catch(() => { if (alive) setTitle(null); });
+    return () => { alive = false; };
+  }, [caseId, canManage]);
+
+  if (!canManage) return null;
+
+  const eligible = c.status === 'ready_for_structuring' || c.status === 'ready_with_caveats';
+  const withCaveats = c.status === 'ready_with_caveats';
+
+  const create = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const t = await api.mkt.createTitle({ caseId, label: c.holder_name || undefined, override });
+      navigate(`/gestao/titulos/${t.id}`);
+    } catch (e) { setErr(e.message); setBusy(false); }
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-head"><h3><Icon name="coins" size={16} /> Tokenização (marketplace)</h3></div>
+      <div className="card-body">
+        {title === undefined && <span className="small muted">Verificando título…</span>}
+        {title && (
+          <div className="between" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <span>Este caso já originou o título <strong>{title.label}</strong> <LegalStatusBadge status={title.legal_status} /></span>
+            <Link className="btn sm primary" to={`/gestao/titulos/${title.id}`}>Abrir título →</Link>
+          </div>
+        )}
+        {title === null && eligible && (
+          <div className="stack">
+            <p className="small muted" style={{ margin: 0 }}>Este caso está apto e ainda não tem título no marketplace.</p>
+            <Banner kind="err">{err}</Banner>
+            {withCaveats && (
+              <label className="row" style={{ gap: 8 }}>
+                <input type="checkbox" style={{ width: 'auto' }} checked={override} onChange={(e) => setOverride(e.target.checked)} />
+                <span>Caso <em>apto com ressalvas</em>: aceito as ressalvas para originar o título.</span>
+              </label>
+            )}
+            <div className="row">
+              <button className="btn primary" disabled={busy || (withCaveats && !override)} onClick={create}>{busy ? <span className="spinner" /> : <Icon name="plus" size={14} />} Criar título do marketplace</button>
+            </div>
+          </div>
+        )}
+        {title === null && !eligible && (
+          <p className="small muted" style={{ margin: 0 }}>
+            Para originar um título, o caso precisa estar <strong>Apto para estruturação</strong> (ou <strong>Apto com ressalvas</strong>).
+            Status atual: <StatusBadge status={c.status} />.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -191,13 +276,18 @@ function ProcessosTab({ c, id, patch }) {
   const label = useLabel();
   const [editing, setEditing] = useState(null); // lawsuit id ou 'new'
   const [form, setForm] = useState(LAWSUIT_EMPTY);
+  const [busy, setBusy] = useState(false);
   const openNew = () => { setForm(LAWSUIT_EMPTY); setEditing('new'); };
   const openEdit = (l) => { setForm({ ...LAWSUIT_EMPTY, ...l }); setEditing(l.id); };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const save = async () => {
-    if (editing === 'new') await patch(api.addLawsuit(id, form));
-    else await patch(api.updateLawsuit(id, editing, form));
-    setEditing(null);
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (editing === 'new') await patch(api.addLawsuit(id, form));
+      else await patch(api.updateLawsuit(id, editing, form));
+      setEditing(null);
+    } finally { setBusy(false); }
   };
   return (
     <div className="stack">
@@ -225,7 +315,7 @@ function ProcessosTab({ c, id, patch }) {
             <Field label="Trânsito em julgado"><label className="row" style={{ gap: 6 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.transited} onChange={set('transited')} /> Houve trânsito em julgado</label></Field>
             <div className="full"><Field label="Próximos passos"><textarea value={form.next_steps} onChange={set('next_steps')} rows={2} /></Field></div>
           </div>
-          <div className="row"><button className="btn primary" onClick={save}>Salvar processo</button><button className="btn" onClick={() => setEditing(null)}>Cancelar</button></div>
+          <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar processo</button><button className="btn" onClick={() => setEditing(null)} disabled={busy}>Cancelar</button></div>
         </div></div>
       )}
 
@@ -300,6 +390,20 @@ function DocItem({ c, id, doc, patch, statusOptions, REQ }) {
           ))}
         </div>
       )}
+      {(doc.refs || []).length > 0 && (
+        <div className="attach-list">
+          {doc.refs.map((r) => (
+            <div className="attach-item" key={r.jurisprudenceId}>
+              <span className="att-ic"><Icon name="gavel" size={14} /></span>
+              <a className="att-name" href={api.jurisprudenceFileUrl(r.jurisprudenceId)} target="_blank" rel="noreferrer">{r.title || 'Documento judicial vinculado'}</a>
+              <span className="att-meta">documento judicial</span>
+              <span className="att-sp" />
+              <a className="btn ghost sm" href={api.jurisprudenceFileUrl(r.jurisprudenceId)} target="_blank" rel="noreferrer" title="Abrir o PDF"><Icon name="download" size={14} /></a>
+              <a className="btn ghost sm" href={`/besc/jurisprudencia/${r.jurisprudenceId}`} target="_blank" rel="noreferrer" title="Ficha completa">Ficha</a>
+            </div>
+          ))}
+        </div>
+      )}
       <BlurInput textarea className="small" style={{ marginTop: 8 }} rows={1} placeholder="Observações…" value={doc.notes} onSave={(v) => patch(api.updateDocument(id, doc.key, { notes: v }))} />
     </div>
   );
@@ -313,6 +417,7 @@ function DocumentosTab({ c, id, patch }) {
   const statusOptions = Object.entries((meta && meta.enums.document_status) || {});
   return (
     <div className="stack">
+      <JudicialDocsPanel precedents={c.precedents} title="Documentos judiciais do caso" hint="Peças e decisões judiciais deste caso (das ações do BESC). Abra ou baixe o PDF diretamente aqui." />
       <HelpCallout title={`Documentação ${c.derived.docPct}% concluída (validados ÷ aplicáveis)`}>
         Avance o status conforme o andamento: <strong>Pendente → Recebido → Em análise → Validado</strong>.
         Anexe o arquivo (PDF, imagem, etc.) em cada documento com o botão <strong>Anexar</strong> — ao anexar, o
@@ -342,12 +447,54 @@ function ChecklistAnswer({ value, onChange }) {
   );
 }
 
+// Painel de documentos judiciais vinculados ao caso (peças/decisões — os PDFs vivem na
+// coleção de jurisprudência no PVC; aqui damos acesso direto a Ver PDF + Ficha).
+function JudicialDocsPanel({ precedents, title = 'Documentos judiciais do caso', hint }) {
+  const [items, setItems] = useState(null);
+  const label = useLabel();
+  useEffect(() => {
+    let alive = true;
+    if (!precedents || precedents.length === 0) { setItems([]); return; }
+    Promise.all(precedents.map((pid) => api.jurisprudenceGet(pid).catch(() => null)))
+      .then((r) => { if (alive) setItems(r.filter(Boolean)); });
+    return () => { alive = false; };
+  }, [precedents]);
+  if (!precedents || precedents.length === 0) return null;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>{title}</h3><span className="tab-count" style={{ marginLeft: 4 }}>{precedents.length}</span></div>
+      <div className="card-body">
+        {hint && <p className="small muted" style={{ margin: '-4px 0 12px' }}>{hint}</p>}
+        {!items && <span className="small muted">Carregando…</span>}
+        {items && items.map((j) => (
+          <div key={j.id} className="between" style={{ padding: '11px 0', borderBottom: '1px solid var(--line-soft)', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{j.title}</div>
+              <div className="small muted" style={{ marginTop: 3 }}>{[label('tribunal', j.tribunal), j.instancia && label('instancia', j.instancia), j.year, j.processNumber].filter(Boolean).join(' · ')}</div>
+              <div className="chip-row" style={{ marginTop: 7 }}>
+                {(j.mechanism || []).map((m) => <span key={m} className="chip">{label('mechanism', m)}</span>)}
+                {j.outcome && <span className={`badge ${{ favoravel: 'b-green', parcial: 'b-amber', desfavoravel: 'b-red', indefinido: 'b-grey' }[j.outcome] || 'b-grey'}`}>{label('outcome', j.outcome)}</span>}
+              </div>
+            </div>
+            <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+              {j.fileRef && j.fileRef.stored && <a className="btn sm" href={api.jurisprudenceFileUrl(j.id)} target="_blank" rel="noreferrer" title="Abrir o PDF do documento"><Icon name="file" size={13} /> Ver PDF</a>}
+              {j.fileRef && j.fileRef.stored && <a className="btn ghost sm" href={api.jurisprudenceFileUrl(j.id)} download title="Baixar o PDF"><Icon name="download" size={13} /></a>}
+              <a className="btn ghost sm" href={`/besc/jurisprudencia/${j.id}`} target="_blank" rel="noreferrer" title="Abrir a ficha completa (ementa)">Ficha</a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function JuridicoTab({ c, id, patch }) {
   const { meta } = useMeta();
   const cats = (meta && meta.catalogs.legalCategories) || {};
   const groups = groupBy(c.legal, 'category');
   return (
     <div className="stack">
+      <JudicialDocsPanel precedents={c.precedents} title="Jurisprudência de apoio vinculada" hint="Decisões vinculadas a este caso — servem de fundamento jurídico." />
       <HelpCallout title="Perguntas de levantamento (requerem validação jurídica)">
         Responda o que já se sabe: <strong>Sim / Não / Parcial / Não avaliado / Não se aplica</strong>. Deixar
         “Não avaliado” é honesto e vira pendência para lembrar de resolver. Ex.: em “Pode ser cedido?”, se ainda
@@ -364,6 +511,11 @@ function JuridicoTab({ c, id, patch }) {
                   <div style={{ fontWeight: 600 }}>{it.label}</div>
                   <div className="ci-controls"><ChecklistAnswer value={it.answer} onChange={(v) => patch(api.updateLegal(id, it.key, { answer: v }))} /></div>
                 </div>
+                {it.key === 'favorable_case_law' && (
+                  <Link className="btn ghost sm" style={{ marginTop: 6 }} to={`/jurisprudencia?outcome=favoravel${c.target_creditor_type && c.target_creditor_type !== 'outro' ? `&creditorCategory=${CREDITOR_TO_CATEGORY[c.target_creditor_type] || ''}` : ''}`}>
+                    <Icon name="gavel" size={13} /> Ver jurisprudência favorável no acervo →
+                  </Link>
+                )}
                 <BlurInput textarea className="small" rows={1} style={{ marginTop: 8 }} placeholder="Observações / evidência…" value={it.notes} onSave={(v) => patch(api.updateLegal(id, it.key, { notes: v }))} />
               </div>
             ))}
@@ -371,6 +523,43 @@ function JuridicoTab({ c, id, patch }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function PericiaTab({ c, id, patch }) {
+  const [form, setForm] = useState(c.pericia || {});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setForm(c.pericia || {}); }, [c]);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
+  const save = async () => { if (busy) return; setBusy(true); try { await patch(api.updatePericia(id, form)); } finally { setBusy(false); } };
+  const agio = (() => {
+    const a = parseFloat(String(form.acquisition_price || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
+    const u = parseFloat(String(form.updated_value_pericial || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
+    if (Number.isNaN(a) || Number.isNaN(u)) return null;
+    return u - a;
+  })();
+  return (
+    <div className="card"><div className="card-body">
+      <HelpCallout title="Perícia e atualização monetária (registro do laudo)">
+        A perícia confirma a <strong>autenticidade da cártula</strong> e apura a <strong>atualização monetária</strong>
+        do valor pago na aquisição até hoje — que gera o <strong>ágio</strong>. O sistema <strong>registra</strong> o
+        laudo informado; não calcula o valor oficial. A atualização baseia-se na data e no preço de aquisição, não no
+        valor de conversão da AGE do Banco do Brasil.
+      </HelpCallout>
+      <label className="row" style={{ gap: 8, marginBottom: 14 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.active} onChange={set('active')} /> <strong>Ativar módulo de perícia para este caso</strong></label>
+      <div className="form-grid">
+        <Field label="Preço de aquisição (R$)" help="Valor pago na época da aquisição — base da atualização." example="Comprou por R$ 5.000 em 1998."><input value={form.acquisition_price || ''} onChange={set('acquisition_price')} /></Field>
+        <Field label="Data-base de aquisição" example="1998 ou 03/1998"><input value={form.acquisition_date || ''} onChange={set('acquisition_date')} /></Field>
+        <Field label="Índice de atualização"><EnumSelect enumName="monetary_index" value={form.monetary_index} onChange={set('monetary_index')} allowEmpty /></Field>
+        <Field label="Valor atualizado no laudo (R$)" hint="Informado pelo laudo pericial"><input value={form.updated_value_pericial || ''} onChange={set('updated_value_pericial')} /></Field>
+        <Field label="Ágio (R$)" hint={agio != null ? `sugerido: ${formatMoney(agio)}` : 'valor - aquisição'}><input value={form.agio || ''} onChange={set('agio')} /></Field>
+        <Field label="Perito / entidade"><input value={form.perito || ''} onChange={set('perito')} /></Field>
+        <Field label="Status do laudo"><EnumSelect enumName="laudo_status" value={form.laudo_status} onChange={set('laudo_status')} /></Field>
+        <Field label="Autenticidade da cártula"><EnumSelect enumName="authenticity_status" value={form.authenticity_status} onChange={set('authenticity_status')} /></Field>
+        <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
+      </div>
+      <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar perícia</button></div>
+    </div></div>
   );
 }
 
@@ -410,9 +599,10 @@ function TokenizacaoTab({ c, id, patch }) {
 function CaucaoTab({ c, id, patch }) {
   const col = c.collateral || {};
   const [form, setForm] = useState(col);
+  const [busy, setBusy] = useState(false);
   useEffect(() => { setForm(c.collateral || {}); }, [c]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
-  const save = () => patch(api.updateCollateral(id, form));
+  const save = async () => { if (busy) return; setBusy(true); try { await patch(api.updateCollateral(id, form)); } finally { setBusy(false); } };
   const coverage = (() => {
     const debt = parseFloat(String(form.debt_value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
     const guar = parseFloat(String(form.required_guarantee_value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
@@ -442,7 +632,7 @@ function CaucaoTab({ c, id, patch }) {
         <div className="full"><Field label="Documentos necessários para apresentar ao juiz"><textarea value={form.docs_for_judge || ''} onChange={set('docs_for_judge')} rows={2} /></Field></div>
         <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
       </div>
-      <div className="row"><button className="btn primary" onClick={save}>Salvar avaliação de caução</button></div>
+      <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar avaliação de caução</button></div>
     </div></div>
   );
 }
@@ -453,6 +643,7 @@ function PendenciasTab({ c, goResolve }) {
   return (
     <div className="card">
       <div className="card-head"><h3>Pendências automáticas ({p.length})</h3><span className="small muted" style={{ marginLeft: 8 }}>recalculadas a cada alteração</span></div>
+      <div style={{ overflowX: 'auto' }}>
       <table className="data">
         <thead><tr><th>Severidade</th><th>Pendência</th><th>Validação jurídica</th><th></th></tr></thead>
         <tbody>
@@ -466,6 +657,7 @@ function PendenciasTab({ c, goResolve }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

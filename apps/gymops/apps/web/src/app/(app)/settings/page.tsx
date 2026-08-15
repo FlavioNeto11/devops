@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bell, Mail, Smartphone, MessageCircle, CheckCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { QueryErrorState } from '@/components/ui/query-error-state';
 import { notificationsApi } from '@/lib/activities-api';
 import { integrationsExtApi, deliveriesApi } from '@/lib/admin-api';
 import { TutorialTrigger } from '@/features/tutorial';
@@ -30,6 +31,34 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return new Uint8Array([...rawData].map((c) => c.charCodeAt(0))).buffer as ArrayBuffer;
 }
 
+// basePath do app (ex.: "/gymops") — o SW e seu escopo vivem sob ele.
+const APP_BASE_PATH = process.env.NEXT_PUBLIC_APP_BASE_PATH || '';
+
+/**
+ * Garante (idempotente) um service worker de push ativo e retorna seu registration.
+ * Substitui `navigator.serviceWorker.ready`, que trava para sempre quando nenhum
+ * SW foi registrado (UX-GYMOPS-005): aqui registramos sob demanda e corremos a
+ * ativação contra um timeout, para o fluxo sempre terminar em sucesso ou erro.
+ */
+async function ensurePushServiceWorker(): Promise<ServiceWorkerRegistration> {
+  const scope = `${APP_BASE_PATH}/`;
+  const existing = await navigator.serviceWorker.getRegistration(scope);
+  const reg = existing ?? (await navigator.serviceWorker.register(`${APP_BASE_PATH}/sw.js`, { scope }));
+
+  const activated = new Promise<ServiceWorkerRegistration>((resolve) => {
+    if (reg.active) { resolve(reg); return; }
+    const sw = reg.installing ?? reg.waiting;
+    if (!sw) { resolve(reg); return; }
+    sw.addEventListener('statechange', () => {
+      if (sw.state === 'activated') resolve(reg);
+    });
+  });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('SW_TIMEOUT')), 8000),
+  );
+  return Promise.race([activated, timeout]);
+}
+
 const DELIVERY_STATUS_COLORS: Record<string, string> = {
   sent: 'text-green-600',
   failed: 'text-red-600',
@@ -52,7 +81,7 @@ export default function SettingsPage() {
     else if (Notification.permission === 'granted') setPushStatus('subscribed');
   }, []);
 
-  const { data: prefsData, isLoading } = useQuery({
+  const { data: prefsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['notification-preferences'],
     queryFn: () => notificationsApi.getPreferences(),
   });
@@ -81,7 +110,7 @@ export default function SettingsPage() {
     onError: () => toast.error('Erro ao salvar preferência'),
   });
 
-  const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
+  const { data: deliveriesData, isLoading: deliveriesLoading, isError: deliveriesError, refetch: refetchDeliveries } = useQuery({
     queryKey: ['notification-deliveries', organizationId],
     queryFn: () => deliveriesApi.list({ organizationId: organizationId ?? undefined }),
     enabled: !!organizationId && showDeliveries && isAdmin,
@@ -103,7 +132,7 @@ export default function SettingsPage() {
         setPushStatus('denied');
         throw new Error('Permission denied');
       }
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await ensurePushServiceWorker();
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
@@ -113,7 +142,14 @@ export default function SettingsPage() {
     },
     onSuccess: () => toast.success('Notificações push ativadas'),
     onError: (err: Error) => {
-      if (err.message !== 'Permission denied') toast.error('Erro ao ativar notificações push');
+      if (err.message === 'Permission denied') return;
+      // Não deixa o botão preso em "Ativando..." quando o SW não sobe.
+      setPushStatus('idle');
+      if (err.message === 'SW_TIMEOUT') {
+        toast.error('Não foi possível iniciar o serviço de notificações. Tente novamente.');
+        return;
+      }
+      toast.error('Erro ao ativar notificações push');
     },
   });
 
@@ -133,6 +169,13 @@ export default function SettingsPage() {
           <Bell className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Notificações</h2>
         </div>
+
+        {isError && (
+          <QueryErrorState
+            description="As preferências exibidas podem não refletir o estado salvo."
+            onRetry={() => refetch()}
+          />
+        )}
 
         <div className="divide-y rounded-lg border">
           {CHANNELS.map(({ key, label, description, icon: Icon }) => {
@@ -242,8 +285,18 @@ export default function SettingsPage() {
               {showDeliveries ? 'Ocultar' : 'Ver log'}
             </Button>
           </div>
+          {showDeliveries && deliveriesError && deliveriesData && (
+            <QueryErrorState
+              className="py-4"
+              title="Não foi possível atualizar"
+              description="Exibindo os últimos dados carregados."
+              onRetry={() => refetchDeliveries()}
+            />
+          )}
           {showDeliveries && (
-            deliveriesLoading ? (
+            deliveriesError && !deliveriesData ? (
+              <QueryErrorState onRetry={() => refetchDeliveries()} />
+            ) : deliveriesLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : (deliveriesData?.data ?? []).length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">Nenhum registro de entrega encontrado.</div>

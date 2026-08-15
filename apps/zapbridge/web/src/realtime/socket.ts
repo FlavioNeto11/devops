@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { SOCKET_URL, SOCKET_PATH, getToken } from '../api/client';
+import { SOCKET_URL, SOCKET_PATH, getToken, handleUnauthorized } from '../api/client';
 
 let socket: Socket | null = null;
 
@@ -17,6 +17,17 @@ export function connectSocket(): Socket {
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
+  });
+  // Sessão expirada também derruba o socket: se o handshake é recusado por auth
+  // (token inválido/expirado), aciona o mesmo fluxo do 401 HTTP em vez de tentar
+  // reconectar em silêncio para sempre. Heurística conservadora pela mensagem —
+  // blips de rede (sem menção a auth) seguem no reconnect normal.
+  socket.on('connect_error', (err: Error) => {
+    const msg = String(err?.message ?? '').toLowerCase();
+    if (getToken() && /auth|token|unauthor|jwt|forbidden/.test(msg)) {
+      disconnectSocket();
+      handleUnauthorized();
+    }
   });
   return socket;
 }
