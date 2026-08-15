@@ -82,6 +82,20 @@ spec:
             # commit próprio, e é o ponto de rollback.
             - name: CONVERSATION_PERMISSION_ENFORCEMENT
               value: "observe"
+            # ── Vertical Transporte — flags ligadas em 2026-08-15 (sem credencial externa;
+            # paridade nos TRES deployments: mesma imagem, mesma env) ──────────
+            # DF-e sandbox do fiscal-kit (autocontido; so NF-e; 'production' nao existe e derruba o boot).
+            - name: DFE_ISSUANCE_MODE
+              value: "sandbox"
+            # Regulatory Watch vivo: sweep 24h decidida no worker; GETs publicos com User-Agent identificado.
+            - name: REGULATORY_WATCH_MODE
+              value: "live"
+            # RNTRC por dados abertos da ANTT (portal publico; job sob demanda, nao periodico).
+            - name: RNTRC_GATEWAY_MODE
+              value: "open_data"
+            # Reconcilia drift que vivia SO no cluster (selfHeal podia reverter a qualquer rollout).
+            - name: OPENAI_REASONING_EFFORT_ROUTING
+              value: "low"
             # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
             # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
             # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
@@ -277,6 +291,13 @@ spec:
             # aparecendo só na trilha.
             - name: CONVERSATION_PERMISSION_ENFORCEMENT
               value: "observe"
+            # ── Vertical Transporte — paridade com a api (ver comentario la) ──
+            - name: DFE_ISSUANCE_MODE
+              value: "sandbox"
+            - name: REGULATORY_WATCH_MODE
+              value: "live"
+            - name: RNTRC_GATEWAY_MODE
+              value: "open_data"
             # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
             # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
             # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
@@ -440,6 +461,14 @@ spec:
             # Paridade OBRIGATÓRIA com api e worker: mesma imagem, mesmo gate.
             - name: CONVERSATION_PERMISSION_ENFORCEMENT
               value: "observe"
+            # ── Vertical Transporte — paridade com api/worker (raia channel nao roda
+            # transporte.*, mas a regra do arquivo e: mesma imagem, mesma env) ──
+            - name: DFE_ISSUANCE_MODE
+              value: "sandbox"
+            - name: REGULATORY_WATCH_MODE
+              value: "live"
+            - name: RNTRC_GATEWAY_MODE
+              value: "open_data"
             - name: WHATSAPP_PROVIDER
               value: "twilio"
             - name: WHATSAPP_ACTIONS_ENABLED
