@@ -40,6 +40,13 @@ Regulatory Watch (H).
   `dfe-gateway.ts`, `vpo-gateway.ts`, `insurance-gateway.ts`), instanciados no worker, com
   202/command-accepted, retry/DLQ e o padrão DL-102 (marcador de correlação + `*_unconfirmed` +
   reconciliador) para operações cuja identidade remota nasce na resposta.
+- **✅ Confirmado no PR-C1**: `src/gateways/antt-rntrc-gateway.ts` é o primeiro gateway externo REAL
+  e `transporte.rntrc.verify` o primeiro job type assíncrono da vertical — integração com o Portal
+  de Dados Abertos da ANTT (`dados.antt.gov.br`, CKAN público). Handler do worker SEM parâmetro
+  `gateway` (molde `handleWhatsAppInboundMessage`: dependências por import direto, não amplia o
+  tipo inline de 14 métodos do gateway CETESB). `padrão DL-102` (marcador + reconciliador) **não**
+  se aplica aqui: `lookupCarrier` é uma CONSULTA idempotente, não uma escrita remota com identidade
+  incerta — não há nada para reconciliar.
 
 ## 3. Modelo de domínio e máquina de estados
 
@@ -117,6 +124,19 @@ Entregue no PR-A5 exatamente como declarado acima (tags `Transporte - Operaçõe
 `Transporte - Conformidade`, esta última nova). `submeter-validacao` e `contratar` respondem
 `{ operation, evaluation }` (`TransporteOperacaoComAvaliacaoResponse`) — a operação já refletindo
 a transição aplicada (ou não, em bloqueio de `contratar`) + a avaliação que decidiu.
+
+**PR-C1 (Fase C, primeiro 202 da vertical):**
+
+```text
+POST /v1/transporte/transportadores/{partyId}/verificar-rntrc        (manual: 200 síncrono · open_data: 202 CommandAccepted)
+GET  /v1/transporte/transportadores/{partyId}/verificacoes-rntrc     (histórico paginado, mais recente primeiro)
+```
+
+Tag `Transporte - RNTRC`. `manual` grava direto (sem fila); `open_data` enfileira
+`transporte.rntrc.verify` (idempotente via `Idempotency-Key`, dedupe por
+`(entityType=transport_party, entityId, operation)` como todo comando da fila). `entityType
+'transport_party'` entra no ternário de `links.entity` de `command-response.ts`/`job-service.ts`
+(→ `/v1/transporte/transportadores/{id}`).
 
 Lockstep obrigatório no mesmo PR: OpenAPI → `examples/` → `gen:operations` **+
 `sync-operations-ts.mjs`** → rotas → testes de contrato. Rotas sempre atrás de

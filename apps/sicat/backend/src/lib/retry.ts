@@ -25,7 +25,12 @@ const RETRYABLE_ERROR_CODES = new Set([
   'RATE_LIMIT_EXCEEDED',
   'TOO_MANY_REQUESTS',
   'SERVICE_UNAVAILABLE',
-  'TEMPORARILY_UNAVAILABLE'
+  'TEMPORARILY_UNAVAILABLE',
+  // Gateway RNTRC/ANTT (PR-C1) — timeout/rede também classificados por status (>=500/504/502 via
+  // `classifyRetryabilityFromStatus`); registrados aqui também para clareza e redundância, no
+  // mesmo molde de `CETESB_NETWORK_ERROR`/`CETESB_TIMEOUT` acima.
+  'RNTRC_GATEWAY_TIMEOUT',
+  'RNTRC_GATEWAY_NETWORK_ERROR'
 ]);
 
 const NON_RETRYABLE_ERROR_CODES = new Set([
@@ -43,7 +48,11 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   'CETESB_AUTH_FAILED',
   // Erro de negócio definitivo retornado pela CETESB (ex: manifesto não está Ativo para cancelar).
   // Retry não ajudará — a condição de negócio não muda com novas tentativas.
-  'CETESB_REMOTE_ERROR'
+  'CETESB_REMOTE_ERROR',
+  // Verificação RNTRC (PR-C1): linha `pending` já resolvida por uma tentativa anterior que
+  // commitou mas não chegou a `finishJob` (queda do worker). Reter não desfaz o passado — a
+  // condição some sozinha na PRÓXIMA verificação (nova linha), não numa nova tentativa desta.
+  'RNTRC_VERIFICATION_ALREADY_TERMINAL'
 ]);
 
 type ErrorLike = {
@@ -74,7 +83,8 @@ type RetryableOperation =
   | 'cadastro.submit'
   | 'conversation.bundle_documents'
   | 'whatsapp.inbound_message'
-  | 'whatsapp.outbound_notice';
+  | 'whatsapp.outbound_notice'
+  | 'transporte.rntrc.verify';
 
 type JobLike = {
   attempts: number;
@@ -320,7 +330,12 @@ export function calculateJobPriority(operation: string): number {
     // preempta o trabalho que ele descreve. Consequência assumida enquanto `WORKER_LANE=channel`
     // não estiver no ar: sob backlog o aviso ESPERA, e o prazo de parede de 10 min encosta —
     // desfecho normal vira aviso parcial (texto 6).
-    'whatsapp.outbound_notice': 3
+    'whatsapp.outbound_notice': 3,
+    // Verificação de regularidade RNTRC (PR-C1) — operação de CONSULTA (nunca emite/altera nada na
+    // ANTT), sem prazo de parede apertado como o canal WhatsApp. Prioridade baixa-média: abaixo de
+    // qualquer operação CETESB (5+) e de `catalog.sync` (3, sincronização de catálogo), acima do
+    // turno conversacional (2) — não é interativo, mas também não é housekeeping de fundo.
+    'transporte.rntrc.verify': 4
   };
 
   return priorities[operation as RetryableOperation] || 5; // Padrão: média prioridade
@@ -487,6 +502,16 @@ export function getRetryConfig(operation: string): RetryConfig {
       maxAttempts: 8,
       strategy: 'exponential',
       baseDelayMs: 15000,
+      maxDelayMs: 120000
+    },
+    // Verificação de regularidade RNTRC via `open_data` (PR-C1) — primeiro job type com gateway
+    // externo REAL da vertical Transporte. 4 tentativas, exponencial 5s→120s: folga suficiente para
+    // uma instabilidade passageira do CKAN da ANTT (ou do download do CSV mensal), sem prender a
+    // operação por horas — é consulta, não emissão; o operador pode sempre pedir de novo.
+    'transporte.rntrc.verify': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
       maxDelayMs: 120000
     }
   };

@@ -45,7 +45,8 @@ test('Contrato OpenAPI - CommandAccepted mantém padrão assíncrono', () => {
     '/v1/manifestos/{id}/print',
     '/v1/manifestos/{id}/cancel',
     '/v1/catalog-sync',
-    '/v1/cadastros'
+    '/v1/cadastros',
+    '/v1/transporte/transportadores/{partyId}/verificar-rntrc'
   ];
 
   for (const endpoint of commandEndpoints) {

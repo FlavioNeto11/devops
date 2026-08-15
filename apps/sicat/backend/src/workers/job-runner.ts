@@ -17,6 +17,7 @@ import {
   applyConversationArtifactTerminalFailureSideEffect,
   applyManifestCancelTerminalFailureSideEffect,
   applyManifestSubmitTerminalFailureSideEffect,
+  applyTransporteRntrcVerifyTerminalFailureSideEffect,
   applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
@@ -417,6 +418,8 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   // Registrado AQUI e em `handleFailedTransition`. Registrar em só um dos dois produz a assimetria
   // mais difícil de enxergar em produção: falha definitiva avisa, DLQ não (ou o inverso).
   await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
+  // Par obrigatório do PR-C1: marca a verificação RNTRC `pending` como `failed` (nunca toca o party).
+  await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -460,6 +463,7 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     await applyConversationArtifactTerminalFailureSideEffect(effectJob, transition, error);
     // Par obrigatório da chamada em `handleDlqTransition` — ver comentário lá.
     await applyWhatsAppInboundTerminalFailureSideEffect(effectJob, transition, error);
+    await applyTransporteRntrcVerifyTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;

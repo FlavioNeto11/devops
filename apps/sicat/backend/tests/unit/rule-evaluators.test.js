@@ -142,10 +142,37 @@ function buildCompleteTacAggregate(overrides = {}) {
   };
 }
 
-function evaluate(code, aggregate, ruleVersionOverrides = {}, referenceDate = '2026-08-13') {
+function buildVehicle(position, overrides = {}) {
+  return {
+    id: `tropveh_${position}`,
+    operationId: 'trop_fixture',
+    vehicleId: overrides.vehicleId ?? `trveh_${position}`,
+    position,
+    vehicleSnapshot: overrides.vehicleSnapshot ?? {},
+    createdAt: '2026-08-13T00:00:00Z'
+  };
+}
+
+/** Fixture de `ctx.carrierRntrcVerification` (PR-C1) — última verificação SUCEDIDA do carrier. */
+function buildRntrcVerification(overrides = {}) {
+  return {
+    strategy: 'open_data',
+    resultStatus: 'active',
+    dataReferenceDate: '2026-08-01',
+    completedAt: '2026-08-13T00:00:00Z',
+    ...overrides
+  };
+}
+
+function evaluate(code, aggregate, ruleVersionOverrides = {}, referenceDate = '2026-08-13', ctxOverrides = {}) {
   const evaluator = RULE_EVALUATORS[code];
   assert.ok(evaluator, `esperava evaluator registrado para ${code}`);
-  return evaluator({ operation: aggregate, ruleVersion: buildRuleVersion(ruleVersionOverrides), referenceDate });
+  return evaluator({
+    operation: aggregate,
+    ruleVersion: buildRuleVersion(ruleVersionOverrides),
+    referenceDate,
+    ...ctxOverrides
+  });
 }
 
 // ===================================================================================================
@@ -166,8 +193,8 @@ describe('rule-evaluators — registro', () => {
       assert.ok(union.has(code), `${code} não está em nenhum dos dois registros`);
     }
 
-    assert.strictEqual(withEvaluator.size, 10, 'Fase A tem 10 evaluators implementados');
-    assert.strictEqual(withoutEvaluator.size, 16, '16 codes aguardam evaluator de fase futura');
+    assert.strictEqual(withEvaluator.size, 11, 'Fase A (10) + TR-RNTRC-002 (PR-C1) = 11 evaluators implementados');
+    assert.strictEqual(withoutEvaluator.size, 15, '15 codes aguardam evaluator de fase futura (TR-RNTRC-002 saiu no PR-C1)');
   });
 
   it('toda entrada de RULES_WITHOUT_EVALUATOR_YET declara targetPhase', () => {
@@ -181,7 +208,7 @@ describe('rule-evaluators — registro', () => {
 // TR-RNTRC-001
 // ===================================================================================================
 
-describe('TR-RNTRC-001 — RNTRC regular para a operação', () => {
+describe('TR-RNTRC-001 — RNTRC regular para a operação (PR-C1: considera a última verificação)', () => {
   it('sem carrier vinculado → block CARRIER_RNTRC_MISSING', () => {
     const aggregate = buildCompleteTacAggregate({ parties: [] });
     const outcome = evaluate('TR-RNTRC-001', aggregate);
@@ -189,38 +216,123 @@ describe('TR-RNTRC-001 — RNTRC regular para a operação', () => {
     assert.strictEqual(outcome.reasonCode, 'CARRIER_RNTRC_MISSING');
   });
 
-  it('carrier sem rntrcNumber → block CARRIER_RNTRC_MISSING', () => {
+  it('carrier sem rntrcNumber → block CARRIER_RNTRC_MISSING (mesmo com verificação no ctx)', () => {
     const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: null })] });
-    const outcome = evaluate('TR-RNTRC-001', aggregate);
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification()
+    });
     assert.strictEqual(outcome.status, 'block');
     assert.strictEqual(outcome.reasonCode, 'CARRIER_RNTRC_MISSING');
   });
 
-  for (const rntrcStatus of ['suspended', 'cancelled', 'expired']) {
-    it(`carrier com rntrcStatus "${rntrcStatus}" → block CARRIER_RNTRC_IRREGULAR`, () => {
-      const aggregate = buildCompleteTacAggregate({
-        parties: [buildParty('carrier', { rntrcNumber: '123', rntrcStatus })]
-      });
-      const outcome = evaluate('TR-RNTRC-001', aggregate);
-      assert.strictEqual(outcome.status, 'block');
-      assert.strictEqual(outcome.reasonCode, 'CARRIER_RNTRC_IRREGULAR');
-    });
-  }
-
-  it('carrier com rntrcStatus "unknown" → warn RNTRC_NOT_VERIFIED', () => {
-    const aggregate = buildCompleteTacAggregate({
-      parties: [buildParty('carrier', { rntrcNumber: '123', rntrcStatus: 'unknown' })]
-    });
+  it('rntrcNumber preenchido, mas NUNCA verificado (ctx sem carrierRntrcVerification) → warn RNTRC_NOT_VERIFIED', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
     const outcome = evaluate('TR-RNTRC-001', aggregate);
     assert.strictEqual(outcome.status, 'warn');
     assert.strictEqual(outcome.reasonCode, 'RNTRC_NOT_VERIFIED');
   });
 
-  it('carrier com rntrcStatus "active" → pass', () => {
-    const aggregate = buildCompleteTacAggregate();
-    const outcome = evaluate('TR-RNTRC-001', aggregate);
+  for (const resultStatus of ['suspended', 'cancelled', 'expired', 'not_found']) {
+    it(`última verificação com resultStatus "${resultStatus}" → block CARRIER_RNTRC_IRREGULAR`, () => {
+      const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+      const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+        carrierRntrcVerification: buildRntrcVerification({ resultStatus })
+      });
+      assert.strictEqual(outcome.status, 'block');
+      assert.strictEqual(outcome.reasonCode, 'CARRIER_RNTRC_IRREGULAR');
+    });
+  }
+
+  it('última verificação com resultStatus "unknown" (ex.: PENDENTE no dado aberto) → warn RNTRC_NOT_VERIFIED', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification({ resultStatus: 'unknown' })
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'RNTRC_NOT_VERIFIED');
+  });
+
+  it('verificação active + FRESCA (<=90 dias) via open_data → pass, humanMessage nota "cache informativo"', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification({
+        strategy: 'open_data',
+        resultStatus: 'active',
+        dataReferenceDate: '2026-07-20',
+        completedAt: '2026-06-01T00:00:00Z' // 73 dias antes de 2026-08-13 — dentro dos 90
+      })
+    });
     assert.strictEqual(outcome.status, 'pass');
     assert.strictEqual(outcome.reasonCode, undefined);
+    assert.match(outcome.humanMessage, /cache informativo/);
+    assert.strictEqual(outcome.result.dataReferenceDate, '2026-07-20');
+  });
+
+  it('verificação active + FRESCA via manual → pass, humanMessage sem "cache informativo"', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification({ strategy: 'manual', resultStatus: 'active', dataReferenceDate: null })
+    });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.match(outcome.humanMessage, /verificado manualmente/);
+  });
+
+  it('verificação active, mas STALE (>90 dias) → warn RNTRC_VERIFICATION_STALE', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification({
+        resultStatus: 'active',
+        completedAt: '2026-01-01T00:00:00Z' // muito mais que 90 dias antes de 2026-08-13
+      })
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'RNTRC_VERIFICATION_STALE');
+    assert.ok(outcome.result.ageDays > 90);
+  });
+
+  it('verificação active EXATAMENTE em 90 dias → ainda pass (janela inclusiva)', () => {
+    const aggregate = buildCompleteTacAggregate({ parties: [buildParty('carrier', { rntrcNumber: '123' })] });
+    const outcome = evaluate('TR-RNTRC-001', aggregate, {}, '2026-08-13', {
+      carrierRntrcVerification: buildRntrcVerification({ resultStatus: 'active', completedAt: '2026-05-15T00:00:00Z' })
+    });
+    assert.strictEqual(outcome.result.ageDays, 90);
+    assert.strictEqual(outcome.status, 'pass');
+  });
+});
+
+// ===================================================================================================
+// TR-RNTRC-002 — veículo de tração vinculado ao carrier (PR-C1, GATE_PRE_BOARDING)
+// ===================================================================================================
+
+describe('TR-RNTRC-002 — veículo de tração vinculado ao transportador', () => {
+  it('sem veículo de tração → block VEHICLE_MISSING', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [] });
+    const outcome = evaluate('TR-RNTRC-002', aggregate);
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'VEHICLE_MISSING');
+  });
+
+  it('veículo de tração presente, mas SEM vínculo com o carrier no cadastro-base → warn VEHICLE_NOT_LINKED_TO_CARRIER', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [buildVehicle('traction')] });
+    const outcome = evaluate('TR-RNTRC-002', aggregate, {}, '2026-08-13', { carrierTractionVehicleLinkType: null });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'VEHICLE_NOT_LINKED_TO_CARRIER');
+  });
+
+  for (const linkType of ['owned', 'leased', 'aggregated', 'rntrc_fleet']) {
+    it(`veículo de tração vinculado (${linkType}) → pass`, () => {
+      const aggregate = buildCompleteTacAggregate({ vehicles: [buildVehicle('traction')] });
+      const outcome = evaluate('TR-RNTRC-002', aggregate, {}, '2026-08-13', { carrierTractionVehicleLinkType: linkType });
+      assert.strictEqual(outcome.status, 'pass');
+      assert.strictEqual(outcome.result.linkType, linkType);
+    });
+  }
+
+  it('veículos towed presentes mas SEM veículo de tração → block VEHICLE_MISSING (towed não substitui tração)', () => {
+    const aggregate = buildCompleteTacAggregate({ vehicles: [buildVehicle('towed_1')] });
+    const outcome = evaluate('TR-RNTRC-002', aggregate, {}, '2026-08-13', { carrierTractionVehicleLinkType: 'owned' });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'VEHICLE_MISSING');
   });
 });
 

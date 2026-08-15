@@ -1071,6 +1071,24 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_transporte_transportadores_partyId_verificar_rntrc",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/verificar-rntrc",
+    "expressPath": "/v1/transporte/transportadores/:partyId/verificar-rntrc",
+    "summary": "Solicitar verificação de regularidade RNTRC",
+    "tag": "Transporte - RNTRC",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_verificacoes_rntrc",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/verificacoes-rntrc",
+    "expressPath": "/v1/transporte/transportadores/:partyId/verificacoes-rntrc",
+    "summary": "Histórico paginado de verificações RNTRC do transportador",
+    "tag": "Transporte - RNTRC",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_transportadores_partyId_veiculos",
     "method": "post",
     "specPath": "/v1/transporte/transportadores/{partyId}/veiculos",

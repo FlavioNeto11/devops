@@ -626,6 +626,63 @@ worker só depois de Ready.
 
 ---
 
+## Migration 027 — Verificações RNTRC Transporte + `transporte.rntrc.verify` (PR-C1, 2026-08-14)
+
+Registro de evolução do schema no padrão desta DL (vertical **Transporte**, DL-103) — e o
+PRIMEIRO **job type novo** e o primeiro **gateway externo real** que a vertical Transporte
+registra na fila desde a fundação (021–026 nunca tocaram `operation-handlers.ts`/`lib/retry.ts`).
+
+- **`027_transport_rntrc_verifications.sql`** — `rntrc_verifications`. "APPEND-ONLY" no mesmo
+  sentido de `compliance_evaluations`/`freight_floor_calculations` (sem coluna `version`, sem
+  trigger `increment_version`), mas com uma nuance que as duas irmãs não têm: a estratégia
+  `open_data` é ASSÍNCRONA, então a linha nasce `requested_status='pending'` (gravada ANTES da
+  chamada ao gateway, mesmo molde de `status: 'submitting'` do fluxo de manifesto) e recebe
+  EXATAMENTE UMA transição em `update` — `pending → succeeded` OU `pending → failed`, sempre
+  restrita por `where requested_status = 'pending'` no repositório
+  (`rntrc-verification-repo.ts`). Uma nova verificação NUNCA reabre uma linha terminal: sempre
+  nasce outra linha. A estratégia `manual` não tem fase `pending` — nasce direto `succeeded`
+  (síncrona, sem fila).
+
+**Fila — 4 pontos tocados** (o resto da vertical nunca precisou, por ser 100% síncrona até aqui):
+
+1. `src/workers/operation-handlers.ts` — novo `case 'transporte.rntrc.verify'` no switch de
+   `processJob`, delegando a `handleTransporteRntrcVerify(job)` **sem** o parâmetro `gateway`
+   (molde `handleWhatsAppInboundMessage`: dependências do corpo do job — em
+   `transport-rntrc-verification-service.ts` — entram por import direto, nunca amplia o tipo
+   inline de 14 métodos do gateway CETESB que `processJob` já expõe). Terminal (DLQ/failed)
+   tratado por `applyTransporteRntrcVerifyTerminalFailureSideEffect` (par simétrico de
+   `applyWhatsAppInboundTerminalFailureSideEffect`), registrado em `workers/job-runner.ts` nos
+   dois pontos de despacho (`handleDlqTransition`/`handleFailedTransition`) — marca a linha
+   `pending` como `failed`, nunca toca `transport_parties`.
+2. `src/lib/retry.ts` — `transporte.rntrc.verify` entra em `RetryableOperation`,
+   `calculateJobPriority` (4) e `getRetryConfig` (4 tentativas, exponencial 5s→120s). A
+   classificação retryable/definitivo continua GENÉRICA por status HTTP
+   (`isRetryableJobError`): o gateway (`antt-rntrc-gateway.ts`) devolve `AppError` com `.status`
+   real (504/502 para timeout/rede, o próprio 4xx/5xx do CKAN para erro HTTP), então nenhuma
+   regra nova por código foi necessária além de registrar `RNTRC_GATEWAY_TIMEOUT`/
+   `_NETWORK_ERROR` em `RETRYABLE_ERROR_CODES` (redundância defensiva, mesmo molde de
+   `CETESB_TIMEOUT`/`CETESB_NETWORK_ERROR`).
+3. `src/lib/command-response.ts` (`buildCommandAccepted`) e o espelho em
+   `src/services/job-service.ts` (`getJob`) — `entityType 'transport_party'` entrou no ternário de
+   `links.entity` → `/v1/transporte/transportadores/{id}`.
+4. Contrato: endpoint de comando novo (`POST .../verificar-rntrc`, `202` quando
+   `strategy=open_data`) entrou em `commandEndpoints` de `scripts/validate-openapi.js` **e** do
+   teste gêmeo `tests/integration/openapi-queue-contract.test.js` — os dois precisam concordar,
+   por desenho (um valida o build, o outro é o gate de CI).
+
+Gateway `src/gateways/antt-rntrc-gateway.ts` (TS — só `cetesb-gateway.js` é exceção JS, DL-093):
+integra com o Portal de Dados Abertos da ANTT (CKAN público, `dados.antt.gov.br`, dataset
+`"rntrc"`). `RNTRC_GATEWAY_MODE` (`mock` default | `open_data`) segue o padrão de
+`CETESB_GATEWAY_MODE`/`CONVERSATION_PERMISSION_ENFORCEMENT`: valor desconhecido LANÇA no boot.
+Detalhe da sondagem real que fixou o contrato e a estratégia de fallback (CSV streaming quando o
+datastore do mês corrente não está ativo) em `docs/10-estado-atual/estado-atual.md` §3.9 e nos
+comentários do próprio gateway.
+
+⚠️ Mesmo aviso de rollout escalonado das duas seções anteriores se aplica: migration inédita, api
+primeiro, worker só depois de Ready.
+
+---
+
 **Referências**:
 - Migration: `src/sql/004_advanced_locking_consistency.sql`
 - Repositórios: `src/repositories/job-repo.js`, `src/repositories/health-repo.js`

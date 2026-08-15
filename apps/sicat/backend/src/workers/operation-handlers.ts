@@ -59,6 +59,8 @@ import { runWhatsAppInboundTurn } from '../services/conversation/channel/whatsap
 import { runWhatsAppOutboundNotice } from '../services/conversation/channel/whatsapp/whatsapp-outbound-notice-service.js';
 import { resolveWhatsAppProvider } from '../services/conversation/channel/whatsapp/index.js';
 import { buildWhatsAppTerminalFailureNotice } from '../services/conversation/channel/whatsapp/whatsapp-reply-composer.js';
+import { runRntrcVerificationJob } from '../services/transport-rntrc-verification-service.js';
+import { completeVerificationFailed } from '../repositories/rntrc-verification-repo.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -976,6 +978,73 @@ async function handleWhatsAppOutboundNotice(job: JobEntity) {
   await finishJob(job, { outcome: result.outcome, ...result.patch });
 }
 
+/**
+ * Verificação de regularidade RNTRC (estratégia `open_data`, PR-C1) — primeiro job type com
+ * gateway externo REAL da vertical Transporte.
+ *
+ * SEM parâmetro `gateway`, no molde de `handleWhatsAppInboundMessage`/`handleConversationBundleDocuments`:
+ * o tipo do 2º parâmetro de `processJob` é um literal inline com 14 métodos OBRIGATÓRIOS e um 15º
+ * quebraria todo teste que fabrica um gateway CETESB. O corpo do job vive em
+ * `transport-rntrc-verification-service.ts`; aqui só a costura com a fila —
+ * `{ outcome, ...patch }` → `finishJob`.
+ */
+async function handleTransporteRntrcVerify(job: JobEntity) {
+  const result = await runRntrcVerificationJob(
+    {
+      jobId: job.jobId,
+      entityId: job.entityId,
+      correlationId: job.correlationId ?? null,
+      claimedBy: job.claimedBy ?? null,
+      payload: job.payload
+    },
+    {
+      patchJobPayload: (target, patch) => patchJobPayload(target, patch)
+    }
+  );
+
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+/**
+ * Falha TERMINAL do job `transporte.rntrc.verify`: marca a linha `pending` (criada ANTES da
+ * chamada ao gateway, em `runRntrcVerificationJob`) como `failed`, com o último erro — SEM tocar
+ * `transport_parties` (regra explícita do PR-C1: uma verificação que nunca respondeu não pode
+ * rebaixar/alterar o que o cadastro já sabia). Par simétrico de
+ * `applyWhatsAppInboundTerminalFailureSideEffect`: mesmo duplo gatilho (operação + campo no
+ * payload) e o mesmo try/catch paranoico — `handleDlqTransition` roda isto dentro de um `catch`
+ * sem cobertura externa; um `throw` daqui mataria o worker inteiro.
+ */
+export async function applyTransporteRntrcVerifyTerminalFailureSideEffect(
+  job: JobEntity,
+  terminalFailure: TerminalFailure = {},
+  error: unknown = null
+) {
+  try {
+    if (job.operation !== 'transporte.rntrc.verify') return null;
+
+    const verificationId = toNonEmptyString(job.payload?.verificationId);
+    if (!verificationId) return null; // falhou antes de criar a linha pending — nada a reconciliar
+
+    const terminalAction = String(terminalFailure.action || '').toLowerCase();
+    if (!['failed', 'dlq', 'cancelled'].includes(terminalAction)) return null;
+
+    const technicalCause = summarizeTechnicalCause(
+      terminalFailure.patch?.lastErrorMessage
+      || terminalFailure.dlqReason
+      || getErrorMessage(error)
+      || job.lastErrorMessage
+    );
+
+    return await completeVerificationFailed(verificationId, {
+      lastErrorCode: terminalFailure.patch?.lastErrorCode || job.lastErrorCode || null,
+      lastErrorMessage: technicalCause
+    });
+  } catch (sideEffectError) {
+    console.warn(`[worker] falha terminal da verificação RNTRC não pôde ser reconciliada (job ${job.jobId}): ${getErrorMessage(sideEffectError)}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1166,6 +1235,10 @@ export async function processJob(job: JobEntity, gateway: {
       return handleWhatsAppInboundMessage(job);
     case 'whatsapp.outbound_notice':
       return handleWhatsAppOutboundNotice(job);
+    // SEM o parâmetro `gateway`, mesmo molde de `whatsapp.inbound_message` logo acima — ver o
+    // comentário de `handleTransporteRntrcVerify`.
+    case 'transporte.rntrc.verify':
+      return handleTransporteRntrcVerify(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

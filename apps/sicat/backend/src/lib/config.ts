@@ -114,7 +114,12 @@ type ConfigKey =
   | 'whatsappMediaDeliveryEnabled'
   | 'whatsappMediaMaxBytes'
   | 'whatsappPendingNoticeMax'
-  | 'whatsappPendingNoticeTtlMs';
+  | 'whatsappPendingNoticeTtlMs'
+  | 'rntrcGatewayMode'
+  | 'rntrcGatewayBaseUrl'
+  | 'rntrcGatewayTimeoutMs'
+  | 'rntrcGatewayCsvDownloadTimeoutMs'
+  | 'rntrcGatewayCsvMaxBytes';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
@@ -157,6 +162,21 @@ function resolveConversationPermissionEnforcement(): ConversationPermissionEnfor
   throw new Error(
     `CONVERSATION_PERMISSION_ENFORCEMENT invalido: ${raw}. Valores aceitos: enforce, observe.`
   );
+}
+
+export type RntrcGatewayMode = 'open_data' | 'mock';
+
+/**
+ * Modo do gateway RNTRC (PR-C1). `mock` (default) é determinístico e não sai da máquina — mesma
+ * postura de segurança do default `disabled` do WhatsApp: integração real é opt-in explícito.
+ * `open_data` fala de verdade com o Portal de Dados Abertos da ANTT (dados.antt.gov.br). `antt`
+ * (consulta credenciada) ainda não é um valor aceito aqui — interface reservada para fase futura;
+ * pedir isso no boot lança, no mesmo molde de `resolveCetesbGatewayMode`.
+ */
+function resolveRntrcGatewayMode(): RntrcGatewayMode {
+  const raw = String(process.env.RNTRC_GATEWAY_MODE || 'mock').trim().toLowerCase();
+  if (raw === 'mock' || raw === 'open_data') return raw;
+  throw new Error(`RNTRC_GATEWAY_MODE inválido: ${raw}. Valores aceitos: mock, open_data.`);
 }
 
 export const config = {
@@ -399,5 +419,27 @@ export const config = {
   get whatsappMediaMaxBytes() { return getConfigValue('whatsappMediaMaxBytes', Number(process.env.WHATSAPP_MEDIA_MAX_BYTES || 8388608)); },
   /** Dívida de aviso PULADO por janela fechada: teto de itens e validade. Cortado ANTES de materializar. */
   get whatsappPendingNoticeMax() { return getConfigValue('whatsappPendingNoticeMax', Number(process.env.WHATSAPP_PENDING_NOTICE_MAX || 3)); },
-  get whatsappPendingNoticeTtlMs() { return getConfigValue('whatsappPendingNoticeTtlMs', Number(process.env.WHATSAPP_PENDING_NOTICE_TTL_MS || 259200000)); }
+  get whatsappPendingNoticeTtlMs() { return getConfigValue('whatsappPendingNoticeTtlMs', Number(process.env.WHATSAPP_PENDING_NOTICE_TTL_MS || 259200000)); },
+
+  /* ── Gateway RNTRC / ANTT (PR-C1) ─────────────────────────────────────────────────────────────
+   * Primeiro gateway externo REAL da vertical Transporte. `mock` é o default seguro; `open_data`
+   * fala com dados.antt.gov.br (CKAN público, dataset "rntrc") — ver `gateways/antt-rntrc-gateway.ts`
+   * para a sondagem real que fixou o contrato (package_show + datastore_search, com fallback de
+   * download streaming de CSV quando o datastore do mês mais recente ainda não está ativo). */
+  get rntrcGatewayMode(): RntrcGatewayMode {
+    return getConfigValue<RntrcGatewayMode>('rntrcGatewayMode', resolveRntrcGatewayMode());
+  },
+  get rntrcGatewayBaseUrl() { return getConfigValue('rntrcGatewayBaseUrl', process.env.RNTRC_GATEWAY_BASE_URL || 'https://dados.antt.gov.br'); },
+  /** Teto de UMA chamada `package_show`/`datastore_search` (JSON pequeno — resposta típica < 2s). */
+  get rntrcGatewayTimeoutMs() { return getConfigValue('rntrcGatewayTimeoutMs', Number(process.env.RNTRC_GATEWAY_TIMEOUT_MS || 15000)); },
+  /**
+   * Teto do download STREAMING do CSV mensal (fallback quando `datastore_active=false` no resource
+   * mais recente — confirmado na sondagem real de 2026-08-14: o mês corrente do dataset "rntrc"
+   * ainda não estava no datastore, só como CSV de ~150 MB). 2 min é folgado para uma rede normal;
+   * o cache local (`STORAGE_DIR/rntrc-open-data/`) faz o download acontecer no máximo uma vez por
+   * resource (chave = resource id do CKAN, que muda todo mês).
+   */
+  get rntrcGatewayCsvDownloadTimeoutMs() { return getConfigValue('rntrcGatewayCsvDownloadTimeoutMs', Number(process.env.RNTRC_GATEWAY_CSV_DOWNLOAD_TIMEOUT_MS || 120000)); },
+  /** Teto de bytes do CSV baixado — acima disso o gateway aborta com `RNTRC_GATEWAY_CSV_TOO_LARGE` em vez de esgotar memória/disco do worker. */
+  get rntrcGatewayCsvMaxBytes() { return getConfigValue('rntrcGatewayCsvMaxBytes', Number(process.env.RNTRC_GATEWAY_CSV_MAX_BYTES || 262144000)); }
 };

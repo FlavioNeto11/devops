@@ -55,7 +55,9 @@ export function buildCommandAccepted({
               ? `/v1/dmr/${entityId}`
               : entityType === 'mtr_provisorio'
                 ? `/v1/mtr-provisorio/${entityId}`
-                : `/v1/jobs/${jobId}`,
+                : entityType === 'transport_party'
+                  ? `/v1/transporte/transportadores/${entityId}`
+                  : `/v1/jobs/${jobId}`,
       audit: `/v1/audit/${correlationId}`
     }
   };

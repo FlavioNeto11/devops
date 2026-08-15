@@ -438,7 +438,7 @@ A cadeia "Opção A" do `PROXIMO_PROMPT.md` anterior (`mtr-provisorio-wizard-smo
 - **Revalidação Fable 5 sobre a árvore consolidada** — recomendação do próprio sintetizador, não
   executada.
 
-### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1)
+### 3.9 ⚠️ Vertical Transporte — Fase A backend CONCLUÍDA (PR-A1..A6); frontend mínimo (Onda 1.5, PR-F1) entregue ATRÁS DE FLAG; Fase B (piso mínimo) entregue em MODO SHADOW (PR-B1); Fase C parte 1 (verificação RNTRC) entregue (PR-C1)
 
 Bounded context novo, separado do ambiental (DL-103; programa em
 [`../30-transporte/transporte-guia.md`](../30-transporte/transporte-guia.md)). O PR-A1 entregou a
@@ -652,6 +652,70 @@ contra o banco de teste (idempotência inclusive), cálculo end-to-end (`carga_g
 evaluators e time-travel (`referenceDate` antes da vigência de 17/07/2026 →
 `FLOOR_VERSION_UNAVAILABLE`); `tests/regulatory/freight-floor-applicability.test.js` estendido com
 os novos ramos `floorCalculation`.
+
+O PR-C1 (Fase C parte 1, Onda 3) entregou a **verificação de regularidade RNTRC** — primeiro
+gateway externo REAL e primeiro job type assíncrono (202) da vertical. Migration
+[`027`](../../backend/src/sql/027_transport_rntrc_verifications.sql) cria `rntrc_verifications`
+("append-only" no sentido de `compliance_evaluations`/`freight_floor_calculations`: cada
+TENTATIVA de verificação é uma linha nova, nunca reaberta; a única mutação permitida é a transição
+`pending → succeeded|failed`, via `requested_status = 'pending'` no `WHERE`). Gateway
+[`antt-rntrc-gateway.ts`](../../backend/src/gateways/antt-rntrc-gateway.ts) (TS — só
+`cetesb-gateway.js` é a exceção JS, DL-093) integra com o Portal de Dados Abertos da ANTT
+(`dados.antt.gov.br`, CKAN público, dataset `"rntrc"`); sondagem real de 14/08/2026 confirmou o
+contrato: `package_show` devolve ~70 resources mensais com `datastore_active` por resource;
+`datastore_search` com `filters` EXATO (documento precisa da máscara `XX.XXX.XXX/XXXX-XX`, digits
+puros dá `total: 0`) devolveu o registro certo (`total: 1`); no dia da sondagem o resource do mês
+CORRENTE tinha `datastore_active=false` (só os ~4 meses anteriores no datastore) — o gateway então
+cai para download STREAMING do CSV (`;`-delimitado, `latin1`, datas `DD/MM/AAAA`), cacheado em
+`STORAGE_DIR/rntrc-open-data/` por id do resource (muda todo mês, cache nunca serve dado velho).
+`situacao_rntrc` só assume `ATIVO`/`PENDENTE` no dado publicado (sem `SUSPENSO`/`CANCELADO`/
+`VENCIDO`) — por isso `not_found` no dado aberto NUNCA prova irregularidade, só ausência DESTE
+dado; é a base do racional "cache informativo" (pendência P4 do guia). Modo `mock` (default,
+`RNTRC_GATEWAY_MODE`) determinístico para testes: documento terminado em dígito par → `active`/
+`ETC`; ímpar → `not_found`. Fluxo: `POST /v1/transporte/transportadores/{partyId}/verificar-rntrc`
+com `strategy: 'manual'` (evidência declarada, SÍNCRONO — grava e atualiza o party no mesmo
+request, `200`) ou `strategy: 'open_data'` (ASSÍNCRONO — enfileira `transporte.rntrc.verify`,
+idempotente via `Idempotency-Key`, `202` `CommandAccepted`; `strategy: 'antt'` reservada, `400`).
+Worker handler (`operation-handlers.ts`) SEM parâmetro `gateway` — molde
+`handleWhatsAppInboundMessage`, dependências por import direto — cria a linha `pending` ANTES de
+chamar o gateway (persiste `verificationId` no `payload` via `patchJobPayload`, injetado, não
+importado direto de `workers/`), audita CADA troca externa (`insertAuditEntry`, `component:
+'antt-rntrc-gateway'`, outbound+inbound por exchange) e atualiza `transport_parties`
+(`rntrcStatus`/`rntrcCategory`/`rntrcVerifiedAt`/`rntrcVerificationSource='open_data'`, locking
+otimista) numa transação com a conclusão da verificação. Falha TERMINAL (DLQ/failed) reconciliada
+por `applyTransporteRntrcVerifyTerminalFailureSideEffect` (par simétrico de
+`applyWhatsAppInboundTerminalFailureSideEffect`, registrado em `job-runner.ts`): marca a linha
+`pending` como `failed` com o último erro, **sem tocar o party**. `lib/retry.ts` ganhou
+`transporte.rntrc.verify` (prioridade 4, 4 tentativas exponencial 5s→120s) — erros do gateway
+carregam `.status` HTTP real (`RNTRC_GATEWAY_TIMEOUT`/`NETWORK_ERROR` → 502/504, retryable;
+4xx definitivo do CKAN → não retryable, classificação genérica por status já cobre isso).
+`entityType 'transport_party'` entrou no ternário de `links.entity` de `command-response.ts` e do
+espelho em `job-service.ts` (→ `/v1/transporte/transportadores/{id}`). Evaluators evoluíram:
+TR-RNTRC-001 (`rule-evaluators.ts`) agora considera a última verificação SUCEDIDA do carrier
+(`ctx.carrierRntrcVerification`, carregado por `transport-compliance-service.ts` via
+`findLatestSucceededRntrcVerificationForParty`, uma vez por avaliação) com janela de frescor de 90
+dias: `active` fresco → `pass` (mensagem nota "cache informativo" quando `strategy=open_data`);
+`active` stale (>90 dias) ou nunca verificado → `warn` (`RNTRC_VERIFICATION_STALE`/
+`RNTRC_NOT_VERIFIED`); `suspended`/`cancelled`/`expired`/`not_found` → `block` bruto (clamp
+mantém `warn` com o seed `blocking=false`). TR-RNTRC-002 (novo, saiu de
+`RULES_WITHOUT_EVALUATOR_YET`) checa se o veículo de TRAÇÃO da operação tem vínculo
+(`transport_vehicle_links`, `owned|leased|aggregated|rntrc_fleet`) com o carrier
+(`findVehiclePartyLinkType`, novo em `transport-vehicle-repo.ts`) — sem veículo → `block`
+`VEHICLE_MISSING`; sem vínculo → `warn VEHICLE_NOT_LINKED_TO_CARRIER`; vinculado → `pass`.
+TR-RNTRC-003 permanece pendente (`AWAITING_REGULATION`, pendência P2). Contrato: tag nova
+`Transporte - RNTRC`, `TransporteRntrcVerificar/VerificacaoResource` etc.; o endpoint de comando
+entrou em `commandEndpoints` de `scripts/validate-openapi.js` e do teste gêmeo
+`openapi-queue-contract.test.js`. Cobertura: `tests/unit/antt-rntrc-gateway.test.js` (mock
+determinístico + parse do shape real via fixture `tests/fixtures/regulatory/antt-open-data-sample.json`,
+dados fictícios/minimizados — LGPD; erros tipados e sua retryability), `tests/worker/
+transporte-rntrc-verify.test.js` (skip-if-no-DB: sucesso/not_found/falha de rede fim-a-fim contra
+`processJob`, com `fetch` monkeypatchado nunca a rede real), `tests/api/transporte-rntrc.test.js`
+(202 + dedupe, manual 200, histórico paginado, tenancy, 401) e `tests/unit/rule-evaluators.test.js`
+estendido (TR-RNTRC-001 frescor/estratégias, TR-RNTRC-002 completo). `tests/api/
+transporte-conformidade.test.js` ajustado: o carrier de setup nunca passou por
+`verificar-rntrc`, então TR-RNTRC-001 no ciclo `contratar` passou de `PASS` (comportamento antigo,
+baseado só no `rntrcStatus` declarado) para `WARN RNTRC_NOT_VERIFIED` (comportamento correto agora)
+— não bloqueia o fluxo, só o reasonCode mudou.
 
 ## 4. Riscos e limites conhecidos
 
