@@ -1,5 +1,6 @@
 # =============================================================================
-# ci-apps — gate estatico por app (lint / typecheck / build)
+# ci-apps — gate estatico por app (lint / typecheck / build) + sync de lockfile
+#           + smoke de Dockerfile alterado
 # -----------------------------------------------------------------------------
 # Roda em PR e push para main quando muda apps/**. ESCOPADO: um job `detect`
 # descobre QUAIS apps mudaram (git diff) e a matrix roda SÓ esses — em vez de
@@ -12,7 +13,9 @@
 # NB: os jobs por-app NAO sao required na main (so "Validar requisitos e baseline"
 # e "Reqhub gate" sao) — pular apps nao alterados nao bloqueia o merge.
 #
-# Runner: ubuntu-latest (igual aos demais workflows de build/lint do repo).
+# Runners: ubuntu-latest para os gates estaticos; o docker-smoke roda no runner
+# SELF-HOSTED (Docker Desktop desta maquina) para aproveitar o cache de camadas
+# persistente — build tipico em segundos.
 # =============================================================================
 name: ci-apps
 
@@ -152,6 +155,106 @@ jobs:
             echo "rastreabilidade ok"
           fi
 
+  # ---------------------------------------------------------------------------
+  # lockfile-sync — pega o package-lock fora de sync ONDE O DOCKERFILE o usa.
+  # O job `apps` instala na RAIZ do app (workspace); os Dockerfiles rodam
+  # `npm ci` no diretorio do SERVICO com o lockfile standalone dele — superficies
+  # DIFERENTES. Incidente real (2026-08-15): fiscal-kit entrou no package.json do
+  # sicat/backend sem atualizar o lock; `npm ci` da imagem quebrava com EUSAGE
+  # havia ~12h com o CI verde (PR #338). Este job AUTODESCOBRE todo
+  # package-lock.json sob os apps alterados (sem tabela para manter) e roda
+  # `npm ci --dry-run` no diretorio — valida lock↔manifest em segundos, sem
+  # instalar nada.
+  # ---------------------------------------------------------------------------
+  lockfile-sync:
+    name: lockfile em sync (npm ci --dry-run)
+    needs: detect
+    if: needs.detect.outputs.include != '' && needs.detect.outputs.include != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - shell: bash
+        env:
+          INCLUDE: ${{ needs.detect.outputs.include }}
+        run: |
+          set -euo pipefail
+          fails=""
+          for p in $(printf '%s' "$INCLUDE" | jq -r '.[].path'); do
+            while IFS= read -r lock; do
+              dir="$(dirname "$lock")"
+              echo "::group::npm ci --dry-run em $dir"
+              if ! (cd "$dir" && npm ci --dry-run --ignore-scripts --no-audit --no-fund); then
+                fails="$fails $dir"
+              fi
+              echo "::endgroup::"
+            done < <(find "apps/$p" -maxdepth 3 -name package-lock.json -not -path '*/node_modules/*')
+          done
+          if [ -n "$fails" ]; then
+            echo "::error title=package-lock fora de sync::npm ci falharia no Dockerfile de:$fails — rode 'npm install --package-lock-only' no(s) diretorio(s) e commite o lockfile."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # docker-smoke — builda a imagem quando o PROPRIO Dockerfile mudou.
+  # Complementa o lockfile-sync: erro de sintaxe/COPY/stage no Dockerfile so
+  # aparecia no deploy manual. Roda no runner self-hosted (Docker Desktop desta
+  # maquina): o cache de camadas PERSISTE entre execucoes, entao o custo típico
+  # e segundos — e o build ja pre-aquece as camadas do proximo publish local.
+  # Escopo deliberado: so dispara quando um apps/**/Dockerfile* muda (raro);
+  # regressao de COPY por rename de pasta SEM tocar o Dockerfile continua
+  # descoberta (trade-off documentado — o gate completo seria buildar sempre).
+  # Tag ci-smoke/* para NUNCA sobrescrever as imagens <svc>:local em uso.
+  # ---------------------------------------------------------------------------
+  docker-smoke:
+    name: docker build (Dockerfiles alterados)
+    needs: detect
+    if: needs.detect.outputs.include != '' && needs.detect.outputs.include != '[]'
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Buildar Dockerfiles alterados
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = if ($env:EVENT -eq 'pull_request') { $env:BASE_SHA } else { $env:BEFORE_SHA }
+          $null = git rev-parse -q --verify "$base^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) { Write-Host 'base indisponivel - nada a buildar'; exit 0 }
+          $changed = git diff --name-only $base HEAD |
+            Where-Object { $_ -match '^apps/.*/Dockerfile[^/]*$' }
+          if (-not $changed) { Write-Host 'nenhum Dockerfile alterado - ok'; exit 0 }
+
+          # Contexto de build: por convencao = diretorio do Dockerfile; excecoes
+          # (monorepo pnpm do gymops precisa da raiz do app; o Dockerfile raiz do
+          # reqhub assa specs/baseline e usa a RAIZ do repo).
+          $ctxMap = @{
+            'apps/gymops/apps/web/Dockerfile' = 'apps/gymops'
+            'apps/gymops/apps/api/Dockerfile' = 'apps/gymops'
+            'apps/reqhub/Dockerfile'          = '.'
+          }
+          $fail = 0
+          foreach ($df in $changed) {
+            if (-not (Test-Path $df)) { Write-Host "removido: $df - pulando"; continue }
+            $ctx = if ($ctxMap.ContainsKey($df)) { $ctxMap[$df] } else { Split-Path $df -Parent }
+            $tag = 'ci-smoke/' + (($df -replace '^apps/','' -replace '/Dockerfile[^/]*$','' -replace '[/.]','-').ToLower())
+            Write-Host "== docker build $df (contexto $ctx) -> $tag =="
+            docker build -t $tag -f $df $ctx
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error title=Dockerfile quebrado::docker build falhou para $df"; $fail++ }
+          }
+          exit $fail
+
   apps:
     name: ${{ matrix.app }}
     needs: detect
@@ -183,10 +286,13 @@ jobs:
       - name: Instalar dependencias
         run: |
           set -e
+          # SEM fallback silencioso: `npm ci || npm install` mascarava lockfile
+          # fora de sync (EUSAGE) — o job ficava verde com a imagem quebrada.
+          # Convencao identica a dos Dockerfiles da plataforma.
           if [ "${{ matrix.pm }}" = "pnpm" ]; then
-            pnpm install --frozen-lockfile || pnpm install
+            pnpm install --frozen-lockfile
           else
-            npm ci || npm install
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
           fi
 
       - name: Preparar (codegen, se houver)
