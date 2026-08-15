@@ -30,8 +30,10 @@ test.describe('Smoke — org_manager', () => {
 
   test('org settings page is not accessible (owner only)', async ({ page }) => {
     await page.goto('/settings/organization');
-    // org_manager should see a restriction message or empty state
-    const body = await page.content();
-    expect(body).toMatch(/owner|permiss|acesso/i);
+    // App truth (settings/organization/page.tsx): non-owner sees "Apenas owners
+    // podem acessar esta página." — rendered only after auth-bootstrap hydrates
+    // the role on a cold storageState load, so a retrying locator assertion is
+    // required (one-shot page.content() races the SSR shell).
+    await expect(page.getByText(/apenas owners podem acessar/i)).toBeVisible({ timeout: 10_000 });
   });
 });
