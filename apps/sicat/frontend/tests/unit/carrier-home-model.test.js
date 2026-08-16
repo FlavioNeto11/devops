@@ -70,11 +70,13 @@ test('contagens de operações somam o mapa por status e separam abertas de term
   assert.equal(countOperations(null), 0);
 });
 
-test('hub: badge só com operações abertas e TODO destino existe no router', () => {
+test('hub: registrar viagem é a ação primária; badge das abertas fica no acompanhar', () => {
   const semBadge = buildCarrierHubActions({ openOperationsCount: 0 });
-  assert.equal(semBadge[0].badge, '', 'sem operações abertas, sem badge');
+  assert.equal(semBadge[0].key, 'registrar', 'a ação primária do transportador é registrar a viagem');
+  assert.equal(semBadge[0].tone, 'primary');
+  assert.equal(semBadge[1].badge, '', 'sem operações abertas, sem badge');
   const comBadge = buildCarrierHubActions({ openOperationsCount: 7 });
-  assert.equal(comBadge[0].badge, 7);
+  assert.equal(comBadge[1].badge, 7);
 
   for (const action of comBadge) {
     assert.ok(

@@ -154,6 +154,12 @@ export const NAVIGATION_GROUPS = [
     personas: ['carrier'],
     items: [
       {
+        to: '/transporte/operacoes/nova',
+        label: 'Registrar viagem',
+        icon: 'mdi-plus-circle-outline',
+        description: 'Criar uma operação de transporte'
+      },
+      {
         to: '/transporte/operacoes',
         label: 'Minhas operações',
         icon: 'mdi-truck-fast-outline',
@@ -435,7 +441,8 @@ const PREFIX_MATCH_PATHS = [
  */
 const EXACT_CHILD_OVERRIDES = {
   '/manifestos': ['/manifestos/novo'],
-  '/dmr': ['/dmr/novo', '/dmr/pendentes']
+  '/dmr': ['/dmr/novo', '/dmr/pendentes'],
+  '/transporte/operacoes': ['/transporte/operacoes/nova']
 };
 
 /**
