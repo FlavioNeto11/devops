@@ -141,3 +141,73 @@ export function selectApplicableRate(
   // Empate resolve pela validFrom mais recente — comparação lexicográfica basta para 'YYYY-MM-DD'.
   return candidates.reduce((best, candidate) => (candidate.validFrom > best.validFrom ? candidate : best));
 }
+
+// =================================================================================================
+// Apuração MENSAL — total transportado × taxa vs. custo mínimo (PR-I4, REQ-SICAT-0035)
+// =================================================================================================
+
+export type BillingDeclarationInput = {
+  /** Valor declarado da carga daquela averbação, em CENTAVOS inteiros. */
+  declaredCargoAmountCents: number;
+  /** Prêmio JÁ calculado da averbação, em CENTAVOS inteiros (congelado na declaração). */
+  premiumAmountCents: number;
+};
+
+export type ComputeBillingPeriodInput = {
+  declarations: BillingDeclarationInput[];
+  /** Custo mínimo mensal da apólice, em CENTAVOS (R$ 700,00 → 70_000). */
+  minimumAmountCents: number;
+};
+
+export type BillingPeriodTotals = {
+  declaredTotalCents: number;
+  premiumTotalCents: number;
+  billedCents: number;
+  billingBasis: 'premium' | 'minimum';
+};
+
+/**
+ * Fecha a conta do mês de UMA apólice: soma o transportado, soma os prêmios já congelados nas
+ * averbações e cobra o MAIOR entre a soma dos prêmios e o custo mínimo mensal.
+ *
+ * É exatamente a regra do circuito real (doc Irmãos PADILHA):
+ *   - mês fraco → uma viagem de R$ 25.000 rende R$ 24,25 de prêmio, mas a apólice tem mínimo de
+ *     R$ 700,00: cobra-se R$ 700,00 (`billingBasis: 'minimum'`);
+ *   - mês forte → a soma dos prêmios passa do mínimo e é ela que vale (`'premium'`).
+ *
+ * NÃO recalcula prêmio de averbação: cada declaração carrega o prêmio congelado no momento em que
+ * foi averbada (com a taxa vigente NAQUELE dia). Recalcular aqui reescreveria o passado quando uma
+ * taxa nova entrasse em vigor no meio do mês — o oposto de uma conta auditável.
+ *
+ * EMPATE (prêmios == mínimo) resolve como `'minimum'`: o valor cobrado é o mesmo, e a base honesta é
+ * o piso — foi ele que sustentou a cobrança.
+ */
+export function computeBillingPeriodCents(input: ComputeBillingPeriodInput): BillingPeriodTotals {
+  const { declarations, minimumAmountCents } = input;
+
+  if (!Number.isInteger(minimumAmountCents) || minimumAmountCents < 0) {
+    throw new Error(
+      `computeBillingPeriodCents: minimumAmountCents deve ser um inteiro >= 0 (recebido ${String(minimumAmountCents)}).`
+    );
+  }
+
+  let declaredTotalCents = 0;
+  let premiumTotalCents = 0;
+  for (const declaration of declarations || []) {
+    const declared = declaration?.declaredCargoAmountCents;
+    const premium = declaration?.premiumAmountCents;
+    if (!Number.isInteger(declared) || declared < 0 || !Number.isInteger(premium) || premium < 0) {
+      throw new Error('computeBillingPeriodCents: cada declaração precisa de valores em centavos inteiros >= 0.');
+    }
+    declaredTotalCents += declared;
+    premiumTotalCents += premium;
+  }
+
+  const billedCents = Math.max(premiumTotalCents, minimumAmountCents);
+  return {
+    declaredTotalCents,
+    premiumTotalCents,
+    billedCents,
+    billingBasis: premiumTotalCents > minimumAmountCents ? 'premium' : 'minimum'
+  };
+}

@@ -9723,6 +9723,181 @@ paths:
       - in: query
         name: pageSize
         schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  /v1/transporte/seguros/apuracao:
+    get:
+      operationId: transporteSegurosApuracaoList
+      summary: Apuração mensal do prêmio por apólice
+      description: 'Períodos de apuração da conta (um por apólice × mês). `billedAmount` é o MAIOR
+        entre a soma dos prêmios averbados no mês e o custo mínimo mensal da apólice; `billingBasis`
+        diz qual dos dois venceu. Sem `period`, devolve todos os períodos da conta (mais recentes
+        primeiro).'
+      tags:
+      - Transporte - Apuracao
+      responses:
+        '200':
+          description: Períodos de apuração da conta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApuracaoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: period
+        description: 'Mês de referência no formato `YYYY-MM`.'
+        schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+  /v1/transporte/seguros/apuracao/{periodId}:
+    get:
+      operationId: transporteSegurosApuracaoGet
+      summary: Extrato do período de apuração
+      description: 'O período com o EXTRATO (`statement.items`: cada averbação que entrou na conta,
+        com valor da carga, taxa aplicada e prêmio) e a trilha append-only dos recálculos (`runs`) —
+        é o que torna a conta do mês reproduzível.'
+      tags:
+      - Transporte - Apuracao
+      responses:
+        '200':
+          description: Período com extrato e trilha
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApuracaoDetailResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: path
+        name: periodId
+        required: true
+        schema: { type: string }
+  /v1/transporte/seguros/apuracao/{periodId}/recalcular:
+    post:
+      operationId: transporteSegurosApuracaoRecalcular
+      summary: Recalcular o período (idempotente)
+      description: 'Refaz a conta do mês a partir das averbações `declared` do período. Só vale para
+        período ABERTO — período fechado responde 409 `TRANSPORTE_BILLING_PERIOD_CLOSED` (a fatura já
+        saiu; reabrir é ação administrativa própria).'
+      tags:
+      - Transporte - Apuracao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApuracaoCommandRequest'
+      responses:
+        '200':
+          description: Período recalculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApuracaoResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - in: path
+        name: periodId
+        required: true
+        schema: { type: string }
+  /v1/transporte/seguros/apuracao/{periodId}/fechar:
+    post:
+      operationId: transporteSegurosApuracaoFechar
+      summary: Fechar o período
+      description: 'Recalcula e fecha o período (a conta fechada reflete o estado final do mês).
+        Fechar um período já fechado é NO-OP idempotente.'
+      tags:
+      - Transporte - Apuracao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApuracaoCommandRequest'
+      responses:
+        '200':
+          description: Período fechado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApuracaoResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - in: path
+        name: periodId
+        required: true
+        schema: { type: string }
+  /v1/transporte/seguros/apuracao/{periodId}/reabrir:
+    post:
+      operationId: transporteSegurosApuracaoReabrir
+      summary: Reabrir período fechado (administrativo)
+      description: 'Reabre um período fechado para correção. Deixa rastro obrigatório na trilha
+        (`insurance_billing_runs` com `reopened: true` e o motivo) — a fatura do mês não se reabre
+        por acidente.'
+      tags:
+      - Transporte - Apuracao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApuracaoReabrirRequest'
+      responses:
+        '200':
+          description: Período reaberto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApuracaoResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - in: path
+        name: periodId
+        required: true
+        schema: { type: string }
   /v1/transporte/operacoes/{operationId}/averbacoes:
     post:
       operationId: transporteOperacaoAverbar
@@ -18638,6 +18813,141 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+    TransporteApuracaoStatementItem:
+      type: object
+      description: Uma linha do extrato — a averbação que entrou na conta daquele fechamento.
+      required:
+      - declarationId
+      - operationId
+      - declaredCargoAmount
+      - appliedRatePercent
+      - premiumAmount
+      properties:
+        declarationId: { type: string }
+        operationId: { type: string }
+        declaredCargoAmount: { type: number }
+        appliedRatePercent:
+          type: number
+          description: 'Taxa PERCENTUAL literal aplicada (0,072% → `0.072`).'
+        premiumAmount: { type: number }
+        declaredAt: { type: string, format: date-time, nullable: true }
+    TransporteApuracaoResource:
+      type: object
+      description: 'Período de apuração de UMA apólice num mês. `billedAmount` = maior entre a soma
+        dos prêmios e o custo mínimo mensal; `billingBasis` diz qual venceu.'
+      required:
+      - id
+      - integrationAccountId
+      - policyId
+      - periodMonth
+      - declaredTotalAmount
+      - premiumTotalAmount
+      - minimumAmount
+      - billedAmount
+      - billingBasis
+      - status
+      properties:
+        id: { type: string }
+        integrationAccountId: { type: string }
+        policyId: { type: string }
+        periodMonth:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Mês de referência (`YYYY-MM`).
+        declaredTotalAmount: { type: number, description: Soma do valor declarado das cargas averbadas no mês. }
+        premiumTotalAmount: { type: number, description: Soma dos prêmios das averbações do mês. }
+        minimumAmount: { type: number, description: Custo mínimo mensal da apólice vigente no fechamento. }
+        billedAmount: { type: number }
+        billingBasis:
+          type: string
+          enum: [premium, minimum]
+        status:
+          type: string
+          enum: [open, closed]
+        statement:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TransporteApuracaoStatementItem'
+            notes:
+              type: array
+              items: { type: string }
+        closedAt: { type: string, format: date-time, nullable: true }
+        correlationId: { type: string }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
+      example:
+        id: insbill_3f2a9c7d1e5b40a2c8d6f4b1e9
+        integrationAccountId: acc_2f4a9d7c1b3e5089
+        policyId: inspol_7c1d4b8e2f6a9035c4e7b1d802
+        periodMonth: '2026-08'
+        declaredTotalAmount: 25000
+        premiumTotalAmount: 24.25
+        minimumAmount: 700
+        billedAmount: 700
+        billingBasis: minimum
+        status: open
+        statement:
+          items:
+          - declarationId: insdecl_9b3e7c1a5d2f4068b7c9e3a105
+            operationId: trop_1a7c9e3b5d2f4068c1b8e7a904
+            declaredCargoAmount: 25000
+            appliedRatePercent: 0.097
+            premiumAmount: 24.25
+            declaredAt: '2026-08-12T13:20:00.000Z'
+        closedAt: null
+        version: 2
+    TransporteApuracaoDetailResource:
+      allOf:
+      - $ref: '#/components/schemas/TransporteApuracaoResource'
+      - type: object
+        properties:
+          runs:
+            type: array
+            description: Trilha APPEND-ONLY dos recálculos (reprodutibilidade da conta).
+            items:
+              type: object
+              properties:
+                id: { type: string }
+                trigger:
+                  type: string
+                  enum: [sweep, manual, recompute]
+                inputs: { type: object, additionalProperties: true }
+                result: { type: object, additionalProperties: true }
+                createdAt: { type: string, format: date-time, nullable: true }
+    TransporteApuracaoListResponse:
+      type: object
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteApuracaoResource'
+        total: { type: integer }
+        period:
+          type: string
+          nullable: true
+          description: Filtro aplicado (`YYYY-MM`) ou `null` quando a lista é de todos os meses.
+    TransporteApuracaoCommandRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+    TransporteApuracaoReabrirRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+        reason:
+          type: string
+          description: Motivo da reabertura — vai para a trilha append-only.
     TransporteEmissaoSolicitarRequest:
       type: object
       required:

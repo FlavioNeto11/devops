@@ -28,6 +28,8 @@ import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/
 import { listUnconfirmedVpoAllocationsForReconciliation } from '../repositories/vpo-repo.js';
 import { listUnconfirmedDfeIssuancesForReconciliation } from '../repositories/dfe-issuance-repo.js';
 import { listUnconfirmedDeclarationsForReconciliation } from '../repositories/insurance-declaration-repo.js';
+import { prepareBillingPeriodsForSweep } from '../services/transport-insurance-billing-service.js';
+import { previousPeriodMonth } from '../lib/transport/insurance-billing-types.js';
 import { enqueueRegulatoryWatchSweep } from '../services/transport-regulatory-watch-service.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
@@ -710,6 +712,73 @@ async function enqueueTransporteAverbacaoReconcileSweepIfNeeded() {
 }
 
 // ---------------------------------------------------------------------------
+// Fechamento mensal da apuração de prêmio (PR-I4, REQ-SICAT-0035) — mesmo molde estrutural das
+// sweeps acima (relógio próprio, `0`/negativo desliga, falha nunca derruba o loop). Default DIÁRIO
+// (24h): a conta a fechar é a do mês ANTERIOR, então basta uma passada por dia — quem entra no mês
+// novo encontra o período anterior fechado no primeiro giro. `prepareBillingPeriodsForSweep` garante
+// o período criado (apólice com movimento OU com mínimo devido) e a dedupe do job é por PERÍODO.
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_INSURANCE_BILLING_SWEEP_DEFAULT_MS = 24 * 60 * 60 * 1000;
+
+function resolveTransporteInsuranceBillingSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_INSURANCE_BILLING_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_INSURANCE_BILLING_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteInsuranceBillingSweepAt = 0;
+
+export function resetTransporteInsuranceBillingSweepClockForTests() {
+  lastTransporteInsuranceBillingSweepAt = 0;
+}
+
+async function enqueueTransporteInsuranceBillingSweepIfNeeded() {
+  const intervalMs = resolveTransporteInsuranceBillingSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteInsuranceBillingSweepAt && (now - lastTransporteInsuranceBillingSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteInsuranceBillingSweepAt = now;
+
+  try {
+    const period = previousPeriodMonth(new Date(now).toISOString().slice(0, 10));
+    const periods = await prepareBillingPeriodsForSweep(period);
+    for (const billingPeriod of periods) {
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'insurance_billing_period',
+        entityId: billingPeriod.id,
+        operation: 'transporte.seguros.apuracao.close',
+        payload: {
+          billingPeriodId: billingPeriod.id,
+          policyId: billingPeriod.policyId,
+          integrationAccountId: billingPeriod.integrationAccountId,
+          period
+        },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: billingPeriod.correlationId,
+        priority: 5,
+        retryStrategy: 'exponential',
+        baseDelayMs: 5000,
+        maxDelayMs: 60000,
+        tags: extractJobTags({ operation: 'transporte.seguros.apuracao.close', entityType: 'insurance_billing_period', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    console.warn(`[worker] varredura de apuração mensal não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Varredura periódica do Regulatory Watch (PR-H1) — mesmo molde estrutural das sweeps acima (relógio
 // próprio, `0`/negativo desliga, falha nunca derruba o loop do worker), com UMA diferença
 // deliberada: só enfileira quando `config.regulatoryWatchMode === 'live'` — em `off` (default) nem
@@ -1002,6 +1071,7 @@ export async function processWorkerIteration({ once, shutdownRequested, workerNa
   await enqueueTransporteVpoReconcileSweepIfNeeded();
   await enqueueTransporteDfeIssuanceReconcileSweepIfNeeded();
   await enqueueTransporteAverbacaoReconcileSweepIfNeeded();
+  await enqueueTransporteInsuranceBillingSweepIfNeeded();
   await enqueueTransporteRegulatoryWatchSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await dependencies.claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });
