@@ -157,7 +157,7 @@ function goBack() {
               <v-text-field :id="id" v-model="form.cargoWeightKg" type="number" min="0" variant="outlined" density="comfortable" hide-details />
             </template>
           </SicatFormField>
-          <SicatFormField label="Valor da carga (R$)" hint="Base da averbação no seguro e do limite de garantia.">
+          <SicatFormField label="Valor da carga (R$)" glossary="averbacao" hint="Base da averbação no seguro e do limite de garantia.">
             <template #default="{ id }">
               <v-text-field :id="id" v-model="form.cargoDeclaredValue" type="number" min="0" step="0.01" variant="outlined" density="comfortable" hide-details />
             </template>

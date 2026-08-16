@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { groupNavigationByModule, isNavigationItemActive } from '../../config/navigation.js';
+import SicatHelpHint from '../sicat/SicatHelpHint.vue';
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -68,6 +69,9 @@ function handleNavigate(path) {
             <div class="drawer-group__label">
               <v-icon size="14">{{ group.icon }}</v-icon>
               <span>{{ group.label }}</span>
+              <!-- Consumo do glossaryKey (era gancho morto desde o PR-F1 da
+                   didática): o "?" explica o CONCEITO do grupo, não um item. -->
+              <SicatHelpHint v-if="group.glossaryKey" :term="group.glossaryKey" :size="14" />
             </div>
             <v-list density="comfortable" nav class="drawer-list">
               <v-list-item

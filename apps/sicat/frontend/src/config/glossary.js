@@ -202,6 +202,72 @@ export const GLOSSARY = {
     term: 'Regulatory Watch',
     simple: 'Vigia de mudanças nas leis',
     explain: 'Um serviço que fica de olho nas fontes oficiais e avisa quando uma regra do transporte mudou, para alguém revisar antes de valer no sistema.'
+  },
+
+  // ---- Módulo do Transportador (REQ-SICAT-0032) — circuito comercial ----
+  operacao_transporte: {
+    term: 'Operação de transporte',
+    simple: 'A viagem',
+    explain: 'Uma viagem de frete do começo ao fim: rota, carga, veículos, documentos e conformidade — tudo num só registro.',
+    example: 'Registrar a viagem Palmas → Belém com a carga de grãos.'
+  },
+  averbacao: {
+    term: 'Averbação eletrônica',
+    simple: 'Avisar o seguro da viagem',
+    explain: 'Comunicar cada viagem à seguradora para a carga ficar coberta. O custo é uma taxa percentual sobre o valor da carga.',
+    example: 'Numa carga de R$ 25.000 com taxa total de 0,097%, a averbação custa R$ 24,25.'
+  },
+  limite_garantia: {
+    term: 'Limite de garantia por viagem',
+    simple: 'Valor máximo coberto por viagem',
+    explain: 'O teto que a apólice cobre em cada viagem. Carga declarada acima do limite viaja descoberta na diferença.',
+    example: 'Apólice com limite de R$ 100.000 por viagem não cobre uma carga de R$ 150.000.'
+  },
+  apuracao_seguros: {
+    term: 'Apuração mensal do seguro',
+    simple: 'A conta do seguro no fim do mês',
+    explain: 'No fechamento do mês, a seguradora compara o total transportado vezes a taxa com o custo mínimo mensal — e cobra o maior dos dois.'
+  },
+  custo_minimo_mensal: {
+    term: 'Custo mínimo mensal da apólice',
+    simple: 'O piso da mensalidade do seguro',
+    explain: 'Mesmo transportando pouco, a apólice tem um valor mínimo por mês. Transportou mais? Paga o apurado pela taxa.',
+    example: 'Mínimo de R$ 700 para RCTR-C/RC-DC; R$ 300 para RC-V.'
+  },
+  gr: {
+    term: 'GR — Gerenciamento de Riscos',
+    simple: 'Checagem de segurança da viagem',
+    explain: 'Exigências da seguradora para manter a apólice saudável: pesquisa cadastral do motorista e do veículo e, conforme a mercadoria, rastreamento do caminhão.'
+  },
+  tac: {
+    term: 'TAC — Transportador Autônomo de Cargas',
+    simple: 'Autônomo com até 3 caminhões',
+    explain: 'Pessoa (ou PJ pequena) registrada na ANTT com até 3 veículos. Acima disso vira ETC, com obrigações extras.'
+  },
+  etc_transportadora: {
+    term: 'ETC — Empresa de Transporte de Cargas',
+    simple: 'Transportadora com 4+ caminhões',
+    explain: 'Empresa registrada na ANTT com 4 ou mais veículos — emite CIOT e é obrigada a contratar os seguros do transporte.'
+  },
+  frota: {
+    term: 'Motorista de frota',
+    simple: 'Motorista da casa',
+    explain: 'Motorista empregado da transportadora, dirigindo veículo próprio da empresa.'
+  },
+  agregado: {
+    term: 'Motorista agregado',
+    simple: 'Motorista de fora, com contrato fixo',
+    explain: 'Motorista com veículo próprio que presta serviço contínuo para a transportadora, sem ser empregado.'
+  },
+  cnh: {
+    term: 'CNH — Carteira Nacional de Habilitação',
+    simple: 'Habilitação do motorista',
+    explain: 'Precisa estar válida e na categoria certa para o veículo — a pesquisa de risco da seguradora confere isso.'
+  },
+  embarcador: {
+    term: 'Embarcador',
+    simple: 'Quem contrata o frete',
+    explain: 'A empresa dona da carga: contrata e paga o frete que a transportadora executa.'
   }
 };
 

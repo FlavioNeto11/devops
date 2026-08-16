@@ -1,5 +1,6 @@
 <script setup>
 import { computed, useId } from 'vue';
+import SicatHelpHint from './SicatHelpHint.vue';
 
 const props = defineProps({
   label: { type: String, default: '' },
@@ -7,6 +8,8 @@ const props = defineProps({
   /** Mensagem de erro. Quando preenchida, exibe em vermelho abaixo do campo. */
   error: { type: [String, Boolean, null], default: null },
   hint: { type: String, default: '' },
+  /** Chave do glossário (config/glossary.js): mostra o "?" didático junto ao rótulo. */
+  glossary: { type: String, default: '' },
   /** Faz o campo ocupar a largura total da grade (column span). */
   fullWidth: { type: Boolean, default: false }
 });
@@ -25,6 +28,7 @@ const describedBy = computed(() => [errorId.value, hintId.value].filter(Boolean)
     <label v-if="label" :for="fieldId" class="sicat-form-field__label">
       {{ label }}
       <span v-if="required" class="sicat-form-field__required" aria-hidden="true">*</span>
+      <SicatHelpHint v-if="glossary" :term="glossary" :size="15" />
     </label>
 
     <div class="sicat-form-field__control">

@@ -152,6 +152,7 @@ export const NAVIGATION_GROUPS = [
     module: 'operacao',
     hidden: !TRANSPORTE_FEATURE_FLAG,
     personas: ['carrier'],
+    glossaryKey: 'operacao_transporte',
     items: [
       {
         to: '/transporte/operacoes/nova',
@@ -181,6 +182,7 @@ export const NAVIGATION_GROUPS = [
     module: 'operacao',
     hidden: !TRANSPORTE_FEATURE_FLAG,
     personas: ['carrier'],
+    glossaryKey: 'frota',
     items: [
       {
         to: '/transporte/veiculos',
