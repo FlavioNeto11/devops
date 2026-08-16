@@ -27,11 +27,14 @@ import {
   getPolicyById,
   insertInsuranceVerification,
   insertPolicy,
+  insertRateSchedule,
   insertRiskManagementPlan,
   listExpiredPoliciesWithOpenOperations,
   listPlansForParty,
   listPoliciesExpiringSoon,
   listPoliciesForParty,
+  listRateSchedulesForPolicy,
+  supersedeActiveRateSchedules,
   updatePolicyById,
   type PolicyInsertInput,
   type PolicyListFilters,
@@ -45,6 +48,8 @@ import {
   type InsurancePolicy,
   type InsurancePolicyStatus,
   type InsurancePolicyType,
+  type InsuranceRateSchedule,
+  type InsuranceRateScheduleStatus,
   type RiskManagementPlan,
   type RiskManagementPlanStatus
 } from '../lib/transport/transport-insurance-types.js';
@@ -52,8 +57,10 @@ import {
   createInsuranceVerificationProvider,
   type InsuranceVerificationProvider
 } from '../gateways/insurance-verification-provider.js';
+import { getIdempotentResponse, rememberIdempotentResponse } from './idempotency-service.js';
 
 type LooseRecord = Record<string, unknown>;
+type HeaderMap = Record<string, string | undefined>;
 type CommandContext = { correlationId: string; evaluatedBy: string | null };
 
 // =============================================================================
@@ -179,6 +186,51 @@ function validateCoverageAmount(value: unknown): number | null {
   return num;
 }
 
+/** Mesma régua de `coverageAmount` — `null` explícito LIMPA o limite (volta ao estado "não configurado"). */
+function validatePerTripLimitAmount(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) {
+    throw new AppError(400, 'Bad Request', `perTripLimitAmount inválido: esperado um número >= 0 (recebido "${String(value)}").`, {
+      code: 'TRANSPORT_INSURANCE_POLICY_PER_TRIP_LIMIT_INVALID',
+      context: { value }
+    });
+  }
+  return num;
+}
+
+const LIMIT_CONDITIONS_MAX_KEYS = 20;
+
+/**
+ * LGPD/escopo do REQ-SICAT-0028: `limitConditions` guarda anotações MÍNIMAS sobre como o limite se
+ * aplica — nunca as condições comerciais completas (franquia, cláusulas, prêmio negociado). Mesmo
+ * racional de `sanitizeEvidence`: só sobrevivem valores ESCALARES de primeiro nível (string curta,
+ * número, boolean); objetos/arrays aninhados — o formato natural de uma cláusula colada inteira —
+ * são descartados, e o total de chaves tem cap defensivo.
+ */
+function sanitizeLimitConditions(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const source = raw as LooseRecord;
+  const conditions: LooseRecord = {};
+  let kept = 0;
+  for (const [key, value] of Object.entries(source)) {
+    if (kept >= LIMIT_CONDITIONS_MAX_KEYS) break;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) continue;
+      conditions[key.slice(0, 100)] = trimmed.slice(0, 500);
+      kept += 1;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      conditions[key.slice(0, 100)] = value;
+      kept += 1;
+    } else if (typeof value === 'boolean') {
+      conditions[key.slice(0, 100)] = value;
+      kept += 1;
+    }
+  }
+  return conditions;
+}
+
 function validateRelatedPolicyTypes(value: unknown): InsurancePolicyType[] {
   if (value === undefined || value === null) return ['RCTR_C', 'RC_DC'];
   if (!Array.isArray(value)) {
@@ -238,6 +290,9 @@ type PolicyResource = {
   insurerDocument: string | null;
   policyNumber: string;
   coverageAmount: number | null;
+  /** Limite de garantia POR VIAGEM (REQ-SICAT-0028 rev.2) — `null` = não configurado (aviso no gate, nunca bloqueio). */
+  perTripLimitAmount: number | null;
+  limitConditions: Record<string, unknown>;
   validFrom: string;
   validUntil: string;
   status: InsurancePolicyStatus;
@@ -261,6 +316,8 @@ function toPolicyResource(policy: InsurancePolicy, today: string): PolicyResourc
     insurerDocument: policy.insurerDocument,
     policyNumber: policy.policyNumber,
     coverageAmount: policy.coverageAmount,
+    perTripLimitAmount: policy.perTripLimitAmount,
+    limitConditions: policy.limitConditions,
     validFrom: policy.validFrom,
     validUntil: policy.validUntil,
     status: policy.status,
@@ -432,6 +489,10 @@ export async function updateInsurancePolicyService(
   }
   if (body.insurerDocument !== undefined) patch.insurerDocument = toTrimmedString(body.insurerDocument);
   if (body.coverageAmount !== undefined) patch.coverageAmount = validateCoverageAmount(body.coverageAmount);
+  // Limite POR VIAGEM (PR-I2, REQ-SICAT-0028 rev.2): `null` explícito limpa o limite (volta a
+  // "não configurado" — TR-SEG-004 passa a avisar em vez de confrontar).
+  if (body.perTripLimitAmount !== undefined) patch.perTripLimitAmount = validatePerTripLimitAmount(body.perTripLimitAmount);
+  if (body.limitConditions !== undefined) patch.limitConditions = sanitizeLimitConditions(body.limitConditions);
   if (body.status !== undefined) patch.status = validatePolicyStatus(body.status);
   if (body.evidence !== undefined) patch.evidence = sanitizeEvidence(body.evidence);
 
@@ -491,6 +552,181 @@ export async function updateInsurancePolicyService(
     if (getPgErrorCode(error) === '23505') throw policyDuplicateError();
     throw error;
   }
+}
+
+// =============================================================================
+// Taxas de averbação (insurance_rate_schedules, migration 035 — PR-I2). As taxas nascem aqui
+// (REQ-SICAT-0028) mas servem a AVERBAÇÃO (REQ-SICAT-0034, PR-I3): prêmio = carga × taxa%.
+// =============================================================================
+
+type RateScheduleResource = {
+  id: string;
+  version: number;
+  integrationAccountId: string;
+  policyId: string;
+  ratePercent: number;
+  routeScope: string | null;
+  monthlyMinimumAmount: number;
+  validFrom: string;
+  validUntil: string | null;
+  status: InsuranceRateScheduleStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function toRateScheduleResource(schedule: InsuranceRateSchedule): RateScheduleResource {
+  return {
+    id: schedule.id,
+    version: schedule.version,
+    integrationAccountId: schedule.integrationAccountId,
+    policyId: schedule.policyId,
+    ratePercent: schedule.ratePercent,
+    routeScope: schedule.routeScope,
+    monthlyMinimumAmount: schedule.monthlyMinimumAmount,
+    validFrom: schedule.validFrom,
+    validUntil: schedule.validUntil,
+    status: schedule.status,
+    createdAt: schedule.createdAt,
+    updatedAt: schedule.updatedAt
+  };
+}
+
+/**
+ * Taxa PERCENTUAL literal, exatamente como o contrato comercial fala: "0,072%" chega como `0.072`.
+ * O teto de `numeric(9,6)` (999.999999) é validado aqui para o erro sair como 400 legível, não
+ * como 22003 do Postgres.
+ */
+function validateRatePercent(value: unknown): number {
+  const num = Number(value);
+  if (value === null || value === undefined || value === '' || !Number.isFinite(num) || num <= 0 || num > 999.999999) {
+    throw new AppError(400, 'Bad Request', `ratePercent inválido: esperado um número > 0 (percentual literal — 0,072% envia 0.072; recebido "${String(value)}").`, {
+      code: 'TRANSPORT_INSURANCE_RATE_PERCENT_INVALID',
+      context: { value }
+    });
+  }
+  return num;
+}
+
+function validateMonthlyMinimumAmount(value: unknown): number {
+  if (value === null || value === undefined || value === '') return 0;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) {
+    throw new AppError(400, 'Bad Request', `monthlyMinimumAmount inválido: esperado um número >= 0 (recebido "${String(value)}").`, {
+      code: 'TRANSPORT_INSURANCE_RATE_MINIMUM_INVALID',
+      context: { value }
+    });
+  }
+  return num;
+}
+
+/** Resolve a apólice DO transportador da rota (tenancy + posse verificadas juntas) ou lança 404. */
+async function requirePolicyOfParty(
+  partyId: string,
+  policyId: string,
+  integrationAccountId: string
+): Promise<InsurancePolicy> {
+  const party = await getPartyById(partyId, integrationAccountId);
+  if (!party) throw partyNotFound(partyId);
+  const policy = await getPolicyById(policyId, integrationAccountId);
+  if (!policy || policy.partyId !== partyId) throw policyNotFoundForParty(partyId, policyId);
+  return policy;
+}
+
+function rateScheduleDuplicateError(): AppError {
+  return new AppError(409, 'Conflict', 'Já existe uma taxa com a mesma vigência inicial (validFrom) para esta apólice e percurso.', {
+    code: 'TRANSPORT_INSURANCE_RATE_DUPLICATE'
+  });
+}
+
+/**
+ * POST /v1/transporte/transportadores/{partyId}/apolices/{policyId}/taxas — "create supersede":
+ * criar uma taxa nova com a MESMA chave lógica (apólice + routeScope) marca a anterior `active`
+ * como `superseded` NA MESMA transação — nunca existe mais de uma taxa `active` por chave lógica,
+ * e o histórico fica intacto para reproduzir prêmios de datas passadas (`selectApplicableRate`
+ * seleciona por VIGÊNCIA, não por status). Idempotency-Key suportada como nos POSTs vizinhos da
+ * vertical (molde `createTransportOperation`).
+ */
+export async function createInsuranceRateScheduleService(
+  partyId: string,
+  policyId: string,
+  body: LooseRecord,
+  headers: HeaderMap,
+  ctx: CommandContext
+): Promise<RateScheduleResource & { supersededScheduleIds: string[] }> {
+  const integrationAccountId = requireIntegrationAccountId(body);
+
+  const idempotencyKey = headers['idempotency-key'];
+  const idempotencyScope = `transporte.apolice.taxa.create:${integrationAccountId}`;
+  const reused = await getIdempotentResponse(idempotencyScope, idempotencyKey);
+  if (reused) return reused as RateScheduleResource & { supersededScheduleIds: string[] };
+
+  await requirePolicyOfParty(partyId, policyId, integrationAccountId);
+
+  const ratePercent = validateRatePercent(body.ratePercent);
+  const routeScope = toTrimmedString(body.routeScope);
+  const monthlyMinimumAmount = validateMonthlyMinimumAmount(body.monthlyMinimumAmount);
+  const validFrom = requireDate(body.validFrom, 'validFrom', 'TRANSPORT_INSURANCE_FIELD_REQUIRED');
+  const validUntil = toOptionalDate(body.validUntil, 'validUntil', 'TRANSPORT_INSURANCE_FIELD_REQUIRED');
+  if (validUntil && validUntil < validFrom) {
+    throw new AppError(400, 'Bad Request', `validUntil (${validUntil}) não pode ser anterior a validFrom (${validFrom}).`, {
+      code: 'TRANSPORT_INSURANCE_RATE_PERIOD_INVALID'
+    });
+  }
+  const evidence = sanitizeEvidence(body.evidence);
+
+  const id = createPrefixedId('insrate');
+
+  try {
+    const { schedule, supersededScheduleIds } = await withTransaction(async (client) => {
+      // Supersede ANTES do insert: o índice único (policy, coalesce(routeScope,''), validFrom) só
+      // vale entre vigências distintas — o "mesma validFrom de novo" continua 409 (abaixo).
+      const supersededIds = await supersedeActiveRateSchedules(policyId, integrationAccountId, routeScope, client);
+      const inserted = await insertRateSchedule(
+        {
+          id,
+          integrationAccountId,
+          policyId,
+          ratePercent,
+          routeScope,
+          monthlyMinimumAmount,
+          validFrom,
+          validUntil,
+          status: 'active',
+          evidence,
+          correlationId: ctx.correlationId
+        },
+        client
+      );
+      return { schedule: inserted, supersededScheduleIds: supersededIds };
+    });
+
+    const response = { ...toRateScheduleResource(schedule), supersededScheduleIds };
+    await rememberIdempotentResponse({
+      operation: idempotencyScope,
+      idempotencyKey,
+      entityType: 'insuranceRateSchedule',
+      entityId: schedule.id,
+      response: response as unknown as Record<string, unknown>
+    });
+    return response;
+  } catch (error) {
+    if (getPgErrorCode(error) === '23505') throw rateScheduleDuplicateError();
+    throw error;
+  }
+}
+
+/** GET /v1/transporte/transportadores/{partyId}/apolices/{policyId}/taxas — histórico completo, vigência mais recente primeiro. */
+export async function listInsuranceRateSchedulesService(
+  partyId: string,
+  policyId: string,
+  query: LooseRecord
+): Promise<{ items: RateScheduleResource[]; totalItems: number }> {
+  const integrationAccountId = requireIntegrationAccountId(query);
+  await requirePolicyOfParty(partyId, policyId, integrationAccountId);
+
+  const schedules = await listRateSchedulesForPolicy(policyId, integrationAccountId);
+  const items = schedules.map(toRateScheduleResource);
+  return { items, totalItems: items.length };
 }
 
 // =============================================================================

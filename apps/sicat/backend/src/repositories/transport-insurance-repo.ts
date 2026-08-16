@@ -26,6 +26,8 @@ import type {
   InsurancePolicy,
   InsurancePolicyStatus,
   InsurancePolicyType,
+  InsuranceRateSchedule,
+  InsuranceRateScheduleStatus,
   InsuranceVerification,
   InsuranceVerificationRequestedStatus,
   InsuranceVerificationStrategy,
@@ -85,6 +87,8 @@ type PolicyRow = {
   insurer_document: string | null;
   policy_number: string;
   coverage_amount: string | number | null;
+  per_trip_limit_amount: string | number | null;
+  limit_conditions: unknown;
   valid_from: Date | string;
   valid_until: Date | string;
   status: string;
@@ -107,6 +111,8 @@ function mapPolicyRow(row: PolicyRow | undefined): InsurancePolicy | null {
     insurerDocument: row.insurer_document,
     policyNumber: row.policy_number,
     coverageAmount: row.coverage_amount == null ? null : Number(row.coverage_amount),
+    perTripLimitAmount: row.per_trip_limit_amount == null ? null : Number(row.per_trip_limit_amount),
+    limitConditions: toJsonObject(row.limit_conditions),
     validFrom: toIsoDateOnly(row.valid_from) ?? '',
     validUntil: toIsoDateOnly(row.valid_until) ?? '',
     status: row.status as InsurancePolicyStatus,
@@ -278,6 +284,8 @@ export type PolicyUpdatePatch = Partial<Pick<
   | 'insurerName'
   | 'insurerDocument'
   | 'coverageAmount'
+  | 'perTripLimitAmount'
+  | 'limitConditions'
   | 'validFrom'
   | 'validUntil'
   | 'status'
@@ -327,6 +335,8 @@ export async function updatePolicyById(
   if (patch.insurerName !== undefined) pushSet('insurer_name', patch.insurerName);
   if (patch.insurerDocument !== undefined) pushSet('insurer_document', patch.insurerDocument);
   if (patch.coverageAmount !== undefined) pushSet('coverage_amount', patch.coverageAmount);
+  if (patch.perTripLimitAmount !== undefined) pushSet('per_trip_limit_amount', patch.perTripLimitAmount);
+  if (patch.limitConditions !== undefined) pushSet('limit_conditions', JSON.stringify(patch.limitConditions), '::jsonb');
   if (patch.validFrom !== undefined) pushSet('valid_from', patch.validFrom, '::date');
   if (patch.validUntil !== undefined) pushSet('valid_until', patch.validUntil, '::date');
   if (patch.status !== undefined) pushSet('status', patch.status);
@@ -662,4 +672,138 @@ export async function listVerificationsForParty(
     [partyId, integrationAccountId]
   );
   return result.rows.map(mapVerificationRow).filter((row): row is InsuranceVerification => row !== null);
+}
+
+// =================================================================================================
+// 4. insurance_rate_schedules — taxas de averbação versionadas por vigência (migration 035, PR-I2)
+// =================================================================================================
+
+type RateScheduleRow = {
+  id: string;
+  integration_account_id: string;
+  policy_id: string;
+  rate_percent: string | number;
+  route_scope: string | null;
+  monthly_minimum_amount: string | number;
+  valid_from: Date | string;
+  valid_until: Date | string | null;
+  status: string;
+  evidence: unknown;
+  correlation_id: string;
+  version: number;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+function mapRateScheduleRow(row: RateScheduleRow | undefined): InsuranceRateSchedule | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    integrationAccountId: row.integration_account_id,
+    policyId: row.policy_id,
+    ratePercent: Number(row.rate_percent),
+    routeScope: row.route_scope,
+    monthlyMinimumAmount: Number(row.monthly_minimum_amount),
+    validFrom: toIsoDateOnly(row.valid_from) ?? '',
+    validUntil: toIsoDateOnly(row.valid_until),
+    status: row.status as InsuranceRateScheduleStatus,
+    evidence: toJsonObject(row.evidence),
+    correlationId: row.correlation_id,
+    version: Number(row.version ?? 1),
+    createdAt: toIso(row.created_at) ?? '',
+    updatedAt: toIso(row.updated_at) ?? ''
+  };
+}
+
+export type RateScheduleInsertInput = {
+  id: string;
+  integrationAccountId: string;
+  policyId: string;
+  ratePercent: number;
+  routeScope?: string | null;
+  monthlyMinimumAmount?: number;
+  validFrom: string;
+  validUntil?: string | null;
+  status?: InsuranceRateScheduleStatus;
+  evidence?: Record<string, unknown>;
+  correlationId: string;
+};
+
+export async function insertRateSchedule(
+  input: RateScheduleInsertInput,
+  client: DbClient = null
+): Promise<InsuranceRateSchedule> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<RateScheduleRow>(
+    `insert into insurance_rate_schedules (
+       id, integration_account_id, policy_id, rate_percent, route_scope, monthly_minimum_amount,
+       valid_from, valid_until, status, evidence, correlation_id, version
+     ) values (
+       $1, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10::jsonb, $11, 1
+     )
+     returning *`,
+    [
+      input.id,
+      input.integrationAccountId,
+      input.policyId,
+      input.ratePercent,
+      input.routeScope ?? null,
+      input.monthlyMinimumAmount ?? 0,
+      input.validFrom,
+      input.validUntil ?? null,
+      input.status ?? 'active',
+      JSON.stringify(input.evidence ?? {}),
+      input.correlationId
+    ]
+  );
+  const row = mapRateScheduleRow(result.rows[0]);
+  if (!row) {
+    throw new AppError(500, 'Internal Server Error', `Falha ao inserir taxa de averbação ${input.id}.`, {
+      code: 'TRANSPORT_INSURANCE_RATE_INSERT_FAILED'
+    });
+  }
+  return row;
+}
+
+/**
+ * Marca `superseded` toda taxa `active` da MESMA chave lógica (apólice + percurso, com
+ * `coalesce(route_scope, '')` espelhando o índice único da migration 035) — chamada pelo service
+ * NA MESMA transação do insert da taxa nova ("create supersede"). Só muda status: nenhuma
+ * cirurgia de datas — a seleção por vigência (`selectApplicableRate`) continua achando a taxa
+ * antiga para datas passadas.
+ */
+export async function supersedeActiveRateSchedules(
+  policyId: string,
+  integrationAccountId: string,
+  routeScope: string | null,
+  client: DbClient = null
+): Promise<string[]> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<{ id: string }>(
+    `update insurance_rate_schedules
+        set status = 'superseded'
+      where policy_id = $1
+        and integration_account_id = $2
+        and coalesce(route_scope, '') = coalesce($3, '')
+        and status = 'active'
+      returning id`,
+    [policyId, integrationAccountId, routeScope]
+  );
+  return result.rows.map((row) => row.id);
+}
+
+/** Todas as taxas da apólice (histórico completo, incl. superseded/cancelled), vigência mais recente primeiro. */
+export async function listRateSchedulesForPolicy(
+  policyId: string,
+  integrationAccountId: string,
+  client: DbClient = null
+): Promise<InsuranceRateSchedule[]> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<RateScheduleRow>(
+    `select * from insurance_rate_schedules
+      where policy_id = $1 and integration_account_id = $2
+      order by valid_from desc, created_at desc`,
+    [policyId, integrationAccountId]
+  );
+  return result.rows.map(mapRateScheduleRow).filter((row): row is InsuranceRateSchedule => row !== null);
 }

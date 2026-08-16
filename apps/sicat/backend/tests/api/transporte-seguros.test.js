@@ -171,6 +171,12 @@ after(async () => {
   if (dbAvailable) {
     await query('delete from insurance_verifications where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
     await query('delete from risk_management_plans where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
+    // Taxas ANTES das apólices (FK insurance_rate_schedules.policy_id, migration 035); o registro
+    // de idempotência do POST de taxa é por escopo `transporte.apolice.taxa.create:<conta>`.
+    await query('delete from insurance_rate_schedules where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
+    await query("delete from idempotency_registry where operation = any($1)", [
+      [`transporte.apolice.taxa.create:${ACCOUNT_A}`, `transporte.apolice.taxa.create:${ACCOUNT_B}`]
+    ]);
     await query('delete from insurance_policies where integration_account_id = any($1)', [[ACCOUNT_A, ACCOUNT_B]]);
     // `transport_operation_parties`/`_routes`/`_vehicles`/`_cargo` são `on delete cascade` para
     // `transport_operations` (migration 024) — deletar o cabeçalho já limpa os sub-recursos.
@@ -394,6 +400,185 @@ describe('PATCH .../apolices/{policyId} — locking otimista e auditoria de vig�
     });
     assert.equal(response.status, 404);
     assert.equal(body.code, 'TRANSPORT_INSURANCE_POLICY_NOT_FOUND');
+  });
+});
+
+describe('PATCH .../apolices/{policyId} — limite de garantia por viagem (PR-I2, REQ-SICAT-0028 rev.2)', () => {
+  it('define perTripLimitAmount + limitConditions (sanitizado: só escalares de primeiro nível)', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Limite1');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+    assert.equal(policy.perTripLimitAmount, null, 'apólice nasce sem limite configurado');
+
+    const { response, body } = await callApi('PATCH', `/v1/transporte/transportadores/${partyId}/apolices/${policy.id}`, {
+      body: {
+        integrationAccountId: ACCOUNT_A,
+        version: policy.version,
+        perTripLimitAmount: 25000, // caso de ouro: teto de R$ 25.000,00 por viagem
+        limitConditions: {
+          notes: 'Limite por embarque conforme apólice.',
+          exigeEndosso: true,
+          clausulas: { texto: 'objeto aninhado NUNCA persiste (LGPD)' }
+        }
+      }
+    });
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal(body.perTripLimitAmount, 25000);
+    assert.equal(body.limitConditions.notes, 'Limite por embarque conforme apólice.');
+    assert.equal(body.limitConditions.exigeEndosso, true);
+    assert.equal(body.limitConditions.clausulas, undefined, 'aninhado (formato natural de cláusula colada) é descartado');
+    assert.equal(body.version, 2);
+  });
+
+  it('perTripLimitAmount null LIMPA o limite; negativo → 400', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Limite2');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+
+    const set = await callApi('PATCH', `/v1/transporte/transportadores/${partyId}/apolices/${policy.id}`, {
+      body: { integrationAccountId: ACCOUNT_A, version: policy.version, perTripLimitAmount: 25000 }
+    });
+    assert.equal(set.response.status, 200, JSON.stringify(set.body));
+
+    const cleared = await callApi('PATCH', `/v1/transporte/transportadores/${partyId}/apolices/${policy.id}`, {
+      body: { integrationAccountId: ACCOUNT_A, version: set.body.version, perTripLimitAmount: null }
+    });
+    assert.equal(cleared.response.status, 200, JSON.stringify(cleared.body));
+    assert.equal(cleared.body.perTripLimitAmount, null);
+
+    const invalid = await callApi('PATCH', `/v1/transporte/transportadores/${partyId}/apolices/${policy.id}`, {
+      body: { integrationAccountId: ACCOUNT_A, version: cleared.body.version, perTripLimitAmount: -1 }
+    });
+    assert.equal(invalid.response.status, 400);
+    assert.equal(invalid.body.code, 'TRANSPORT_INSURANCE_POLICY_PER_TRIP_LIMIT_INVALID');
+  });
+});
+
+describe('Taxas de averbação — POST/GET .../apolices/{policyId}/taxas (PR-I2, migration 035)', () => {
+  async function createRate(partyId, policyId, overrides = {}, headers = undefined) {
+    return callApi('POST', `/v1/transporte/transportadores/${partyId}/apolices/${policyId}/taxas`, {
+      body: {
+        integrationAccountId: ACCOUNT_A,
+        ratePercent: 0.072, // percentual LITERAL do caso de ouro (0,072% RCTR-C)
+        monthlyMinimumAmount: 700,
+        validFrom: isoDateOffset(-30),
+        ...overrides
+      },
+      ...(headers ? { headers } : {})
+    });
+  }
+
+  it('cria a taxa (201) com percentual literal e mínimo mensal', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa1');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+
+    const { response, body } = await createRate(partyId, policy.id);
+    assert.equal(response.status, 201, JSON.stringify(body));
+    assert.ok(body.id?.startsWith('insrate_'));
+    assert.equal(body.policyId, policy.id);
+    assert.equal(body.ratePercent, 0.072, '0,072% grava 0.072 — nunca a fração dividida');
+    assert.equal(body.monthlyMinimumAmount, 700);
+    assert.equal(body.routeScope, null);
+    assert.equal(body.status, 'active');
+    assert.deepEqual(body.supersededScheduleIds, []);
+  });
+
+  it('create supersede: taxa nova com a MESMA chave lógica marca a anterior superseded', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa2');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+
+    const first = await createRate(partyId, policy.id, { validFrom: isoDateOffset(-60) });
+    assert.equal(first.response.status, 201, JSON.stringify(first.body));
+
+    const second = await createRate(partyId, policy.id, { ratePercent: 0.08, validFrom: isoDateOffset(-1) });
+    assert.equal(second.response.status, 201, JSON.stringify(second.body));
+    assert.deepEqual(second.body.supersededScheduleIds, [first.body.id]);
+
+    const firstRow = await query('select status from insurance_rate_schedules where id = $1', [first.body.id]);
+    assert.equal(firstRow.rows[0].status, 'superseded');
+
+    const { response, body } = await callApi(
+      'GET',
+      `/v1/transporte/transportadores/${partyId}/apolices/${policy.id}/taxas?integrationAccountId=${ACCOUNT_A}`
+    );
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal(body.totalItems, 2, 'o histórico fica — superseded não some da listagem');
+  });
+
+  it('routeScope distinto NÃO supersede a default (chaves lógicas diferentes convivem active)', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa3');
+    const policy = await createPolicy(ACCOUNT_A, partyId, { policyType: 'RC_V' });
+
+    const base = await createRate(partyId, policy.id);
+    assert.equal(base.response.status, 201, JSON.stringify(base.body));
+
+    const scoped = await createRate(partyId, policy.id, { routeScope: 'SP-PR', ratePercent: 0.1 });
+    assert.equal(scoped.response.status, 201, JSON.stringify(scoped.body));
+    assert.deepEqual(scoped.body.supersededScheduleIds, [], 'percurso não disputa a chave da default');
+
+    const active = await query(
+      "select count(*)::int as count from insurance_rate_schedules where policy_id = $1 and status = 'active'",
+      [policy.id]
+    );
+    assert.equal(active.rows[0].count, 2);
+  });
+
+  it('mesma validFrom para a mesma chave lógica → 409 TRANSPORT_INSURANCE_RATE_DUPLICATE', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa4');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+    const validFrom = isoDateOffset(-10);
+
+    const first = await createRate(partyId, policy.id, { validFrom });
+    assert.equal(first.response.status, 201, JSON.stringify(first.body));
+
+    const dup = await createRate(partyId, policy.id, { ratePercent: 0.09, validFrom });
+    assert.equal(dup.response.status, 409);
+    assert.equal(dup.body.code, 'TRANSPORT_INSURANCE_RATE_DUPLICATE');
+  });
+
+  it('ratePercent ausente/zero → 400 TRANSPORT_INSURANCE_RATE_PERCENT_INVALID', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa5');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+
+    const { response, body } = await createRate(partyId, policy.id, { ratePercent: 0 });
+    assert.equal(response.status, 400);
+    assert.equal(body.code, 'TRANSPORT_INSURANCE_RATE_PERCENT_INVALID');
+  });
+
+  it('Idempotency-Key: repetir o POST com a mesma chave devolve a MESMA taxa, sem linha nova', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa6');
+    const policy = await createPolicy(ACCOUNT_A, partyId);
+    const headers = { ...authHeaders(), 'Idempotency-Key': `taxa-${RUN_ID}-idem` };
+
+    const first = await createRate(partyId, policy.id, {}, headers);
+    assert.equal(first.response.status, 201, JSON.stringify(first.body));
+
+    const replay = await createRate(partyId, policy.id, {}, headers);
+    assert.equal(replay.body.id, first.body.id, 'replay idempotente devolve o mesmo recurso');
+
+    const rows = await query('select count(*)::int as count from insurance_rate_schedules where policy_id = $1', [policy.id]);
+    assert.equal(rows.rows[0].count, 1);
+  });
+
+  it('apólice de OUTRO transportador → 404; tenancy conta B → 404 TRANSPORT_PARTY_NOT_FOUND', async (t) => {
+    if (skipIfNoDb(t)) return;
+    const partyId1 = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa7a');
+    const partyId2 = await createParty(ACCOUNT_A, nextValidCnpj(), 'Taxa7b');
+    const policy = await createPolicy(ACCOUNT_A, partyId1);
+
+    const wrongParty = await createRate(partyId2, policy.id);
+    assert.equal(wrongParty.response.status, 404);
+    assert.equal(wrongParty.body.code, 'TRANSPORT_INSURANCE_POLICY_NOT_FOUND');
+
+    const crossTenant = await createRate(partyId1, policy.id, { integrationAccountId: ACCOUNT_B });
+    assert.equal(crossTenant.response.status, 404);
+    assert.equal(crossTenant.body.code, 'TRANSPORT_PARTY_NOT_FOUND');
   });
 });
 

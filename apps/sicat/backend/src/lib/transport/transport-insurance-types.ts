@@ -2,8 +2,9 @@
  * Tipos e constantes dos seguros obrigatórios do transportador e do PGR (PR-F2, DL-103, Lei
  * 14.599/2023).
  *
- * Bounded context TRANSPORTE — espelha 1:1 os CHECKs da migration
- * `031_transport_insurance.sql` — mudou lá, muda aqui no mesmo PR (e vice-versa).
+ * Bounded context TRANSPORTE — espelha 1:1 os CHECKs das migrations
+ * `031_transport_insurance.sql` e `035_transport_insurance_commercial.sql` — mudou lá, muda aqui
+ * no mesmo PR (e vice-versa).
  *
  * Distinção central deste PR (mesmo racional de `rntrc-verification-types.ts`, pendência P4 do
  * guia): `status` em `insurance_policies`/`risk_management_plans` é ADMINISTRATIVO — a vigência
@@ -48,11 +49,48 @@ export interface InsurancePolicy {
   insurerDocument: string | null;
   policyNumber: string;
   coverageAmount: number | null;
+  /**
+   * Limite de garantia POR VIAGEM (migration 035, REQ-SICAT-0028 rev.2) — teto que TR-SEG-004
+   * confronta com a soma dos `declaredValue` da carga da operação. `null` = não configurado
+   * (gera AVISO no gate, nunca bloqueio). Não confundir com `coverageAmount` (importância
+   * segurada TOTAL da apólice).
+   */
+  perTripLimitAmount: number | null;
+  /** Anotações MÍNIMAS sobre como o limite se aplica — nunca condições comerciais completas (LGPD). */
+  limitConditions: Record<string, unknown>;
   validFrom: string;
   validUntil: string;
   status: InsurancePolicyStatus;
   evidence: Record<string, unknown>;
   evidenceSource: InsuranceEvidenceSource;
+  correlationId: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =============================================================================
+// insurance_rate_schedules — taxas de averbação versionadas por vigência (migration 035)
+// =============================================================================
+
+export const INSURANCE_RATE_SCHEDULE_STATUSES = ['active', 'superseded', 'cancelled'] as const;
+export type InsuranceRateScheduleStatus = (typeof INSURANCE_RATE_SCHEDULE_STATUSES)[number];
+
+/** Linha de `insurance_rate_schedules` já mapeada para camelCase. */
+export interface InsuranceRateSchedule {
+  id: string;
+  integrationAccountId: string;
+  policyId: string;
+  /** Taxa PERCENTUAL literal (0,072% grava 0.072) — a divisão por 100 é do motor (`insurance-premium-engine.ts`). */
+  ratePercent: number;
+  /** `null` = taxa default da apólice; string = percurso específico (RCV por percurso, ex. 'SP-PR'). */
+  routeScope: string | null;
+  /** Custo mínimo mensal — a apuração (PR-I4) usa `max(transportado × taxa, mínimo)`. */
+  monthlyMinimumAmount: number;
+  validFrom: string;
+  validUntil: string | null;
+  status: InsuranceRateScheduleStatus;
+  evidence: Record<string, unknown>;
   correlationId: string;
   version: number;
   createdAt: string;

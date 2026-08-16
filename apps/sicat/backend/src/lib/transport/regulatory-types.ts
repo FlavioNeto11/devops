@@ -150,7 +150,8 @@ export interface RegulatoryRuleVersion {
 }
 
 /**
- * Os 26 códigos TR-* da baseline regulatória (guia do programa, matriz de rastreabilidade).
+ * Os 27 códigos TR-* do catálogo (26 da baseline regulatória do guia do programa + TR-SEG-004,
+ * limite de garantia por viagem — PR-I2 do Módulo Transportadora, REQ-SICAT-0028 rev.2).
  * Ordem = ordem de exibição do catálogo (mesma do seed, `display_order`).
  */
 export const RULE_CODES = [
@@ -178,6 +179,7 @@ export const RULE_CODES = [
   'TR-SEG-001',
   'TR-SEG-002',
   'TR-SEG-003',
+  'TR-SEG-004',
   'TR-PGR-001',
   'TR-COMP-001'
 ] as const;
