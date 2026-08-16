@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { findActiveGroup, isNavigationItemActive } from '../../config/navigation.js';
+import SicatHelpHint from '../sicat/SicatHelpHint.vue';
 
 const props = defineProps({
   groups: {
@@ -173,6 +174,13 @@ watch(() => props.groups, scheduleMeasure, { deep: true });
         </template>
 
         <v-card class="sicat-nav__menu" min-width="280" elevation="8">
+          <!-- Cabeçalho didático do grupo: descrição + "?" do glossário
+               (consumo do glossaryKey, gancho morto até a onda F4 do módulo
+               Transportadora). Só aparece quando o grupo declara algo. -->
+          <div v-if="group.description || group.glossaryKey" class="sicat-nav__menu-head" @click.stop>
+            <span>{{ group.description || group.label }}</span>
+            <SicatHelpHint v-if="group.glossaryKey" :term="group.glossaryKey" :size="15" />
+          </div>
           <v-list density="comfortable" nav>
             <v-list-item
               v-for="item in group.items"
@@ -325,6 +333,17 @@ watch(() => props.groups, scheduleMeasure, { deep: true });
 .sicat-nav__chevron {
   margin-left: 2px;
   opacity: 0.7;
+}
+
+.sicat-nav__menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px 6px;
+  font-size: 0.82rem;
+  color: rgba(var(--v-theme-on-surface), 0.64);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .sicat-nav__menu {
