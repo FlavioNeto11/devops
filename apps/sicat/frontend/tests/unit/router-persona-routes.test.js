@@ -47,6 +47,35 @@ test('rotas de CDF são exclusivas do Destinador', () => {
   }
 });
 
+test('rotas do módulo Transporte são exclusivas do Transportador (REQ-SICAT-0032)', () => {
+  for (const path of [
+    '/transporte/operacoes',
+    '/transporte/operacoes/:operationId',
+    '/transporte/regras',
+    '/transporte/pendencias',
+    '/transporte/transportadores',
+    '/transporte/transportadores/:partyId',
+    '/transporte/veiculos',
+    '/transporte/watch',
+    '/transporte/watch/:itemId',
+    '/transporte/piso/tabelas'
+  ]) {
+    assert.match(
+      routeBlock(path),
+      /personas:\s*\['carrier'\]/,
+      `${path} precisa declarar personas: ['carrier'] — o módulo é ancorado na persona do Transportador`
+    );
+  }
+});
+
+test('a home do módulo Transporte é um alias para o dashboard (sem segunda home)', () => {
+  assert.match(
+    routeBlock('/transporte'),
+    /redirect:\s*'\/dashboard'/,
+    "/transporte deve redirecionar para /dashboard — a home por persona é o DashboardView"
+  );
+});
+
 test('rotas compartilhadas não declaram perfil', () => {
   for (const path of ['/manifestos', '/dashboard', '/dmr']) {
     assert.doesNotMatch(
