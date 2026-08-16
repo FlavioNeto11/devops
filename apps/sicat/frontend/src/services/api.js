@@ -1477,6 +1477,17 @@ export function printMtrProvisorio(id, payload = {}, { idempotencyKey } = {}) {
 // existe (mesmo raciocínio da seção de vínculos de canal, logo abaixo).
 // =============================================================================
 
+// Criação do draft da operação (REQ-SICAT-0032/onda F3): contrato mínimo —
+// integrationAccountId + route; carga/frete opcionais. Idempotency-Key por
+// tentativa (mesmo padrão dos demais comandos da vertical).
+export function createTransportOperation(payload, { idempotencyKey } = {}) {
+  return request('/v1/transporte/operacoes', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
 export function listTransportOperations(params = {}) {
   return request(`/v1/transporte/operacoes${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
 }

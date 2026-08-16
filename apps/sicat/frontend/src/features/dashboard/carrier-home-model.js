@@ -45,7 +45,7 @@ export function buildCarrierChecklist({ carriersCount = 0, vehiclesCount = 0, op
       label: 'Registre a primeira viagem',
       description: 'Com cadastro e frota em dia, a operação entra no radar da conformidade.',
       done: Number(operationsCount) > 0,
-      to: '/transporte/operacoes'
+      to: '/transporte/operacoes/nova'
     }
   ];
 }
@@ -144,28 +144,28 @@ export function buildCarrierAttention(overview, { cap = 4 } = {}) {
 }
 
 /**
- * Hub "O que você quer fazer?" — v1 sem "Registrar viagem": a tela de criação
- * nasce na onda F3, e o hub NUNCA aponta para rota inexistente. F3 promove a
- * criação a ação primária e rebaixa "Acompanhar" para segunda posição.
+ * Hub "O que você quer fazer?" — a ação primária do Transportador é REGISTRAR
+ * a viagem (tela da onda F3); acompanhar vem em seguida com o badge das
+ * operações em aberto. Trava de teste garante que todo destino existe no router.
  */
 export function buildCarrierHubActions({ openOperationsCount = 0 } = {}) {
   return [
     {
+      key: 'registrar',
+      icon: 'mdi-plus-circle-outline',
+      tone: 'primary',
+      title: 'Registrar uma viagem',
+      description: 'Criar a operação de transporte com origem e destino.',
+      to: '/transporte/operacoes/nova'
+    },
+    {
       key: 'operacoes',
       icon: 'mdi-truck-fast-outline',
-      tone: 'primary',
+      tone: 'info',
       title: 'Acompanhar minhas operações',
       description: 'Ver as viagens e a conformidade de cada uma.',
       to: '/transporte/operacoes',
       badge: Number(openOperationsCount) > 0 ? Number(openOperationsCount) : ''
-    },
-    {
-      key: 'pendencias',
-      icon: 'mdi-clipboard-alert-outline',
-      tone: 'info',
-      title: 'Ver pendências',
-      description: 'Tudo que precisa da sua ação, num só lugar.',
-      to: '/transporte/pendencias'
     },
     {
       key: 'ajuda',

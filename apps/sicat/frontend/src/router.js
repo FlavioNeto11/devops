@@ -43,6 +43,7 @@ import CommandCenterView from './modules/command-center/CommandCenterView.vue';
 import CdfListView from './views/CdfListView.vue';
 import CdfCreateView from './views/CdfCreateView.vue';
 import TransporteOperacaoListView from './views/transporte/TransporteOperacaoListView.vue';
+import TransporteOperacaoCreateView from './views/transporte/TransporteOperacaoCreateView.vue';
 import TransporteOperacaoDetailView from './views/transporte/TransporteOperacaoDetailView.vue';
 import TransporteRegrasView from './views/transporte/TransporteRegrasView.vue';
 import TransportePendenciasView from './views/transporte/TransportePendenciasView.vue';
@@ -442,6 +443,19 @@ const routes = [
       featureFlag: 'transporte',
       personas: ['carrier'],
       breadcrumb: ['Transporte', 'Operações']
+    }
+  },
+  {
+    path: '/transporte/operacoes/nova',
+    name: 'TransporteOperacaoNova',
+    component: TransporteOperacaoCreateView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Registrar viagem']
     }
   },
   {
