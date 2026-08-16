@@ -1458,6 +1458,24 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_transporte_transportadores_partyId_apolices_policyId_taxas",
+    "method": "post",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/{policyId}/taxas",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/:policyId/taxas",
+    "summary": "Registrar taxa de averbação da apólice (create supersede, versionada por vigência)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_transportadores_partyId_apolices_policyId_taxas",
+    "method": "get",
+    "specPath": "/v1/transporte/transportadores/{partyId}/apolices/{policyId}/taxas",
+    "expressPath": "/v1/transporte/transportadores/:partyId/apolices/:policyId/taxas",
+    "summary": "Listar taxas de averbação da apólice (histórico completo, vigência mais recente primeiro)",
+    "tag": "Transporte - Seguros",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_transportadores_partyId_pgr",
     "method": "post",
     "specPath": "/v1/transporte/transportadores/{partyId}/pgr",

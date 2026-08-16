@@ -90,9 +90,11 @@ import {
 } from '../services/transport-fiscal-service.js';
 import {
   createInsurancePolicyService,
+  createInsuranceRateScheduleService,
   createRiskManagementPlanService,
   listInsuranceExpirationAlertsService,
   listInsurancePoliciesService,
+  listInsuranceRateSchedulesService,
   listRiskManagementPlansService,
   updateInsurancePolicyService,
   verifyCarrierInsuranceService
@@ -595,6 +597,29 @@ export function registerTransporteRoutes(router: express.Router): void {
       String(req.params.partyId || ''),
       (req.body || {}) as LooseRecord,
       getOperationCommandContext(req)
+    );
+    res.json(response);
+  }));
+
+  // Taxas de averbação da apólice (PR-I2, migration 035) — "create supersede": taxa nova com a
+  // mesma chave lógica (apólice + routeScope) marca a anterior superseded na mesma transação.
+  // Idempotency-Key no POST como nos vizinhos de comando da vertical.
+  router.post('/v1/transporte/transportadores/:partyId/apolices/:policyId/taxas', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createInsuranceRateScheduleService(
+      String(req.params.partyId || ''),
+      String(req.params.policyId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/transportadores/:partyId/apolices/:policyId/taxas', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listInsuranceRateSchedulesService(
+      String(req.params.partyId || ''),
+      String(req.params.policyId || ''),
+      (req.query || {}) as LooseRecord
     );
     res.json(response);
   }));

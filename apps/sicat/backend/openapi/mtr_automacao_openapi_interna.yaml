@@ -9084,6 +9084,9 @@ paths:
               integrationAccountId: acc_exemplo_prod
               version: 1
               validUntil: '2027-01-31'
+              perTripLimitAmount: 25000
+              limitConditions:
+                notes: Limite por embarque conforme apólice — carga acima exige endosso.
       responses:
         '200':
           description: Apólice atualizada
@@ -9113,6 +9116,113 @@ paths:
         in: path
         required: true
         schema: { type: string }
+  /v1/transporte/transportadores/{partyId}/apolices/{policyId}/taxas:
+    post:
+      operationId: transporteApoliceTaxaCreate
+      summary: Registrar taxa de averbação da apólice (create supersede, versionada por vigência)
+      description: 'SÍNCRONO (201) — registra uma taxa percentual de averbação para a apólice
+        (migration 035, PR-I2). `ratePercent` é o PERCENTUAL LITERAL: 0,072% envia `0.072` (a
+        divisão por 100 é do motor `insurance-premium-engine.ts` — caso de ouro: carga de
+        R$ 25.000,00 × 0,097% = R$ 24,25). `routeScope` opcional cobre o RC-V por percurso (ex.
+        `SP-PR`); ausente = taxa default da apólice. CREATE SUPERSEDE: criar taxa nova com a mesma
+        chave lógica (apólice + routeScope) marca a anterior `active` como `superseded` NA MESMA
+        transação — o histórico fica íntegro e a seleção da taxa aplicável é sempre por VIGÊNCIA.
+        `409 TRANSPORT_INSURANCE_RATE_DUPLICATE` quando já existe taxa com o mesmo `validFrom`
+        para a mesma chave lógica. Aceita `Idempotency-Key` como os POSTs de comando vizinhos.'
+      tags:
+      - Transporte - Seguros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteApoliceTaxaCreateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              ratePercent: 0.072
+              monthlyMinimumAmount: 700
+              validFrom: '2026-01-01'
+      responses:
+        '201':
+          description: Taxa registrada (com as taxas anteriores da mesma chave lógica supersedidas)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceTaxaResource'
+              example:
+                id: insrate_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                version: 1
+                integrationAccountId: acc_exemplo_prod
+                policyId: inspol_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                ratePercent: 0.072
+                routeScope: null
+                monthlyMinimumAmount: 700
+                validFrom: '2026-01-01'
+                validUntil: null
+                status: active
+                supersededScheduleIds: []
+                createdAt: '2026-08-15T12:30:00Z'
+                updatedAt: '2026-08-15T12:30:00Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: policyId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteApoliceTaxasList
+      summary: Listar taxas de averbação da apólice (histórico completo, vigência mais recente primeiro)
+      description: 'Devolve TODAS as taxas da apólice, inclusive `superseded`/`cancelled` — o
+        histórico é o que permite reproduzir o prêmio de averbações de datas passadas
+        (REQ-SICAT-0034: a seleção da taxa aplicável é por vigência + percurso, nunca por status
+        `active` sozinho).'
+      tags:
+      - Transporte - Seguros
+      responses:
+        '200':
+          description: Taxas da apólice
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteApoliceTaxaListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: partyId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: policyId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
   /v1/transporte/transportadores/{partyId}/pgr:
     post:
       operationId: transporteTransportadorPgrCreate
@@ -17121,6 +17231,8 @@ components:
       - insurerDocument
       - policyNumber
       - coverageAmount
+      - perTripLimitAmount
+      - limitConditions
       - validFrom
       - validUntil
       - status
@@ -17139,6 +17251,17 @@ components:
         insurerDocument: { type: [string, 'null'] }
         policyNumber: { type: string }
         coverageAmount: { type: [number, 'null'] }
+        perTripLimitAmount:
+          type: [number, 'null']
+          description: 'Limite de garantia POR VIAGEM (REQ-SICAT-0028 rev.2) — teto que TR-SEG-004
+            confronta com a soma dos valores declarados da carga. `null` = não configurado (o gate
+            avisa, nunca bloqueia). Não confundir com `coverageAmount` (importância segurada TOTAL).'
+        limitConditions:
+          type: object
+          description: 'Anotações MÍNIMAS sobre como o limite se aplica — só escalares curtos
+            sobrevivem à sanitização; nunca condições comerciais completas (franquia, cláusulas,
+            prêmio negociado — LGPD/escopo do REQ-SICAT-0028).'
+          additionalProperties: true
         validFrom: { type: string, format: date }
         validUntil: { type: string, format: date }
         status: { type: string, enum: [active, cancelled, expired_marked] }
@@ -17194,6 +17317,17 @@ components:
         insurerName: { type: string }
         insurerDocument: { type: string }
         coverageAmount: { type: number, minimum: 0 }
+        perTripLimitAmount:
+          type: [number, 'null']
+          minimum: 0
+          description: 'Limite de garantia POR VIAGEM — ex. sintético: apólice que cobre até
+            R$ 25.000,00 por viagem envia 25000. `null` explícito LIMPA o limite (TR-SEG-004
+            volta a avisar em vez de confrontar).'
+        limitConditions:
+          type: object
+          description: 'Só escalares de primeiro nível sobrevivem (strings encurtadas); objetos/
+            arrays aninhados são descartados — nunca cole cláusulas/franquia/prêmio (LGPD).'
+          additionalProperties: true
         validFrom: { type: string, format: date }
         validUntil: { type: string, format: date }
         status: { type: string, enum: [active, cancelled, expired_marked] }
@@ -17218,6 +17352,88 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+    TransporteApoliceTaxaResource:
+      type: object
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - policyId
+      - ratePercent
+      - routeScope
+      - monthlyMinimumAmount
+      - validFrom
+      - validUntil
+      - status
+      - createdAt
+      - updatedAt
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        integrationAccountId: { type: string }
+        policyId: { type: string }
+        ratePercent:
+          type: number
+          description: 'PERCENTUAL literal (0,072% grava 0.072) — a divisão por 100 é do motor de
+            prêmio. Caso de ouro sintético: R$ 25.000,00 × 0,097% = R$ 24,25.'
+        routeScope:
+          type: [string, 'null']
+          description: '`null` = taxa default da apólice; string = percurso específico (RC-V por
+            percurso, ex. SP-PR).'
+        monthlyMinimumAmount:
+          type: number
+          description: 'Custo mínimo mensal — a apuração usa max(transportado × taxa, mínimo).'
+        validFrom: { type: string, format: date }
+        validUntil: { type: [string, 'null'], format: date }
+        status: { type: string, enum: [active, superseded, cancelled] }
+        supersededScheduleIds:
+          type: array
+          description: Só na resposta do POST — ids das taxas marcadas superseded pelo create supersede.
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TransporteApoliceTaxaCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - ratePercent
+      - validFrom
+      properties:
+        integrationAccountId: { type: string }
+        ratePercent:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 999.999999
+          description: 'PERCENTUAL literal: 0,025% (RC-DC) envia 0.025; 0,072% (RCTR-C) envia
+            0.072 — nunca a fração já dividida.'
+        routeScope:
+          type: string
+          description: 'Percurso específico (RC-V), ex. SP-PR; ausente = taxa default da apólice.'
+        monthlyMinimumAmount:
+          type: number
+          minimum: 0
+          default: 0
+          description: 'Custo mínimo mensal em reais (ex. sintético do circuito: 700).'
+        validFrom: { type: string, format: date }
+        validUntil: { type: string, format: date }
+        evidence:
+          type: object
+          description: 'LGPD — só `notes`/`documentRef` são persistidos, como nas apólices.'
+          properties:
+            notes: { type: string, maxLength: 500 }
+            documentRef: { type: string, maxLength: 200 }
+          additionalProperties: true
+    TransporteApoliceTaxaListResponse:
+      type: object
+      required:
+      - items
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteApoliceTaxaResource'
+        totalItems: { type: integer }
     TransporteApoliceVerificarRequest:
       type: object
       required:

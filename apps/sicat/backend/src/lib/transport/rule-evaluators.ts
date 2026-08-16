@@ -129,6 +129,12 @@ export type InsurancePolicyEvaluationContext = {
   policyNumber: string;
   validFrom: string;
   validUntil: string;
+  /**
+   * Limite de garantia POR VIAGEM (`insurance_policies.per_trip_limit_amount`, migration 035 —
+   * PR-I2, REQ-SICAT-0028 rev.2). `null` = não configurado — TR-SEG-004 avisa
+   * (`PER_TRIP_LIMIT_NOT_CONFIGURED`), nunca bloqueia por ausência de configuração.
+   */
+  perTripLimitAmount: number | null;
 };
 
 /**
@@ -1296,6 +1302,112 @@ function evaluateSeg003(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
+// TR-SEG-004 — limite de garantia por viagem respeitado (GATE_PRE_BOARDING, PR-I2 do Módulo
+// Transportadora, REQ-SICAT-0028 rev.2). Confronta a soma dos `declaredValue` da carga da operação
+// com o `perTripLimitAmount` das apólices VIGENTES na `referenceDate` — é o teto POR VIAGEM do
+// circuito real (doc Irmãos PADILHA): acima dele a carga viaja parcialmente descoberta.
+// AUSÊNCIA de apólice vigente é `not_applicable` aqui — TR-SEG-001/002/003 já bloqueiam ausência/
+// vencimento; duplicar o mesmo block em duas regras inflaria o gate com ruído repetido.
+// =================================================================================================
+
+/** Reais → centavos inteiros (half-up) — a comparação do limite roda em centavos para não depender de igualdade float. */
+function toCentsHalfUp(amount: number): number {
+  const sign = amount < 0 ? -1 : 1;
+  return sign * Math.round(Math.abs(amount) * 100 + 1e-9);
+}
+
+function evaluateSeg004(ctx: RuleEvaluatorContext): RuleOutcome {
+  const policies = ctx.carrierInsurance?.policies ?? {};
+
+  // Só apólices cuja janela COBRE a referenceDate concorrem — mesma leitura de vigência de
+  // TR-SEG-001/002/003 (data da OPERAÇÃO, nunca "hoje").
+  const coveringPolicies = (Object.entries(policies) as Array<[InsurancePolicyType, InsurancePolicyEvaluationContext | null]>)
+    .filter(([, policy]) => policy != null
+      && policy.validFrom <= ctx.referenceDate
+      && policy.validUntil >= ctx.referenceDate) as Array<[InsurancePolicyType, InsurancePolicyEvaluationContext]>;
+
+  const inputs: Record<string, unknown> = {
+    referenceDate: ctx.referenceDate,
+    coveringPolicyTypes: coveringPolicies.map(([type]) => type)
+  };
+
+  if (coveringPolicies.length === 0) {
+    return outcome(
+      'not_applicable',
+      'Nenhuma apólice vigente na data de referência — ausência/vencimento de seguro é assunto de '
+        + 'TR-SEG-001/002/003, não do limite por viagem.',
+      { reasonCode: 'PER_TRIP_LIMIT_NO_APPLICABLE_POLICY', inputs }
+    );
+  }
+
+  // O limite que VINCULA é o MENOR entre os configurados nas apólices vigentes — se a soma da
+  // carga passa do menor teto, já existe uma apólice descoberta (não importa que outra folgue).
+  const configured = coveringPolicies.filter(([, policy]) => policy.perTripLimitAmount != null);
+  if (configured.length === 0) {
+    return outcome(
+      'warn',
+      `Apólice(s) vigente(s) (${coveringPolicies.map(([type]) => type).join('/')}) sem limite de garantia `
+        + 'por viagem configurado — configure perTripLimitAmount para o gate confrontar o valor da carga.',
+      { reasonCode: 'PER_TRIP_LIMIT_NOT_CONFIGURED', inputs }
+    );
+  }
+
+  const [bindingType, bindingPolicy] = configured.reduce((best, candidate) => (
+    (candidate[1].perTripLimitAmount as number) < (best[1].perTripLimitAmount as number) ? candidate : best
+  ));
+  const perTripLimitAmount = bindingPolicy.perTripLimitAmount as number;
+
+  // Carga sem valor declarado (nenhum item, ou item sem declaredValue) → a soma seria mentirosa
+  // (subestimada) — avisa em vez de comparar um número incompleto contra o limite.
+  const cargoItems = ctx.operation.cargo ?? [];
+  const itemsMissingDeclaredValue = cargoItems.filter((item) => item.declaredValue == null).length;
+  const checkInputs = {
+    ...inputs,
+    bindingPolicyType: bindingType,
+    perTripLimitAmount,
+    cargoItemsCount: cargoItems.length,
+    cargoItemsMissingDeclaredValue: itemsMissingDeclaredValue
+  };
+
+  if (cargoItems.length === 0 || itemsMissingDeclaredValue > 0) {
+    return outcome(
+      'warn',
+      cargoItems.length === 0
+        ? 'Operação sem carga registrada — não há valor declarado para confrontar com o limite de garantia por viagem.'
+        : `${itemsMissingDeclaredValue} item(ns) de carga sem valor declarado — a soma ficaria subestimada; `
+          + 'declare o valor de cada item para o gate confrontar o limite por viagem.',
+      { reasonCode: 'CARGO_DECLARED_VALUE_MISSING', inputs: checkInputs }
+    );
+  }
+
+  const declaredValueTotal = cargoItems.reduce((total, item) => total + (item.declaredValue as number), 0);
+  const resultSnapshot = {
+    declaredValueTotal,
+    perTripLimitAmount,
+    bindingPolicyType: bindingType,
+    bindingPolicyNumber: bindingPolicy.policyNumber
+  };
+
+  // Comparação em CENTAVOS inteiros — 25000.005 vs 25000.00 não pode depender de float.
+  if (toCentsHalfUp(declaredValueTotal) > toCentsHalfUp(perTripLimitAmount)) {
+    return outcome(
+      'block',
+      `Valor declarado da carga (R$ ${declaredValueTotal.toFixed(2)}) acima do limite de garantia por `
+        + `viagem (R$ ${perTripLimitAmount.toFixed(2)}, apólice ${bindingType} ${bindingPolicy.policyNumber}) — `
+        + 'a carga viajaria parcialmente descoberta.',
+      { reasonCode: 'INSURANCE_PER_TRIP_LIMIT_EXCEEDED', inputs: checkInputs, result: resultSnapshot }
+    );
+  }
+
+  return outcome(
+    'pass',
+    `Valor declarado da carga (R$ ${declaredValueTotal.toFixed(2)}) dentro do limite de garantia por `
+      + `viagem (R$ ${perTripLimitAmount.toFixed(2)}, apólice ${bindingType}).`,
+    { inputs: checkInputs, result: resultSnapshot }
+  );
+}
+
+// =================================================================================================
 // TR-PGR-001 — PGR vigente quando requerido (GATE_PRE_BOARDING, Lei 14.599/2023). PR-F2: sai de
 // `RULES_WITHOUT_EVALUATOR_YET`. Vínculo legal: PGR é exigido quando o carrier tem APÓLICE
 // REGISTRADA (independente de vigência — isso é assunto de TR-SEG-001/002, avaliados à parte) do
@@ -1385,6 +1497,7 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-SEG-001': evaluateSeg001,
   'TR-SEG-002': evaluateSeg002,
   'TR-SEG-003': evaluateSeg003,
+  'TR-SEG-004': evaluateSeg004,
   'TR-PGR-001': evaluatePgr001,
   'TR-COMP-001': evaluateComp001
 };

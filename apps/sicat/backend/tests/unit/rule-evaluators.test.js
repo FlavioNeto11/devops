@@ -176,11 +176,11 @@ function evaluate(code, aggregate, ruleVersionOverrides = {}, referenceDate = '2
 }
 
 // ===================================================================================================
-// Registro — cobertura completa dos 26 codes (evaluator OU pendente, nunca os dois, nunca nenhum)
+// Registro — cobertura completa dos 27 codes (evaluator OU pendente, nunca os dois, nunca nenhum)
 // ===================================================================================================
 
 describe('rule-evaluators — registro', () => {
-  it('RULE_EVALUATORS + RULES_WITHOUT_EVALUATOR_YET cobrem exatamente os 26 codes, sem sobreposição', () => {
+  it('RULE_EVALUATORS + RULES_WITHOUT_EVALUATOR_YET cobrem exatamente os 27 codes, sem sobreposição', () => {
     const withEvaluator = new Set(Object.keys(RULE_EVALUATORS));
     const withoutEvaluator = new Set(Object.keys(RULES_WITHOUT_EVALUATOR_YET));
 
@@ -195,10 +195,10 @@ describe('rule-evaluators — registro', () => {
 
     assert.strictEqual(
       withEvaluator.size,
-      25,
+      26,
       'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) + TR-VPO-002 (PR-D1) '
         + '+ TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002/TR-CIOT-005/TR-VPO-004 (PR-E1) '
-        + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) = 25 evaluators implementados'
+        + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) + TR-SEG-004 (PR-I2) = 26 evaluators implementados'
     );
     assert.strictEqual(
       withoutEvaluator.size,
@@ -768,6 +768,125 @@ describe('TR-SEG-003 — RC-V vigente (aplicável só quando a operação tem ve
     const outcome = evaluate('TR-SEG-003', aggregate, {}, REFERENCE_DATE, { carrierInsurance });
     assert.strictEqual(outcome.status, 'block');
     assert.strictEqual(outcome.reasonCode, 'INSURANCE_RC_V_MISSING_OR_EXPIRED');
+  });
+});
+
+// ===================================================================================================
+// TR-SEG-004 — limite de garantia por viagem (PR-I2, REQ-SICAT-0028 rev.2). Confronta a soma dos
+// declaredValue da carga com o perTripLimitAmount das apólices VIGENTES na referenceDate. Ausência
+// de apólice vigente é not_applicable — TR-SEG-001/002/003 já cobrem ausência/vencimento.
+// ===================================================================================================
+
+describe('TR-SEG-004 — limite de garantia por viagem respeitado', () => {
+  /** Agregado com carga de valor declarado conhecido (default: caso de ouro R$ 25.000,00). */
+  function buildAggregateWithCargo(declaredValues = [25000]) {
+    return buildCompleteTacAggregate({
+      cargo: declaredValues.map((declaredValue, index) => buildCargoItem({
+        id: `tropcargo_seg004_${index}`,
+        declaredValue
+      }))
+    });
+  }
+
+  /** carrierInsurance com UMA apólice RCTR-C vigente e limite configurável. */
+  function buildInsuranceWithLimit(perTripLimitAmount) {
+    return {
+      policies: { RCTR_C: buildInsurancePolicyFixture({ perTripLimitAmount }) },
+      pgr: null
+    };
+  }
+
+  it('sem carrierInsurance (ctx nunca montado) → not_applicable PER_TRIP_LIMIT_NO_APPLICABLE_POLICY', () => {
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo(), {}, REFERENCE_DATE, { carrierInsurance: null });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'PER_TRIP_LIMIT_NO_APPLICABLE_POLICY');
+  });
+
+  it('nenhuma apólice vigente na referenceDate (só vencida) → not_applicable (TR-SEG-001/002 cobrem ausência)', () => {
+    const carrierInsurance = {
+      policies: { RCTR_C: buildInsurancePolicyFixture({ validFrom: '2020-01-01', validUntil: '2020-12-31', perTripLimitAmount: 25000 }) },
+      pgr: null
+    };
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'PER_TRIP_LIMIT_NO_APPLICABLE_POLICY');
+  });
+
+  it('apólice vigente SEM limite configurado → warn PER_TRIP_LIMIT_NOT_CONFIGURED', () => {
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithLimit(null)
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'PER_TRIP_LIMIT_NOT_CONFIGURED');
+  });
+
+  it('item de carga sem declaredValue → warn CARGO_DECLARED_VALUE_MISSING (soma seria subestimada)', () => {
+    const aggregate = buildCompleteTacAggregate({
+      cargo: [
+        buildCargoItem({ id: 'tropcargo_a', declaredValue: 10000 }),
+        buildCargoItem({ id: 'tropcargo_b', declaredValue: null })
+      ]
+    });
+    const outcome = evaluate('TR-SEG-004', aggregate, {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithLimit(25000)
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'CARGO_DECLARED_VALUE_MISSING');
+  });
+
+  it('operação SEM carga registrada → warn CARGO_DECLARED_VALUE_MISSING', () => {
+    const aggregate = buildCompleteTacAggregate({ cargo: [] });
+    const outcome = evaluate('TR-SEG-004', aggregate, {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithLimit(25000)
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'CARGO_DECLARED_VALUE_MISSING');
+  });
+
+  it('Σ declaredValue > limite → block bruto INSURANCE_PER_TRIP_LIMIT_EXCEEDED com os dois valores na evidência', () => {
+    // Caso de ouro invertido: limite R$ 25.000,00, carga somando R$ 30.000,00 (20k + 10k).
+    const aggregate = buildAggregateWithCargo([20000, 10000]);
+    const outcome = evaluate('TR-SEG-004', aggregate, {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithLimit(25000)
+    });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'INSURANCE_PER_TRIP_LIMIT_EXCEEDED');
+    assert.strictEqual(outcome.result.declaredValueTotal, 30000, 'evidência precisa trazer a soma da carga');
+    assert.strictEqual(outcome.result.perTripLimitAmount, 25000, 'evidência precisa trazer o limite confrontado');
+  });
+
+  it('Σ dentro do limite (igual ao teto, caso de ouro R$ 25.000,00) → pass', () => {
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo([25000]), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithLimit(25000)
+    });
+    assert.strictEqual(outcome.status, 'pass');
+    assert.strictEqual(outcome.result.declaredValueTotal, 25000);
+  });
+
+  it('o limite que VINCULA é o MENOR entre as apólices vigentes configuradas', () => {
+    const carrierInsurance = {
+      policies: {
+        RCTR_C: buildInsurancePolicyFixture({ perTripLimitAmount: 50000 }),
+        RC_DC: buildInsurancePolicyFixture({ policyNumber: 'RCDC-2026-000456', perTripLimitAmount: 25000 })
+      },
+      pgr: null
+    };
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo([30000]), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'block', 'R$ 30.000 folga na RCTR-C mas estoura a RC-DC — a menor vincula');
+    assert.strictEqual(outcome.result.perTripLimitAmount, 25000);
+    assert.strictEqual(outcome.result.bindingPolicyType, 'RC_DC');
+  });
+
+  it('apólice vigente COM limite + outra vigente SEM limite → a configurada vincula (sem warn)', () => {
+    const carrierInsurance = {
+      policies: {
+        RCTR_C: buildInsurancePolicyFixture({ perTripLimitAmount: null }),
+        RC_DC: buildInsurancePolicyFixture({ policyNumber: 'RCDC-2026-000456', perTripLimitAmount: 25000 })
+      },
+      pgr: null
+    };
+    const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo([20000]), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'pass');
   });
 });
 

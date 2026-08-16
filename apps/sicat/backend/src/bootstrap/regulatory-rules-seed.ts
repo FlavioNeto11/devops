@@ -254,9 +254,10 @@ const SEEDED_SOURCES: RegulatorySourceSeed[] = [
 ];
 
 // ───────────────────────────────────────────────────────────────────────────────────────────────
-// As 26 regras TR-* da baseline (guia do programa, matriz de rastreabilidade). Uma versão
-// 'v2026-08-baseline' por regra, EXCETO TR-CIOT-001 (duas versões: a virada do CIOT universal
-// em 24/05/2026 é a primeira fronteira temporal real do catálogo).
+// As 27 regras TR-* do catálogo: 26 da baseline (guia do programa, matriz de rastreabilidade)
+// + TR-SEG-004 (limite de garantia por viagem — PR-I2 do Módulo Transportadora, REQ-SICAT-0028
+// rev.2). Uma versão 'v2026-08-baseline' por regra, EXCETO TR-CIOT-001 (duas versões: a virada
+// do CIOT universal em 24/05/2026 é a primeira fronteira temporal real do catálogo).
 // ───────────────────────────────────────────────────────────────────────────────────────────────
 
 const BASELINE_LABEL = 'v2026-08-baseline';
@@ -651,6 +652,26 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
     versions: [baselineVersion({
       legalBasis: LEGAL_SEG,
       summary: 'Seguro RC-V (responsabilidade civil do veículo) vigente.',
+      effectiveFrom: '2023-06-20',
+      implementationState: 'ACTIVE',
+      severity: 'critical'
+    })]
+  },
+  {
+    code: 'TR-SEG-004',
+    title: 'Limite de garantia por viagem respeitado',
+    domain: 'SEG',
+    defaultGate: 'GATE_PRE_BOARDING',
+    displayOrder: 245,
+    versions: [baselineVersion({
+      legalBasis: LEGAL_SEG,
+      // A soma dos valores declarados da carga da operação não pode ultrapassar o limite de
+      // garantia POR VIAGEM configurado na apólice (per_trip_limit_amount, migration 035) —
+      // acima dele a carga viaja parcialmente descoberta (circuito Irmãos PADILHA,
+      // REQ-SICAT-0028 rev.2). Nasce blocking=false como toda regra (regra de ouro do programa):
+      // o block bruto do evaluator é rebaixado a warn pelo clamp advisory até promoção do operador.
+      summary: 'Soma dos valores declarados da carga dentro do limite de garantia por viagem '
+        + 'da apólice vigente (per_trip_limit_amount).',
       effectiveFrom: '2023-06-20',
       implementationState: 'ACTIVE',
       severity: 'critical'
