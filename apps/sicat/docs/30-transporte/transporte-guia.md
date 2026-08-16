@@ -148,6 +148,35 @@ aprovado do programa). REQs: `REQ-SICAT-0017+` (criação na Onda 0).
 | 8 | H | ✅ Regulatory Watch (backend, PR-H1) + Centro Operacional da vertical — fluxo de aprovação humana, `verificar-agora`, promoção administrativa e `GET .../operations/overview` entregues | Ondas 1–6 |
 | 9 | H (UX) | ✅ Frontend completo da vertical (PR-H2, atrás de `VITE_FEATURE_TRANSPORTE`) — cadastros (transportadores/veículos), RNTRC, CIOT, VPO, piso mínimo, documentos fiscais, seguros/PGR, emissão de DF-e, Regulatory Watch (fila + revisar + aplicar) e "Promover a bloqueante" em Regras regulatórias. **Programa fechado no frontend** — as pendências que restam (P1/P2/P4-P9) são [EXTERNAL DEPENDENCY]/[LEGAL REVIEW REQUIRED] fora do controle do programa, não trabalho de UI | Onda 8 |
 
+## Programa "Módulo Transportadora" (2026-08-16) — circuito comercial do TRC
+
+Extensão do programa a partir do fluxo real do prospect **Irmãos PADILHA** (11/08/2026), que pede um
+"sistema de gestão de transportadora" ponta-a-ponta. O eixo regulatório já estava coberto (ondas
+1–9); o que faltava era o **eixo comercial de seguros** e a experiência de MÓDULO. REQs:
+`REQ-SICAT-0032..0037` + `REQ-SICAT-0028` rev.2.
+
+| Onda | Entrega | Estado |
+|---|---|---|
+| I1 | Motoristas (CNH, vínculo frota/agregado) + tipologia TAC/ETC derivada da frota — migration 034 | ✅ PR #353 |
+| I2 | Limite de garantia POR VIAGEM + taxas de averbação versionadas (percurso/mínimo mensal) + **TR-SEG-004** — migration 035 | ✅ PR #355 |
+| I3 | **Averbação eletrônica** por viagem: gateway `off|sandbox` (DL-102), jobs, reconciliação e **TR-SEG-005** — migration 036 | ✅ PR #356 |
+| I4 | **Apuração mensal**: `billed = max(Σ prêmios, custo mínimo)`, extrato reproduzível, job + sweep diária — migration 037 | ✅ PR #357 |
+| I5 | **Gerenciamento de Riscos**: pesquisa cadastral (gateway `off|sandbox`, LGPD) + rastreamento pela matriz do PGR + **TR-GR-001/002** (domínio `GR`) — migration 038 | ✅ PR #358 |
+| F1–F5 | Módulo do Transportador no frontend: persona `carrier`, home com jornada guiada, "Registrar viagem", didática (glossário vivo) e copiloto com contexto | ✅ PRs #348–#352 |
+| F6 | Motoristas na UI (CNH com badge de validade, vínculos) | ✅ PR #354 |
+
+**Regras novas (catálogo 26 → 30, todas advisory por padrão):** TR-SEG-004 (limite × valor declarado
+da carga), TR-SEG-005 (averbação viva antes do trânsito), TR-GR-001 (pesquisa cadastral válida de
+motorista e veículo quando há RC-DC vigente), TR-GR-002 (rastreamento exigido pela matriz do PGR).
+
+**Flags no cluster (todas sandbox/autocontidas, via git):** `AVERBACAO_GATEWAY_MODE=sandbox`,
+`RISK_SCREENING_MODE=sandbox` — somam-se a `DFE_ISSUANCE_MODE=sandbox`, `REGULATORY_WATCH_MODE=live`
+e `RNTRC_GATEWAY_MODE=open_data`.
+
+**Pendências externas que permanecem:** averbadora/seguradora real (mesma classe de P8) e
+gerenciadora de risco contratada — ambas são [EXTERNAL DEPENDENCY]; o modo `real` não existe no
+código de propósito (pedir isso no boot lança).
+
 ## Como promover uma regra a bloqueante
 
 Regra de ouro do programa (ver "Status da baseline" no topo deste arquivo): nenhuma regra do
