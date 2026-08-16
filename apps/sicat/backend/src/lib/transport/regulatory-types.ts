@@ -32,6 +32,8 @@ export const REGULATORY_DOMAINS = [
   'MDFE',
   'SEG',
   'PGR',
+  /** Gerenciamento de Riscos operacional: pesquisa cadastral e rastreamento (PR-I5). */
+  'GR',
   'COMP'
 ] as const;
 
@@ -182,6 +184,10 @@ export const RULE_CODES = [
   'TR-SEG-003',
   'TR-SEG-004',
   'TR-SEG-005',
+  // GR antes de PGR: a ordem desta lista acompanha a do seed (`regulatory-rules-seed.ts`) — as duas
+  // andam juntas no mesmo PR e o teste de catálogo compara posição a posição.
+  'TR-GR-001',
+  'TR-GR-002',
   'TR-PGR-001',
   'TR-COMP-001'
 ] as const;

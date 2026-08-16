@@ -700,6 +700,42 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
     })]
   },
   {
+    code: 'TR-GR-001',
+    title: 'Pesquisa cadastral válida de motorista e veículo',
+    domain: 'GR',
+    defaultGate: 'GATE_PRE_BOARDING',
+    displayOrder: 247,
+    versions: [baselineVersion({
+      legalBasis: LEGAL_SEG,
+      // Exigência CONTRATUAL das seguradoras (não da lei): apólice de roubo (RC-DC) vigente exige
+      // pesquisa cadastral aprovada e dentro da validade para motorista E veículo (circuito Irmãos
+      // PADILHA, item 4 — REQ-SICAT-0036). Nasce blocking=false: o block bruto vira warn pelo clamp.
+      summary: 'Com apólice de roubo vigente, motorista e veículo precisam de pesquisa cadastral '
+        + 'aprovada e dentro da validade antes do embarque.',
+      effectiveFrom: '2023-06-20',
+      implementationState: 'ACTIVE',
+      severity: 'critical'
+    })]
+  },
+  {
+    code: 'TR-GR-002',
+    title: 'Rastreamento exigido conforme a mercadoria',
+    domain: 'GR',
+    defaultGate: 'GATE_PRE_BOARDING',
+    displayOrder: 248,
+    versions: [baselineVersion({
+      legalBasis: LEGAL_SEG,
+      // A matriz de thresholds vive no PGR do transportador (`risk_management_plans.tracking_matrix`,
+      // migration 038) — a exigência é da seguradora, por valor/tipo de carga. Sem matriz
+      // configurada a regra é `not_applicable` (nunca inventa teto).
+      summary: 'Quando a matriz do PGR exige rastreamento para o valor da carga, a viagem precisa '
+        + 'de confirmação de rastreamento registrada.',
+      effectiveFrom: '2023-06-20',
+      implementationState: 'ACTIVE',
+      severity: 'critical'
+    })]
+  },
+  {
     code: 'TR-PGR-001',
     title: 'PGR vigente quando requerido',
     domain: 'PGR',

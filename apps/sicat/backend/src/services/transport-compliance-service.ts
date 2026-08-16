@@ -61,6 +61,7 @@ import {
   findApplicablePolicyForPartyAndType
 } from '../repositories/transport-insurance-repo.js';
 import { listDeclarationsForOperation } from '../repositories/insurance-declaration-repo.js';
+import { buildRiskManagementContext, type RiskManagementEvaluationContext } from './transport-risk-context.js';
 import { INSURANCE_POLICY_TYPES } from '../lib/transport/transport-insurance-types.js';
 import {
   getLatestEvaluationByGate,
@@ -288,7 +289,8 @@ async function buildCheckForRule(
   vpoAllocation: VpoAllocationEvaluationContext | null,
   fiscalDocuments: FiscalDocumentEvaluationContext[],
   carrierInsurance: CarrierInsuranceEvaluationContext | null,
-  insuranceDeclarations: InsuranceDeclarationEvaluationContext[]
+  insuranceDeclarations: InsuranceDeclarationEvaluationContext[],
+  riskManagement: RiskManagementEvaluationContext | undefined
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -343,7 +345,8 @@ async function buildCheckForRule(
     vpoAllocation,
     fiscalDocuments,
     carrierInsurance,
-    insuranceDeclarations
+    insuranceDeclarations,
+    riskManagement
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -467,6 +470,21 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
     declaredCargoAmount: record.declaredCargoAmount
   }));
 
+  // Contexto de Gerenciamento de Riscos (PR-I5) — só TR-GR-001/002 consomem. O motorista da
+  // operação vem do papel `driver` das partes; o veículo é o de TRAÇÃO (é dele que a gerenciadora
+  // pede a pesquisa). Ausência de qualquer peça vira contexto vazio: os evaluators já tratam.
+  const driverParty = aggregate.parties?.find((party) => party.role === 'driver') ?? null;
+  const riskManagement = await buildRiskManagementContext({
+    integrationAccountId: input.integrationAccountId,
+    operationId: input.operationId,
+    driverPartyId: driverParty?.partyId ?? null,
+    // Reusa o veículo de tração já resolvido acima (`findTractionOperationVehicle`) — é dele que a
+    // gerenciadora de risco pede a pesquisa cadastral.
+    vehicleId: tractionVehicle?.vehicleId ?? null,
+    carrierPartyId: carrierParty?.partyId ?? null,
+    referenceDate
+  });
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
     checkBuilds.push(await buildCheckForRule(
@@ -480,7 +498,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       vpoAllocation,
       fiscalDocuments,
       carrierInsurance,
-      insuranceDeclarations
+      insuranceDeclarations,
+      riskManagement
     ));
   }
 
@@ -769,3 +788,4 @@ export async function getComplianceEvaluationByIdService(
   const record = await getEvaluationRecordById(evaluationId, integrationAccountId);
   return record ? toComplianceEvaluationResourceFromRecord(record) : null;
 }
+

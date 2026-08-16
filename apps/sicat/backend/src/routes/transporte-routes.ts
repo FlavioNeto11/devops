@@ -121,6 +121,13 @@ import {
   retificarAverbacaoService
 } from '../services/transport-averbacao-service.js';
 import {
+  confirmarRastreamentoService,
+  getRastreamentoService,
+  getScreeningService,
+  listScreeningsService,
+  solicitarScreeningService
+} from '../services/transport-risk-service.js';
+import {
   fecharApuracaoService,
   getApuracaoService,
   listApuracaoService,
@@ -833,6 +840,36 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Reabertura ADMINISTRATIVA de período fechado — deixa rastro obrigatório na trilha.
   router.post('/v1/transporte/seguros/apuracao/:periodId/reabrir', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await reabrirApuracaoService(String(req.params.periodId || ''), (req.body || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Gerenciamento de Riscos (PR-I5, REQ-SICAT-0036) — pesquisa cadastral (gateway abstraído,
+  // RISK_SCREENING_MODE off|sandbox) e confirmação de rastreamento por operação.
+  // ===========================================================================================
+
+  router.post('/v1/transporte/gr/screenings', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await solicitarScreeningService((req.body || {}) as LooseRecord);
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/gr/screenings', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listScreeningsService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  router.get('/v1/transporte/gr/screenings/:screeningId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getScreeningService(String(req.params.screeningId || ''), (req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/operacoes/:operationId/gr/rastreamento', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await confirmarRastreamentoService(String(req.params.operationId || ''), (req.body || {}) as LooseRecord);
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/operacoes/:operationId/gr/rastreamento', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getRastreamentoService(String(req.params.operationId || ''), (req.query || {}) as LooseRecord);
     res.json(response);
   }));
 
