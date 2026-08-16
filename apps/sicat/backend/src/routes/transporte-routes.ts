@@ -43,6 +43,15 @@ import {
   updateTransportVehicleService
 } from '../services/transport-vehicle-service.js';
 import {
+  createDriverCarrierLinkService,
+  createTransportDriverService,
+  endDriverCarrierLinkService,
+  getTransportDriverService,
+  listDriverCarrierLinksService,
+  listTransportDriversService,
+  updateTransportDriverService
+} from '../services/transport-driver-service.js';
+import {
   cancelTransportOperation,
   contractTransportOperation,
   createTransportOperation,
@@ -258,6 +267,71 @@ export function registerTransporteRoutes(router: express.Router): void {
   router.patch('/v1/transporte/veiculos/:vehicleId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await updateTransportVehicleService(
       String(req.params.vehicleId || ''),
+      (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Cadastros — motoristas (PR I1, REQ-SICAT-0033). Extensão 1:1 de parte PF (CNH declarada) +
+  // vínculo frota/agregado com o transportador. TUDO síncrono; os POSTs aceitam Idempotency-Key
+  // (molde POST /v1/transporte/operacoes). Encerrar vínculo é o PATCH do sub-recurso (vigência),
+  // nunca delete — o histórico alimenta a GR nas fases seguintes.
+  // ===========================================================================================
+
+  router.post('/v1/transporte/motoristas', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createTransportDriverService(
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getCorrelationId(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/motoristas', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listTransportDriversService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  router.post('/v1/transporte/motoristas/:driverId/vinculos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await createDriverCarrierLinkService(
+      String(req.params.driverId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getCorrelationId(req)
+    );
+    res.status(201).json(response);
+  }));
+
+  router.get('/v1/transporte/motoristas/:driverId/vinculos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listDriverCarrierLinksService(
+      String(req.params.driverId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // Encerra o vínculo (status ended + validUntil, default hoje) com locking otimista.
+  router.patch('/v1/transporte/motoristas/:driverId/vinculos/:linkId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await endDriverCarrierLinkService(
+      String(req.params.driverId || ''),
+      String(req.params.linkId || ''),
+      (req.body || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  router.get('/v1/transporte/motoristas/:driverId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getTransportDriverService(
+      String(req.params.driverId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  router.patch('/v1/transporte/motoristas/:driverId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await updateTransportDriverService(
+      String(req.params.driverId || ''),
       (req.body || {}) as LooseRecord
     );
     res.json(response);

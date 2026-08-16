@@ -105,6 +105,13 @@ tags:
     acompanhado de `dataReferenceDate` (data-base do dado consultado) e a defasagem fica explícita
     para quem lê. `antt` (consulta credenciada) é interface RESERVADA — recusada com 400 nesta
     fase.'
+- name: Transporte - Motoristas
+  description: 'Motoristas da vertical Transporte (PR I1, REQ-SICAT-0033) — extensão 1:1 de uma
+    parte PF com papel driver, com CNH DECLARADA (número/categoria/validade — sem verificação
+    externa DETRAN/SENATRAN nesta fase) e vínculo com o transportador (`fleet` = frota própria ×
+    `aggregated` = agregado, com vigência; no máximo UM vínculo vigente por par e tipo). A
+    tipologia TAC/ETC do transportador é DERIVADA da frota ativa e exposta na consulta de
+    transportadores (`derivedTypology`/`fleetSize`/`typologyWarning`), nunca persistida.'
 - name: Transporte - Operações
   description: Agregado central `TransportOperation` — máquina de estados explícita (13 estados)
     com transições guardadas. `submeter-validacao` ORQUESTRA a avaliação do `GATE_PROPOSAL` e a
@@ -7419,6 +7426,345 @@ paths:
       parameters:
       - $ref: '#/components/parameters/CorrelationId'
       - name: vehicleId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/motoristas:
+    post:
+      operationId: transporteMotoristasCreate
+      summary: Cadastrar motorista
+      description: 'Cria o motorista como extensão 1:1 de uma parte PF (CPF) já cadastrada em
+        `/v1/transporte/transportadores`. A CNH é DECLARADA (sem verificação externa). Se a parte
+        ainda não tiver o papel `driver`, ele é ADICIONADO no mesmo request. Aceita
+        `Idempotency-Key` — replay com a mesma chave devolve a MESMA resposta sem criar registro.'
+      tags:
+      - Transporte - Motoristas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteMotoristaCreateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              partyId: trparty_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
+              cnhNumber: '12345678909'
+              cnhCategory: E
+              cnhValidUntil: '2028-05-20'
+              cnhUf: SP
+              evidence:
+                notes: CNH conferida presencialmente no cadastro do agregado.
+      responses:
+        '201':
+          description: Motorista criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaResource'
+              example:
+                id: trdrv_7a2b3c4d5e6f7a8b9c0d1e2f31
+                version: 1
+                integrationAccountId: acc_exemplo_prod
+                partyId: trparty_01JQW5Q6SZ8NN3RQ8B4RFYWKDE
+                partyName: Motorista Exemplo da Silva
+                partyDocumentNumber: '12345678909'
+                cnhNumber: '12345678909'
+                cnhCategory: E
+                cnhValidUntil: '2028-05-20'
+                cnhUf: SP
+                status: active
+                evidence:
+                  notes: CNH conferida presencialmente no cadastro do agregado.
+                evidenceSource: manual
+                createdAt: '2026-08-16T12:30:00Z'
+                updatedAt: '2026-08-16T12:30:00Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: A parte já possui um motorista cadastrado (relação 1:1)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      operationId: transporteMotoristasList
+      summary: Listar motoristas
+      description: Lista motoristas da conta informada, com busca (nome da parte ou número de
+        CNH) e filtro por status. Tenancy obrigatória — `integrationAccountId` é query param
+        obrigatório.
+      tags:
+      - Transporte - Motoristas
+      responses:
+        '200':
+          description: Página de motoristas da conta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: search
+        description: Busca por razão social/nome da parte ou número de CNH.
+        schema:
+          type: string
+          maxLength: 120
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - inactive
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
+  /v1/transporte/motoristas/{driverId}:
+    get:
+      operationId: transporteMotoristaGet
+      summary: Consultar motorista
+      tags:
+      - Transporte - Motoristas
+      responses:
+        '200':
+          description: Motorista encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: driverId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+    patch:
+      operationId: transporteMotoristaUpdate
+      summary: Atualizar motorista
+      description: Atualização parcial com locking otimista — `version` é obrigatório no corpo e
+        deve casar com o `version` atual do registro; caso contrário, 409. `partyId` não é
+        atualizável (identidade 1:1 do motorista).
+      tags:
+      - Transporte - Motoristas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteMotoristaUpdateRequest'
+      responses:
+        '200':
+          description: Motorista atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Conflito de locking otimista (version defasada)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: driverId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/motoristas/{driverId}/vinculos:
+    post:
+      operationId: transporteMotoristaVinculoCreate
+      summary: Vincular motorista a um transportador
+      description: 'Cria o vínculo motorista↔transportador (`fleet` = frota própria ×
+        `aggregated` = agregado) com vigência. No máximo UM vínculo VIGENTE por par
+        motorista×transportador×tipo — encerre o vigente (PATCH do vínculo) antes de criar outro.
+        Aceita `Idempotency-Key`.'
+      tags:
+      - Transporte - Motoristas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteMotoristaVinculoCreateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              carrierPartyId: trparty_01JQW5RZKX2M4P6Q8S0T2V4X6Z
+              linkType: aggregated
+              validFrom: '2026-08-01'
+      responses:
+        '201':
+          description: Vínculo criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaVinculoResource'
+              example:
+                id: trdrvlink_9c0d1e2f3a4b5c6d7e8f9a0b11
+                version: 1
+                driverId: trdrv_7a2b3c4d5e6f7a8b9c0d1e2f31
+                carrierPartyId: trparty_01JQW5RZKX2M4P6Q8S0T2V4X6Z
+                carrierName: Transportadora Exemplo Ltda
+                linkType: aggregated
+                validFrom: '2026-08-01'
+                validUntil: null
+                status: active
+                createdAt: '2026-08-16T12:30:00Z'
+                updatedAt: '2026-08-16T12:30:00Z'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Já existe vínculo vigente para o par e tipo (ou mesmo início repetido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: driverId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteMotoristaVinculoList
+      summary: Listar vínculos do motorista
+      description: Todos os vínculos do motorista (vigentes e encerrados), mais recente primeiro
+        — o histórico é insumo da GR nas fases seguintes.
+      tags:
+      - Transporte - Motoristas
+      responses:
+        '200':
+          description: Vínculos motorista↔transportador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaVinculoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: driverId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/motoristas/{driverId}/vinculos/{linkId}:
+    patch:
+      operationId: transporteMotoristaVinculoUpdate
+      summary: Encerrar vínculo do motorista
+      description: 'Encerra o vínculo (status `ended` + `validUntil`, default hoje) com locking
+        otimista — `version` obrigatório no corpo. Encerrar é UPDATE de vigência, nunca delete: o
+        histórico permanece consultável. Vínculo já encerrado responde 409.'
+      tags:
+      - Transporte - Motoristas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteMotoristaVinculoUpdateRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              version: 1
+              validUntil: '2026-08-15'
+      responses:
+        '200':
+          description: Vínculo encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteMotoristaVinculoResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Vínculo já encerrado, ou conflito de locking otimista (version defasada)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: driverId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: linkId
         in: path
         required: true
         schema: { type: string }
@@ -14821,6 +15167,28 @@ components:
         updatedAt:
           type: string
           format: date-time
+        fleetSize:
+          type: integer
+          minimum: 0
+          description: 'DERIVADO (PR I1, REQ-SICAT-0033): vínculos de veículo owned+leased
+            vigentes hoje. Presente nas CONSULTAS (GET de lista e detalhe); ausente nas respostas
+            de escrita.'
+        derivedTypology:
+          type: string
+          enum:
+          - driver_pf
+          - tac
+          - etc
+          description: 'DERIVADO da frota ativa (driver_pf = PF sem frota própria; tac = 1..3;
+            etc = 4+), nunca persistido. Presente nas CONSULTAS (GET); ausente nas respostas de
+            escrita.'
+        typologyWarning:
+          type:
+          - string
+          - 'null'
+          description: 'Aviso NÃO BLOQUEANTE de divergência entre `rntrcCategory` declarada e
+            `derivedTypology` (sem regra TR neste ciclo). Presente nas CONSULTAS (GET); `null`
+            quando não há divergência (CTC nunca gera aviso).'
     TransporteTransportadorCreateRequest:
       type: object
       required:
@@ -15225,6 +15593,301 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TransporteVinculoVeiculoResource'
+        totalItems:
+          type: integer
+          minimum: 0
+    TransporteMotoristaResource:
+      type: object
+      description: 'Motorista — extensão 1:1 de uma parte PF com papel driver. A CNH é o estado
+        DECLARADO pelo operador (sem verificação externa DETRAN/SENATRAN nesta fase);
+        `partyName`/`partyDocumentNumber` são resumo da parte para evitar round-trip extra.'
+      required:
+      - id
+      - version
+      - integrationAccountId
+      - partyId
+      - partyName
+      - partyDocumentNumber
+      - cnhNumber
+      - cnhCategory
+      - cnhValidUntil
+      - status
+      - evidenceSource
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Usado no `PATCH` para locking otimista.
+        integrationAccountId:
+          type: string
+        partyId:
+          type: string
+        partyName:
+          type: string
+        partyDocumentNumber:
+          type: string
+          description: CPF da parte (só dígitos, normalizado no cadastro da parte).
+        cnhNumber:
+          type: string
+          description: Só dígitos (normalizado no cadastro) — sem dígito verificador nesta fase.
+        cnhCategory:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          - D
+          - E
+          - AB
+          - AC
+          - AD
+          - AE
+        cnhValidUntil:
+          type: string
+          format: date
+          description: CNH vencida é aceita — o vencimento registrado alimenta alertas/GR.
+        cnhUf:
+          type:
+          - string
+          - 'null'
+          description: UF emissora (uma das 27 unidades federativas), quando informada.
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+        evidence:
+          type: object
+          additionalProperties: true
+          description: 'LGPD: só `notes` e `documentRef` sobrevivem (truncados) — nunca um blob livre.'
+        evidenceSource:
+          type: string
+          enum:
+          - manual
+          - mock
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteMotoristaCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - partyId
+      - cnhNumber
+      - cnhCategory
+      - cnhValidUntil
+      properties:
+        integrationAccountId:
+          type: string
+        partyId:
+          type: string
+          description: 'Id de uma parte PF (CPF) existente NA MESMA conta. Se ela ainda não tiver
+            o papel `driver`, o papel é adicionado neste request.'
+        cnhNumber:
+          type: string
+          description: Aceita máscara — a API normaliza para só dígitos.
+        cnhCategory:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          - D
+          - E
+          - AB
+          - AC
+          - AD
+          - AE
+        cnhValidUntil:
+          type: string
+          format: date
+        cnhUf:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+          default: active
+        evidence:
+          type: object
+          additionalProperties: true
+          description: 'Só `notes` (máx. 500) e `documentRef` (máx. 200) são persistidos (LGPD).'
+    TransporteMotoristaUpdateRequest:
+      type: object
+      description: Atualização parcial — todo campo além de `version` é opcional. `partyId` não é
+        atualizável por este endpoint (identidade 1:1 do motorista).
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do registro; caso contrário, 409.
+        cnhNumber:
+          type: string
+        cnhCategory:
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          - D
+          - E
+          - AB
+          - AC
+          - AD
+          - AE
+        cnhValidUntil:
+          type: string
+          format: date
+        cnhUf:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+        evidence:
+          type: object
+          additionalProperties: true
+    TransporteMotoristaListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteMotoristaResource'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+    TransporteMotoristaVinculoResource:
+      type: object
+      description: 'Vínculo motorista↔transportador com vigência — `fleet` (frota própria) ×
+        `aggregated` (agregado). Encerrar é UPDATE de vigência (`status: ended` + `validUntil`),
+        nunca delete: o histórico é insumo da GR.'
+      required:
+      - id
+      - version
+      - driverId
+      - carrierPartyId
+      - carrierName
+      - linkType
+      - validFrom
+      - status
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Usado no `PATCH` (encerramento) para locking otimista.
+        driverId:
+          type: string
+        carrierPartyId:
+          type: string
+        carrierName:
+          type: string
+          description: Resumo do transportador vinculado — evita round-trip extra no consumidor.
+        linkType:
+          type: string
+          enum:
+          - fleet
+          - aggregated
+        validFrom:
+          type: string
+          format: date
+        validUntil:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          type: string
+          enum:
+          - active
+          - ended
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TransporteMotoristaVinculoCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - carrierPartyId
+      - linkType
+      - validFrom
+      properties:
+        integrationAccountId:
+          type: string
+        carrierPartyId:
+          type: string
+          description: 'Id de um `TransporteTransportadorResource` existente NA MESMA conta.'
+        linkType:
+          type: string
+          enum:
+          - fleet
+          - aggregated
+        validFrom:
+          type: string
+          format: date
+          description: Obrigatório — a vigência é a base da regra "no máximo 1 vigente por par e tipo".
+        validUntil:
+          type: string
+          format: date
+    TransporteMotoristaVinculoUpdateRequest:
+      type: object
+      description: Encerramento do vínculo com locking otimista — a única mutação suportada.
+      required:
+      - integrationAccountId
+      - version
+      properties:
+        integrationAccountId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+          description: Deve casar com o `version` atual do vínculo; caso contrário, 409.
+        validUntil:
+          type: string
+          format: date
+          description: Data de fim da vigência (default hoje); nunca anterior ao `validFrom`.
+    TransporteMotoristaVinculoListResponse:
+      type: object
+      required:
+      - items
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteMotoristaVinculoResource'
         totalItems:
           type: integer
           minimum: 0

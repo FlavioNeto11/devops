@@ -383,6 +383,38 @@ export async function findVehiclePartyLinkType(
   return row ? (row.link_type as VehicleLinkType) : null;
 }
 
+/**
+ * Shape mínimo do vínculo para a TIPOLOGIA derivada (PR I1, REQ-SICAT-0033): só o que
+ * `countActiveFleet` (`carrier-typology.ts`) precisa — tipo e vigência. Batch por VÁRIAS partes
+ * (molde `listPartyRolesForParties`) para a listagem de transportadores calcular `fleetSize` sem
+ * N+1; sem join com `transport_vehicles` de propósito (plate/type não entram na contagem).
+ */
+export async function listVehicleLinkPeriodsForParties(
+  partyIds: readonly string[],
+  client: DbClient = null
+): Promise<Map<string, Array<{ linkType: VehicleLinkType; validFrom: string | null; validUntil: string | null }>>> {
+  const map = new Map<string, Array<{ linkType: VehicleLinkType; validFrom: string | null; validUntil: string | null }>>();
+  if (partyIds.length === 0) return map;
+
+  const execute = getQueryExecutor(client);
+  const result = await execute<{ party_id: string; link_type: string; valid_from: Date | string | null; valid_until: Date | string | null }>(
+    `select party_id, link_type, valid_from, valid_until
+       from transport_vehicle_links
+      where party_id = any($1::text[])`,
+    [partyIds]
+  );
+  for (const row of result.rows) {
+    const bucket = map.get(row.party_id) ?? [];
+    bucket.push({
+      linkType: row.link_type as VehicleLinkType,
+      validFrom: toIsoDateOnly(row.valid_from),
+      validUntil: toIsoDateOnly(row.valid_until)
+    });
+    map.set(row.party_id, bucket);
+  }
+  return map;
+}
+
 /** Vínculos de uma parte, com um resumo (plate/vehicleType) do veículo — evita N+1 no frontend. */
 export async function listVehicleLinksByParty(
   partyId: string,
