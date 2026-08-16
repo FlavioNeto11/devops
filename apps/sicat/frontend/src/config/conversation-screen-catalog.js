@@ -462,6 +462,174 @@ const SHELL_SCREEN_CATALOG = {
         description: 'Confirmar o contexto ativo antes de qualquer leitura administrativa.'
       }
     ]
+  },
+
+  // ---- Módulo do Transportador (REQ-SICAT-0032, onda F5) -------------------
+  // Só quickActions `local`/`navigate`: o conversation-tool-dispatcher do
+  // backend ainda NÃO tem tools de transporte — um prompt `backend` sem tool
+  // induziria resposta sem dado (follow-up registrado no plano do módulo).
+  TransporteOperacaoList: {
+    title: 'Minhas operações',
+    description: 'As viagens da transportadora com situação e conformidade de cada uma.',
+    purpose: 'Localizar uma viagem e abrir o detalhe para agir.',
+    fieldHints: [
+      { label: 'Situação', description: 'A máquina de estados da viagem: rascunho → validação → contratada → em trânsito → concluída.' },
+      { label: 'Filtros', description: 'Status e regime da carga recortam a lista da conta ativa.' }
+    ],
+    quickActions: [
+      { id: 'transp-list-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-list-nova', label: 'Registrar viagem', kind: 'navigate', to: '/transporte/operacoes/nova', icon: 'mdi-plus-circle-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Pendências', to: '/transporte/pendencias', description: 'O que precisa de ação em todas as viagens.' }
+    ]
+  },
+  TransporteOperacaoNova: {
+    title: 'Registrar viagem',
+    description: 'Criação do rascunho da operação: rota obrigatória; carga e frete opcionais.',
+    purpose: 'Nascer a viagem com o mínimo e completar no detalhe.',
+    fieldHints: [
+      { label: 'Rota', description: 'Origem e destino (município + UF) são o mínimo para o rascunho existir.' },
+      { label: 'Valor da carga', description: 'Base da averbação no seguro e do limite de garantia por viagem.' }
+    ],
+    quickActions: [
+      { id: 'transp-nova-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-nova-list', label: 'Minhas operações', kind: 'navigate', to: '/transporte/operacoes', icon: 'mdi-truck-fast-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Veículos', to: '/transporte/veiculos', description: 'Cadastrar a frota antes de vincular à viagem.' }
+    ]
+  },
+  TransporteOperacaoDetalhe: {
+    title: 'Detalhe da operação',
+    description: 'O dossiê da viagem: partes, veículos, carga, CIOT, VPO, documentos fiscais e o painel de conformidade.',
+    purpose: 'Completar a viagem e destravar os gates até o trânsito.',
+    fieldHints: [
+      { label: 'Painel de conformidade', description: 'Cada regra TR-* avaliada: PASS, WARN ou BLOCK — com evidência e ação corretiva.' },
+      { label: 'CIOT e VPO', description: 'Registros do frete e do vale-pedágio; estados *_unconfirmed aguardam reconciliação.' }
+    ],
+    quickActions: [
+      { id: 'transp-det-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-det-pend', label: 'Ver pendências', kind: 'navigate', to: '/transporte/pendencias', icon: 'mdi-clipboard-alert-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Regras regulatórias', to: '/transporte/regras', description: 'Entender a regra que bloqueou ou avisou.' }
+    ]
+  },
+  TransportePendencias: {
+    title: 'Pendências',
+    description: 'Centro Operacional do módulo: bloqueios, CIOT sem confirmação, fiscal inválido, seguros vencendo e RNTRC.',
+    purpose: 'Priorizar o que precisa de ação, do mais grave para o menos.',
+    fieldHints: [
+      { label: 'Métricas', description: 'Cada cartão é uma fila de trabalho; os clicáveis levam à origem do problema.' }
+    ],
+    quickActions: [
+      { id: 'transp-pend-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-pend-ops', label: 'Minhas operações', kind: 'navigate', to: '/transporte/operacoes', icon: 'mdi-truck-fast-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Watch regulatório', to: '/transporte/watch', description: 'Mudanças normativas detectadas aguardando revisão.' }
+    ]
+  },
+  TransporteTransportadorList: {
+    title: 'Transportadores',
+    description: 'Cadastro de transportadores próprios e terceiros/agregados, com RNTRC, seguros e PGR.',
+    purpose: 'Manter habilitação e seguros de quem executa as viagens.',
+    fieldHints: [
+      { label: 'RNTRC', description: 'Registro na ANTT: categoria (TAC até 3 veículos; ETC 4+) e verificação por dados abertos.' }
+    ],
+    quickActions: [
+      { id: 'transp-carr-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-carr-veic', label: 'Veículos', kind: 'navigate', to: '/transporte/veiculos', icon: 'mdi-truck-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Pendências', to: '/transporte/pendencias', description: 'Seguros vencendo e RNTRC desatualizado aparecem lá.' }
+    ]
+  },
+  TransporteTransportadorDetalhe: {
+    title: 'Detalhe do transportador',
+    description: 'RNTRC com verificação, vínculos de veículos, apólices de seguro e PGR do transportador.',
+    purpose: 'Manter a habilitação e as coberturas deste transportador em dia.',
+    fieldHints: [
+      { label: 'Apólices', description: 'RCTR-C (carga), RC-DC (roubo) e RC-V (terceiros) — vigência é o que o gate confere.' }
+    ],
+    quickActions: [
+      { id: 'transp-carrdet-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Transportadores', to: '/transporte/transportadores', description: 'Voltar à lista.' }
+    ]
+  },
+  TransporteVeiculoList: {
+    title: 'Veículos',
+    description: 'A frota usada nas operações: placa, RENAVAM, tipo e vínculos (próprio, arrendado, agregado).',
+    purpose: 'Cadastrar e vincular os veículos que rodam as viagens.',
+    fieldHints: [
+      { label: 'Vínculo', description: 'owned/leased contam para a tipologia (TAC×ETC); agregado é veículo de terceiro a serviço.' }
+    ],
+    quickActions: [
+      { id: 'transp-veic-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-veic-carr', label: 'Transportadores', kind: 'navigate', to: '/transporte/transportadores', icon: 'mdi-account-hard-hat-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Registrar viagem', to: '/transporte/operacoes/nova', description: 'Com a frota em dia, registre a operação.' }
+    ]
+  },
+  TransporteRegras: {
+    title: 'Regras regulatórias',
+    description: 'O catálogo TR-* que o motor de conformidade avalia, com vigências e domínios.',
+    purpose: 'Entender o porquê de cada PASS/WARN/BLOCK do painel.',
+    fieldHints: [
+      { label: 'Vigência', description: 'Regras têm versões temporais; o motor usa a vigente na data da operação.' }
+    ],
+    quickActions: [
+      { id: 'transp-regras-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Watch regulatório', to: '/transporte/watch', description: 'De onde vêm as propostas de mudança de regra.' }
+    ]
+  },
+  TransporteWatchList: {
+    title: 'Watch regulatório',
+    description: 'Mudanças normativas detectadas nas fontes oficiais, aguardando revisão humana.',
+    purpose: 'Revisar e aprovar mudanças antes de valerem no motor.',
+    fieldHints: [
+      { label: 'Fila', description: 'detected → ingested → analisado pela IA → revisão humana → aprovado → ativo.' }
+    ],
+    quickActions: [
+      { id: 'transp-watch-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Regras regulatórias', to: '/transporte/regras', description: 'O catálogo que o Watch alimenta.' }
+    ]
+  },
+  TransporteWatchDetalhe: {
+    title: 'Detalhe do item de Watch',
+    description: 'Uma mudança normativa detectada: fonte, análise da IA e a decisão humana de aplicar ou descartar.',
+    purpose: 'Decidir com contexto — a IA sugere, o humano aprova.',
+    fieldHints: [
+      { label: 'Análise', description: 'AI_ANALYZED traz o resumo da mudança; AI_SKIPPED significa análise indisponível (sem chave de IA).' }
+    ],
+    quickActions: [
+      { id: 'transp-watchdet-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Watch regulatório', to: '/transporte/watch', description: 'Voltar à fila.' }
+    ]
+  },
+  TransportePisoTabelas: {
+    title: 'Tabelas de piso',
+    description: 'As versões da tabela de piso mínimo de frete (Res. ANTT) carregadas no sistema.',
+    purpose: 'Consultar o piso vigente que o motor usa nos cálculos.',
+    fieldHints: [
+      { label: 'Revisão', description: 'Tabelas em pending_review mantêm o motor em modo aviso (shadow) até a revisão jurídica.' }
+    ],
+    quickActions: [
+      { id: 'transp-piso-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Minhas operações', to: '/transporte/operacoes', description: 'O piso aparece na conformidade de cada viagem.' }
+    ]
   }
 };
 
