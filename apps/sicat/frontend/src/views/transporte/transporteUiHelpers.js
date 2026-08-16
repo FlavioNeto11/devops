@@ -639,6 +639,217 @@ export function resolveInsuranceExpiryState(policy, warningWindowDays = 30) {
   return { state: 'valid', tone: 'success', label: `Vence em ${days} dia(s)` };
 }
 
+/**
+ * Situação da apólice para o BADGE da visão consolidada (onda F7,
+ * REQ-SICAT-0037): `{status, label, detail, tone}` com `status` no vocabulário
+ * do domínio `insurance-policy` do status-map (vigente/vencendo/vencida).
+ *
+ * DELEGA a `resolveInsuranceExpiryState` de propósito — a decisão da janela de
+ * 30 dias tem de existir UMA vez só; o que muda aqui é a APRESENTAÇÃO: o
+ * detalhe do transportador mostra a contagem regressiva ("Vence em 12 dia(s)"),
+ * a tabela consolidada mostra o rótulo curto no badge e guarda a contagem em
+ * `detail` (tooltip/coluna de vigência). PURO: nunca chama `new Date()` — usa
+ * o `daysToExpiry` que o backend já calculou contra HOJE.
+ *
+ * @param {{ status?: string, daysToExpiry?: number }} policy
+ * @param {number} [warningWindowDays] janela de "vencendo" (default 30, espelha `windowDays` da API)
+ */
+export function resolveInsurancePolicyStatus(policy, warningWindowDays = 30) {
+  const { state, tone, label } = resolveInsuranceExpiryState(policy, warningWindowDays);
+  return {
+    status: state,
+    label: resolveStatusLabel('insurance-policy', state),
+    detail: label,
+    tone
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Averbação eletrônica (onda F7, REQ-SICAT-0034) e apuração mensal (onda F8,
+// REQ-SICAT-0035). Os rótulos de STATUS vêm dos domínios `averbacao` e
+// `apuracao-periodo` do status-map; o que vive aqui é o vocabulário auxiliar
+// (eventos da trilha, base de cobrança) e a ARITMÉTICA de estimativa do prêmio.
+// ---------------------------------------------------------------------------
+
+export function averbacaoStatusLabel(status) {
+  return resolveStatusLabel('averbacao', status);
+}
+
+/**
+ * Averbações que ainda pedem acompanhamento: em voo (`declaring`) ou com
+ * desfecho DESCONHECIDO (`*_unconfirmed`). É o recorte que a home do
+ * Transportador usa no card "o que precisa da sua atenção" — `rectifying`/
+ * `cancelling` ficam de fora porque são mutações de uma averbação que JÁ está
+ * registrada (não há viagem descoberta enquanto elas rodam).
+ */
+export const AVERBACAO_PENDING_STATUSES = Object.freeze([
+  'declaring',
+  'declare_unconfirmed',
+  'rectify_unconfirmed',
+  'cancel_unconfirmed'
+]);
+
+/** Terminal = a declaração não aceita mais retificar/cancelar. */
+const AVERBACAO_TERMINAL_STATUSES = Object.freeze(['cancelled', 'rejected']);
+
+export function isAverbacaoTerminal(status) {
+  return AVERBACAO_TERMINAL_STATUSES.includes(String(status || '').trim());
+}
+
+/**
+ * Só averbação em `declared` aceita retificar/cancelar (o contrato responde
+ * `409 TRANSPORTE_AVERBACAO_MUTATION_NOT_ALLOWED` fora disso) — a UI esconde o
+ * botão em vez de deixar o operador colecionar 409.
+ */
+export function averbacaoAcceptsMutation(status) {
+  return String(status || '').trim() === 'declared';
+}
+
+/** Averbação "viva" ocupa a chave operação×apólice — nova averbação só depois do terminal. */
+export function isAverbacaoLive(status) {
+  const key = String(status || '').trim();
+  return Boolean(key) && !isAverbacaoTerminal(key);
+}
+
+export const AVERBACAO_STATUS_OPTIONS = Object.freeze([
+  { value: '', label: 'Todos' },
+  ...[
+    'declaring',
+    'declared',
+    'declare_unconfirmed',
+    'rectifying',
+    'rectify_unconfirmed',
+    'cancelling',
+    'cancel_unconfirmed',
+    'cancelled',
+    'rejected'
+  ].map((value) => ({ value, label: resolveStatusLabel('averbacao', value) }))
+]);
+
+const AVERBACAO_EVENT_LABELS = Object.freeze({
+  declare_requested: 'Averbação solicitada',
+  declared: 'Averbada na seguradora',
+  declare_unconfirmed: 'Averbação sem confirmação',
+  rectify_requested: 'Retificação solicitada',
+  rectified: 'Averbação retificada',
+  cancel_requested: 'Cancelamento solicitado',
+  cancelled: 'Averbação cancelada',
+  rejected: 'Rejeitada pela seguradora',
+  reconciled: 'Reconciliada'
+});
+
+export function averbacaoEventLabel(eventType) {
+  const key = String(eventType || '').trim();
+  return AVERBACAO_EVENT_LABELS[key] || humanizeUnknown(eventType);
+}
+
+/**
+ * Prêmio ESTIMADO de uma averbação — `valor da carga × taxa% ÷ 100`, arredondado
+ * a centavos em half-up. Caso de ouro do circuito: R$ 25.000,00 × 0,097% =
+ * R$ 24,25.
+ *
+ * É ESTIMATIVA de UI, para o operador ver quanto vai custar ANTES de confirmar
+ * o "Averbar": o valor que vale é o que o motor `insurance-premium-engine.ts`
+ * CONGELA no ato (mesma aritmética, mas em centavos inteiros no backend). Por
+ * isso a função devolve `null` — nunca 0 nem NaN — quando falta insumo: um
+ * "R$ 0,00" na confirmação seria lido como "averbar é de graça".
+ *
+ * `ratePercent` é o PERCENTUAL LITERAL do contrato (0,097% chega como `0.097`);
+ * dividir por 100 é responsabilidade desta função, não de quem chama.
+ *
+ * @param {number} cargoAmount valor declarado da carga em reais
+ * @param {number} ratePercent taxa percentual literal
+ * @returns {number|null} prêmio em reais com 2 casas, ou null sem insumo válido
+ */
+export function estimateDeclarationPremium(cargoAmount, ratePercent) {
+  // `null`/`undefined`/'' são AUSÊNCIA de insumo, não zero — e `Number(null)`
+  // é 0, então sem esta guarda "carga não informada" viraria "prêmio R$ 0,00".
+  if (cargoAmount === null || cargoAmount === undefined || cargoAmount === '') return null;
+  if (ratePercent === null || ratePercent === undefined || ratePercent === '') return null;
+  const amount = Number(cargoAmount);
+  const rate = Number(ratePercent);
+  if (!Number.isFinite(amount) || !Number.isFinite(rate)) return null;
+  if (amount < 0 || rate < 0) return null;
+  // O `Number.EPSILON` corrige o caso clássico do binário (ex.: 1.005 guardado
+  // como 1.00499...) para o half-up não virar half-down por um bit.
+  const raw = (amount * rate) / 100;
+  return Math.round((raw + Number.EPSILON) * 100) / 100;
+}
+
+const BILLING_BASIS_LABELS = Object.freeze({
+  premium: 'Soma dos prêmios averbados',
+  minimum: 'Custo mínimo mensal da apólice'
+});
+
+export function billingBasisLabel(basis) {
+  const key = String(basis || '').trim();
+  return BILLING_BASIS_LABELS[key] || '-';
+}
+
+export function apuracaoPeriodoStatusLabel(status) {
+  return resolveStatusLabel('apuracao-periodo', status);
+}
+
+const APURACAO_RUN_TRIGGER_LABELS = Object.freeze({
+  sweep: 'Varredura automática (fechamento do mês)',
+  manual: 'Ação manual do operador',
+  recompute: 'Recálculo'
+});
+
+export function apuracaoRunTriggerLabel(trigger) {
+  const key = String(trigger || '').trim();
+  return APURACAO_RUN_TRIGGER_LABELS[key] || humanizeUnknown(trigger);
+}
+
+/**
+ * Taxa percentual para leitura humana: `0.097` → `0,097%`. Sem casas fixas —
+ * a taxa do circuito tem 3 decimais (0,097%) mas o contrato aceita mais, e
+ * cortar dígitos aqui esconderia a taxa realmente aplicada.
+ */
+export function formatRatePercent(value) {
+  // Mesma guarda do `formatCurrencyBRL`: apólice SEM taxa cadastrada tem
+  // `ratePercent` nulo, e `Number(null)` é 0 — sem isto a tela mostraria uma
+  // taxa de "0%" onde não existe taxa nenhuma.
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '-';
+  return `${numeric.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}%`;
+}
+
+/**
+ * Mês `YYYY-MM` → `mm/yyyy`. Parse MANUAL (sem `new Date`) pelo mesmo racional
+ * anti-fuso do `formatDateBR`: `new Date('2026-08')` é meia-noite UTC e num
+ * fuso negativo cairia em julho.
+ */
+export function formatPeriodMonthBR(value) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(value || '').trim());
+  if (!match) return String(value || '-');
+  return `${match[2]}/${match[1]}`;
+}
+
+/**
+ * Últimos `count` meses (mais recente primeiro) a partir de um `YYYY-MM` de
+ * referência — o seletor da tela de Apuração. PURO: a referência é sempre
+ * passada por quem chama (a tela resolve "hoje" uma vez, no `onMounted`).
+ */
+export function buildRecentPeriodOptions(referenceMonth, count = 12) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(referenceMonth || '').trim());
+  if (!match) return [];
+  let year = Number(match[1]);
+  let month = Number(match[2]);
+  const options = [];
+  for (let index = 0; index < count; index += 1) {
+    const value = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+    options.push({ value, label: formatPeriodMonthBR(value) });
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  return options;
+}
+
 // ---------------------------------------------------------------------------
 // Motoristas (onda F6, REQ-SICAT-0033/0037) — CNH declarada e vínculo
 // frota/agregado. Rótulos de vigência da CNH vivem no domínio `driver-cnh`

@@ -19,12 +19,20 @@ export function countOperations(overview) {
 /**
  * Checklist "Deixe sua transportadora pronta" — passos DERIVADOS DE DADOS, não
  * de localStorage (o armazenamento local só colapsa o card depois de completo).
- * v1 (onda F2) usa apenas fontes que já existem: transportadores, veículos e
- * operações. O passo de SEGUROS entra na onda F7 (quando a visão consolidada
- * de apólices nasce) e o de HABILITAÇÃO aponta para a tela própria na F9 —
- * regra do produto: checklist nunca aponta para tela inexistente.
+ * A onda F7 acrescentou SEGUROS (a visão consolidada de apólices nasceu com
+ * ela); o passo de HABILITAÇÃO aponta para a tela própria na F9 — regra do
+ * produto: checklist nunca aponta para tela inexistente.
+ *
+ * A ordem é a do circuito real do TRC, e seguros vem ANTES de operar de
+ * propósito: registrar a viagem sem apólice vigente produz uma operação que
+ * trava no pré-embarque (TR-SEG-004/005). O checklist evita esse beco.
  */
-export function buildCarrierChecklist({ carriersCount = 0, vehiclesCount = 0, operationsCount = 0 } = {}) {
+export function buildCarrierChecklist({
+  carriersCount = 0,
+  vehiclesCount = 0,
+  activePoliciesCount = 0,
+  operationsCount = 0
+} = {}) {
   return [
     {
       key: 'habilitacao',
@@ -41,9 +49,16 @@ export function buildCarrierChecklist({ carriersCount = 0, vehiclesCount = 0, op
       to: '/transporte/veiculos'
     },
     {
+      key: 'seguros',
+      label: 'Garanta a cobertura da carga',
+      description: 'Uma apólice vigente com limite por viagem e taxa de averbação cadastrados.',
+      done: Number(activePoliciesCount) > 0,
+      to: '/transporte/seguros/apolices'
+    },
+    {
       key: 'operar',
       label: 'Registre a primeira viagem',
-      description: 'Com cadastro e frota em dia, a operação entra no radar da conformidade.',
+      description: 'Com cadastro, frota e seguro em dia, a operação entra no radar da conformidade.',
       done: Number(operationsCount) > 0,
       to: '/transporte/operacoes/nova'
     }
@@ -60,10 +75,16 @@ const ATTENTION_TONE_ORDER = { error: 0, warning: 1, info: 2 };
  * "O que precisa da sua atenção" — mesma semântica do card do dashboard MTR:
  * cada item é ACIONÁVEL (deep-link) e ordenado por severidade, com teto de
  * exibição (o rodapé aponta para a tela de Pendências, que é a visão completa).
- * Os destinos apontam para telas EXISTENTES nesta onda; F7/F9 re-apontam
- * seguros/habilitação para as telas próprias quando elas nascerem.
+ * Os destinos apontam para telas EXISTENTES nesta onda; a F9 re-aponta
+ * habilitação para a tela própria quando ela nascer.
+ *
+ * `pendingDeclarationsCount` vem de FORA do overview: o Centro Operacional não
+ * agrega averbações (o endpoint nasceu na I3, depois do overview), então quem
+ * renderiza a home conta pelo extrato (`countPendingInsuranceDeclarations`).
+ * Mantê-lo como argumento — em vez de ler `overview.averbacoes` que não existe
+ * — evita um zero silencioso escondendo viagem descoberta.
  */
-export function buildCarrierAttention(overview, { cap = 4 } = {}) {
+export function buildCarrierAttention(overview, { cap = 4, pendingDeclarationsCount = 0 } = {}) {
   const items = [];
   const blockedOperations = Number(overview?.operationsByStatus?.blocked || 0);
   const invalidFiscal = Number(overview?.fiscalDocuments?.invalid || 0);
@@ -124,7 +145,19 @@ export function buildCarrierAttention(overview, { cap = 4 } = {}) {
       title: `${insuranceExpiring} ${insuranceExpiring === 1 ? 'apólice vencendo ou vencida' : 'apólices vencendo ou vencidas'}`,
       description: 'Sem apólice vigente a viagem fica descoberta.',
       actionLabel: 'Ver seguros',
-      to: '/transporte/transportadores'
+      to: '/transporte/seguros/apolices'
+    });
+  }
+  const pendingDeclarations = Number(pendingDeclarationsCount || 0);
+  if (pendingDeclarations > 0) {
+    items.push({
+      key: 'averbacoes-pendentes',
+      tone: 'warning',
+      icon: 'mdi-shield-sync-outline',
+      title: `${pendingDeclarations} ${pendingDeclarations === 1 ? 'averbação sem confirmação' : 'averbações sem confirmação'}`,
+      description: 'A seguradora ainda não confirmou o registro — a carga pode estar sem cobertura efetiva.',
+      actionLabel: 'Acompanhar',
+      to: '/transporte/seguros/averbacoes'
     });
   }
   if (rntrcStale > 0) {
@@ -146,7 +179,10 @@ export function buildCarrierAttention(overview, { cap = 4 } = {}) {
 /**
  * Hub "O que você quer fazer?" — a ação primária do Transportador é REGISTRAR
  * a viagem (tela da onda F3); acompanhar vem em seguida com o badge das
- * operações em aberto. Trava de teste garante que todo destino existe no router.
+ * operações em aberto. A onda F7 acrescentou "Averbar viagens" como quarta
+ * ação, posicionada ANTES de "Tirar uma dúvida": ajuda é o balde final do hub
+ * em todas as personas, então uma ação de operação nunca entra depois dela.
+ * Trava de teste garante que todo destino existe no router.
  */
 export function buildCarrierHubActions({ openOperationsCount = 0 } = {}) {
   return [
@@ -166,6 +202,14 @@ export function buildCarrierHubActions({ openOperationsCount = 0 } = {}) {
       description: 'Ver as viagens e a conformidade de cada uma.',
       to: '/transporte/operacoes',
       badge: Number(openOperationsCount) > 0 ? Number(openOperationsCount) : ''
+    },
+    {
+      key: 'averbar',
+      icon: 'mdi-shield-check-outline',
+      tone: 'success',
+      title: 'Averbar viagens',
+      description: 'Ver as viagens averbadas e o prêmio de cada uma.',
+      to: '/transporte/seguros/averbacoes'
     },
     {
       key: 'ajuda',

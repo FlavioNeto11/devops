@@ -392,16 +392,75 @@ const FISCAL_AUTHORIZATION_LABELS = Object.freeze({
 // TransporteApoliceResource.status — status ADMINISTRATIVO da apólice (não
 // confundir com a vigência DERIVADA — `expiring`/`expired` — ver o helper puro
 // `resolveInsuranceExpiryState` em transporteUiHelpers.js).
+// As três primeiras chaves são o enum ADMINISTRATIVO do contrato; as três
+// últimas (`valid`/`expiring`/`expired`) são a VIGÊNCIA derivada que o helper
+// puro `resolveInsurancePolicyStatus` (transporteUiHelpers.js) devolve — a
+// visão consolidada de Apólices (onda F7) mostra a vigência, não o cadastro.
+// Compartilham o MESMO domínio de badge de propósito: as chaves não colidem e
+// quem lê a tela vê "situação da apólice" como um conceito só. `cancelled`
+// serve às duas dimensões (cancelada não vence — sai da conta da janela).
 const INSURANCE_POLICY_TONES = Object.freeze({
   active: 'success',
   cancelled: 'neutral',
-  expired_marked: 'error'
+  expired_marked: 'error',
+  valid: 'success',
+  expiring: 'warning',
+  expired: 'error',
+  unknown: 'neutral'
 });
 
 const INSURANCE_POLICY_LABELS = Object.freeze({
   active: 'Ativa',
   cancelled: 'Cancelada',
-  expired_marked: 'Marcada como vencida'
+  expired_marked: 'Marcada como vencida',
+  valid: 'Vigente',
+  expiring: 'Vencendo',
+  expired: 'Vencida',
+  unknown: 'Vigência desconhecida'
+});
+
+// `insurance_shipment_declarations.status` (DL-102, migration 036/PR-I3). A
+// leitura é em três tempos: o ciclo EM VOO (`declaring`/`rectifying`/
+// `cancelling`) é 'running'; o desfecho DESCONHECIDO (`*_unconfirmed` — o
+// SICAT despachou e não sabe se a seguradora registrou) é 'warning', pelo mesmo
+// racional do `submit_unconfirmed` do manifesto lá em cima: sem entrada própria
+// ele viraria cinza e esconderia do operador uma averbação possivelmente órfã;
+// e o desfecho CONHECIDO fecha em success/error/neutral.
+const AVERBACAO_TONES = Object.freeze({
+  declaring: 'running',
+  rectifying: 'running',
+  cancelling: 'running',
+  declare_unconfirmed: 'warning',
+  rectify_unconfirmed: 'warning',
+  cancel_unconfirmed: 'warning',
+  declared: 'success',
+  cancelled: 'neutral',
+  rejected: 'error'
+});
+
+const AVERBACAO_LABELS = Object.freeze({
+  declaring: 'Averbando',
+  rectifying: 'Retificando',
+  cancelling: 'Cancelando',
+  declare_unconfirmed: 'Averbação sem confirmação',
+  rectify_unconfirmed: 'Retificação sem confirmação',
+  cancel_unconfirmed: 'Cancelamento sem confirmação',
+  declared: 'Averbada',
+  cancelled: 'Cancelada',
+  rejected: 'Rejeitada pela seguradora'
+});
+
+// `insurance_billing_periods.status` (migration 037/PR-I4). Mês ABERTO ainda
+// recebe averbações e aceita recálculo — é 'running' (em curso), não 'warning':
+// não há nada errado num mês em andamento. Fechado é o desfecho bom.
+const APURACAO_PERIODO_TONES = Object.freeze({
+  open: 'running',
+  closed: 'success'
+});
+
+const APURACAO_PERIODO_LABELS = Object.freeze({
+  open: 'Aberto',
+  closed: 'Fechado'
 });
 
 // TransportePgrResource.status.
@@ -563,6 +622,8 @@ const DOMAIN_TONES = Object.freeze({
   'fiscal-validation': FISCAL_VALIDATION_TONES,
   'fiscal-authorization': FISCAL_AUTHORIZATION_TONES,
   'insurance-policy': INSURANCE_POLICY_TONES,
+  averbacao: AVERBACAO_TONES,
+  'apuracao-periodo': APURACAO_PERIODO_TONES,
   'pgr-status': PGR_STATUS_TONES,
   'piso-tabela-review': PISO_TABELA_REVIEW_TONES,
   'dfe-issuance': DFE_ISSUANCE_TONES,
@@ -585,6 +646,8 @@ const DOMAIN_LABELS = Object.freeze({
   'fiscal-validation': FISCAL_VALIDATION_LABELS,
   'fiscal-authorization': FISCAL_AUTHORIZATION_LABELS,
   'insurance-policy': INSURANCE_POLICY_LABELS,
+  averbacao: AVERBACAO_LABELS,
+  'apuracao-periodo': APURACAO_PERIODO_LABELS,
   'pgr-status': PGR_STATUS_LABELS,
   'piso-tabela-review': PISO_TABELA_REVIEW_LABELS,
   'dfe-issuance': DFE_ISSUANCE_LABELS,
@@ -695,6 +758,10 @@ export {
   FISCAL_AUTHORIZATION_LABELS,
   INSURANCE_POLICY_TONES,
   INSURANCE_POLICY_LABELS,
+  AVERBACAO_TONES,
+  AVERBACAO_LABELS,
+  APURACAO_PERIODO_TONES,
+  APURACAO_PERIODO_LABELS,
   PGR_STATUS_TONES,
   PGR_STATUS_LABELS,
   PISO_TABELA_REVIEW_TONES,

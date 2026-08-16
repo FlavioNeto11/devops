@@ -52,6 +52,9 @@ import TransporteTransportadorDetailView from './views/transporte/TransporteTran
 import TransporteVeiculosListView from './views/transporte/TransporteVeiculosListView.vue';
 import TransporteMotoristasListView from './views/transporte/TransporteMotoristasListView.vue';
 import TransporteMotoristaDetailView from './views/transporte/TransporteMotoristaDetailView.vue';
+import TransporteSegurosApolicesView from './views/transporte/TransporteSegurosApolicesView.vue';
+import TransporteSegurosAverbacoesView from './views/transporte/TransporteSegurosAverbacoesView.vue';
+import TransporteSegurosApuracaoView from './views/transporte/TransporteSegurosApuracaoView.vue';
 import TransporteWatchListView from './views/transporte/TransporteWatchListView.vue';
 import TransporteWatchDetailView from './views/transporte/TransporteWatchDetailView.vue';
 import TransportePisoTabelasView from './views/transporte/TransportePisoTabelasView.vue';
@@ -570,6 +573,51 @@ const routes = [
       featureFlag: 'transporte',
       personas: ['carrier'],
       breadcrumb: ['Transporte', 'Detalhe do motorista']
+    }
+  },
+  {
+    // Seguros (ondas F7/F8 — REQ-SICAT-0034/0035/0037): mesma convenção do
+    // módulo (flag, persona carrier, tenancy via conta CETESB ativa). As três
+    // telas são de CONTA, não de um transportador — por isso vivem sob
+    // `/transporte/seguros/*` e não sob `/transporte/transportadores/:id`. As
+    // ações de averbar/retificar/cancelar NÃO têm rota própria: acontecem no
+    // card "Seguro da viagem" do detalhe da operação, onde está a carga.
+    path: '/transporte/seguros/averbacoes',
+    name: 'TransporteSegurosAverbacoes',
+    component: TransporteSegurosAverbacoesView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Averbações']
+    }
+  },
+  {
+    path: '/transporte/seguros/apolices',
+    name: 'TransporteSegurosApolices',
+    component: TransporteSegurosApolicesView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Apólices']
+    }
+  },
+  {
+    path: '/transporte/seguros/apuracao',
+    name: 'TransporteSegurosApuracao',
+    component: TransporteSegurosApuracaoView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Apuração mensal']
     }
   },
   {

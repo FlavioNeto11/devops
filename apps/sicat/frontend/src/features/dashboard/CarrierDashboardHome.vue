@@ -9,6 +9,11 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.js';
 import { useTransportePendenciasStore } from '../../stores/transportePendenciasStore.js';
 import { listTransportCarriers, listTransportOperations, listTransportVehicles } from '../../services/api.js';
+// Seguros (onda F7): o checklist precisa saber se existe apólice VIGENTE e o
+// card de atenção precisa das averbações sem confirmação. Nenhum dos dois vem
+// do overview — ver o cabeçalho de stores/segurosStore.js.
+import { countPendingInsuranceDeclarations, fetchAccountInsuranceSnapshot } from '../../stores/segurosStore.js';
+import { resolveInsurancePolicyStatus } from '../../views/transporte/transporteUiHelpers.js';
 import {
   buildCarrierAttention,
   buildCarrierChecklist,
@@ -49,6 +54,8 @@ const activeAccountLabel = computed(() => {
 const recentOperations = ref([]);
 const carriersCount = ref(0);
 const vehiclesCount = ref(0);
+const activePoliciesCount = ref(0);
+const pendingDeclarationsCount = ref(0);
 const loadingLists = ref(false);
 const listsError = ref('');
 const hasLoadedOnce = ref(false);
@@ -57,6 +64,7 @@ const checklist = computed(() =>
   buildCarrierChecklist({
     carriersCount: carriersCount.value,
     vehiclesCount: vehiclesCount.value,
+    activePoliciesCount: activePoliciesCount.value,
     operationsCount: countOperations(overview.value)
   })
 );
@@ -73,7 +81,9 @@ function collapseChecklist() {
 }
 const showChecklist = computed(() => !checklistDone.value || !checklistCollapsed.value);
 
-const attention = computed(() => buildCarrierAttention(overview.value));
+const attention = computed(() =>
+  buildCarrierAttention(overview.value, { pendingDeclarationsCount: pendingDeclarationsCount.value })
+);
 const hubActions = computed(() =>
   buildCarrierHubActions({ openOperationsCount: countOpenOperations(overview.value) })
 );
@@ -123,6 +133,28 @@ function dismissWelcome() {
   try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
 }
 
+/**
+ * Contagens de seguros da home. FAIL-SOFT de propósito: um erro aqui deixa o
+ * passo do checklist em "pendente" e o card de atenção sem o item — nunca
+ * derruba a home inteira (`listsError` fica reservado ao que é essencial).
+ */
+async function loadInsuranceCounts(integrationAccountId) {
+  try {
+    const [snapshot, pending] = await Promise.all([
+      fetchAccountInsuranceSnapshot({ integrationAccountId, withRates: false }),
+      countPendingInsuranceDeclarations({ integrationAccountId })
+    ]);
+    activePoliciesCount.value = snapshot.policies.filter((policy) => {
+      const { status } = resolveInsurancePolicyStatus(policy);
+      return status === 'valid' || status === 'expiring';
+    }).length;
+    pendingDeclarationsCount.value = Number(pending || 0);
+  } catch {
+    activePoliciesCount.value = 0;
+    pendingDeclarationsCount.value = 0;
+  }
+}
+
 async function loadLists() {
   loadingLists.value = true;
   listsError.value = '';
@@ -137,6 +169,12 @@ async function loadLists() {
     recentOperations.value = Array.isArray(operationsResponse?.items) ? operationsResponse.items : [];
     carriersCount.value = Number(carriersResponse?.totalItems ?? (carriersResponse?.items?.length || 0));
     vehiclesCount.value = Number(vehiclesResponse?.totalItems ?? (vehiclesResponse?.items?.length || 0));
+
+    // Seguros em segundo tempo: são um fan-out (transportadores → apólices) e
+    // uma contagem por status, e nenhum dos dois pode atrasar o primeiro
+    // desenho da home. `withRates: false` porque o checklist só quer saber se
+    // existe apólice vigente — a taxa é assunto da tela de Apólices.
+    void loadInsuranceCounts(integrationAccountId);
   } catch (error) {
     listsError.value = error?.detail || error?.message || 'Falha ao carregar os dados da transportadora.';
   } finally {
