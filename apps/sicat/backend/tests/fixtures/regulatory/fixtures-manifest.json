@@ -1,88 +1,218 @@
 {
   "_comment": "Manifesto declarativo (PR-A6): mapeia cada (code, versionLabel) do seed regulatório (buildRegulatoryCatalogSeed(), src/bootstrap/regulatory-rules-seed.ts) a um trio {before, on, after} de datas de teste. Regra de engenharia do programa (item 14 da tabela de adoção, apps/sicat/docs/30-transporte/transporte-guia.md): nenhuma mudança de RegulatoryRuleVersion sem fixture demonstrando comportamento antes e depois da vigência. Validado por tests/regulatory/rule-catalog-invariants.test.js (meta-guarda 3): before < effective_from <= on <= after; quando a versão tem effective_until, after > effective_until (prova a saída de vigência).",
   "TR-RNTRC-001": {
-    "v2026-08-baseline": { "before": "2007-01-04", "on": "2007-01-05", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2007-01-04",
+      "on": "2007-01-05",
+      "after": "2026-08-13"
+    }
   },
   "TR-RNTRC-002": {
-    "v2026-08-baseline": { "before": "2021-12-31", "on": "2022-01-01", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2021-12-31",
+      "on": "2022-01-01",
+      "after": "2026-08-13"
+    }
   },
   "TR-RNTRC-003": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-PMF-001": {
-    "v2026-08-baseline": { "before": "2018-08-08", "on": "2018-08-09", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2018-08-08",
+      "on": "2018-08-09",
+      "after": "2026-08-13"
+    }
   },
   "TR-PMF-002": {
-    "v2026-08-baseline": { "before": "2018-08-08", "on": "2018-08-09", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2018-08-08",
+      "on": "2018-08-09",
+      "after": "2026-08-13"
+    }
   },
   "TR-PMF-003": {
-    "v2026-08-baseline": { "before": "2018-08-08", "on": "2018-08-09", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2018-08-08",
+      "on": "2018-08-09",
+      "after": "2026-08-13"
+    }
   },
   "TR-PMF-004": {
-    "v2026-08-baseline": { "before": "2018-08-08", "on": "2018-08-09", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2018-08-08",
+      "on": "2018-08-09",
+      "after": "2026-08-13"
+    }
   },
   "TR-CIOT-001": {
-    "v2019-baseline": { "before": "2019-01-27", "on": "2019-01-28", "after": "2026-05-24" },
-    "v2026-05-universal": { "before": "2026-05-23", "on": "2026-05-24", "after": "2026-08-13" }
+    "v2019-baseline": {
+      "before": "2019-01-27",
+      "on": "2019-01-28",
+      "after": "2026-05-24"
+    },
+    "v2026-05-universal": {
+      "before": "2026-05-23",
+      "on": "2026-05-24",
+      "after": "2026-08-13"
+    }
   },
   "TR-CIOT-002": {
-    "v2026-08-baseline": { "before": "2026-05-23", "on": "2026-05-24", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2026-05-23",
+      "on": "2026-05-24",
+      "after": "2026-08-13"
+    }
   },
   "TR-CIOT-003": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-CIOT-004": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-CIOT-005": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-PAY-001": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-VPO-001": {
-    "v2026-08-baseline": { "before": "2001-03-22", "on": "2001-03-23", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2001-03-22",
+      "on": "2001-03-23",
+      "after": "2026-08-13"
+    }
   },
   "TR-VPO-002": {
-    "v2026-08-baseline": { "before": "2001-03-22", "on": "2001-03-23", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2001-03-22",
+      "on": "2001-03-23",
+      "after": "2026-08-13"
+    }
   },
   "TR-VPO-003": {
-    "v2026-08-baseline": { "before": "2001-03-22", "on": "2001-03-23", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2001-03-22",
+      "on": "2001-03-23",
+      "after": "2026-08-13"
+    }
   },
   "TR-VPO-004": {
-    "v2026-08-baseline": { "before": "2022-12-31", "on": "2023-01-01", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2022-12-31",
+      "on": "2023-01-01",
+      "after": "2026-08-13"
+    }
   },
   "TR-NFE-001": {
-    "v2026-08-baseline": { "before": "2017-12-31", "on": "2018-01-01", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2017-12-31",
+      "on": "2018-01-01",
+      "after": "2026-08-13"
+    }
   },
   "TR-CTE-001": {
-    "v2026-08-baseline": { "before": "2017-12-31", "on": "2018-01-01", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2017-12-31",
+      "on": "2018-01-01",
+      "after": "2026-08-13"
+    }
   },
   "TR-MDFE-001": {
-    "v2026-08-baseline": { "before": "2017-12-31", "on": "2018-01-01", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2017-12-31",
+      "on": "2018-01-01",
+      "after": "2026-08-13"
+    }
   },
   "TR-MDFE-002": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
   },
   "TR-SEG-001": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-SEG-002": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-SEG-003": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-SEG-004": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-SEG-005": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-PGR-001": {
-    "v2026-08-baseline": { "before": "2023-06-19", "on": "2023-06-20", "after": "2026-08-13" }
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   },
   "TR-COMP-001": {
-    "v2026-08-baseline": { "before": "2026-08-05", "on": "2026-08-06", "after": "2026-08-07" }
+    "v2026-08-baseline": {
+      "before": "2026-08-05",
+      "on": "2026-08-06",
+      "after": "2026-08-07"
+    }
+  },
+  "TR-GR-001": {
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
+  },
+  "TR-GR-002": {
+    "v2026-08-baseline": {
+      "before": "2023-06-19",
+      "on": "2023-06-20",
+      "after": "2026-08-13"
+    }
   }
 }

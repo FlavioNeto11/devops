@@ -1620,6 +1620,51 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_transporte_gr_screenings",
+    "method": "post",
+    "specPath": "/v1/transporte/gr/screenings",
+    "expressPath": "/v1/transporte/gr/screenings",
+    "summary": "Solicitar pesquisa cadastral (motorista ou veículo)",
+    "tag": "Transporte - GR",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_gr_screenings",
+    "method": "get",
+    "specPath": "/v1/transporte/gr/screenings",
+    "expressPath": "/v1/transporte/gr/screenings",
+    "summary": "Pesquisas cadastrais da conta",
+    "tag": "Transporte - GR",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_gr_screenings_screeningId",
+    "method": "get",
+    "specPath": "/v1/transporte/gr/screenings/{screeningId}",
+    "expressPath": "/v1/transporte/gr/screenings/:screeningId",
+    "summary": "Detalhe da pesquisa cadastral",
+    "tag": "Transporte - GR",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_gr_rastreamento",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/gr/rastreamento",
+    "expressPath": "/v1/transporte/operacoes/:operationId/gr/rastreamento",
+    "summary": "Confirmar rastreamento da viagem",
+    "tag": "Transporte - GR",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_gr_rastreamento",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/gr/rastreamento",
+    "expressPath": "/v1/transporte/operacoes/:operationId/gr/rastreamento",
+    "summary": "Rastreamento confirmado da viagem",
+    "tag": "Transporte - GR",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_operacoes_operationId_averbacoes",
     "method": "post",
     "specPath": "/v1/transporte/operacoes/{operationId}/averbacoes",

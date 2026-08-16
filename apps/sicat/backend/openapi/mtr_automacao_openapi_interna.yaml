@@ -9898,6 +9898,172 @@ paths:
         name: periodId
         required: true
         schema: { type: string }
+  /v1/transporte/gr/screenings:
+    post:
+      operationId: transporteGrScreeningCreate
+      summary: Solicitar pesquisa cadastral (motorista ou veículo)
+      description: 'Pesquisa cadastral de risco exigida pelas apólices de roubo. Provedor abstraído
+        (`RISK_SCREENING_MODE` off|sandbox — `off` recusa com 501 `RISK_SCREENING_DISABLED`). LGPD:
+        o resultado guarda apenas o VEREDITO e a validade, nunca antecedentes.'
+      tags:
+      - Transporte - GR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteGrScreeningCreateRequest'
+      responses:
+        '201':
+          description: Pesquisa registrada (concluída, ou aguardando reconciliação)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteGrScreeningResource'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '501':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      operationId: transporteGrScreeningsList
+      summary: Pesquisas cadastrais da conta
+      tags:
+      - Transporte - GR
+      responses:
+        '200':
+          description: Pesquisas da conta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteGrScreeningsListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: subjectType
+        schema: { type: string, enum: [driver, vehicle] }
+      - in: query
+        name: driverId
+        schema: { type: string }
+      - in: query
+        name: vehicleId
+        schema: { type: string }
+  /v1/transporte/gr/screenings/{screeningId}:
+    get:
+      operationId: transporteGrScreeningGet
+      summary: Detalhe da pesquisa cadastral
+      tags:
+      - Transporte - GR
+      responses:
+        '200':
+          description: Pesquisa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteGrScreeningResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: path
+        name: screeningId
+        required: true
+        schema: { type: string }
+  /v1/transporte/operacoes/{operationId}/gr/rastreamento:
+    post:
+      operationId: transporteOperacaoRastreamentoConfirmar
+      summary: Confirmar rastreamento da viagem
+      description: 'Registra a confirmação de rastreamento exigida pela matriz do PGR (TR-GR-002).
+        Confirmar de novo é NO-OP idempotente (uma confirmação ativa por operação).'
+      tags:
+      - Transporte - GR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteGrRastreamentoRequest'
+      responses:
+        '201':
+          description: Rastreamento confirmado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteGrRastreamentoResource'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - in: path
+        name: operationId
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteOperacaoRastreamentoGet
+      summary: Rastreamento confirmado da viagem
+      tags:
+      - Transporte - GR
+      responses:
+        '200':
+          description: Confirmação ativa (ou `null`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  operationId: { type: string }
+                  confirmation:
+                    oneOf:
+                    - $ref: '#/components/schemas/TransporteGrRastreamentoResource'
+                    - type: 'null'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+        '404':
+          $ref: '#/components/responses/Problem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: path
+        name: operationId
+        required: true
+        schema: { type: string }
   /v1/transporte/operacoes/{operationId}/averbacoes:
     post:
       operationId: transporteOperacaoAverbar
@@ -18933,6 +19099,102 @@ components:
           type: string
           nullable: true
           description: Filtro aplicado (`YYYY-MM`) ou `null` quando a lista é de todos os meses.
+    TransporteGrScreeningCreateRequest:
+      type: object
+      required:
+      - integrationAccountId
+      - subjectType
+      properties:
+        integrationAccountId: { type: string }
+        subjectType:
+          type: string
+          enum: [driver, vehicle]
+        driverId:
+          type: string
+          description: Obrigatório quando `subjectType = driver`.
+        vehicleId:
+          type: string
+          description: Obrigatório quando `subjectType = vehicle`.
+        referenceDate:
+          type: string
+          format: date
+          description: Data de referência da pesquisa (default = hoje).
+        requestedBy: { type: string }
+      example:
+        integrationAccountId: acc_2f4a9d7c1b3e5089
+        subjectType: driver
+        driverId: trdrv_5c8e1b7a3d9f2064e1c7b4a802
+        referenceDate: '2026-08-16'
+    TransporteGrScreeningResource:
+      type: object
+      description: 'Pesquisa cadastral — payload MÍNIMO por LGPD: veredito e validade, nunca
+        antecedentes ou dados pessoais além do vínculo com o alvo.'
+      required:
+      - id
+      - subjectType
+      - status
+      properties:
+        id: { type: string }
+        integrationAccountId: { type: string }
+        subjectType:
+          type: string
+          enum: [driver, vehicle]
+        driverId: { type: string, nullable: true }
+        vehicleId: { type: string, nullable: true }
+        provider: { type: string }
+        status:
+          type: string
+          enum: [requesting, completed, request_unconfirmed, failed]
+        outcome:
+          type: string
+          nullable: true
+          enum: [approved, rejected, inconclusive, null]
+        validUntil: { type: string, format: date, nullable: true }
+        result: { type: object, additionalProperties: true }
+        requestedBy: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
+    TransporteGrScreeningsListResponse:
+      type: object
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteGrScreeningResource'
+        total: { type: integer }
+    TransporteGrRastreamentoRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+        vehicleId: { type: string }
+        trackerProvider:
+          type: string
+          description: Nome do rastreador/empresa (evidência operacional).
+        evidence: { type: object, additionalProperties: true }
+    TransporteGrRastreamentoResource:
+      type: object
+      required:
+      - id
+      - operationId
+      - status
+      properties:
+        id: { type: string }
+        integrationAccountId: { type: string }
+        operationId: { type: string }
+        vehicleId: { type: string, nullable: true }
+        trackerProvider: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [confirmed, revoked]
+        evidence: { type: object, additionalProperties: true }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
     TransporteApuracaoCommandRequest:
       type: object
       required:

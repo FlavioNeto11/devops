@@ -180,7 +180,7 @@ function evaluate(code, aggregate, ruleVersionOverrides = {}, referenceDate = '2
 // ===================================================================================================
 
 describe('rule-evaluators — registro', () => {
-  it('RULE_EVALUATORS + RULES_WITHOUT_EVALUATOR_YET cobrem exatamente os 27 codes, sem sobreposição', () => {
+  it('RULE_EVALUATORS + RULES_WITHOUT_EVALUATOR_YET cobrem exatamente os 30 codes, sem sobreposição', () => {
     const withEvaluator = new Set(Object.keys(RULE_EVALUATORS));
     const withoutEvaluator = new Set(Object.keys(RULES_WITHOUT_EVALUATOR_YET));
 
@@ -195,11 +195,11 @@ describe('rule-evaluators — registro', () => {
 
     assert.strictEqual(
       withEvaluator.size,
-      27,
+      29,
       'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) + TR-VPO-002 (PR-D1) '
         + '+ TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002/TR-CIOT-005/TR-VPO-004 (PR-E1) '
         + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) + TR-SEG-004 (PR-I2) + TR-SEG-005 (PR-I3) '
-        + '= 27 evaluators implementados'
+        + '+ TR-GR-001/002 (PR-I5) = 29 evaluators implementados'
     );
     assert.strictEqual(
       withoutEvaluator.size,

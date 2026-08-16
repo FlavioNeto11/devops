@@ -216,6 +216,22 @@ export type RuleEvaluatorContext = {
   carrierInsurance?: CarrierInsuranceEvaluationContext | null;
   /** Declarações de averbação da operação (PR-I3) — lista vazia/`undefined` = nenhuma averbação feita ainda. */
   insuranceDeclarations?: InsuranceDeclarationEvaluationContext[];
+  /**
+   * Gerenciamento de Riscos (PR-I5, REQ-SICAT-0036) — o que o gate precisa saber para TR-GR-001/002.
+   * Opcional para não quebrar contextos montados antes deste PR (fixtures antigas).
+   */
+  riskManagement?: {
+    /** Pesquisa cadastral VÁLIDA (approved e dentro da validade) do motorista da operação. */
+    driverScreening?: { outcome: 'approved' | 'rejected' | 'inconclusive'; validUntil: string | null } | null;
+    /** Idem para o veículo de tração. */
+    vehicleScreening?: { outcome: 'approved' | 'rejected' | 'inconclusive'; validUntil: string | null } | null;
+    /** Se a operação tem motorista vinculado (papel `driver`) — sem ele a pesquisa nem tem alvo. */
+    hasLinkedDriver?: boolean;
+    /** Matriz do PGR: thresholds por valor declarado que EXIGEM rastreamento. */
+    trackingMatrix?: { thresholds?: Array<{ minDeclaredValue: number; required: boolean }> } | null;
+    /** Confirmação ativa de rastreamento da operação. */
+    trackingConfirmed?: boolean;
+  };
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -1582,6 +1598,135 @@ function evaluateSeg005(ctx: RuleEvaluatorContext): RuleOutcome {
 // duas, não a RC-V).
 // =================================================================================================
 
+// =================================================================================================
+// TR-GR-001 / TR-GR-002 — Gerenciamento de Riscos (PR-I5, REQ-SICAT-0036).
+//
+// As seguradoras condicionam as apólices de ROUBO (RC-DC) a duas exigências operacionais (doc
+// Irmãos PADILHA, item 4): pesquisa cadastral do motorista e do veículo em empresa especializada, e
+// rastreamento conforme a mercadoria. Ambas avaliadas no gate de PRÉ-EMBARQUE — e ambas ADVISORY
+// (blocking=false no seed; o clamp rebaixa o block bruto para warn), como toda a vertical.
+// =================================================================================================
+
+function evaluateGr001(ctx: RuleEvaluatorContext): RuleOutcome {
+  const policies = ctx.carrierInsurance?.policies ?? {};
+  const roubo = policies.RC_DC ?? null;
+  const rouboVigente = roubo != null && roubo.validFrom <= ctx.referenceDate && roubo.validUntil >= ctx.referenceDate;
+
+  const risk = ctx.riskManagement ?? {};
+  const inputs: Record<string, unknown> = {
+    referenceDate: ctx.referenceDate,
+    rouboPolicyActive: rouboVigente,
+    hasLinkedDriver: Boolean(risk.hasLinkedDriver)
+  };
+
+  // A exigência nasce da apólice de roubo: sem ela, a pesquisa cadastral não é condição do seguro.
+  if (!rouboVigente) {
+    return outcome(
+      'not_applicable',
+      'Sem apólice de roubo (RC-DC) vigente na data — a pesquisa cadastral não é exigida por esta cobertura.',
+      { reasonCode: 'RISK_SCREENING_NOT_REQUIRED', inputs }
+    );
+  }
+
+  if (!risk.hasLinkedDriver) {
+    return outcome(
+      'warn',
+      'Operação sem motorista vinculado: não há como comprovar a pesquisa cadastral exigida pela apólice de roubo.',
+      { reasonCode: 'OPERATION_DRIVER_NOT_LINKED', inputs }
+    );
+  }
+
+  const targets: Array<{ label: string; screening: { outcome: string; validUntil: string | null } | null | undefined }> = [
+    { label: 'motorista', screening: risk.driverScreening },
+    { label: 'veículo', screening: risk.vehicleScreening }
+  ];
+
+  const rejected = targets.filter((target) => target.screening?.outcome === 'rejected');
+  if (rejected.length > 0) {
+    return outcome(
+      'block',
+      `Pesquisa cadastral REPROVADA (${rejected.map((target) => target.label).join(' e ')}) — a seguradora não cobre esta viagem.`,
+      { reasonCode: 'RISK_SCREENING_REJECTED', inputs: { ...inputs, rejected: rejected.map((target) => target.label) } }
+    );
+  }
+
+  const missingOrExpired = targets.filter((target) => {
+    const screening = target.screening;
+    if (!screening || screening.outcome !== 'approved') return true;
+    if (!screening.validUntil) return true;
+    return screening.validUntil < ctx.referenceDate;
+  });
+
+  if (missingOrExpired.length > 0) {
+    const inconclusiveOnly = missingOrExpired.every((target) => target.screening?.outcome === 'inconclusive');
+    if (inconclusiveOnly) {
+      return outcome(
+        'warn',
+        `Pesquisa cadastral INCONCLUSIVA (${missingOrExpired.map((target) => target.label).join(' e ')}) — confirme com a gerenciadora antes de liberar.`,
+        { reasonCode: 'RISK_SCREENING_INCONCLUSIVE', inputs }
+      );
+    }
+    return outcome(
+      'block',
+      `Pesquisa cadastral ausente ou vencida (${missingOrExpired.map((target) => target.label).join(' e ')}) — exigência da apólice de roubo.`,
+      {
+        reasonCode: 'RISK_SCREENING_MISSING_OR_EXPIRED',
+        inputs: { ...inputs, pending: missingOrExpired.map((target) => target.label) }
+      }
+    );
+  }
+
+  return outcome('pass', 'Pesquisa cadastral de motorista e veículo aprovada e vigente.', {
+    reasonCode: 'RISK_SCREENING_OK',
+    inputs
+  });
+}
+
+function evaluateGr002(ctx: RuleEvaluatorContext): RuleOutcome {
+  const risk = ctx.riskManagement ?? {};
+  const thresholds = risk.trackingMatrix?.thresholds ?? [];
+  const cargoItems = ctx.operation.cargo ?? [];
+  const declaredTotal = cargoItems.reduce((sum, item) => sum + Number(item.declaredValue ?? 0), 0);
+
+  const inputs: Record<string, unknown> = {
+    referenceDate: ctx.referenceDate,
+    declaredTotal,
+    thresholdCount: thresholds.length,
+    trackingConfirmed: Boolean(risk.trackingConfirmed)
+  };
+
+  // Matriz não configurada: a exigência é do PGR da seguradora — sem plano, não há regra a aplicar
+  // (e inventar um teto aqui seria fabricar exigência que ninguém declarou).
+  if (thresholds.length === 0) {
+    return outcome(
+      'not_applicable',
+      'PGR sem matriz de rastreamento configurada — nada a exigir nesta viagem.',
+      { reasonCode: 'TRACKING_REQUIREMENT_NOT_CONFIGURED', inputs }
+    );
+  }
+
+  const required = thresholds.some((threshold) => threshold.required && declaredTotal >= Number(threshold.minDeclaredValue ?? 0));
+  if (!required) {
+    return outcome('not_applicable', 'Valor da carga abaixo do piso que exige rastreamento na matriz do PGR.', {
+      reasonCode: 'TRACKING_NOT_REQUIRED',
+      inputs
+    });
+  }
+
+  if (!risk.trackingConfirmed) {
+    return outcome(
+      'block',
+      `Rastreamento exigido pela matriz do PGR para carga de ${declaredTotal} — sem confirmação registrada para esta viagem.`,
+      { reasonCode: 'TRACKING_REQUIRED_NOT_CONFIRMED', inputs }
+    );
+  }
+
+  return outcome('pass', 'Rastreamento exigido pelo PGR e confirmado para a viagem.', {
+    reasonCode: 'TRACKING_CONFIRMED',
+    inputs
+  });
+}
+
 function evaluatePgr001(ctx: RuleEvaluatorContext): RuleOutcome {
   const policies = ctx.carrierInsurance?.policies ?? {};
   const linkedPolicyTypes: InsurancePolicyType[] = (['RCTR_C', 'RC_DC'] as const).filter((type) => Boolean(policies[type]));
@@ -1667,6 +1812,8 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-SEG-004': evaluateSeg004,
   'TR-SEG-005': evaluateSeg005,
   'TR-PGR-001': evaluatePgr001,
+  'TR-GR-001': evaluateGr001,
+  'TR-GR-002': evaluateGr002,
   'TR-COMP-001': evaluateComp001
 };
 

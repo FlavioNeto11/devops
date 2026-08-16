@@ -125,6 +125,7 @@ type ConfigKey =
   | 'insuranceProviderMode'
   | 'dfeIssuanceMode'
   | 'averbacaoGatewayMode'
+  | 'riskScreeningMode'
   | 'regulatoryWatchMode'
   | 'regulatoryWatchGatewayTimeoutMs'
   | 'regulatoryWatchUserAgent';
@@ -270,6 +271,21 @@ function resolveAverbacaoGatewayMode(): AverbacaoGatewayMode {
   const raw = String(process.env.AVERBACAO_GATEWAY_MODE || 'off').trim().toLowerCase();
   if (raw === 'off' || raw === 'sandbox') return raw;
   throw new Error(`AVERBACAO_GATEWAY_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
+}
+
+export type RiskScreeningMode = 'off' | 'sandbox';
+
+/**
+ * Modo da pesquisa cadastral de risco (PR-I5, REQ-SICAT-0036). `off` (DEFAULT) recusa toda chamada
+ * com `RISK_SCREENING_DISABLED` (501) — não existe gerenciadora de risco contratada ([EXTERNAL
+ * DEPENDENCY]); `sandbox` liga o provedor determinístico (`gateways/risk-screening-gateway.ts`).
+ * Nenhum valor `real` é aceito: integração real exige contrato com a empresa indicada pela
+ * seguradora — pedir isso no boot lança, mesmo molde de `resolveAverbacaoGatewayMode`.
+ */
+function resolveRiskScreeningMode(): RiskScreeningMode {
+  const raw = String(process.env.RISK_SCREENING_MODE || 'off').trim().toLowerCase();
+  if (raw === 'off' || raw === 'sandbox') return raw;
+  throw new Error(`RISK_SCREENING_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
 }
 
 export type RegulatoryWatchMode = 'off' | 'live';
@@ -587,6 +603,11 @@ export const config = {
    * averbadora integrada. Ver `gateways/averbacao-gateway.ts`. */
   get averbacaoGatewayMode(): AverbacaoGatewayMode {
     return getConfigValue<AverbacaoGatewayMode>('averbacaoGatewayMode', resolveAverbacaoGatewayMode());
+  },
+
+  /* ── Gerenciamento de Riscos: pesquisa cadastral (PR-I5) ──────────────────────────────────── */
+  get riskScreeningMode(): RiskScreeningMode {
+    return getConfigValue<RiskScreeningMode>('riskScreeningMode', resolveRiskScreeningMode());
   },
 
   /* ── Regulatory Watch (PR-H1) ─────────────────────────────────────────────────────────────────

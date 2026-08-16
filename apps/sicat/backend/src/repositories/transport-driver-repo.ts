@@ -242,6 +242,24 @@ export async function getDriverById(
   return mapDriverRow(result.rows[0]);
 }
 
+/**
+ * Motorista pela PARTE vinculada (1:1) — o caminho que o gate de GR usa: a operação conhece o
+ * `partyId` do papel `driver`, e a pesquisa cadastral é indexada pelo motorista (PR-I5).
+ */
+export async function findDriverByPartyId(
+  partyId: string,
+  integrationAccountId: string,
+  client: DbClient = null
+): Promise<TransportDriverWithParty | null> {
+  const execute = getQueryExecutor(client);
+  const result = await execute<DriverRow>(
+    `${DRIVER_SELECT}
+      where d.party_id = $1 and d.integration_account_id = $2`,
+    [partyId, integrationAccountId]
+  );
+  return mapDriverRow(result.rows[0]);
+}
+
 export type DriverUpdatePatch = Partial<Pick<
   TransportDriver,
   'cnhNumber' | 'cnhCategory' | 'cnhValidUntil' | 'cnhUf' | 'status' | 'evidence'
