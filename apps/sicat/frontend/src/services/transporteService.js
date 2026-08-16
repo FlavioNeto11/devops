@@ -90,6 +90,24 @@ export {
   listTransportCarrierPgrs,
   listTransportInsuranceExpiryAlerts,
 
+  // Seguros: taxas de averbação por apólice (I2, REQ-SICAT-0034 — onda F7).
+  createTransportInsuranceRateSchedule,
+  listTransportInsuranceRateSchedules,
+
+  // Averbação eletrônica DL-102 (I3, REQ-SICAT-0034 — onda F7).
+  averbarTransportOperation,
+  listTransportOperationAverbacoes,
+  rectifyTransportAverbacao,
+  cancelTransportAverbacao,
+  listTransportInsuranceDeclarations,
+
+  // Apuração mensal do prêmio (I4, REQ-SICAT-0035 — onda F8).
+  listTransportInsuranceBillingPeriods,
+  getTransportInsuranceBillingPeriod,
+  recomputeTransportInsuranceBillingPeriod,
+  closeTransportInsuranceBillingPeriod,
+  reopenTransportInsuranceBillingPeriod,
+
   // Emissão de DF-e sandbox-ready (PR-H2).
   requestTransportOperationDfeIssuance,
   listTransportOperationDfeIssuances,

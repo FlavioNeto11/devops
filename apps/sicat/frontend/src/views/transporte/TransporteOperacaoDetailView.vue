@@ -51,6 +51,9 @@ import SicatEmptyState from '../../components/sicat/SicatEmptyState.vue';
 import SicatLoadingState from '../../components/sicat/SicatLoadingState.vue';
 import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatConfirmDialog from '../../components/sicat/SicatConfirmDialog.vue';
+// Card FILHO (onda F7): o ciclo de averbação tem estado próprio e esta tela já
+// passa de 1100 linhas — ver o cabeçalho de OperacaoSeguroCard.vue.
+import OperacaoSeguroCard from './OperacaoSeguroCard.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -838,6 +841,18 @@ async function handleCancelarEmissao(issuanceId) {
         </details>
       </template>
     </SicatCard>
+
+    <!-- Seguro da viagem (averbação eletrônica) — componente FILHO. Fica entre
+         CIOT e VPO porque a ordem dos cartões conta a sequência real do
+         embarque: registra o transporte (CIOT) → cobre a carga (seguro) →
+         resolve o pedágio (VPO) → emite o fiscal. Averbar muda a conformidade
+         (TR-SEG-004/005), então o `changed` recarrega o painel. -->
+    <OperacaoSeguroCard
+      v-if="selected"
+      :operation="selected"
+      :integration-account-id="selected.integrationAccountId"
+      @changed="loadCompliance(operationId)"
+    />
 
     <!-- VPO. -->
     <SicatCard v-if="selected" title="VPO — Vale-Pedágio Obrigatório">

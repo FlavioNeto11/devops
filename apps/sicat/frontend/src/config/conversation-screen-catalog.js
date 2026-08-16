@@ -606,6 +606,56 @@ const SHELL_SCREEN_CATALOG = {
       { label: 'Transportadores', to: '/transporte/transportadores', description: 'O outro lado do vínculo do motorista.' }
     ]
   },
+  TransporteSegurosApolices: {
+    title: 'Apólices de seguro',
+    description: 'A cobertura de todas as transportadoras da conta: vigência, limite por viagem, taxa de averbação e custo mínimo mensal.',
+    purpose: 'Ver de uma vez quem está coberto e com que condição comercial.',
+    fieldHints: [
+      { label: 'Limite por viagem', description: 'Teto da apólice para UMA viagem — a conformidade confronta com a soma dos valores declarados da carga (TR-SEG-004). Não confundir com a importância segurada total.' },
+      { label: 'Taxa vigente', description: 'Percentual sobre o valor da carga (ex.: 0,097%). Taxa nova substitui a anterior; a antiga fica no histórico para reproduzir prêmios passados.' }
+    ],
+    quickActions: [
+      { id: 'transp-apol-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-apol-averb', label: 'Averbações', kind: 'navigate', to: '/transporte/seguros/averbacoes', icon: 'mdi-shield-check-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Transportadores', to: '/transporte/transportadores', description: 'Onde a apólice é cadastrada e renovada.' },
+      { label: 'Apuração mensal', to: '/transporte/seguros/apuracao', description: 'O que essa taxa e esse mínimo custam no fim do mês.' }
+    ]
+  },
+  TransporteSegurosAverbacoes: {
+    title: 'Averbações',
+    description: 'O extrato das viagens averbadas: valor da carga congelado, taxa aplicada, prêmio e situação na seguradora.',
+    purpose: 'Acompanhar o que foi averbado no período e o que ainda não fechou.',
+    fieldHints: [
+      { label: 'Situação', description: 'Averbando/retificando/cancelando é ciclo em voo; "sem confirmação" significa que o SICAT despachou e a seguradora não respondeu — a reconciliação resolve.' },
+      { label: 'Onde se averba', description: 'A averbação é sempre de UMA viagem: acontece no cartão "Seguro da viagem" do detalhe da operação, não nesta tela.' }
+    ],
+    quickActions: [
+      { id: 'transp-averb-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-averb-ops', label: 'Minhas operações', kind: 'navigate', to: '/transporte/operacoes', icon: 'mdi-truck-fast-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Apólices', to: '/transporte/seguros/apolices', description: 'A taxa que gerou cada prêmio sai de lá.' },
+      { label: 'Apuração mensal', to: '/transporte/seguros/apuracao', description: 'A soma destes prêmios vira a conta do mês.' }
+    ]
+  },
+  TransporteSegurosApuracao: {
+    title: 'Apuração mensal',
+    description: 'A conta do mês por apólice: soma dos prêmios averbados contra o custo mínimo mensal — vale o maior dos dois.',
+    purpose: 'Fechar o mês com um extrato reproduzível e saber qual base prevaleceu.',
+    fieldHints: [
+      { label: 'Base de cobrança', description: 'Quando o mínimo prevalece, averbar mais viagens até cruzar esse piso não aumenta a conta; quando os prêmios prevalecem, cada viagem soma.' },
+      { label: 'Fechar o mês', description: 'Fechar recalcula e congela o período. Reabrir é ação administrativa e deixa rastro obrigatório na trilha.' }
+    ],
+    quickActions: [
+      { id: 'transp-apur-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-apur-averb', label: 'Averbações', kind: 'navigate', to: '/transporte/seguros/averbacoes', icon: 'mdi-shield-check-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Apólices', to: '/transporte/seguros/apolices', description: 'Onde o custo mínimo mensal é cadastrado.' }
+    ]
+  },
   TransporteRegras: {
     title: 'Regras regulatórias',
     description: 'O catálogo TR-* que o motor de conformidade avalia, com vigências e domínios.',

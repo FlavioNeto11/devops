@@ -1950,6 +1950,114 @@ export function listTransportInsuranceExpiryAlerts(params = {}) {
   return request(`/v1/transporte/seguros/vencimentos${toQueryString(params)}`, { retry: 1, timeoutMs: 15000 });
 }
 
+// ---- Seguros: taxas de averbação da apólice (I2, REQ-SICAT-0034) -------------
+// A taxa é PERCENTUAL LITERAL (0,072% viaja como `0.072`) e versionada por
+// vigência: o POST é "create supersede" (a taxa anterior da mesma chave lógica
+// apólice+`routeScope` vira `superseded` na MESMA transação). O GET devolve o
+// HISTÓRICO COMPLETO de propósito — é ele que permite reproduzir o prêmio de uma
+// averbação antiga (a taxa aplicável é por VIGÊNCIA, nunca "a que está active").
+
+export function createTransportInsuranceRateSchedule(partyId, policyId, payload, { idempotencyKey } = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/${encodeURIComponent(policyId)}/taxas`,
+    {
+      method: 'POST',
+      headers: buildTransporteCommandHeaders(idempotencyKey),
+      body: JSON.stringify(payload)
+    }
+  );
+}
+
+export function listTransportInsuranceRateSchedules(partyId, policyId, params = {}) {
+  return request(
+    `/v1/transporte/transportadores/${encodeURIComponent(partyId)}/apolices/${encodeURIComponent(policyId)}/taxas${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+// ---- Averbação eletrônica (I3, REQ-SICAT-0034) --------------------------------
+// Ciclo DL-102 assíncrono (202 + job por declaração): averbar cria UMA declaração
+// por apólice vigente aplicável, congelando valor da carga e prêmio no ato.
+// `retificar` corrige o VALOR declarado (nunca renegocia a taxa) e `cancelar`
+// encerra a averbação — NÃO cancela a operação de transporte (ciclo distinto).
+
+export function averbarTransportOperation(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/averbacoes`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportOperationAverbacoes(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/averbacoes${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function rectifyTransportAverbacao(declarationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/averbacoes/${encodeURIComponent(declarationId)}/retificar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function cancelTransportAverbacao(declarationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/averbacoes/${encodeURIComponent(declarationId)}/cancelar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+/** Extrato paginado das averbações da CONTA (recorte por período/apólice/status). */
+export function listTransportInsuranceDeclarations(params = {}) {
+  return request(`/v1/transporte/seguros/averbacoes${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+// ---- Apuração mensal do prêmio (I4, REQ-SICAT-0035) ---------------------------
+// Um período por apólice × mês: `billedAmount` = maior entre a soma dos prêmios
+// averbados e o custo mínimo mensal, e `billingBasis` diz qual dos dois venceu.
+// `recalcular` só vale para período ABERTO (409 quando fechado); `reabrir` é
+// administrativo e deixa rastro obrigatório na trilha append-only (`runs`).
+
+export function listTransportInsuranceBillingPeriods(params = {}) {
+  return request(`/v1/transporte/seguros/apuracao${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportInsuranceBillingPeriod(periodId, params = {}) {
+  return request(
+    `/v1/transporte/seguros/apuracao/${encodeURIComponent(periodId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 20000 }
+  );
+}
+
+export function recomputeTransportInsuranceBillingPeriod(periodId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/seguros/apuracao/${encodeURIComponent(periodId)}/recalcular`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function closeTransportInsuranceBillingPeriod(periodId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/seguros/apuracao/${encodeURIComponent(periodId)}/fechar`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function reopenTransportInsuranceBillingPeriod(periodId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/seguros/apuracao/${encodeURIComponent(periodId)}/reabrir`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
 // ---- Emissão de DF-e (sandbox-ready) -----------------------------------------
 
 export function requestTransportOperationDfeIssuance(operationId, payload, { idempotencyKey } = {}) {

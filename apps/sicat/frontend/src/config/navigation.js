@@ -208,6 +208,41 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
+    // Seguros (ondas F7/F8 — REQ-SICAT-0034/0035/0037). Entra ENTRE Frota e
+    // Habilitação porque essa é a ordem do circuito real do TRC: monta a frota
+    // → cobre a carga → prova a habilitação. "Averbações" vem PRIMEIRO por ser
+    // o que se faz toda viagem; apólices e apuração são cadastro e fechamento,
+    // olhados de vez em quando.
+    id: 'transporte-seguros',
+    label: 'Seguros',
+    icon: 'mdi-shield-check-outline',
+    kind: 'group',
+    module: 'operacao',
+    hidden: !TRANSPORTE_FEATURE_FLAG,
+    personas: ['carrier'],
+    glossaryKey: 'averbacao',
+    items: [
+      {
+        to: '/transporte/seguros/averbacoes',
+        label: 'Averbações',
+        icon: 'mdi-shield-check-outline',
+        description: 'As viagens averbadas, com taxa aplicada e prêmio devido'
+      },
+      {
+        to: '/transporte/seguros/apolices',
+        label: 'Apólices',
+        icon: 'mdi-file-document-check-outline',
+        description: 'Vigência, limite por viagem, taxa e custo mínimo mensal'
+      },
+      {
+        to: '/transporte/seguros/apuracao',
+        label: 'Apuração mensal',
+        icon: 'mdi-calendar-month-outline',
+        description: 'A conta do mês: soma dos prêmios contra o custo mínimo'
+      }
+    ]
+  },
+  {
     id: 'transporte-regulatorio',
     label: 'Habilitação e regras',
     icon: 'mdi-gavel',
@@ -443,7 +478,11 @@ export function flattenNavigation(groups) {
  */
 const PREFIX_MATCH_PATHS = [
   '/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria',
-  '/transporte/operacoes', '/transporte/transportadores', '/transporte/motoristas', '/transporte/watch'
+  '/transporte/operacoes', '/transporte/transportadores', '/transporte/motoristas', '/transporte/watch',
+  // Prefixo do grupo Seguros (ondas F7/F8): reservado para as subrotas que
+  // nasçam sob `/transporte/seguros/*` (ex.: um extrato de período com rota
+  // própria) sem quebrar o destaque do item-pai no menu.
+  '/transporte/seguros'
 ];
 
 /**
