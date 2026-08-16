@@ -25,6 +25,8 @@ const TRANSPORTE_ROUTE_NAMES = [
   'TransporteTransportadorList',
   'TransporteTransportadorDetalhe',
   'TransporteVeiculoList',
+  'TransporteMotoristaList',
+  'TransporteMotoristaDetalhe',
   'TransporteRegras',
   'TransporteWatchList',
   'TransporteWatchDetalhe',

@@ -56,6 +56,8 @@ test('rotas do módulo Transporte são exclusivas do Transportador (REQ-SICAT-00
     '/transporte/transportadores',
     '/transporte/transportadores/:partyId',
     '/transporte/veiculos',
+    '/transporte/motoristas',
+    '/transporte/motoristas/:driverId',
     '/transporte/watch',
     '/transporte/watch/:itemId',
     '/transporte/piso/tabelas'

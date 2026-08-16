@@ -575,6 +575,37 @@ const SHELL_SCREEN_CATALOG = {
       { label: 'Registrar viagem', to: '/transporte/operacoes/nova', description: 'Com a frota em dia, registre a operação.' }
     ]
   },
+  TransporteMotoristaList: {
+    title: 'Motoristas',
+    description: 'Os motoristas da conta: CNH declarada com validade, situação e vínculo frota/agregado no detalhe.',
+    purpose: 'Manter a habilitação de quem dirige em dia e achar quem precisa de atenção.',
+    fieldHints: [
+      { label: 'Validade da CNH', description: 'O badge deriva da data declarada: válida, vencendo (até 30 dias) ou vencida — vencida é aceita no cadastro e alimenta alertas/GR.' },
+      { label: 'Novo motorista', description: 'Motorista é uma parte PF (CPF) já cadastrada; o papel de motorista é adicionado no próprio cadastro.' }
+    ],
+    quickActions: [
+      { id: 'transp-mot-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-mot-carr', label: 'Transportadores', kind: 'navigate', to: '/transporte/transportadores', icon: 'mdi-account-hard-hat-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Veículos', to: '/transporte/veiculos', description: 'A outra metade da frota: o que os motoristas dirigem.' }
+    ]
+  },
+  TransporteMotoristaDetalhe: {
+    title: 'Detalhe do motorista',
+    description: 'CNH do motorista (número, categoria, validade) e os vínculos com transportadores — frota ou agregado, com vigência.',
+    purpose: 'Atualizar a CNH e gerenciar os vínculos deste motorista.',
+    fieldHints: [
+      { label: 'Vínculos', description: 'Frota = motorista da casa; agregado = terceiro com contrato fixo. Encerrar registra o fim da vigência — o histórico permanece (insumo da GR).' }
+    ],
+    quickActions: [
+      { id: 'transp-motdet-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-motdet-list', label: 'Motoristas', kind: 'navigate', to: '/transporte/motoristas', icon: 'mdi-card-account-details-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Transportadores', to: '/transporte/transportadores', description: 'O outro lado do vínculo do motorista.' }
+    ]
+  },
   TransporteRegras: {
     title: 'Regras regulatórias',
     description: 'O catálogo TR-* que o motor de conformidade avalia, com vigências e domínios.',

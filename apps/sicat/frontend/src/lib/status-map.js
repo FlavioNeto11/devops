@@ -464,6 +464,28 @@ const DFE_ISSUANCE_LABELS = Object.freeze({
   cancelled: 'Cancelado'
 });
 
+// Vigência DERIVADA da CNH do motorista (onda F6, REQ-SICAT-0033/0037). O
+// contrato só entrega `cnhValidUntil` (date) — CNH vencida é ACEITA no
+// cadastro e o vencimento alimenta alertas/GR; a decisão válida/vencendo/
+// vencida é do FRONTEND, no helper puro `resolveDriverCnhStatus`
+// (transporteUiHelpers.js), que devolve {status,label} para este domínio.
+// Mesmo racional de `resolveInsuranceExpiryState`: dimensão independente do
+// status administrativo do motorista (`active`/`inactive`, texto simples na
+// tela — sem domínio próprio de badge).
+const DRIVER_CNH_TONES = Object.freeze({
+  valid: 'success',
+  expiring: 'warning',
+  expired: 'error',
+  unknown: 'neutral'
+});
+
+const DRIVER_CNH_LABELS = Object.freeze({
+  valid: 'Válida',
+  expiring: 'Vencendo',
+  expired: 'Vencida',
+  unknown: 'Sem validade informada'
+});
+
 // TransporteWatchItemResource.status — trilha do Regulatory Watch
 // (DETECTED → ... → ACTIVE_APPLIED), PR-H1/PR-H2.
 const WATCH_ITEM_TONES = Object.freeze({
@@ -544,6 +566,7 @@ const DOMAIN_TONES = Object.freeze({
   'pgr-status': PGR_STATUS_TONES,
   'piso-tabela-review': PISO_TABELA_REVIEW_TONES,
   'dfe-issuance': DFE_ISSUANCE_TONES,
+  'driver-cnh': DRIVER_CNH_TONES,
   'watch-item': WATCH_ITEM_TONES
 });
 
@@ -565,6 +588,7 @@ const DOMAIN_LABELS = Object.freeze({
   'pgr-status': PGR_STATUS_LABELS,
   'piso-tabela-review': PISO_TABELA_REVIEW_LABELS,
   'dfe-issuance': DFE_ISSUANCE_LABELS,
+  'driver-cnh': DRIVER_CNH_LABELS,
   'watch-item': WATCH_ITEM_LABELS
 });
 
@@ -677,6 +701,8 @@ export {
   PISO_TABELA_REVIEW_LABELS,
   DFE_ISSUANCE_TONES,
   DFE_ISSUANCE_LABELS,
+  DRIVER_CNH_TONES,
+  DRIVER_CNH_LABELS,
   WATCH_ITEM_TONES,
   WATCH_ITEM_LABELS
 };

@@ -640,6 +640,99 @@ export function resolveInsuranceExpiryState(policy, warningWindowDays = 30) {
 }
 
 // ---------------------------------------------------------------------------
+// Motoristas (onda F6, REQ-SICAT-0033/0037) — CNH declarada e vínculo
+// frota/agregado. Rótulos de vigência da CNH vivem no domínio `driver-cnh`
+// do status-map; o que vive aqui é o vocabulário do cadastro e o helper PURO
+// que DECIDE a vigência (a decisão é do frontend: o contrato só dá a data).
+// ---------------------------------------------------------------------------
+
+/** Enum `cnhCategory` do contrato (TransporteMotoristaResource) — nunca inventar categoria. */
+export const CNH_CATEGORY_OPTIONS = Object.freeze(
+  ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE'].map((value) => ({ value, label: value }))
+);
+
+const DRIVER_STATUS_LABELS = Object.freeze({
+  active: 'Ativo',
+  inactive: 'Inativo'
+});
+
+export const DRIVER_STATUS_OPTIONS = Object.freeze([
+  { value: '', label: 'Todos' },
+  ...Object.keys(DRIVER_STATUS_LABELS).map((value) => ({ value, label: DRIVER_STATUS_LABELS[value] }))
+]);
+
+export function driverStatusLabel(status) {
+  const key = String(status || '').trim();
+  return DRIVER_STATUS_LABELS[key] || key || '-';
+}
+
+// `linkType` do vínculo motorista↔transportador — enum PRÓPRIO do contrato
+// (`fleet`/`aggregated`), NÃO reaproveitar VEHICLE_LINK_TYPE_LABELS (domínio
+// diferente: lá o vínculo é do veículo, com owned/leased/rntrc_fleet).
+const DRIVER_LINK_TYPE_LABELS = Object.freeze({
+  fleet: 'Frota',
+  aggregated: 'Agregado'
+});
+
+export const DRIVER_LINK_TYPE_OPTIONS = Object.freeze(
+  Object.keys(DRIVER_LINK_TYPE_LABELS).map((value) => ({ value, label: DRIVER_LINK_TYPE_LABELS[value] }))
+);
+
+export function driverLinkTypeLabel(type) {
+  const key = String(type || '').trim();
+  return DRIVER_LINK_TYPE_LABELS[key] || key || '-';
+}
+
+const DRIVER_LINK_STATUS_LABELS = Object.freeze({
+  active: 'Vigente',
+  ended: 'Encerrado'
+});
+
+export function driverLinkStatusLabel(status) {
+  const key = String(status || '').trim();
+  return DRIVER_LINK_STATUS_LABELS[key] || key || '-';
+}
+
+/** Parse MANUAL de data pura `YYYY-MM-DD` → epoch UTC (mesmo racional anti-fuso do formatDateBR). */
+function parseIsoDateOnlyUtc(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || '').trim());
+  if (!match) return null;
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/**
+ * Vigência DERIVADA da CNH do motorista — decisão do FRONTEND (o contrato só
+ * entrega `cnhValidUntil`; CNH vencida é aceita no cadastro e alimenta
+ * alertas/GR). Devolve `{status, label}` para o badge com domain `driver-cnh`
+ * (lib/status-map.js): `valid` → success, `expiring` (≤ 30 dias) → warning,
+ * `expired` → error, `unknown` (sem data) → neutral.
+ *
+ * PURO quando `referenceDate` é passada (testes); sem ela usa a data LOCAL de
+ * hoje — datas comparadas sempre como dia-calendário em UTC para o fuso nunca
+ * mudar o dia (mesmo bug que o formatDateBR evita).
+ *
+ * @param {string|null|undefined} cnhValidUntil data `YYYY-MM-DD` do contrato
+ * @param {string} [referenceDate] data `YYYY-MM-DD` de referência (default: hoje)
+ * @param {number} [warningWindowDays] janela de "vencendo" (default 30)
+ */
+export function resolveDriverCnhStatus(cnhValidUntil, referenceDate, warningWindowDays = 30) {
+  const target = parseIsoDateOnlyUtc(cnhValidUntil);
+  if (target === null) return { status: 'unknown', label: 'Sem validade informada' };
+
+  let reference = parseIsoDateOnlyUtc(referenceDate);
+  if (reference === null) {
+    const now = new Date();
+    reference = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  const days = Math.round((target - reference) / 86400000);
+  if (days < 0) return { status: 'expired', label: `Vencida há ${Math.abs(days)} dia(s)` };
+  if (days === 0) return { status: 'expiring', label: 'Vence hoje' };
+  if (days <= warningWindowDays) return { status: 'expiring', label: `Vence em ${days} dia(s)` };
+  return { status: 'valid', label: 'Válida' };
+}
+
+// ---------------------------------------------------------------------------
 // Regulatory Watch — status/eventos/decisão de revisão.
 // ---------------------------------------------------------------------------
 

@@ -44,6 +44,15 @@ export {
   getTransportVehicleById,
   updateTransportVehicle,
 
+  // Cadastros: motoristas + vínculos frota/agregado (REQ-SICAT-0033/0037, onda F6).
+  createTransportDriver,
+  listTransportDrivers,
+  getTransportDriverById,
+  updateTransportDriver,
+  createTransportDriverCarrierLink,
+  listTransportDriverCarrierLinks,
+  updateTransportDriverCarrierLink,
+
   // Piso mínimo de frete (PR-H2).
   calculateTransportOperationFloor,
   listTransportOperationFloorCalculations,
