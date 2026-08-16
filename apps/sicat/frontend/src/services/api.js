@@ -1681,6 +1681,66 @@ export function updateTransportVehicle(vehicleId, payload) {
   });
 }
 
+// ---- Cadastros: motoristas (REQ-SICAT-0033/0037, onda F6) -------------------
+// Motorista é extensão 1:1 de uma parte PF (papel `driver` adicionado no
+// próprio POST). CNH é DECLARADA (sem verificação externa nesta fase); os
+// vínculos motorista↔transportador (`fleet`/`aggregated`) têm vigência e o
+// encerramento é PATCH (nunca delete — o histórico é insumo da GR).
+
+export function createTransportDriver(payload, { idempotencyKey } = {}) {
+  return request('/v1/transporte/motoristas', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportDrivers(params = {}) {
+  return request(`/v1/transporte/motoristas${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportDriverById(driverId, params = {}) {
+  return request(
+    `/v1/transporte/motoristas/${encodeURIComponent(driverId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+export function updateTransportDriver(driverId, payload) {
+  return request(`/v1/transporte/motoristas/${encodeURIComponent(driverId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function createTransportDriverCarrierLink(driverId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/motoristas/${encodeURIComponent(driverId)}/vinculos`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportDriverCarrierLinks(driverId, params = {}) {
+  return request(
+    `/v1/transporte/motoristas/${encodeURIComponent(driverId)}/vinculos${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Encerramento do vínculo (status `ended` + `validUntil`) — a única mutação suportada. */
+export function updateTransportDriverCarrierLink(driverId, linkId, payload) {
+  return request(
+    `/v1/transporte/motoristas/${encodeURIComponent(driverId)}/vinculos/${encodeURIComponent(linkId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }
+  );
+}
+
 // ---- Piso mínimo de frete (MODO SHADOW) ------------------------------------
 
 export function calculateTransportOperationFloor(operationId, payload) {

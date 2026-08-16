@@ -191,6 +191,15 @@ export const NAVIGATION_GROUPS = [
         description: 'Cadastro de veículos usados nas operações'
       },
       {
+        // Onda F6 (REQ-SICAT-0033/0037): entra ENTRE Veículos e
+        // Transportadores — a ordem conta a história da frota (o quê → quem
+        // dirige → para quem dirige).
+        to: '/transporte/motoristas',
+        label: 'Motoristas',
+        icon: 'mdi-card-account-details-outline',
+        description: 'CNH, vínculo (frota/agregado) e situação do motorista'
+      },
+      {
         to: '/transporte/transportadores',
         label: 'Transportadores',
         icon: 'mdi-account-hard-hat-outline',
@@ -434,7 +443,7 @@ export function flattenNavigation(groups) {
  */
 const PREFIX_MATCH_PATHS = [
   '/manifestos', '/dmr', '/mtr-provisorio', '/operacao/auditoria',
-  '/transporte/operacoes', '/transporte/transportadores', '/transporte/watch'
+  '/transporte/operacoes', '/transporte/transportadores', '/transporte/motoristas', '/transporte/watch'
 ];
 
 /**

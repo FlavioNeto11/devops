@@ -50,6 +50,8 @@ import TransportePendenciasView from './views/transporte/TransportePendenciasVie
 import TransporteTransportadoresListView from './views/transporte/TransporteTransportadoresListView.vue';
 import TransporteTransportadorDetailView from './views/transporte/TransporteTransportadorDetailView.vue';
 import TransporteVeiculosListView from './views/transporte/TransporteVeiculosListView.vue';
+import TransporteMotoristasListView from './views/transporte/TransporteMotoristasListView.vue';
+import TransporteMotoristaDetailView from './views/transporte/TransporteMotoristaDetailView.vue';
 import TransporteWatchListView from './views/transporte/TransporteWatchListView.vue';
 import TransporteWatchDetailView from './views/transporte/TransporteWatchDetailView.vue';
 import TransportePisoTabelasView from './views/transporte/TransportePisoTabelasView.vue';
@@ -538,6 +540,36 @@ const routes = [
       featureFlag: 'transporte',
       personas: ['carrier'],
       breadcrumb: ['Transporte', 'Veículos']
+    }
+  },
+  {
+    // Motoristas (onda F6, REQ-SICAT-0033/0037) — mesma convenção do grupo:
+    // flag, persona carrier e tenancy via conta CETESB ativa. Lista tem rota
+    // própria de detalhe (ao contrário de veículos) porque motorista TEM
+    // sub-recursos: os vínculos frota/agregado com transportadores.
+    path: '/transporte/motoristas',
+    name: 'TransporteMotoristaList',
+    component: TransporteMotoristasListView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Motoristas']
+    }
+  },
+  {
+    path: '/transporte/motoristas/:driverId',
+    name: 'TransporteMotoristaDetalhe',
+    component: TransporteMotoristaDetailView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Detalhe do motorista']
     }
   },
   {
