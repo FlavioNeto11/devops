@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
+  "baseline_hash": "feae5ea4235aab6fd362a6b4dd05eb62900a68f7e313cfdfc382140d8a025dba",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -3886,6 +3886,66 @@
       "impact_band": "low"
     },
     {
+      "id": "REQ-SICAT-0032",
+      "kind": "requirement",
+      "title": "Transporte: módulo do Transportador — persona carrier com home, jornada e didática",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0033",
+      "kind": "requirement",
+      "title": "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0034",
+      "kind": "requirement",
+      "title": "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0035",
+      "kind": "requirement",
+      "title": "Transporte: apuração mensal do prêmio de averbação contra custo mínimo",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0036",
+      "kind": "requirement",
+      "title": "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0037",
+      "kind": "requirement",
+      "title": "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
       "id": "REQ-SICAT-NFR-0001",
       "kind": "requirement",
       "title": "Resiliência em operações de fila com retry automático",
@@ -6390,6 +6450,155 @@
     },
     {
       "from": "REQ-SICAT-0031",
+      "to": "svc-sicat-frontend",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0032",
+      "to": "REQ-SICAT-0021",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0032",
+      "to": "REQ-SICAT-0031",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0032",
+      "to": "svc-sicat-frontend",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0033",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0033",
+      "to": "REQ-SICAT-0020",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0033",
+      "to": "REQ-SICAT-0024",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0033",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0033",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0034",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0034",
+      "to": "REQ-SICAT-0020",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0034",
+      "to": "REQ-SICAT-0028",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0034",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0034",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0035",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0035",
+      "to": "REQ-SICAT-0034",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0035",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0035",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0036",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0036",
+      "to": "REQ-SICAT-0028",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0036",
+      "to": "REQ-SICAT-0033",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0036",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0036",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0037",
+      "to": "REQ-SICAT-0032",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0037",
+      "to": "REQ-SICAT-0034",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0037",
+      "to": "REQ-SICAT-0035",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0037",
+      "to": "REQ-SICAT-0036",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0037",
       "to": "svc-sicat-frontend",
       "type": "allocates_to",
       "allocation": true

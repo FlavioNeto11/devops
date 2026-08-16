@@ -1,0 +1,56 @@
+id: REQ-SICAT-0037
+slug: req-sicat-0037
+title: "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O frontend do módulo do Transportador deve cobrir o circuito comercial de seguros com telas
+  dedicadas: Apólices consolidada (vigência, limite de garantia por viagem, taxa % e mínimo mensal
+  — reaproveitando o CRUD por transportador existente, sem duplicá-lo), Averbações (lista por
+  período/status; ação primária de averbar no card "Seguro da viagem" do detalhe da operação, com
+  checagem visual limite × valor da carga e linha do tempo), Apuração mensal (extrato com
+  max(apurado, mínimo) explicado), Gerenciamento de risco (screenings de motorista/veículo e
+  rastreamento), Motoristas (CNH com validade, vínculo frota/agregado) e Minha habilitação (RNTRC
+  com verificar-agora e tipologia PF/TAC/ETC didática). Estados via SicatStatusBadge com domínios
+  novos no status-map; feedback via useNotification; ajuda inline nos campos-chave.
+business_rationale: >-
+  As capacidades novas de backend (REQ-SICAT-0033..0036) só viram produto vendável com as telas
+  que contam a história — o diagrama do prospect pede um "sistema de gestão de transportadora"
+  com os ramos fiscal e seguros visíveis e acionáveis.
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: medium
+architectural_significance: false
+capability_blocks:
+  - frontend-spa
+acceptance_criteria:
+  - "Telas Apólices/Averbações/Apuração/GR/Motoristas/Habilitação navegáveis pelos grupos do módulo, todas em SicatPageLayout com domínios de status novos (insurance-policy, averbacao, gr-screening, driver-cnh) no status-map."
+  - "Detalhe da operação ganha card 'Seguro da viagem' (componente filho) com checagem limite×carga, ação Averbar e próximos passos; nenhuma duplicação do CRUD de apólices por transportador."
+  - "Apuração exibe extrato do mês com valor = max(apurado, mínimo) e explica quando o mínimo prevalece; caso de ouro R$ 24,25 visível no extrato de teste."
+verification_method: [test-unit, test-e2e, demo]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0032
+  - type: depends_on
+    target: REQ-SICAT-0034
+  - type: depends_on
+    target: REQ-SICAT-0035
+  - type: depends_on
+    target: REQ-SICAT-0036
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, ondas F6..F9)
+allocation:
+  service_refs:
+    - svc-sicat-frontend

@@ -1,0 +1,57 @@
+id: REQ-SICAT-0034
+slug: req-sicat-0034
+title: "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve averbar cada operação de transporte nas apólices vigentes aplicáveis: taxas
+  percentuais versionadas por vigência na apólice (com escopo de percurso opcional para RC-V e
+  custo mínimo mensal), prêmio calculado no ato sobre o valor declarado da carga (aritmética em
+  centavos), ciclo declarar/retificar/cancelar através de um gateway de averbação abstraído
+  (modos off|sandbox) no padrão DL-102 — marcador de correlação gravado antes da chamada, estados
+  *_unconfirmed para resposta perdida, reconciliação por job e sweep — com no máximo uma averbação
+  viva por operação×apólice e trilha de eventos append-only. A regra TR-SEG-005 (gate de
+  pré-embarque, advisory) aponta apólice vigente sem averbação antes do trânsito.
+business_rationale: >-
+  No circuito real (doc Irmãos PADILHA) a cobrança do seguro é por averbação eletrônica: taxa %
+  sobre o valor da carga em cada viagem (ex.: RC-DC 0,025% + RCTR-C 0,072% = R$ 24,25 numa carga
+  de R$ 25.000). Sem averbação a carga viaja descoberta — é o coração comercial do produto
+  "sistema de gestão de transportadora".
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: true
+risk_tags: [external-dependency]
+capability_blocks:
+  - gateway-externo
+acceptance_criteria:
+  - "Taxas por apólice versionadas por vigência com route_scope opcional e monthly_minimum_amount; seleção da taxa aplicável por data e percurso (match exato > default)."
+  - "POST /v1/transporte/operacoes/{id}/averbacoes cria declarações (uma por apólice aplicável) com prêmio calculado em centavos half-up; caso de ouro: R$ 25.000 × 0,097% = R$ 24,25."
+  - "Gateway com modos off (recusa explícita) e sandbox determinístico; resposta perdida deixa declare_unconfirmed e a reconciliação resolve pelo marcador de correlação; eventos append-only."
+  - "TR-SEG-005 no gate de pré-embarque (advisory): apólice vigente sem averbação viva → block bruto rebaixado pelo clamp; averbação com valor divergente da carga atual → warn pedindo retificação."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0028
+  - type: depends_on
+    target: REQ-SICAT-0020
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, onda I3, migration 036)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

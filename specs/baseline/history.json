@@ -2,30 +2,74 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "5abeceb305ff",
-    "baseline_hash": "623d97c1ebfcd71e312b558e1ca200abd8e7d27a2cc8e592c6c35d64646f6d47"
+    "commit": "a33b01ba4df0",
+    "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f"
   },
   "to": {
     "commit": "working-tree",
-    "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f"
+    "baseline_hash": "feae5ea4235aab6fd362a6b4dd05eb62900a68f7e313cfdfc382140d8a025dba"
   },
   "counts": {
-    "added": 0,
+    "added": 6,
     "removed": 0,
     "changed": 1
   },
-  "added": [],
+  "added": [
+    {
+      "id": "REQ-SICAT-0032",
+      "title": "Transporte: módulo do Transportador — persona carrier com home, jornada e didática",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0033",
+      "title": "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0034",
+      "title": "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0035",
+      "title": "Transporte: apuração mensal do prêmio de averbação contra custo mínimo",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0036",
+      "title": "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0037",
+      "title": "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador",
+      "product": "sicat",
+      "type": "functional",
+      "impact_band": "low"
+    }
+  ],
   "removed": [],
   "changed": [
     {
-      "id": "REQ-SICAT-0020",
-      "title": "Transporte: superfície /v1/transporte contract-first (operações, conformidade, regras, cadastros)",
+      "id": "REQ-SICAT-0028",
+      "title": "Transporte: seguros RCTR-C/RC-DC/RC-V e PGR com verificação multiestrategia",
       "product": "sicat",
       "type": "functional",
       "impact_band": "low",
-      "semantic_change": "patch",
-      "change_reason": "alinhamento do critério de RBAC ao padrão da casa (PR-A2 — enforcement por chave só existe no gate conversacional; meta-teste do catálogo rejeita chave sem consumidor)",
+      "semantic_change": "minor",
+      "change_reason": "limite de garantia por viagem avaliado contra o valor declarado da carga (TR-SEG-004) — Módulo Transportadora, plano 2026-08-15",
       "fields": [
+        "statement",
         "acceptance_criteria"
       ],
       "impact_delta": 0

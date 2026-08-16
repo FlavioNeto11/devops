@@ -15,6 +15,10 @@ statement: >-
   "seguro cadastrado") por meio de uma interface InsuranceVerificationProvider com estratégias
   intercambiáveis (integração ANTT quando disponível, seguradora/parceiro, evidência manual,
   override administrativo autorizado), alimentando o gate de pré-liberação e alertas de expiração.
+  A apólice deve ainda registrar as condições comerciais mínimas necessárias ao circuito
+  operacional — em particular o limite de garantia POR VIAGEM — e o gate de pré-embarque deve
+  avaliar esse limite contra o valor declarado da carga da operação (regra TR-SEG-004, advisory),
+  sem jamais armazenar condições comerciais completas (franquia, cláusulas, prêmio negociado).
 business_rationale: >-
   Verificação automática de seguros no contexto do RNTRC tem cronograma ANTT em 2026, mas nenhum
   endpoint oficial deve ser presumido publicamente acessível sem credenciamento; minimizar dados
@@ -34,6 +38,9 @@ capability_blocks:
   - gateway-externo
 acceptance_criteria:
   - "Integração ANTT-seguros ou parceiro segurador é pendência P8 do guia [EXTERNAL DEPENDENCY]; fallback de evidência manual sempre disponível com fonte explícita."
+  - "Apólice aceita limite de garantia por viagem (per_trip_limit_amount) configurável; ausência do limite gera aviso, nunca bloqueio."
+  - "TR-SEG-004 no gate de pré-embarque: soma dos valores declarados da carga acima do limite da apólice → block bruto (rebaixado pelo clamp advisory), com valores na evidência; carga sem valor declarado → warn."
+  - "Alertas de expiração continuam cobrindo as 3 coberturas; LGPD preservada — nunca condições comerciais completas."
 verification_method: [test-integration, manual-review]
 links:
   - type: depends_on
@@ -42,9 +49,9 @@ links:
     target: REQ-SICAT-0024
 version:
   baseline_version: 1.0.0
-  item_revision: 1
-  semantic_change: none
-  change_reason: criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase F)
+  item_revision: 2
+  semantic_change: minor
+  change_reason: limite de garantia por viagem avaliado contra o valor declarado da carga (TR-SEG-004) — Módulo Transportadora, plano 2026-08-15
 allocation:
   service_refs:
     - svc-sicat-api

@@ -1,0 +1,56 @@
+id: REQ-SICAT-0032
+slug: req-sicat-0032
+title: "Transporte: módulo do Transportador — persona carrier com home, jornada e didática"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O frontend deve apresentar a vertical Transporte como o módulo do Transportador, ancorado na
+  persona `carrier` (accountType da conta CETESB ativa) pelos mesmos quatro mecanismos que definem
+  os módulos Gerador e Destinador: (1) navegação recortada por persona (grupos com `personas` e
+  rótulos próprios; gerador/destinador deixam de ver o grupo Transporte; persona não resolvida
+  mantém fail-open); (2) home com jornada — o dashboard do carrier traz hub de ação ("Registrar
+  viagem" como ação primária), checklist de onboarding derivado de dados reais (habilitação → frota
+  → seguros → operar) e "o que precisa da sua atenção" com deep-links; (3) didática — verbetes de
+  glossário do domínio ligados ao menu (glossaryKey consumido) e ajuda inline nos campos-chave;
+  (4) contexto de copiloto para as telas do módulo no catálogo de telas. Rotas /transporte/* passam
+  a declarar `meta.personas: ['carrier']`, com alias /transporte para a home.
+business_rationale: >-
+  A vertical entrou como grupo de menu plano, sem história nem identidade — o operador vende o
+  produto como "sistema de gestão de transportadora" ponta-a-ponta (fluxo do prospect Irmãos
+  PADILHA, 2026-08-11) e o usuário precisa entender o que fazer e em que ordem. A persona carrier
+  já existe no app e está órfã; ancorar o módulo nela replica o padrão comprovado dos módulos
+  Gerador/Destinador sem tocar o shell.
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + decisão do operador 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: high
+architectural_significance: false
+capability_blocks:
+  - frontend-spa
+acceptance_criteria:
+  - "Conta CETESB de transportador logada vê os grupos do módulo (Operações, Frota, Seguros, Habilitação e regras) e NÃO vê itens exclusivos de gerador/destinador; gerador/destinador não veem Transporte; persona vazia mantém fail-open (vê tudo)."
+  - "Home do carrier exibe hub de ação com 'Registrar viagem', checklist de onboarding derivado de dados reais que desaparece quando completo, e pendências com deep-link; nenhum estado vazio aponta para ação inexistente no perfil."
+  - "Todo glossaryKey declarado na navegação resolve para verbete existente; telas do módulo têm entrada no catálogo do copiloto (quickActions apenas local/navigate)."
+  - "Rotas /transporte/* declaram meta.personas ['carrier']; acesso por outra persona cai no OPERATOR_HOME com aviso padrão; VITE_FEATURE_TRANSPORTE continua o gate de build."
+verification_method: [test-unit, test-e2e, demo]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0021
+  - type: relates_to
+    target: REQ-SICAT-0031
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, onda F1/F2/F4/F5)
+allocation:
+  service_refs:
+    - svc-sicat-frontend
