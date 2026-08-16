@@ -84,6 +84,7 @@ import {
   runAverbacaoReconcileJob
 } from '../services/transport-averbacao-service.js';
 import { runRegulatoryWatchCheckJob } from '../services/transport-regulatory-watch-service.js';
+import { closeBillingPeriodFromJob } from '../services/transport-insurance-billing-service.js';
 
 type LooseRecord = Record<string, unknown>;
 type GatewayResponseData = {
@@ -1279,6 +1280,21 @@ async function handleTransporteRegulatoryWatchCheck(job: JobEntity) {
   await finishJob(job, { outcome: result.outcome, ...result.patch });
 }
 
+/**
+ * Fechamento do período de apuração (PR-I4, REQ-SICAT-0035). Cálculo sobre dado PRÓPRIO — não há
+ * provedor externo aqui, então não há DL-102/marcador: recalcular e fechar são idempotentes por
+ * construção (o UPDATE do fechamento é guardado por `status = 'open'`).
+ */
+async function handleTransporteSegurosApuracaoClose(job: JobEntity) {
+  const payload = (job.payload || {}) as LooseRecord;
+  const billingPeriodId = String(payload.billingPeriodId || '');
+  if (!billingPeriodId) {
+    throw new Error('transporte.seguros.apuracao.close exige billingPeriodId no payload.');
+  }
+  await closeBillingPeriodFromJob(billingPeriodId, job.correlationId ?? createPrefixedId('corr'));
+  await finishJob(job, { outcome: 'closed', billingPeriodId });
+}
+
 // ---------------------------------------------------------------------------
 // Seam de teste do aviso de falha terminal do canal WhatsApp.
 //
@@ -1508,6 +1524,9 @@ export async function processJob(job: JobEntity, gateway: {
     // Regulatory Watch (PR-H1) — SEM o parâmetro `gateway`, mesmo molde do CIOT/VPO/DF-e.
     case 'transporte.regulatory.watch_check':
       return handleTransporteRegulatoryWatchCheck(job);
+    // Apuração mensal (PR-I4) — sem gateway: fecha a conta do mês a partir das averbações.
+    case 'transporte.seguros.apuracao.close':
+      return handleTransporteSegurosApuracaoClose(job);
     default:
       throw new Error(`Unsupported job operation ${job.operation}`);
   }

@@ -121,6 +121,13 @@ import {
   retificarAverbacaoService
 } from '../services/transport-averbacao-service.js';
 import {
+  fecharApuracaoService,
+  getApuracaoService,
+  listApuracaoService,
+  reabrirApuracaoService,
+  recalcularApuracaoService
+} from '../services/transport-insurance-billing-service.js';
+import {
   applyRegulatoryWatchItemService,
   getRegulatoryWatchItemService,
   listRegulatoryWatchItemsService,
@@ -791,6 +798,41 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Extrato por conta/período — insumo da apuração mensal (PR-I4) e da tela de Averbações.
   router.get('/v1/transporte/seguros/averbacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listSegurosAverbacoesService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Apuração MENSAL do prêmio (PR-I4, REQ-SICAT-0035) — a conta do fim do mês:
+  // `billed = max(soma dos prêmios averbados, custo mínimo mensal da apólice)`.
+  // Leitura + comandos SÍNCRONOS (não há provedor externo aqui: é cálculo sobre dado próprio).
+  // ===========================================================================================
+
+  router.get('/v1/transporte/seguros/apuracao', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listApuracaoService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // Extrato completo do período + trilha append-only dos recálculos (reprodutibilidade).
+  router.get('/v1/transporte/seguros/apuracao/:periodId', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await getApuracaoService(String(req.params.periodId || ''), (req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // Recalcula um período ABERTO (idempotente — refaz a conta a partir das averbações do mês).
+  router.post('/v1/transporte/seguros/apuracao/:periodId/recalcular', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await recalcularApuracaoService(String(req.params.periodId || ''), (req.body || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // Fecha o período (recalcula antes; fechar de novo é NO-OP idempotente).
+  router.post('/v1/transporte/seguros/apuracao/:periodId/fechar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await fecharApuracaoService(String(req.params.periodId || ''), (req.body || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // Reabertura ADMINISTRATIVA de período fechado — deixa rastro obrigatório na trilha.
+  router.post('/v1/transporte/seguros/apuracao/:periodId/reabrir', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await reabrirApuracaoService(String(req.params.periodId || ''), (req.body || {}) as LooseRecord);
     res.json(response);
   }));
 

@@ -1575,6 +1575,51 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "get_v1_transporte_seguros_apuracao",
+    "method": "get",
+    "specPath": "/v1/transporte/seguros/apuracao",
+    "expressPath": "/v1/transporte/seguros/apuracao",
+    "summary": "Apuração mensal do prêmio por apólice",
+    "tag": "Transporte - Apuracao",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_seguros_apuracao_periodId",
+    "method": "get",
+    "specPath": "/v1/transporte/seguros/apuracao/{periodId}",
+    "expressPath": "/v1/transporte/seguros/apuracao/:periodId",
+    "summary": "Extrato do período de apuração",
+    "tag": "Transporte - Apuracao",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_seguros_apuracao_periodId_recalcular",
+    "method": "post",
+    "specPath": "/v1/transporte/seguros/apuracao/{periodId}/recalcular",
+    "expressPath": "/v1/transporte/seguros/apuracao/:periodId/recalcular",
+    "summary": "Recalcular o período (idempotente)",
+    "tag": "Transporte - Apuracao",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_seguros_apuracao_periodId_fechar",
+    "method": "post",
+    "specPath": "/v1/transporte/seguros/apuracao/{periodId}/fechar",
+    "expressPath": "/v1/transporte/seguros/apuracao/:periodId/fechar",
+    "summary": "Fechar o período",
+    "tag": "Transporte - Apuracao",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_seguros_apuracao_periodId_reabrir",
+    "method": "post",
+    "specPath": "/v1/transporte/seguros/apuracao/{periodId}/reabrir",
+    "expressPath": "/v1/transporte/seguros/apuracao/:periodId/reabrir",
+    "summary": "Reabrir período fechado (administrativo)",
+    "tag": "Transporte - Apuracao",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_operacoes_operationId_averbacoes",
     "method": "post",
     "specPath": "/v1/transporte/operacoes/{operationId}/averbacoes",
