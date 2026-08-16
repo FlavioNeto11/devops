@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
+  "baseline_hash": "feae5ea4235aab6fd362a6b4dd05eb62900a68f7e313cfdfc382140d8a025dba",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -3752,6 +3752,72 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/sicat/REQ-SICAT-0031.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0032",
+      "title": "Transporte: módulo do Transportador — persona carrier com home, jornada e didática",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0032.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0033",
+      "title": "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0033.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0034",
+      "title": "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0034.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0035",
+      "title": "Transporte: apuração mensal do prêmio de averbação contra custo mínimo",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0035.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0036",
+      "title": "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": false,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0036.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0037",
+      "title": "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador",
+      "type": "functional",
+      "status": "draft",
+      "product": "sicat",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0037.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0001",

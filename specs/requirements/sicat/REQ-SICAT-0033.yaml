@@ -1,0 +1,52 @@
+id: REQ-SICAT-0033
+slug: req-sicat-0033
+title: "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve cadastrar motoristas como extensão 1:1 de partes PF (CNH com número, categoria e
+  validade) e o vínculo do motorista com o transportador (frota × agregado, com vigência), e deve
+  derivar a tipologia do transportador a partir da frota ativa (motorista PF / TAC até 3 veículos /
+  ETC 4 ou mais), expondo tipologia derivada e tamanho de frota na consulta do transportador com
+  aviso de divergência entre categoria declarada e derivada (validação de serviço, sem regra TR
+  bloqueante neste ciclo).
+business_rationale: >-
+  O circuito do TRC (doc Irmãos PADILHA) distingue motorista PF, TAC (até 3 caminhões) e ETC (4+,
+  que emite CIOT e contrata seguro), e o gerenciamento de riscos das seguradoras exige pesquisa
+  cadastral do MOTORISTA — que hoje não existe como entidade (apenas o papel driver, sem CNH).
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: medium
+architectural_significance: false
+capability_blocks:
+  - api-crud
+acceptance_criteria:
+  - "POST/GET/PATCH /v1/transporte/motoristas com CNH (número, categoria válida, validade) sobre parte PF com papel driver; tenancy por integration_account_id."
+  - "Vínculo motorista↔transportador com link_type fleet|aggregated e vigência; no máximo um vínculo vigente por par e tipo."
+  - "GET de transportadores expõe derivedTypology (driver_pf|tac|etc) e fleetSize calculados da frota owned+leased ativa; divergência declarado×derivado gera aviso não bloqueante."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0020
+  - type: relates_to
+    target: REQ-SICAT-0024
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, onda I1, migration 034)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

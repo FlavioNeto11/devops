@@ -1,0 +1,56 @@
+id: REQ-SICAT-0036
+slug: req-sicat-0036
+title: "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve executar as exigências de gerenciamento de riscos das seguradoras: pesquisa
+  cadastral de motorista e de veículo através de um gateway de screening abstraído (modos
+  off|sandbox, padrão DL-102 com marcador de correlação), com resultado
+  aprovado|reprovado|inconclusivo e validade, em trilha append-only por tentativa e payload mínimo
+  (LGPD — nunca antecedentes detalhados); e a exigência de rastreamento derivada de uma matriz
+  declarativa no PGR (por valor/tipo de mercadoria) com confirmação de rastreamento por operação.
+  Regras advisory no gate de pré-embarque: TR-GR-001 (screening válido de motorista e veículo
+  quando há apólice de roubo ativa) e TR-GR-002 (rastreamento exigido pela matriz e não
+  confirmado). O domínio GR entra no catálogo regulatório.
+business_rationale: >-
+  As seguradoras condicionam as apólices de roubo à pesquisa cadastral em empresas especializadas
+  e a rastreamento conforme a mercadoria (doc Irmãos PADILHA, item 4). Sem GR em dia a apólice
+  fica em risco — o produto precisa mostrar isso antes da viagem.
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: medium
+architectural_significance: false
+risk_tags: [external-dependency, lgpd]
+capability_blocks:
+  - gateway-externo
+acceptance_criteria:
+  - "POST/GET /v1/transporte/gr/screenings para motorista OU veículo com outcome e valid_until; trilha append-only por tentativa; payload mínimo (sem antecedentes)."
+  - "Matriz de rastreamento declarativa no PGR (thresholds por valor declarado); confirmação de rastreamento por operação (uma ativa)."
+  - "TR-GR-001 e TR-GR-002 avaliadas no gate de pré-embarque como advisory (blocking=false no seed); domínio GR aceito pelo catálogo regulatório."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0028
+  - type: depends_on
+    target: REQ-SICAT-0033
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, onda I5, migration 038)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres

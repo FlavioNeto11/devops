@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
+  "baseline_hash": "feae5ea4235aab6fd362a6b4dd05eb62900a68f7e313cfdfc382140d8a025dba",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 400,
+    "total": 406,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -23,7 +23,7 @@
       "portal": 21,
       "portal-recorder": 19,
       "reqhub": 20,
-      "sicat": 43,
+      "sicat": 49,
       "specs": 18,
       "traefik": 16,
       "zapbridge": 13
@@ -31,10 +31,10 @@
     "by_status": {
       "approved": 388,
       "proposed": 3,
-      "draft": 9
+      "draft": 15
     },
     "by_type": {
-      "functional": 284,
+      "functional": 290,
       "non-functional": 115,
       "business-rule": 1
     },
@@ -13323,7 +13323,7 @@
         "product_scope": "sicat",
         "domain": "transporte"
       },
-      "statement": "O sistema deve registrar e verificar, conforme aplicabilidade, os seguros obrigatórios do transportador (RCTR-C, RC-DC e RC-V — Lei 14.599/2023) e o Plano de Gerenciamento de Riscos (PGR) vinculado às coberturas pertinentes, checando vigência na data da operação (não apenas \"seguro cadastrado\") por meio de uma interface InsuranceVerificationProvider com estratégias intercambiáveis (integração ANTT quando disponível, seguradora/parceiro, evidência manual, override administrativo autorizado), alimentando o gate de pré-liberação e alertas de expiração.",
+      "statement": "O sistema deve registrar e verificar, conforme aplicabilidade, os seguros obrigatórios do transportador (RCTR-C, RC-DC e RC-V — Lei 14.599/2023) e o Plano de Gerenciamento de Riscos (PGR) vinculado às coberturas pertinentes, checando vigência na data da operação (não apenas \"seguro cadastrado\") por meio de uma interface InsuranceVerificationProvider com estratégias intercambiáveis (integração ANTT quando disponível, seguradora/parceiro, evidência manual, override administrativo autorizado), alimentando o gate de pré-liberação e alertas de expiração. A apólice deve ainda registrar as condições comerciais mínimas necessárias ao circuito operacional — em particular o limite de garantia POR VIAGEM — e o gate de pré-embarque deve avaliar esse limite contra o valor declarado da carga da operação (regra TR-SEG-004, advisory), sem jamais armazenar condições comerciais completas (franquia, cláusulas, prêmio negociado).",
       "business_rationale": "Verificação automática de seguros no contexto do RNTRC tem cronograma ANTT em 2026, mas nenhum endpoint oficial deve ser presumido publicamente acessível sem credenciamento; minimizar dados pessoais de análise de risco (LGPD) (baseline deep-research 2026-08-13, \"Seguros e PGR\"). Fase F do programa.",
       "source": {
         "stakeholder": "sicat",
@@ -13343,7 +13343,10 @@
         "gateway-externo"
       ],
       "acceptance_criteria": [
-        "Integração ANTT-seguros ou parceiro segurador é pendência P8 do guia [EXTERNAL DEPENDENCY]; fallback de evidência manual sempre disponível com fonte explícita."
+        "Integração ANTT-seguros ou parceiro segurador é pendência P8 do guia [EXTERNAL DEPENDENCY]; fallback de evidência manual sempre disponível com fonte explícita.",
+        "Apólice aceita limite de garantia por viagem (per_trip_limit_amount) configurável; ausência do limite gera aviso, nunca bloqueio.",
+        "TR-SEG-004 no gate de pré-embarque: soma dos valores declarados da carga acima do limite da apólice → block bruto (rebaixado pelo clamp advisory), com valores na evidência; carga sem valor declarado → warn.",
+        "Alertas de expiração continuam cobrindo as 3 coberturas; LGPD preservada — nunca condições comerciais completas."
       ],
       "verification_method": [
         "test-integration",
@@ -13361,9 +13364,9 @@
       ],
       "version": {
         "baseline_version": "1.0.0",
-        "item_revision": 1,
-        "semantic_change": "none",
-        "change_reason": "criação inicial — programa SICAT Transporte (Onda 0; implementação na Fase F)"
+        "item_revision": 2,
+        "semantic_change": "minor",
+        "change_reason": "limite de garantia por viagem avaliado contra o valor declarado da carga (TR-SEG-004) — Módulo Transportadora, plano 2026-08-15"
       },
       "allocation": {
         "service_refs": [
@@ -13562,6 +13565,403 @@
       "impact_score": 30,
       "impact_band": "low",
       "file": "requirements/sicat/REQ-SICAT-0031.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0032",
+      "slug": "req-sicat-0032",
+      "title": "Transporte: módulo do Transportador — persona carrier com home, jornada e didática",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O frontend deve apresentar a vertical Transporte como o módulo do Transportador, ancorado na persona `carrier` (accountType da conta CETESB ativa) pelos mesmos quatro mecanismos que definem os módulos Gerador e Destinador: (1) navegação recortada por persona (grupos com `personas` e rótulos próprios; gerador/destinador deixam de ver o grupo Transporte; persona não resolvida mantém fail-open); (2) home com jornada — o dashboard do carrier traz hub de ação (\"Registrar viagem\" como ação primária), checklist de onboarding derivado de dados reais (habilitação → frota → seguros → operar) e \"o que precisa da sua atenção\" com deep-links; (3) didática — verbetes de glossário do domínio ligados ao menu (glossaryKey consumido) e ajuda inline nos campos-chave; (4) contexto de copiloto para as telas do módulo no catálogo de telas. Rotas /transporte/* passam a declarar `meta.personas: ['carrier']`, com alias /transporte para a home.",
+      "business_rationale": "A vertical entrou como grupo de menu plano, sem história nem identidade — o operador vende o produto como \"sistema de gestão de transportadora\" ponta-a-ponta (fluxo do prospect Irmãos PADILHA, 2026-08-11) e o usuário precisa entender o que fazer e em que ordem. A persona carrier já existe no app e está órfã; ancorar o módulo nela replica o padrão comprovado dos módulos Gerador/Destinador sem tocar o shell.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + decisão do operador 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "frontend-spa"
+      ],
+      "acceptance_criteria": [
+        "Conta CETESB de transportador logada vê os grupos do módulo (Operações, Frota, Seguros, Habilitação e regras) e NÃO vê itens exclusivos de gerador/destinador; gerador/destinador não veem Transporte; persona vazia mantém fail-open (vê tudo).",
+        "Home do carrier exibe hub de ação com 'Registrar viagem', checklist de onboarding derivado de dados reais que desaparece quando completo, e pendências com deep-link; nenhum estado vazio aponta para ação inexistente no perfil.",
+        "Todo glossaryKey declarado na navegação resolve para verbete existente; telas do módulo têm entrada no catálogo do copiloto (quickActions apenas local/navigate).",
+        "Rotas /transporte/* declaram meta.personas ['carrier']; acesso por outra persona cai no OPERATOR_HOME com aviso padrão; VITE_FEATURE_TRANSPORTE continua o gate de build."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "demo"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0021"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0031"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, onda F1/F2/F4/F5)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-frontend"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0032.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0033",
+      "slug": "req-sicat-0033",
+      "title": "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve cadastrar motoristas como extensão 1:1 de partes PF (CNH com número, categoria e validade) e o vínculo do motorista com o transportador (frota × agregado, com vigência), e deve derivar a tipologia do transportador a partir da frota ativa (motorista PF / TAC até 3 veículos / ETC 4 ou mais), expondo tipologia derivada e tamanho de frota na consulta do transportador com aviso de divergência entre categoria declarada e derivada (validação de serviço, sem regra TR bloqueante neste ciclo).",
+      "business_rationale": "O circuito do TRC (doc Irmãos PADILHA) distingue motorista PF, TAC (até 3 caminhões) e ETC (4+, que emite CIOT e contrata seguro), e o gerenciamento de riscos das seguradoras exige pesquisa cadastral do MOTORISTA — que hoje não existe como entidade (apenas o papel driver, sem CNH).",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "api-crud"
+      ],
+      "acceptance_criteria": [
+        "POST/GET/PATCH /v1/transporte/motoristas com CNH (número, categoria válida, validade) sobre parte PF com papel driver; tenancy por integration_account_id.",
+        "Vínculo motorista↔transportador com link_type fleet|aggregated e vigência; no máximo um vínculo vigente por par e tipo.",
+        "GET de transportadores expõe derivedTypology (driver_pf|tac|etc) e fleetSize calculados da frota owned+leased ativa; divergência declarado×derivado gera aviso não bloqueante."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0020"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0024"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, onda I1, migration 034)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0033.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0034",
+      "slug": "req-sicat-0034",
+      "title": "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve averbar cada operação de transporte nas apólices vigentes aplicáveis: taxas percentuais versionadas por vigência na apólice (com escopo de percurso opcional para RC-V e custo mínimo mensal), prêmio calculado no ato sobre o valor declarado da carga (aritmética em centavos), ciclo declarar/retificar/cancelar através de um gateway de averbação abstraído (modos off|sandbox) no padrão DL-102 — marcador de correlação gravado antes da chamada, estados *_unconfirmed para resposta perdida, reconciliação por job e sweep — com no máximo uma averbação viva por operação×apólice e trilha de eventos append-only. A regra TR-SEG-005 (gate de pré-embarque, advisory) aponta apólice vigente sem averbação antes do trânsito.",
+      "business_rationale": "No circuito real (doc Irmãos PADILHA) a cobrança do seguro é por averbação eletrônica: taxa % sobre o valor da carga em cada viagem (ex.: RC-DC 0,025% + RCTR-C 0,072% = R$ 24,25 numa carga de R$ 25.000). Sem averbação a carga viaja descoberta — é o coração comercial do produto \"sistema de gestão de transportadora\".",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": true,
+      "risk_tags": [
+        "external-dependency"
+      ],
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Taxas por apólice versionadas por vigência com route_scope opcional e monthly_minimum_amount; seleção da taxa aplicável por data e percurso (match exato > default).",
+        "POST /v1/transporte/operacoes/{id}/averbacoes cria declarações (uma por apólice aplicável) com prêmio calculado em centavos half-up; caso de ouro: R$ 25.000 × 0,097% = R$ 24,25.",
+        "Gateway com modos off (recusa explícita) e sandbox determinístico; resposta perdida deixa declare_unconfirmed e a reconciliação resolve pelo marcador de correlação; eventos append-only.",
+        "TR-SEG-005 no gate de pré-embarque (advisory): apólice vigente sem averbação viva → block bruto rebaixado pelo clamp; averbação com valor divergente da carga atual → warn pedindo retificação."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0028"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0020"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, onda I3, migration 036)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 58,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0034.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0035",
+      "slug": "req-sicat-0035",
+      "title": "Transporte: apuração mensal do prêmio de averbação contra custo mínimo",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve apurar mensalmente, por apólice, o prêmio das averbações do período: total de carga averbada, soma dos prêmios, custo mínimo mensal da tabela de taxas vigente no fechamento e valor do mês = maior entre soma dos prêmios e mínimo (com a base registrada: premium|minimum). O fechamento roda como job mensal na fila (sweep diária fecha o mês anterior, deduplicada), o recálculo de período aberto é idempotente, cada recálculo grava uma execução append-only com entradas e resultado (reprodutibilidade), e o extrato lista as averbações incluídas.",
+      "business_rationale": "As apólices do TRC têm custo mínimo mensal (ex.: R$ 700 RCTR-C/RC-DC, R$ 300 RC-V): no fim do mês a seguradora cobra max(transportado × taxa, mínimo) — doc Irmãos PADILHA. A transportadora precisa ver essa conta ANTES da fatura da seguradora.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "worker-fila"
+      ],
+      "acceptance_criteria": [
+        "GET /v1/transporte/seguros/apuracao?period=YYYY-MM lista os períodos por apólice; GET do período devolve o extrato (averbações com valor, taxa e prêmio) e billed = greatest(premium_total, minimum) com billing_basis.",
+        "Sweep diária enfileira o fechamento do mês anterior por apólice com averbações ou mínimo > 0, com deduplicação de job; recálculo de período aberto é idempotente e grava execução append-only.",
+        "Período fechado só reabre por ação administrativa explícita com trilha."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0034"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, onda I4, migration 037)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0035.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0036",
+      "slug": "req-sicat-0036",
+      "title": "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O sistema deve executar as exigências de gerenciamento de riscos das seguradoras: pesquisa cadastral de motorista e de veículo através de um gateway de screening abstraído (modos off|sandbox, padrão DL-102 com marcador de correlação), com resultado aprovado|reprovado|inconclusivo e validade, em trilha append-only por tentativa e payload mínimo (LGPD — nunca antecedentes detalhados); e a exigência de rastreamento derivada de uma matriz declarativa no PGR (por valor/tipo de mercadoria) com confirmação de rastreamento por operação. Regras advisory no gate de pré-embarque: TR-GR-001 (screening válido de motorista e veículo quando há apólice de roubo ativa) e TR-GR-002 (rastreamento exigido pela matriz e não confirmado). O domínio GR entra no catálogo regulatório.",
+      "business_rationale": "As seguradoras condicionam as apólices de roubo à pesquisa cadastral em empresas especializadas e a rastreamento conforme a mercadoria (doc Irmãos PADILHA, item 4). Sem GR em dia a apólice fica em risco — o produto precisa mostrar isso antes da viagem.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "risk_tags": [
+        "external-dependency",
+        "lgpd"
+      ],
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "POST/GET /v1/transporte/gr/screenings para motorista OU veículo com outcome e valid_until; trilha append-only por tentativa; payload mínimo (sem antecedentes).",
+        "Matriz de rastreamento declarativa no PGR (thresholds por valor declarado); confirmação de rastreamento por operação (uma ativa).",
+        "TR-GR-001 e TR-GR-002 avaliadas no gate de pré-embarque como advisory (blocking=false no seed); domínio GR aceito pelo catálogo regulatório."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0028"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0033"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, onda I5, migration 038)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0036.yaml"
+    },
+    {
+      "id": "REQ-SICAT-0037",
+      "slug": "req-sicat-0037",
+      "title": "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador",
+      "type": "functional",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "sicat",
+        "domain": "transporte"
+      },
+      "statement": "O frontend do módulo do Transportador deve cobrir o circuito comercial de seguros com telas dedicadas: Apólices consolidada (vigência, limite de garantia por viagem, taxa % e mínimo mensal — reaproveitando o CRUD por transportador existente, sem duplicá-lo), Averbações (lista por período/status; ação primária de averbar no card \"Seguro da viagem\" do detalhe da operação, com checagem visual limite × valor da carga e linha do tempo), Apuração mensal (extrato com max(apurado, mínimo) explicado), Gerenciamento de risco (screenings de motorista/veículo e rastreamento), Motoristas (CNH com validade, vínculo frota/agregado) e Minha habilitação (RNTRC com verificar-agora e tipologia PF/TAC/ETC didática). Estados via SicatStatusBadge com domínios novos no status-map; feedback via useNotification; ajuda inline nos campos-chave.",
+      "business_rationale": "As capacidades novas de backend (REQ-SICAT-0033..0036) só viram produto vendável com as telas que contam a história — o diagrama do prospect pede um \"sistema de gestão de transportadora\" com os ramos fiscal e seguros visíveis e acionáveis.",
+      "source": {
+        "stakeholder": "sicat",
+        "origin": "fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15",
+        "source_paths": [
+          "apps/sicat/docs/30-transporte/transporte-guia.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "frontend-spa"
+      ],
+      "acceptance_criteria": [
+        "Telas Apólices/Averbações/Apuração/GR/Motoristas/Habilitação navegáveis pelos grupos do módulo, todas em SicatPageLayout com domínios de status novos (insurance-policy, averbacao, gr-screening, driver-cnh) no status-map.",
+        "Detalhe da operação ganha card 'Seguro da viagem' (componente filho) com checagem limite×carga, ação Averbar e próximos passos; nenhuma duplicação do CRUD de apólices por transportador.",
+        "Apuração exibe extrato do mês com valor = max(apurado, mínimo) e explica quando o mínimo prevalece; caso de ouro R$ 24,25 visível no extrato de teste."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "demo"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0032"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0034"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0035"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0036"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "criação — Módulo Transportadora (plano 2026-08-15, ondas F6..F9)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-frontend"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0037.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0001",
@@ -22926,6 +23326,15 @@
       ]
     },
     {
+      "id": "REQ-SICAT-0034",
+      "title": "Transporte: averbação eletrônica de viagens nas apólices RCTR-C/RC-DC/RC-V",
+      "product": "sicat",
+      "impact_score": 58,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-SICAT-NFR-0002",
       "title": "Integração segura com gateway CETESB isolado",
       "product": "sicat",
@@ -23522,6 +23931,15 @@
     {
       "id": "REQ-SICAT-0023",
       "title": "Transporte: impedir oferta/publicação e contratação de frete abaixo do piso aplicável",
+      "product": "sicat",
+      "impact_score": 45,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0036",
+      "title": "Transporte: gerenciamento de riscos — pesquisa cadastral e rastreamento por matriz do PGR",
       "product": "sicat",
       "impact_score": 45,
       "reasons": [
@@ -25302,6 +25720,15 @@
       ]
     },
     {
+      "id": "REQ-SICAT-0032",
+      "title": "Transporte: módulo do Transportador — persona carrier com home, jornada e didática",
+      "product": "sicat",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-SICAT-NFR-0001",
       "title": "Resiliência em operações de fila com retry automático",
       "product": "sicat",
@@ -25862,6 +26289,33 @@
     {
       "id": "REQ-SICAT-0031",
       "title": "Transporte: Centro Operacional com buckets e métricas da vertical",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0033",
+      "title": "Transporte: motoristas com CNH e vínculo frota/agregado; tipologia TAC/ETC derivada",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0035",
+      "title": "Transporte: apuração mensal do prêmio de averbação contra custo mínimo",
+      "product": "sicat",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SICAT-0037",
+      "title": "Transporte: UI de seguros, GR, motoristas e habilitação do módulo do Transportador",
       "product": "sicat",
       "impact_score": 30,
       "reasons": [

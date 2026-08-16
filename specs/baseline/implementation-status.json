@@ -1,12 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "a430ed201a536955600cad846f924aa24319cd8f90a2fadf3dd70e857a957f7f",
+  "baseline_hash": "feae5ea4235aab6fd362a6b4dd05eb62900a68f7e313cfdfc382140d8a025dba",
   "counts": {
-    "total": 400,
+    "total": 406,
     "by_status": {
       "deployed": 329,
       "done": 52,
-      "not_started": 19
+      "not_started": 25
     },
     "refinements": {
       "total": 63,
@@ -1992,7 +1992,7 @@
     },
     "REQ-SICAT-0028": {
       "status": "not_started",
-      "req_revision": 1
+      "req_revision": 2
     },
     "REQ-SICAT-0029": {
       "status": "not_started",
@@ -2003,6 +2003,30 @@
       "req_revision": 1
     },
     "REQ-SICAT-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0032": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0033": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0034": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0035": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0036": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SICAT-0037": {
       "status": "not_started",
       "req_revision": 1
     },

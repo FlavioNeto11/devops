@@ -1,0 +1,50 @@
+id: REQ-SICAT-0035
+slug: req-sicat-0035
+title: "Transporte: apuração mensal do prêmio de averbação contra custo mínimo"
+type: functional
+status: draft
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+  domain: transporte
+statement: >-
+  O sistema deve apurar mensalmente, por apólice, o prêmio das averbações do período: total de
+  carga averbada, soma dos prêmios, custo mínimo mensal da tabela de taxas vigente no fechamento e
+  valor do mês = maior entre soma dos prêmios e mínimo (com a base registrada: premium|minimum).
+  O fechamento roda como job mensal na fila (sweep diária fecha o mês anterior, deduplicada), o
+  recálculo de período aberto é idempotente, cada recálculo grava uma execução append-only com
+  entradas e resultado (reprodutibilidade), e o extrato lista as averbações incluídas.
+business_rationale: >-
+  As apólices do TRC têm custo mínimo mensal (ex.: R$ 700 RCTR-C/RC-DC, R$ 300 RC-V): no fim do
+  mês a seguradora cobra max(transportado × taxa, mínimo) — doc Irmãos PADILHA. A transportadora
+  precisa ver essa conta ANTES da fatura da seguradora.
+source:
+  stakeholder: sicat
+  origin: fluxo do prospect Irmãos PADILHA (2026-08-11) + plano 2026-08-15
+  source_paths:
+    - apps/sicat/docs/30-transporte/transporte-guia.md
+priority: high
+criticality: medium
+architectural_significance: false
+capability_blocks:
+  - worker-fila
+acceptance_criteria:
+  - "GET /v1/transporte/seguros/apuracao?period=YYYY-MM lista os períodos por apólice; GET do período devolve o extrato (averbações com valor, taxa e prêmio) e billed = greatest(premium_total, minimum) com billing_basis."
+  - "Sweep diária enfileira o fechamento do mês anterior por apólice com averbações ou mínimo > 0, com deduplicação de job; recálculo de período aberto é idempotente e grava execução append-only."
+  - "Período fechado só reabre por ação administrativa explícita com trilha."
+verification_method: [test-unit, test-integration]
+links:
+  - type: depends_on
+    target: REQ-SICAT-0034
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: criação — Módulo Transportadora (plano 2026-08-15, onda I4, migration 037)
+allocation:
+  service_refs:
+    - svc-sicat-api
+    - svc-sicat-worker
+  infra_refs:
+    - infra-postgres
