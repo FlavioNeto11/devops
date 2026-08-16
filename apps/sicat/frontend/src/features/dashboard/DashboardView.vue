@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router';
 import { getDashboardOverview } from '../../services/api.js';
 import { useAuthStore } from '../../stores/auth.js';
 import { usePersona } from '../../composables/usePersona.js';
+import { TRANSPORTE_FEATURE_FLAG } from '../../lib/feature-flags.js';
+import CarrierDashboardHome from './CarrierDashboardHome.vue';
 import { formatDateBr, getTodayBr, toApiDate } from '../../utils/date-format.js';
 import { resolveManifestRawSituation, resolveManifestSituationLabel, resolveManifestStatusTone } from '../../lib/status-map.js';
 import { pluralize } from '../../lib/plural-pt.js';
@@ -236,7 +238,11 @@ onMounted(loadDashboard);
 </script>
 
 <template>
-  <SicatPageLayout :loading="loading && !hasLoadedOnce" loading-message="Carregando painel…">
+  <!-- MÓDULO do Transportador (REQ-SICAT-0032): a home do carrier é um ramo
+       próprio desta MESMA rota (/dashboard segue sendo o alvo único dos guards).
+       Com a flag desligada o carrier cai no ramo "magro" legado abaixo. -->
+  <CarrierDashboardHome v-if="isCarrier && TRANSPORTE_FEATURE_FLAG" />
+  <SicatPageLayout v-else :loading="loading && !hasLoadedOnce" loading-message="Carregando painel…">
     <template #header>
       <SicatPageHeader
         kicker="Início"
