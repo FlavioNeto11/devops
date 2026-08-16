@@ -256,8 +256,9 @@ const SEEDED_SOURCES: RegulatorySourceSeed[] = [
 // ───────────────────────────────────────────────────────────────────────────────────────────────
 // As 27 regras TR-* do catálogo: 26 da baseline (guia do programa, matriz de rastreabilidade)
 // + TR-SEG-004 (limite de garantia por viagem — PR-I2 do Módulo Transportadora, REQ-SICAT-0028
-// rev.2). Uma versão 'v2026-08-baseline' por regra, EXCETO TR-CIOT-001 (duas versões: a virada
-// do CIOT universal em 24/05/2026 é a primeira fronteira temporal real do catálogo).
+// rev.2) + TR-SEG-005 (averbação registrada antes do trânsito — PR-I3, REQ-SICAT-0034). Uma
+// versão 'v2026-08-baseline' por regra, EXCETO TR-CIOT-001 (duas versões: a virada do CIOT
+// universal em 24/05/2026 é a primeira fronteira temporal real do catálogo).
 // ───────────────────────────────────────────────────────────────────────────────────────────────
 
 const BASELINE_LABEL = 'v2026-08-baseline';
@@ -672,6 +673,27 @@ const SEEDED_RULES: RegulatoryRuleSeed[] = [
       // o block bruto do evaluator é rebaixado a warn pelo clamp advisory até promoção do operador.
       summary: 'Soma dos valores declarados da carga dentro do limite de garantia por viagem '
         + 'da apólice vigente (per_trip_limit_amount).',
+      effectiveFrom: '2023-06-20',
+      implementationState: 'ACTIVE',
+      severity: 'critical'
+    })]
+  },
+  {
+    code: 'TR-SEG-005',
+    title: 'Averbação registrada antes do trânsito',
+    domain: 'SEG',
+    defaultGate: 'GATE_PRE_BOARDING',
+    displayOrder: 246,
+    versions: [baselineVersion({
+      legalBasis: LEGAL_SEG,
+      // Cada apólice vigente aplicável (RCTR-C/RC-DC; RC-V com veículo vinculado) exige uma
+      // declaração de averbação VIVA (`insurance_shipment_declarations`, migration 036) antes de
+      // `ready_for_release → in_transit` — sem averbar, a carga viaja descoberta (circuito
+      // Irmãos PADILHA, REQ-SICAT-0034). Nasce blocking=false como toda regra (regra de ouro do
+      // programa): o block bruto do evaluator é rebaixado a warn pelo clamp advisory até
+      // promoção do operador.
+      summary: 'Averbação eletrônica viva em cada apólice vigente aplicável antes do início do '
+        + 'trânsito; valor declarado coerente com a carga atual.',
       effectiveFrom: '2023-06-20',
       implementationState: 'ACTIVE',
       severity: 'critical'

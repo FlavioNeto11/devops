@@ -195,10 +195,11 @@ describe('rule-evaluators — registro', () => {
 
     assert.strictEqual(
       withEvaluator.size,
-      26,
+      27,
       'Fase A (10) + TR-RNTRC-002 (PR-C1) + TR-CIOT-001/002/003 (PR-C2) + TR-VPO-002 (PR-D1) '
         + '+ TR-NFE-001/TR-CTE-001/TR-MDFE-001/TR-MDFE-002/TR-CIOT-005/TR-VPO-004 (PR-E1) '
-        + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) + TR-SEG-004 (PR-I2) = 26 evaluators implementados'
+        + '+ TR-SEG-001/002/003/TR-PGR-001 (PR-F2) + TR-SEG-004 (PR-I2) + TR-SEG-005 (PR-I3) '
+        + '= 27 evaluators implementados'
     );
     assert.strictEqual(
       withoutEvaluator.size,
@@ -887,6 +888,168 @@ describe('TR-SEG-004 — limite de garantia por viagem respeitado', () => {
     };
     const outcome = evaluate('TR-SEG-004', buildAggregateWithCargo([20000]), {}, REFERENCE_DATE, { carrierInsurance });
     assert.strictEqual(outcome.status, 'pass');
+  });
+});
+
+// ===================================================================================================
+// TR-SEG-005 — averbação registrada antes do trânsito (PR-I3, REQ-SICAT-0034). Para cada apólice
+// vigente aplicável (RCTR-C/RC-DC; RC-V só com veículo), exige declaração de averbação VIVA em
+// ctx.insuranceDeclarations; declarada com valor divergente da carga atual → warn STALE.
+// ===================================================================================================
+
+describe('TR-SEG-005 — averbação registrada antes do trânsito', () => {
+  /** Agregado com carga de valor declarado conhecido (default: caso de ouro R$ 25.000,00). */
+  function buildAggregateWithCargo(declaredValues = [25000]) {
+    return buildCompleteTacAggregate({
+      cargo: declaredValues.map((declaredValue, index) => buildCargoItem({
+        id: `tropcargo_seg005_${index}`,
+        declaredValue
+      }))
+    });
+  }
+
+  /** carrierInsurance com UMA apólice RCTR-C vigente e policyId conhecido. */
+  function buildInsuranceWithPolicy(policyId = 'inspol_seg005_rctrc', overrides = {}) {
+    return {
+      policies: { RCTR_C: buildInsurancePolicyFixture({ policyId, ...overrides }) },
+      pgr: null
+    };
+  }
+
+  function buildDeclaration(overrides = {}) {
+    return {
+      policyId: 'inspol_seg005_rctrc',
+      status: 'declared',
+      declaredCargoAmount: 25000,
+      ...overrides
+    };
+  }
+
+  it('sem carrierInsurance (ctx nunca montado) → not_applicable SHIPMENT_DECLARATION_NO_APPLICABLE_POLICY', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, { carrierInsurance: null });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_NO_APPLICABLE_POLICY');
+  });
+
+  it('só apólice VENCIDA na referenceDate → not_applicable (ausência/vencimento é assunto de TR-SEG-001/002/003)', () => {
+    const carrierInsurance = buildInsuranceWithPolicy('inspol_seg005_rctrc', { validFrom: '2020-01-01', validUntil: '2020-12-31' });
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, { carrierInsurance });
+    assert.strictEqual(outcome.status, 'not_applicable');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_NO_APPLICABLE_POLICY');
+  });
+
+  it('apólice vigente SEM declaração viva → block bruto SHIPMENT_DECLARATION_MISSING', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: []
+    });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_MISSING');
+  });
+
+  it('declaração cancelled/rejected NÃO conta como viva → block bruto SHIPMENT_DECLARATION_MISSING', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration({ status: 'cancelled' }), buildDeclaration({ status: 'rejected' })]
+    });
+    assert.strictEqual(outcome.status, 'block');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_MISSING');
+  });
+
+  it('declaração em declaring → warn SHIPMENT_DECLARATION_PENDING', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration({ status: 'declaring' })]
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_PENDING');
+  });
+
+  it('declaração em declare_unconfirmed (DL-102, aguardando reconciliação) → warn SHIPMENT_DECLARATION_PENDING', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration({ status: 'declare_unconfirmed' })]
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_PENDING');
+  });
+
+  it('declarada com valor DIVERGENTE da carga atual → warn SHIPMENT_DECLARATION_STALE (pede retificação)', () => {
+    // Averbou R$ 25.000, mas a carga da operação virou R$ 30.000 depois.
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo([30000]), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration({ declaredCargoAmount: 25000 })]
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_STALE');
+  });
+
+  it('tudo declarado e coerente com a carga atual (caso de ouro R$ 25.000,00) → pass', () => {
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo([25000]), {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration()]
+    });
+    assert.strictEqual(outcome.status, 'pass');
+  });
+
+  it('RC-V só entra na exigência quando a operação TEM veículo vinculado', () => {
+    const insurance = {
+      policies: {
+        RCTR_C: buildInsurancePolicyFixture({ policyId: 'inspol_seg005_rctrc' }),
+        RC_V: buildInsurancePolicyFixture({ policyId: 'inspol_seg005_rcv', policyNumber: 'RCV-2026-000789' })
+      },
+      pgr: null
+    };
+    // SEM veículo: só a RCTR-C exige averbação — declaração dela basta para pass.
+    const semVeiculo = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: insurance,
+      insuranceDeclarations: [buildDeclaration()]
+    });
+    assert.strictEqual(semVeiculo.status, 'pass');
+
+    // COM veículo: a RC-V passa a exigir — sem declaração dela, block bruto.
+    const comVeiculo = evaluate('TR-SEG-005', {
+      ...buildAggregateWithCargo(),
+      vehicles: [buildVehicle('traction')]
+    }, {}, REFERENCE_DATE, {
+      carrierInsurance: insurance,
+      insuranceDeclarations: [buildDeclaration()]
+    });
+    assert.strictEqual(comVeiculo.status, 'block');
+    assert.strictEqual(comVeiculo.reasonCode, 'SHIPMENT_DECLARATION_MISSING');
+  });
+
+  it('uma apólice declarada + outra pendente → o PIOR entre elas prevalece por regra (warn)', () => {
+    const insurance = {
+      policies: {
+        RCTR_C: buildInsurancePolicyFixture({ policyId: 'inspol_seg005_rctrc' }),
+        RC_DC: buildInsurancePolicyFixture({ policyId: 'inspol_seg005_rcdc', policyNumber: 'RCDC-2026-000456' })
+      },
+      pgr: null
+    };
+    const outcome = evaluate('TR-SEG-005', buildAggregateWithCargo(), {}, REFERENCE_DATE, {
+      carrierInsurance: insurance,
+      insuranceDeclarations: [
+        buildDeclaration(),
+        buildDeclaration({ policyId: 'inspol_seg005_rcdc', status: 'rectifying' })
+      ]
+    });
+    assert.strictEqual(outcome.status, 'warn');
+    assert.strictEqual(outcome.reasonCode, 'SHIPMENT_DECLARATION_PENDING');
+  });
+
+  it('carga com item sem declaredValue NÃO dispara STALE (comparação incompleta é assunto de TR-SEG-004)', () => {
+    const aggregate = buildCompleteTacAggregate({
+      cargo: [
+        buildCargoItem({ id: 'tropcargo_a', declaredValue: 10000 }),
+        buildCargoItem({ id: 'tropcargo_b', declaredValue: null })
+      ]
+    });
+    const outcome = evaluate('TR-SEG-005', aggregate, {}, REFERENCE_DATE, {
+      carrierInsurance: buildInsuranceWithPolicy(),
+      insuranceDeclarations: [buildDeclaration({ declaredCargoAmount: 10000 })]
+    });
+    assert.strictEqual(outcome.status, 'pass', 'soma incompleta não sustenta acusação de divergência');
   });
 });
 

@@ -150,9 +150,10 @@ export interface RegulatoryRuleVersion {
 }
 
 /**
- * Os 27 códigos TR-* do catálogo (26 da baseline regulatória do guia do programa + TR-SEG-004,
- * limite de garantia por viagem — PR-I2 do Módulo Transportadora, REQ-SICAT-0028 rev.2).
- * Ordem = ordem de exibição do catálogo (mesma do seed, `display_order`).
+ * Os 28 códigos TR-* do catálogo (26 da baseline regulatória do guia do programa + TR-SEG-004,
+ * limite de garantia por viagem — PR-I2, REQ-SICAT-0028 rev.2 + TR-SEG-005, averbação registrada
+ * antes do trânsito — PR-I3, REQ-SICAT-0034). Ordem = ordem de exibição do catálogo (mesma do
+ * seed, `display_order`).
  */
 export const RULE_CODES = [
   'TR-RNTRC-001',
@@ -180,6 +181,7 @@ export const RULE_CODES = [
   'TR-SEG-002',
   'TR-SEG-003',
   'TR-SEG-004',
+  'TR-SEG-005',
   'TR-PGR-001',
   'TR-COMP-001'
 ] as const;

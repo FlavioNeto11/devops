@@ -21,11 +21,13 @@ import {
   applyTransporteCiotTerminalFailureSideEffect,
   applyTransporteVpoTerminalFailureSideEffect,
   applyTransporteDfeIssuanceTerminalFailureSideEffect,
+  applyTransporteAverbacaoTerminalFailureSideEffect,
   applyWhatsAppInboundTerminalFailureSideEffect
 } from './operation-handlers.js';
 import { listUnconfirmedCiotOperationsForReconciliation } from '../repositories/ciot-repo.js';
 import { listUnconfirmedVpoAllocationsForReconciliation } from '../repositories/vpo-repo.js';
 import { listUnconfirmedDfeIssuancesForReconciliation } from '../repositories/dfe-issuance-repo.js';
+import { listUnconfirmedDeclarationsForReconciliation } from '../repositories/insurance-declaration-repo.js';
 import { enqueueRegulatoryWatchSweep } from '../services/transport-regulatory-watch-service.js';
 import { calculateNextRetry, shouldMoveToDLQ, extractJobTags, isRetryableJobError, getJobErrorCode } from '../lib/retry.js';
 import { resolveWorkerLane } from '../lib/job-lanes.js';
@@ -634,6 +636,80 @@ async function enqueueTransporteDfeIssuanceReconcileSweepIfNeeded() {
 }
 
 // ---------------------------------------------------------------------------
+// Varredura periódica da averbação sem confirmação (PR-I3, DL-102 aplicado à averbação) — molde
+// EXATO de `enqueueTransporteCiotReconcileSweepIfNeeded` acima: rede de segurança para
+// `insurance_shipment_declarations` em `*_unconfirmed` cujo enfileiramento direto
+// (`applyTransporteAverbacaoTerminalFailureSideEffect`) falhou, ou cujo processo caiu entre marcar
+// unconfirmed e enfileirar.
+// ---------------------------------------------------------------------------
+
+const TRANSPORTE_AVERBACAO_RECONCILE_SWEEP_DEFAULT_MS = 5 * 60 * 1000;
+const TRANSPORTE_AVERBACAO_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function resolveTransporteAverbacaoReconcileSweepIntervalMs(): number {
+  const raw = Number(process.env.TRANSPORTE_AVERBACAO_RECONCILE_SWEEP_MS);
+  if (!Number.isFinite(raw)) {
+    return TRANSPORTE_AVERBACAO_RECONCILE_SWEEP_DEFAULT_MS;
+  }
+  return raw;
+}
+
+let lastTransporteAverbacaoReconcileSweepAt = 0;
+
+export function resetTransporteAverbacaoReconcileSweepClockForTests() {
+  lastTransporteAverbacaoReconcileSweepAt = 0;
+}
+
+async function enqueueTransporteAverbacaoReconcileSweepIfNeeded() {
+  const intervalMs = resolveTransporteAverbacaoReconcileSweepIntervalMs();
+  if (intervalMs <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  if (lastTransporteAverbacaoReconcileSweepAt && (now - lastTransporteAverbacaoReconcileSweepAt) < intervalMs) {
+    return;
+  }
+  lastTransporteAverbacaoReconcileSweepAt = now;
+
+  const updatedSince = new Date(now - TRANSPORTE_AVERBACAO_RECONCILE_LOOKBACK_MS).toISOString();
+
+  try {
+    const candidates = await listUnconfirmedDeclarationsForReconciliation({ updatedSince });
+    for (const candidate of candidates) {
+      // `insertJobDeduplicated` tem alvo de conflito `(entity_type, entity_id, operation) where
+      // status in ('queued','running','retry_wait')`: no máximo UMA reconciliação ativa por
+      // DECLARAÇÃO (entityId = declarationId — uma operação pode ter N declarações, uma por
+      // apólice; dedupe por operação, como no CIOT, esmagaria N-1 delas).
+      await insertJobDeduplicated({
+        jobId: createPrefixedId('job'),
+        commandId: createPrefixedId('cmd'),
+        entityType: 'insurance_declaration',
+        entityId: candidate.id,
+        operation: 'transporte.averbacao.reconcile',
+        payload: {
+          declarationId: candidate.id,
+          operationId: candidate.operationId,
+          integrationAccountId: candidate.integrationAccountId,
+          correlationMarker: candidate.correlationMarker
+        },
+        status: 'queued',
+        maxAttempts: 3,
+        correlationId: candidate.correlationId,
+        priority: 3,
+        retryStrategy: 'exponential',
+        baseDelayMs: 5000,
+        maxDelayMs: 60000,
+        tags: extractJobTags({ operation: 'transporte.averbacao.reconcile', entityType: 'insurance_declaration', status: 'queued' })
+      });
+    }
+  } catch (error: unknown) {
+    // Falha aqui NUNCA pode derrubar o loop do worker — mesma postura das varreduras vizinhas.
+    console.warn(`[worker] varredura de reconciliação de averbação não pôde ser enfileirada: ${getErrorMessage(error)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Varredura periódica do Regulatory Watch (PR-H1) — mesmo molde estrutural das sweeps acima (relógio
 // próprio, `0`/negativo desliga, falha nunca derruba o loop do worker), com UMA diferença
 // deliberada: só enfileira quando `config.regulatoryWatchMode === 'live'` — em `off` (default) nem
@@ -822,6 +898,10 @@ async function handleDlqTransition(job: JobEntity, workerName: string, transitio
   // `submitting` vira `submit_unconfirmed`, NUNCA `failed_validation`; falha ANTES disso (dados
   // incompletos, tipo não suportado, flag desligada) vira `failed_validation` diretamente.
   await applyTransporteDfeIssuanceTerminalFailureSideEffect(effectJob, transition, error);
+  // Par obrigatório do PR-I3 (DL-102 aplicado à averbação): resposta perdida DEPOIS do dispatch
+  // vira `*_unconfirmed`, NUNCA `rejected`; flag desligada num declare que nunca dispatchou vira
+  // `rejected` (nada a reconciliar).
+  await applyTransporteAverbacaoTerminalFailureSideEffect(effectJob, transition, error);
   const ownedJob = { ...job, payload: job.payload ?? {}, claimedBy: workerName } as Parameters<typeof moveJobToDLQ>[0];
   const movedToDLQ = await dependencies.moveJobToDLQ(ownedJob, transition.dlqReason);
   if (!movedToDLQ) {
@@ -869,6 +949,7 @@ async function handleFailedTransition(job: JobEntity, workerName: string, transi
     await applyTransporteCiotTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteVpoTerminalFailureSideEffect(effectJob, transition, error);
     await applyTransporteDfeIssuanceTerminalFailureSideEffect(effectJob, transition, error);
+    await applyTransporteAverbacaoTerminalFailureSideEffect(effectJob, transition, error);
     updateWorkerStats('failed', executionTimeMs);
     console.error(`[worker] job ${job.jobId} falhou definitivamente (tentativa ${job.attempts}/${job.maxAttempts}): ${transition.patch.lastErrorCode}`);
     return;
@@ -920,6 +1001,7 @@ export async function processWorkerIteration({ once, shutdownRequested, workerNa
   await enqueueTransporteCiotReconcileSweepIfNeeded();
   await enqueueTransporteVpoReconcileSweepIfNeeded();
   await enqueueTransporteDfeIssuanceReconcileSweepIfNeeded();
+  await enqueueTransporteAverbacaoReconcileSweepIfNeeded();
   await enqueueTransporteRegulatoryWatchSweepIfNeeded();
   // `WORKER_LANE` ausente ⇒ `'all'` ⇒ nenhum predicado extra: comportamento idêntico ao anterior.
   const jobs = await dependencies.claimJobs(config.workerBatchSize, { lane: resolveWorkerLane() });

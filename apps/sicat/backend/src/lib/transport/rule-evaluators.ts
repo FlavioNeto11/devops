@@ -126,6 +126,12 @@ export type FiscalDocumentEvaluationContext = {
  * `null` = nenhuma apólice `active` (administrativo) registrada deste tipo para o carrier.
  */
 export type InsurancePolicyEvaluationContext = {
+  /**
+   * Id local da apólice (`insurance_policies.id`) — entra no recorte no PR-I3 para TR-SEG-005
+   * casar a declaração de averbação (`insuranceDeclarations[].policyId`) com a apólice vigente
+   * do tipo. Opcional para não quebrar contextos montados antes do PR-I3 (fixtures antigas).
+   */
+  policyId?: string | null;
   policyNumber: string;
   validFrom: string;
   validUntil: string;
@@ -164,6 +170,28 @@ export type CarrierInsuranceEvaluationContext = {
   pgr: RiskManagementPlanEvaluationContext | null;
 };
 
+/**
+ * Recorte de UMA declaração de averbação (`insurance_shipment_declarations`, PR-I3) da operação —
+ * montado por `transport-compliance-service.ts` a partir de
+ * `insurance-declaration-repo.ts#listDeclarationsForOperation`. Recorte deliberadamente MÍNIMO:
+ * TR-SEG-005 só precisa saber a qual apólice a declaração pertence, em que ponto do ciclo está e
+ * qual valor foi CONGELADO no ato (para comparar com a carga atual — staleness).
+ */
+export type InsuranceDeclarationEvaluationContext = {
+  policyId: string;
+  status:
+    | 'declaring'
+    | 'declared'
+    | 'declare_unconfirmed'
+    | 'rectifying'
+    | 'rectify_unconfirmed'
+    | 'cancelling'
+    | 'cancel_unconfirmed'
+    | 'cancelled'
+    | 'rejected';
+  declaredCargoAmount: number;
+};
+
 export type RuleEvaluatorContext = {
   operation: TransportOperationAggregate;
   ruleVersion: RegulatoryRuleVersion;
@@ -186,6 +214,8 @@ export type RuleEvaluatorContext = {
   fiscalDocuments?: FiscalDocumentEvaluationContext[];
   /** Seguros obrigatórios + PGR do carrier vinculado à operação (PR-F2) — `undefined`/`null` = sem carrier vinculado. */
   carrierInsurance?: CarrierInsuranceEvaluationContext | null;
+  /** Declarações de averbação da operação (PR-I3) — lista vazia/`undefined` = nenhuma averbação feita ainda. */
+  insuranceDeclarations?: InsuranceDeclarationEvaluationContext[];
 };
 
 export type RuleEvaluator = (ctx: RuleEvaluatorContext) => RuleOutcome;
@@ -1408,6 +1438,143 @@ function evaluateSeg004(ctx: RuleEvaluatorContext): RuleOutcome {
 }
 
 // =================================================================================================
+// TR-SEG-005 — averbação registrada antes do trânsito (GATE_PRE_BOARDING, PR-I3 do Módulo
+// Transportadora, REQ-SICAT-0034). Para CADA apólice vigente aplicável (RCTR-C/RC-DC sempre;
+// RC-V só com veículo vinculado — mesmo recorte de TR-SEG-003), exige uma declaração de averbação
+// VIVA (`ctx.insuranceDeclarations`, `insurance_shipment_declarations`): sem averbação a carga
+// viaja descoberta — é o coração comercial do circuito real (doc Irmãos PADILHA). AUSÊNCIA de
+// apólice vigente é `not_applicable` — TR-SEG-001/002/003 já bloqueiam ausência/vencimento
+// (mesmo racional de TR-SEG-004: não duplicar o mesmo block em duas regras).
+// =================================================================================================
+
+/** Estados VIVOS ainda sem confirmação final — em curso ou aguardando reconciliação (DL-102). */
+const DECLARATION_PENDING_STATUSES = new Set([
+  'declaring',
+  'declare_unconfirmed',
+  'rectifying',
+  'rectify_unconfirmed',
+  'cancelling',
+  'cancel_unconfirmed'
+]);
+
+function evaluateSeg005(ctx: RuleEvaluatorContext): RuleOutcome {
+  const policies = ctx.carrierInsurance?.policies ?? {};
+  const hasVehicle = ctx.operation.vehicles.length > 0;
+
+  // Mesma leitura de vigência de TR-SEG-001..004 (data da OPERAÇÃO, nunca "hoje"); RC-V só entra
+  // quando há veículo vinculado — sem veículo não há o que aquele seguro cobrir.
+  const coveringPolicies = (Object.entries(policies) as Array<[InsurancePolicyType, InsurancePolicyEvaluationContext | null]>)
+    .filter(([type, policy]) => policy != null
+      && (type !== 'RC_V' || hasVehicle)
+      && policy.validFrom <= ctx.referenceDate
+      && policy.validUntil >= ctx.referenceDate) as Array<[InsurancePolicyType, InsurancePolicyEvaluationContext]>;
+
+  const inputs: Record<string, unknown> = {
+    referenceDate: ctx.referenceDate,
+    coveringPolicyTypes: coveringPolicies.map(([type]) => type),
+    declarationsCount: (ctx.insuranceDeclarations ?? []).length
+  };
+
+  if (coveringPolicies.length === 0) {
+    return outcome(
+      'not_applicable',
+      'Nenhuma apólice vigente na data de referência — ausência/vencimento de seguro é assunto de '
+        + 'TR-SEG-001/002/003, não da averbação.',
+      { reasonCode: 'SHIPMENT_DECLARATION_NO_APPLICABLE_POLICY', inputs }
+    );
+  }
+
+  // Declarações VIVAS (cancelled/rejected liberam a chave e não contam como cobertura).
+  const liveDeclarations = (ctx.insuranceDeclarations ?? []).filter(
+    (declaration) => declaration.status !== 'cancelled' && declaration.status !== 'rejected'
+  );
+
+  // Soma da carga ATUAL — só comparável quando TODO item tem declaredValue; carga incompleta já é
+  // apontada por TR-SEG-004 (`CARGO_DECLARED_VALUE_MISSING`), não se repete o aviso aqui.
+  const cargoItems = ctx.operation.cargo ?? [];
+  const cargoComparable = cargoItems.length > 0 && cargoItems.every((item) => item.declaredValue != null);
+  const currentCargoTotal = cargoComparable
+    ? cargoItems.reduce((total, item) => total + (item.declaredValue as number), 0)
+    : null;
+
+  type PolicyVerdict = {
+    policyType: InsurancePolicyType;
+    status: 'pass' | 'warn' | 'block';
+    reasonCode: string | null;
+    declarationStatus: string | null;
+    declaredCargoAmount: number | null;
+  };
+
+  const verdicts: PolicyVerdict[] = coveringPolicies.map(([policyType, policy]) => {
+    const declaration = liveDeclarations.find((candidate) => candidate.policyId === (policy.policyId ?? null)) ?? null;
+
+    if (!declaration) {
+      return { policyType, status: 'block', reasonCode: 'SHIPMENT_DECLARATION_MISSING', declarationStatus: null, declaredCargoAmount: null };
+    }
+    if (DECLARATION_PENDING_STATUSES.has(declaration.status)) {
+      return {
+        policyType,
+        status: 'warn',
+        reasonCode: 'SHIPMENT_DECLARATION_PENDING',
+        declarationStatus: declaration.status,
+        declaredCargoAmount: declaration.declaredCargoAmount
+      };
+    }
+    // `declared` — cobre, mas o valor CONGELADO no ato precisa continuar sendo o da carga atual
+    // (comparação em CENTAVOS inteiros, mesmo racional de TR-SEG-004).
+    if (currentCargoTotal != null && toCentsHalfUp(declaration.declaredCargoAmount) !== toCentsHalfUp(currentCargoTotal)) {
+      return {
+        policyType,
+        status: 'warn',
+        reasonCode: 'SHIPMENT_DECLARATION_STALE',
+        declarationStatus: declaration.status,
+        declaredCargoAmount: declaration.declaredCargoAmount
+      };
+    }
+    return { policyType, status: 'pass', reasonCode: null, declarationStatus: declaration.status, declaredCargoAmount: declaration.declaredCargoAmount };
+  });
+
+  const checkInputs = { ...inputs, currentCargoTotal, verdicts };
+  const worst = verdicts.some((verdict) => verdict.status === 'block')
+    ? 'block'
+    : verdicts.some((verdict) => verdict.status === 'warn')
+      ? 'warn'
+      : 'pass';
+  const worstVerdict = verdicts.find((verdict) => verdict.status === worst) ?? null;
+  const resultSnapshot = { verdicts, currentCargoTotal };
+
+  if (worst === 'block') {
+    const missingTypes = verdicts.filter((verdict) => verdict.reasonCode === 'SHIPMENT_DECLARATION_MISSING').map((verdict) => verdict.policyType);
+    return outcome(
+      'block',
+      `Apólice(s) vigente(s) ${missingTypes.join('/')} sem averbação viva desta operação — sem averbar, a carga `
+        + 'viaja descoberta (averbe antes do trânsito: POST .../averbacoes).',
+      { reasonCode: 'SHIPMENT_DECLARATION_MISSING', inputs: checkInputs, result: resultSnapshot }
+    );
+  }
+
+  if (worst === 'warn') {
+    const isStale = worstVerdict?.reasonCode === 'SHIPMENT_DECLARATION_STALE';
+    return outcome(
+      'warn',
+      isStale
+        ? `Averbação registrada com valor de carga divergente do atual (declarado R$ ${(worstVerdict?.declaredCargoAmount ?? 0).toFixed(2)}, `
+          + `carga atual R$ ${(currentCargoTotal ?? 0).toFixed(2)}) — retifique a averbação antes do trânsito.`
+        : 'Averbação em processamento (declaração/retificação/cancelamento ainda sem confirmação da seguradora) — '
+          + 'aguarde a confirmação antes do trânsito.',
+      { reasonCode: worstVerdict?.reasonCode ?? 'SHIPMENT_DECLARATION_PENDING', inputs: checkInputs, result: resultSnapshot }
+    );
+  }
+
+  return outcome(
+    'pass',
+    `Todas as apólices vigentes aplicáveis (${verdicts.map((verdict) => verdict.policyType).join('/')}) têm averbação `
+      + 'declarada e coerente com a carga atual.',
+    { inputs: checkInputs, result: resultSnapshot }
+  );
+}
+
+// =================================================================================================
 // TR-PGR-001 — PGR vigente quando requerido (GATE_PRE_BOARDING, Lei 14.599/2023). PR-F2: sai de
 // `RULES_WITHOUT_EVALUATOR_YET`. Vínculo legal: PGR é exigido quando o carrier tem APÓLICE
 // REGISTRADA (independente de vigência — isso é assunto de TR-SEG-001/002, avaliados à parte) do
@@ -1498,6 +1665,7 @@ export const RULE_EVALUATORS: Partial<Record<RuleCode, RuleEvaluator>> = {
   'TR-SEG-002': evaluateSeg002,
   'TR-SEG-003': evaluateSeg003,
   'TR-SEG-004': evaluateSeg004,
+  'TR-SEG-005': evaluateSeg005,
   'TR-PGR-001': evaluatePgr001,
   'TR-COMP-001': evaluateComp001
 };

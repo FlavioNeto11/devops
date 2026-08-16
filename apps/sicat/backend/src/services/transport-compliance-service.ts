@@ -39,6 +39,7 @@ import {
   type ComplianceCheckStatus,
   type FiscalDocumentEvaluationContext,
   type FreightFloorCalculationContext,
+  type InsuranceDeclarationEvaluationContext,
   type InsurancePolicyEvaluationContext,
   type RiskManagementPlanEvaluationContext,
   type VpoAllocationEvaluationContext
@@ -59,6 +60,7 @@ import {
   findApplicablePlanForParty,
   findApplicablePolicyForPartyAndType
 } from '../repositories/transport-insurance-repo.js';
+import { listDeclarationsForOperation } from '../repositories/insurance-declaration-repo.js';
 import { INSURANCE_POLICY_TYPES } from '../lib/transport/transport-insurance-types.js';
 import {
   getLatestEvaluationByGate,
@@ -243,6 +245,9 @@ async function buildCarrierInsuranceContext(
     const record = await findApplicablePolicyForPartyAndType(partyId, integrationAccountId, policyType, referenceDate);
     policies[policyType] = record
       ? {
+          // `policyId` entra no recorte no PR-I3 — TR-SEG-005 casa a declaração de averbação
+          // (`insuranceDeclarations[].policyId`) com a apólice vigente do tipo.
+          policyId: record.id,
           policyNumber: record.policyNumber,
           validFrom: record.validFrom,
           validUntil: record.validUntil,
@@ -282,7 +287,8 @@ async function buildCheckForRule(
   ciotOperation: CiotOperationEvaluationContext | null,
   vpoAllocation: VpoAllocationEvaluationContext | null,
   fiscalDocuments: FiscalDocumentEvaluationContext[],
-  carrierInsurance: CarrierInsuranceEvaluationContext | null
+  carrierInsurance: CarrierInsuranceEvaluationContext | null,
+  insuranceDeclarations: InsuranceDeclarationEvaluationContext[]
 ): Promise<CheckBuild> {
   if (!rule.resolvedVersion) {
     const allVersions = await listRuleVersions({ ruleId: rule.id });
@@ -336,7 +342,8 @@ async function buildCheckForRule(
     ciotOperation,
     vpoAllocation,
     fiscalDocuments,
-    carrierInsurance
+    carrierInsurance,
+    insuranceDeclarations
   });
   const clamped = applyEnforcementClamp(rawOutcome, version);
 
@@ -450,6 +457,16 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
     ? await buildCarrierInsuranceContext(carrierParty.partyId, input.integrationAccountId, referenceDate)
     : null;
 
+  // Carregado UMA vez por avaliação (não por regra) — só TR-SEG-005 consome (PR-I3), mesmo
+  // racional de `carrierInsurance` acima. Recorte mínimo: apólice, ponto do ciclo e valor
+  // congelado — o evaluator nunca vê marcador/refs do provedor.
+  const declarationRecords = await listDeclarationsForOperation(input.operationId, input.integrationAccountId);
+  const insuranceDeclarations: InsuranceDeclarationEvaluationContext[] = declarationRecords.map((record) => ({
+    policyId: record.policyId,
+    status: record.status,
+    declaredCargoAmount: record.declaredCargoAmount
+  }));
+
   const checkBuilds: CheckBuild[] = [];
   for (const rule of rulesWithVersion) {
     checkBuilds.push(await buildCheckForRule(
@@ -462,7 +479,8 @@ export async function evaluateGateService(input: EvaluateGateInput): Promise<Com
       ciotOperation,
       vpoAllocation,
       fiscalDocuments,
-      carrierInsurance
+      carrierInsurance,
+      insuranceDeclarations
     ));
   }
 
