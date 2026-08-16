@@ -41,7 +41,7 @@ export const NAVIGATION_GROUPS = [
     kind: 'group',
     module: 'operacao',
     glossaryKey: 'mtr',
-    labelByPersona: { receiver: 'Receber manifestos' },
+    labelByPersona: { receiver: 'Receber manifestos', carrier: 'Manifestos das viagens' },
     items: [
       {
         to: '/manifestos',
@@ -49,7 +49,10 @@ export const NAVIGATION_GROUPS = [
         icon: 'mdi-file-document-multiple-outline',
         description: 'Ver e acompanhar os manifestos',
         labelByPersona: { receiver: 'Receber / dar baixa' },
-        descriptionByPersona: { receiver: 'Confirmar o recebimento dos manifestos' }
+        descriptionByPersona: {
+          receiver: 'Confirmar o recebimento dos manifestos',
+          carrier: 'Acompanhar os MTRs que viajam com a sua carga'
+        }
       },
       {
         to: '/manifestos/novo',
@@ -133,44 +136,70 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
-    // Vertical NOVA (DL-103, programa "SICAT Transporte") — bounded context
-    // separado do MTR ambiental (não reaproveita `manifest`). Nasceu com dois
-    // itens na Onda 1.5/PR-F1 (Operações + Regras) e ganhou o resto no PR-H2
-    // (frontend completo): cadastros, pendências, Regulatory Watch e tabelas
-    // de piso. Atrás de VITE_FEATURE_TRANSPORTE (default desligada): `hidden`
-    // some com o grupo inteiro do menu até a flag ligar — ver
-    // `filterNavigationGroups`.
-    id: 'transporte',
-    label: 'Transporte',
-    icon: 'mdi-truck-outline',
+    // MÓDULO do Transportador (REQ-SICAT-0032, plano 2026-08-15): a vertical
+    // Transporte (DL-103) deixou de ser um grupo plano de operador genérico e
+    // virou o módulo da persona `carrier` — mesmo mecanismo que faz Gerador e
+    // Destinador serem "módulos" (recorte de persona + home + didática). Os
+    // grupos abaixo ganham itens conforme as telas nascem (regra do produto:
+    // menu NUNCA aponta para tela inexistente): "Registrar viagem" entra com a
+    // tela de criação; Motoristas/Seguros/Habilitação entram nas ondas F6-F9.
+    // Atrás de VITE_FEATURE_TRANSPORTE (default desligada) — `hidden` some com
+    // os grupos até a flag ligar; persona vazia mantém fail-open e vê tudo.
+    id: 'transporte-operacoes',
+    label: 'Operações',
+    icon: 'mdi-truck-fast-outline',
     kind: 'group',
     module: 'operacao',
     hidden: !TRANSPORTE_FEATURE_FLAG,
+    personas: ['carrier'],
     items: [
       {
         to: '/transporte/operacoes',
-        label: 'Operações',
+        label: 'Minhas operações',
         icon: 'mdi-truck-fast-outline',
-        description: 'Acompanhar operações de transporte e a conformidade regulatória'
+        description: 'Acompanhar as viagens e a conformidade regulatória'
       },
       {
         to: '/transporte/pendencias',
         label: 'Pendências',
         icon: 'mdi-clipboard-alert-outline',
-        description: 'Centro Operacional: compliance, CIOT, VPO, fiscal, seguros e RNTRC num só lugar'
-      },
-      {
-        to: '/transporte/transportadores',
-        label: 'Transportadores',
-        icon: 'mdi-account-hard-hat-outline',
-        description: 'Cadastro de transportadores, RNTRC, seguros e PGR'
-      },
+        description: 'Tudo que precisa da sua ação, num só lugar'
+      }
+    ]
+  },
+  {
+    id: 'transporte-frota',
+    label: 'Frota',
+    icon: 'mdi-truck-outline',
+    kind: 'group',
+    module: 'operacao',
+    hidden: !TRANSPORTE_FEATURE_FLAG,
+    personas: ['carrier'],
+    items: [
       {
         to: '/transporte/veiculos',
         label: 'Veículos',
         icon: 'mdi-truck-outline',
         description: 'Cadastro de veículos usados nas operações'
       },
+      {
+        to: '/transporte/transportadores',
+        label: 'Transportadores',
+        icon: 'mdi-account-hard-hat-outline',
+        description: 'Terceiros e agregados: RNTRC, seguros e PGR'
+      }
+    ]
+  },
+  {
+    id: 'transporte-regulatorio',
+    label: 'Habilitação e regras',
+    icon: 'mdi-gavel',
+    kind: 'group',
+    module: 'operacao',
+    hidden: !TRANSPORTE_FEATURE_FLAG,
+    personas: ['carrier'],
+    glossaryKey: 'rntrc',
+    items: [
       {
         to: '/transporte/regras',
         label: 'Regras regulatórias',

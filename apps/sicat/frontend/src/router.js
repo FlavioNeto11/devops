@@ -417,16 +417,21 @@ const routes = [
     }
   },
   {
-    // Vertical NOVA (DL-103, programa "SICAT Transporte", Onda 1.5/PR-F1) —
-    // bounded context separado do MTR ambiental. SEM `personas`: o backend de
-    // Transporte não usa `accountType` (generator/carrier/receiver) do MTR
-    // ambiental — é uma vertical de OPERADOR genérica, sem perfil exclusivo
-    // nesta fase (declarar `personas: ['carrier']` aqui seria inventar uma
-    // semântica que a conta CETESB ativa não carrega). `requiresActiveCetesbAccount:
-    // true` porque a tenancy do backend (`integrationAccountId`) hoje só é
-    // resolvida no frontend via a conta CETESB ativa (`authStore.integrationAccountId`)
-    // — não existe, nesta fase, uma segunda tela de seleção de "conta de
-    // transporte" independente.
+    // Home do MÓDULO do Transportador: URL estável para deep-link/nav; o
+    // redirect resolve para /dashboard, que já ramifica por persona e carrega
+    // os guards todos — nenhuma segunda "home" no router (REQ-SICAT-0032).
+    path: '/transporte',
+    redirect: '/dashboard'
+  },
+  {
+    // Vertical Transporte (DL-103) = MÓDULO da persona `carrier` desde o plano
+    // 2026-08-15 (REQ-SICAT-0032). A fase 1.5 tinha deixado estas rotas SEM
+    // `personas` de propósito ("vertical de operador genérica"); a decisão foi
+    // REVERTIDA pelo operador: a conta CETESB de transportador (accountType
+    // carrier) é a chave de entrada do módulo — o mesmo mecanismo que recorta
+    // Gerador e Destinador. Persona vazia segue fail-open (routeAllowsPersona).
+    // `requiresActiveCetesbAccount: true` porque a tenancy do backend
+    // (`integrationAccountId`) é resolvida via conta CETESB ativa.
     path: '/transporte/operacoes',
     name: 'TransporteOperacaoList',
     component: TransporteOperacaoListView,
@@ -435,6 +440,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Operações']
     }
   },
@@ -447,6 +453,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Detalhe da operação']
     }
   },
@@ -459,6 +466,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Regras regulatórias']
     }
   },
@@ -475,6 +483,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Pendências']
     }
   },
@@ -487,6 +496,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Transportadores']
     }
   },
@@ -499,6 +509,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Detalhe do transportador']
     }
   },
@@ -511,6 +522,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Veículos']
     }
   },
@@ -527,6 +539,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Watch regulatório']
     }
   },
@@ -539,6 +552,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Detalhe do item de Watch']
     }
   },
@@ -551,6 +565,7 @@ const routes = [
       requiresActiveCetesbAccount: true,
       audience: 'operator',
       featureFlag: 'transporte',
+      personas: ['carrier'],
       breadcrumb: ['Transporte', 'Tabelas de piso']
     }
   },
