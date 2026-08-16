@@ -1162,6 +1162,69 @@ const operationsData = [
     "successStatus": 200
   },
   {
+    "key": "post_v1_transporte_motoristas",
+    "method": "post",
+    "specPath": "/v1/transporte/motoristas",
+    "expressPath": "/v1/transporte/motoristas",
+    "summary": "Cadastrar motorista",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_motoristas",
+    "method": "get",
+    "specPath": "/v1/transporte/motoristas",
+    "expressPath": "/v1/transporte/motoristas",
+    "summary": "Listar motoristas",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 200
+  },
+  {
+    "key": "get_v1_transporte_motoristas_driverId",
+    "method": "get",
+    "specPath": "/v1/transporte/motoristas/{driverId}",
+    "expressPath": "/v1/transporte/motoristas/:driverId",
+    "summary": "Consultar motorista",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_motoristas_driverId",
+    "method": "patch",
+    "specPath": "/v1/transporte/motoristas/{driverId}",
+    "expressPath": "/v1/transporte/motoristas/:driverId",
+    "summary": "Atualizar motorista",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_motoristas_driverId_vinculos",
+    "method": "post",
+    "specPath": "/v1/transporte/motoristas/{driverId}/vinculos",
+    "expressPath": "/v1/transporte/motoristas/:driverId/vinculos",
+    "summary": "Vincular motorista a um transportador",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 201
+  },
+  {
+    "key": "get_v1_transporte_motoristas_driverId_vinculos",
+    "method": "get",
+    "specPath": "/v1/transporte/motoristas/{driverId}/vinculos",
+    "expressPath": "/v1/transporte/motoristas/:driverId/vinculos",
+    "summary": "Listar vínculos do motorista",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 200
+  },
+  {
+    "key": "patch_v1_transporte_motoristas_driverId_vinculos_linkId",
+    "method": "patch",
+    "specPath": "/v1/transporte/motoristas/{driverId}/vinculos/{linkId}",
+    "expressPath": "/v1/transporte/motoristas/:driverId/vinculos/:linkId",
+    "summary": "Encerrar vínculo do motorista",
+    "tag": "Transporte - Motoristas",
+    "successStatus": 200
+  },
+  {
     "key": "post_v1_transporte_operacoes",
     "method": "post",
     "specPath": "/v1/transporte/operacoes",

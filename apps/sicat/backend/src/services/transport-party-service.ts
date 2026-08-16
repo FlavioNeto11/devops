@@ -35,8 +35,16 @@ import {
 import {
   getVehicleById,
   insertVehicleLink,
+  listVehicleLinkPeriodsForParties,
   listVehicleLinksByParty
 } from '../repositories/transport-vehicle-repo.js';
+import {
+  buildTypologyWarning,
+  countActiveFleet,
+  deriveCarrierTypology,
+  type CarrierTypology,
+  type FleetLinkLike
+} from '../lib/transport/carrier-typology.js';
 import {
   validatePartyDocument,
   validatePartyRoles,
@@ -123,7 +131,36 @@ type PartyResource = {
   roles: PartyRole[];
   createdAt: string;
   updatedAt: string;
+  /** Presentes só nas CONSULTAS (GET) — derivados da frota ativa, ver `withDerivedTypology`. */
+  fleetSize?: number;
+  derivedTypology?: CarrierTypology;
+  typologyWarning?: string | null;
 };
+
+/**
+ * Tipologia DERIVADA do transportador (PR I1, REQ-SICAT-0033): `fleetSize` = vínculos de veículo
+ * owned+leased vigentes HOJE; `derivedTypology` = driver_pf|tac|etc (`carrier-typology.ts`);
+ * `typologyWarning` = divergência declarado×derivado como AVISO no payload — nunca erro (sem
+ * regra TR neste ciclo). Só nas leituras GET: computar também nas respostas de escrita custaria
+ * uma query extra por POST/PATCH sem consumidor — quem acabou de escrever relê pelo GET.
+ */
+function withDerivedTypology(resource: PartyResource, links: readonly FleetLinkLike[]): PartyResource {
+  const fleetSize = countActiveFleet(links);
+  const derivedTypology = deriveCarrierTypology({
+    partyKind: resource.documentType === 'CPF' ? 'PF' : 'PJ',
+    fleetSize
+  });
+  return {
+    ...resource,
+    fleetSize,
+    derivedTypology,
+    typologyWarning: buildTypologyWarning({
+      declaredCategory: resource.rntrcCategory,
+      derivedTypology,
+      fleetSize
+    })
+  };
+}
 
 function toPartyResource(party: TransportParty, roles: PartyRole[]): PartyResource {
   return {
@@ -241,9 +278,16 @@ export async function listTransportPartiesService(query: LooseRecord): Promise<{
   };
 
   const { items, total, page, pageSize } = await listParties(integrationAccountId, filters);
-  const rolesByParty = await listPartyRolesForParties(items.map((item) => item.id));
+  const partyIds = items.map((item) => item.id);
+  const rolesByParty = await listPartyRolesForParties(partyIds);
+  const linksByParty = await listVehicleLinkPeriodsForParties(partyIds);
   return {
-    items: items.map((party) => toPartyResource(party, rolesByParty.get(party.id) ?? [])),
+    items: items.map((party) =>
+      withDerivedTypology(
+        toPartyResource(party, rolesByParty.get(party.id) ?? []),
+        linksByParty.get(party.id) ?? []
+      )
+    ),
     total,
     page,
     pageSize
@@ -256,7 +300,8 @@ export async function getTransportPartyService(partyId: string, query: LooseReco
   const party = await getPartyById(partyId, integrationAccountId);
   if (!party) throw partyNotFound(partyId);
   const roles = await listPartyRoles(partyId);
-  return toPartyResource(party, roles);
+  const links = await listVehicleLinksByParty(partyId);
+  return withDerivedTypology(toPartyResource(party, roles), links);
 }
 
 /** PATCH /v1/transporte/transportadores/{partyId} */
