@@ -9676,6 +9676,260 @@ paths:
       - in: query
         name: windowDays
         schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+  /v1/transporte/seguros/averbacoes:
+    get:
+      operationId: transporteSegurosAverbacoesList
+      summary: Averbações da conta por período (extrato)
+      description: 'Extrato paginado de `insurance_shipment_declarations` da conta, com recorte
+        opcional por período (`from`/`to`, inclusivos, sobre `created_at`), apólice e status — o
+        insumo da apuração mensal (PR-I4: Σ prêmios × mínimo) e da tela de Averbações do módulo.'
+      tags:
+      - Transporte - Averbacoes
+      responses:
+        '200':
+          description: Averbações da conta no período
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteSegurosAverbacoesListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+      - in: query
+        name: from
+        schema: { type: string, format: date }
+      - in: query
+        name: to
+        schema: { type: string, format: date }
+      - in: query
+        name: policyId
+        schema: { type: string }
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum: [declaring, declared, declare_unconfirmed, rectifying, rectify_unconfirmed, cancelling, cancel_unconfirmed, cancelled, rejected]
+      - in: query
+        name: page
+        schema: { type: integer, minimum: 1, default: 1 }
+      - in: query
+        name: pageSize
+        schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  /v1/transporte/operacoes/{operationId}/averbacoes:
+    post:
+      operationId: transporteOperacaoAverbar
+      summary: Averbar a operação nas apólices vigentes aplicáveis (assíncrono)
+      description: |-
+        Exige `transport_operations.status` de `contracted` em diante (`409
+        TRANSPORTE_AVERBACAO_OPERATION_NOT_READY`) e TODA a carga com valor declarado (`409
+        TRANSPORTE_AVERBACAO_CARGO_VALUE_MISSING`). Resolve as apólices VIGENTES aplicáveis do
+        transportador (RCTR-C/RC-DC; RC-V quando há veículo vinculado) e a TAXA aplicável de cada
+        uma (vigência + percurso — `409 TRANSPORTE_AVERBACAO_RATE_NOT_FOUND` sem taxa; nunca um
+        default silencioso), CONGELA o valor da carga e o prêmio NO ATO (centavos half-up — caso
+        de ouro: R$ 25.000,00 × 0,097% = R$ 24,25) e cria UMA `insurance_shipment_declarations`
+        (`declaring`, marcador DL-102 já gravado) por apólice + UM job
+        `transporte.averbacao.declare` por declaração. No máximo UMA averbação viva por
+        operação×apólice (`409 TRANSPORTE_AVERBACAO_ALREADY_LIVE`). `501
+        AVERBACAO_GATEWAY_DISABLED` com `AVERBACAO_GATEWAY_MODE=off`.
+      tags:
+      - Transporte - Averbacoes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteOperacaoAverbarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '202':
+          description: Declarações criadas e enfileiradas (uma por apólice vigente aplicável)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteOperacaoAverbarAccepted'
+              example:
+                operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                correlationId: corr_7c8aaad9d8c8c5b5c5d96b4b2f9e8f55
+                referenceDate: '2026-08-15'
+                declaredCargoAmount: 25000
+                declarations:
+                - id: insdecl_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  version: 1
+                  operationId: trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  policyId: inspol_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  rateScheduleId: insrate_1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+                  declaredCargoAmount: 25000
+                  appliedRatePercent: 0.097
+                  premiumAmount: 24.25
+                  routeScope: SP-MG
+                  providerDeclarationRef: null
+                  status: declaring
+                  lastErrorCode: null
+                  createdAt: '2026-08-15T12:30:00Z'
+                  updatedAt: '2026-08-15T12:30:00Z'
+                  policyType: RCTR_C
+                  policyNumber: RCTRC-2026-000123
+                  jobId: job_01JQW5M7Z6F6Y9N2P3Q4R5S6T8
+                links:
+                  entity: /v1/transporte/operacoes/trop_1a2b3c4d5e6f7a8b9c0d1e2f3a4b/averbacoes
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '501':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: transporteOperacaoAverbacoesList
+      summary: Averbações da operação (histórico + eventos)
+      description: 'Devolve TODAS as declarações de averbação da operação (inclusive
+        `cancelled`/`rejected` — o histórico terminal fica), cada uma com sua trilha de eventos
+        append-only (`insurance_declaration_events`).'
+      tags:
+      - Transporte - Averbacoes
+      responses:
+        '200':
+          description: Declarações da operação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporteAverbacaoListResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: operationId
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: '#/components/parameters/TransporteIntegrationAccountId'
+  /v1/transporte/averbacoes/{declarationId}/retificar:
+    post:
+      operationId: transporteAverbacaoRetificar
+      summary: Retificar a averbação (assíncrono)
+      description: |-
+        Exige a declaração em `declared` (`409 TRANSPORTE_AVERBACAO_MUTATION_NOT_ALLOWED` fora
+        disso). Re-CONGELA o valor da carga ATUAL da operação com a MESMA taxa aplicada na
+        averbação original (retificar corrige o VALOR declarado, nunca renegocia a taxa),
+        recalcula o prêmio e ENFILEIRA `transporte.averbacao.rectify`. Sucesso volta a
+        `declared` — o evento append-only `rectified` registra o fato.
+      tags:
+      - Transporte - Averbacoes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteAverbacaoRetificarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+      responses:
+        '202':
+          description: Retificação enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '501':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: declarationId
+        in: path
+        required: true
+        schema: { type: string }
+  /v1/transporte/averbacoes/{declarationId}/cancelar:
+    post:
+      operationId: transporteAverbacaoCancelar
+      summary: Cancelar a averbação (assíncrono)
+      description: |-
+        Exige a declaração em `declared` (`409 TRANSPORTE_AVERBACAO_MUTATION_NOT_ALLOWED` fora
+        disso). ENFILEIRA `transporte.averbacao.cancel`; `cancelled` é terminal e LIBERA a chave
+        viva operação×apólice para uma nova averbação. **NÃO cancela a operação de transporte** —
+        para isso use `POST /v1/transporte/operacoes/{operationId}/cancelar` (ciclo distinto).
+      tags:
+      - Transporte - Averbacoes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporteAverbacaoCancelarRequest'
+            example:
+              integrationAccountId: acc_exemplo_prod
+              reason: Embarque renegociado — nova averbação será feita.
+      responses:
+        '202':
+          description: Cancelamento enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '501':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: Sessão SICAT ausente, inválida ou expirada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedProblem'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: declarationId
+        in: path
+        required: true
+        schema: { type: string }
   /v1/transporte/operacoes/{operationId}/emissoes:
     post:
       operationId: transporteOperacaoEmissaoSolicitar
@@ -18237,6 +18491,153 @@ components:
         total: { type: integer }
         windowDays: { type: integer }
         referenceDate: { type: string, format: date }
+    TransporteAverbacaoResource:
+      type: object
+      required:
+      - id
+      - version
+      - operationId
+      - policyId
+      - rateScheduleId
+      - declaredCargoAmount
+      - appliedRatePercent
+      - premiumAmount
+      - routeScope
+      - providerDeclarationRef
+      - status
+      - lastErrorCode
+      - createdAt
+      - updatedAt
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        operationId: { type: string }
+        policyId: { type: string }
+        rateScheduleId: { type: string }
+        declaredCargoAmount:
+          type: number
+          description: Valor da carga CONGELADO no ato da averbação/retificação (reais) — nunca
+            derivado da carga atual da operação (a divergência posterior é o warn
+            SHIPMENT_DECLARATION_STALE de TR-SEG-005).
+        appliedRatePercent:
+          type: number
+          description: 'Taxa PERCENTUAL literal congelada da taxa aplicável (0,097% → 0.097).'
+        premiumAmount:
+          type: number
+          description: 'Prêmio calculado no ato, centavos half-up (caso de ouro: R$ 25.000,00 ×
+            0,097% = R$ 24,25).'
+        routeScope: { type: [string, 'null'] }
+        providerDeclarationRef:
+          type: [string, 'null']
+          description: Nasce NA RESPOSTA da seguradora (DL-102) — null até a confirmação.
+        status:
+          type: string
+          enum: [declaring, declared, declare_unconfirmed, rectifying, rectify_unconfirmed, cancelling, cancel_unconfirmed, cancelled, rejected]
+        lastErrorCode: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TransporteAverbacaoEventResource:
+      type: object
+      required:
+      - id
+      - eventType
+      - payload
+      - createdAt
+      properties:
+        id: { type: string }
+        eventType:
+          type: string
+          enum: [declare_requested, declared, declare_unconfirmed, rectify_requested, rectified, cancel_requested, cancelled, rejected, reconciled]
+        payload: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    TransporteOperacaoAverbarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+    TransporteOperacaoAverbarAccepted:
+      type: object
+      required:
+      - operationId
+      - correlationId
+      - referenceDate
+      - declaredCargoAmount
+      - declarations
+      - links
+      properties:
+        operationId: { type: string }
+        correlationId: { type: string }
+        referenceDate: { type: string, format: date }
+        declaredCargoAmount: { type: number }
+        declarations:
+          type: array
+          description: UMA declaração por apólice vigente aplicável, cada uma com seu job próprio.
+          items:
+            allOf:
+            - $ref: '#/components/schemas/TransporteAverbacaoResource'
+            - type: object
+              required:
+              - policyType
+              - policyNumber
+              - jobId
+              properties:
+                policyType: { type: string, enum: [RCTR_C, RC_DC, RC_V] }
+                policyNumber: { type: string }
+                jobId: { type: string }
+        links:
+          type: object
+          properties:
+            entity: { type: string }
+    TransporteAverbacaoListResponse:
+      type: object
+      required:
+      - items
+      - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/TransporteAverbacaoResource'
+            - type: object
+              required:
+              - events
+              properties:
+                events:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TransporteAverbacaoEventResource'
+        totalItems: { type: integer }
+    TransporteAverbacaoRetificarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+        reason: { type: string, maxLength: 500 }
+    TransporteAverbacaoCancelarRequest:
+      type: object
+      required:
+      - integrationAccountId
+      properties:
+        integrationAccountId: { type: string }
+        reason: { type: string, maxLength: 500 }
+    TransporteSegurosAverbacoesListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporteAverbacaoResource'
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
     TransporteEmissaoSolicitarRequest:
       type: object
       required:

@@ -71,7 +71,7 @@ describe('rule-catalog-invariants — meta-guarda 1: ACTIVE+blocking=true exige 
 // ===================================================================================================
 
 describe('rule-catalog-invariants — meta-guarda 2: evaluator XOR pendência para TODO ruleCode', () => {
-  it('RULE_EVALUATORS ∪ RULES_WITHOUT_EVALUATOR_YET = RULE_CODES = codes do seed (27, sem sobreposição, sem órfão)', () => {
+  it('RULE_EVALUATORS ∪ RULES_WITHOUT_EVALUATOR_YET = RULE_CODES = codes do seed (28, sem sobreposição, sem órfão)', () => {
     const seedCodes = seed.rules.map((rule) => rule.code);
     const withEvaluator = new Set(Object.keys(RULE_EVALUATORS));
     const withoutEvaluator = new Set(Object.keys(RULES_WITHOUT_EVALUATOR_YET));
@@ -79,9 +79,10 @@ describe('rule-catalog-invariants — meta-guarda 2: evaluator XOR pendência pa
     const overlap = [...withEvaluator].filter((code) => withoutEvaluator.has(code));
     assert.deepEqual(overlap, [], `code(s) registrado(s) nos DOIS lugares ao mesmo tempo: ${overlap.join(', ')}`);
 
-    // 26 da baseline (PR-A1) + TR-SEG-004 (limite de garantia por viagem — PR-I2, REQ-SICAT-0028 rev.2).
+    // 26 da baseline (PR-A1) + TR-SEG-004 (limite de garantia por viagem — PR-I2, REQ-SICAT-0028
+    // rev.2) + TR-SEG-005 (averbação registrada antes do trânsito — PR-I3, REQ-SICAT-0034).
     const union = new Set([...withEvaluator, ...withoutEvaluator]);
-    assert.equal(union.size, 27, `a união deveria cobrir exatamente 27 codes, cobre ${union.size}`);
+    assert.equal(union.size, 28, `a união deveria cobrir exatamente 28 codes, cobre ${union.size}`);
 
     for (const code of RULE_CODES) {
       assert.ok(union.has(code), `${code} (RULE_CODES) não está em RULE_EVALUATORS nem em RULES_WITHOUT_EVALUATOR_YET`);

@@ -77,6 +77,12 @@ import {
   runDfeIssuanceCancelJob,
   runDfeIssuanceReconcileJob
 } from '../services/transport-dfe-issuance-service.js';
+import {
+  runAverbacaoDeclareJob,
+  runAverbacaoRectifyJob,
+  runAverbacaoCancelJob,
+  runAverbacaoReconcileJob
+} from '../services/transport-averbacao-service.js';
 import { runRegulatoryWatchCheckJob } from '../services/transport-regulatory-watch-service.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -1205,6 +1211,61 @@ async function handleTransporteDfeIssueReconcile(job: JobEntity) {
 export { applyTransporteDfeIssuanceTerminalFailureSideEffect } from '../services/transport-dfe-issuance-service.js';
 
 /**
+ * Ciclo da averbação eletrônica (PR-I3) — 4 handlers, SEM parâmetro `gateway` (mesmo molde de
+ * `handleTransporteCiotRegister`): o corpo de cada um vive em `transport-averbacao-service.ts`
+ * (`runAverbacao*Job`); aqui só a costura com a fila — `{ outcome, ...patch }` → `finishJob`.
+ * A recusa da seguradora NÃO passa por aqui (é OUTCOME do gateway, aplicada no próprio job);
+ * resposta perdida (DL-102) propaga e é interpretada pelo side-effect terminal
+ * `applyTransporteAverbacaoTerminalFailureSideEffect` (re-exportado abaixo, chamado pelos DOIS
+ * pontos de `workers/job-runner.ts`). Averbação NÃO tem side-effect de manifest/transição — quem
+ * cobra averbação antes do trânsito é TR-SEG-005 no GATE_PRE_BOARDING.
+ */
+async function handleTransporteAverbacaoDeclare(job: JobEntity) {
+  const result = await runAverbacaoDeclareJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteAverbacaoRectify(job: JobEntity) {
+  const result = await runAverbacaoRectifyJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteAverbacaoCancel(job: JobEntity) {
+  const result = await runAverbacaoCancelJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+async function handleTransporteAverbacaoReconcile(job: JobEntity) {
+  const result = await runAverbacaoReconcileJob({
+    jobId: job.jobId,
+    entityId: job.entityId,
+    correlationId: job.correlationId ?? null,
+    payload: job.payload
+  });
+  await finishJob(job, { outcome: result.outcome, ...result.patch });
+}
+
+// Re-exportado (não redefinido) — mesmo racional dos demais `applyTransporte*TerminalFailureSideEffect`:
+// a implementação mora em `transport-averbacao-service.ts` porque depende profundamente de
+// `repositories/insurance-declaration-repo.ts`, já importado lá.
+export { applyTransporteAverbacaoTerminalFailureSideEffect } from '../services/transport-averbacao-service.js';
+
+/**
  * Regulatory Watch (PR-H1) — varredura das fontes normativas monitoradas. SEM parâmetro `gateway`,
  * mesmo molde de `handleTransporteRntrcVerify`: o corpo vive em
  * `transport-regulatory-watch-service.ts` (`runRegulatoryWatchCheckJob`). SEM side-effect terminal:
@@ -1435,6 +1496,15 @@ export async function processJob(job: JobEntity, gateway: {
       return handleTransporteDfeIssueCancel(job);
     case 'transporte.dfe.issue.reconcile':
       return handleTransporteDfeIssueReconcile(job);
+    // Averbação eletrônica (PR-I3) — SEM o parâmetro `gateway`, mesmo molde do CIOT/VPO/DF-e.
+    case 'transporte.averbacao.declare':
+      return handleTransporteAverbacaoDeclare(job);
+    case 'transporte.averbacao.rectify':
+      return handleTransporteAverbacaoRectify(job);
+    case 'transporte.averbacao.cancel':
+      return handleTransporteAverbacaoCancel(job);
+    case 'transporte.averbacao.reconcile':
+      return handleTransporteAverbacaoReconcile(job);
     // Regulatory Watch (PR-H1) — SEM o parâmetro `gateway`, mesmo molde do CIOT/VPO/DF-e.
     case 'transporte.regulatory.watch_check':
       return handleTransporteRegulatoryWatchCheck(job);

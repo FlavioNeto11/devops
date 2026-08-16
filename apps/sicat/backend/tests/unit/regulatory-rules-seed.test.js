@@ -56,11 +56,12 @@ function versionInsertBindings(sql) {
 describe('regulatory-rules-seed — estrutura declarativa', () => {
   const seed = buildRegulatoryCatalogSeed();
 
-  it('tem exatamente as 27 regras TR-*, únicas e na ordem de RULE_CODES', () => {
-    // 26 da baseline (PR-A1) + TR-SEG-004 (limite de garantia por viagem — PR-I2, REQ-SICAT-0028 rev.2).
+  it('tem exatamente as 28 regras TR-*, únicas e na ordem de RULE_CODES', () => {
+    // 26 da baseline (PR-A1) + TR-SEG-004 (limite de garantia por viagem — PR-I2, REQ-SICAT-0028
+    // rev.2) + TR-SEG-005 (averbação registrada antes do trânsito — PR-I3, REQ-SICAT-0034).
     const codes = seed.rules.map((rule) => rule.code);
-    assert.equal(codes.length, 27);
-    assert.equal(new Set(codes).size, 27, 'há code duplicado no seed');
+    assert.equal(codes.length, 28);
+    assert.equal(new Set(codes).size, 28, 'há code duplicado no seed');
     assert.deepEqual(codes, [...RULE_CODES]);
   });
 
@@ -82,7 +83,7 @@ describe('regulatory-rules-seed — estrutura declarativa', () => {
     assert.equal(v2026.severity, 'critical');
   });
 
-  it('as demais 26 regras têm exatamente 1 versão (v2026-08-baseline)', () => {
+  it('as demais 27 regras têm exatamente 1 versão (v2026-08-baseline)', () => {
     for (const rule of seed.rules) {
       if (rule.code === 'TR-CIOT-001') continue;
       assert.equal(rule.versions.length, 1, `${rule.code} deveria ter 1 versão`);
@@ -107,7 +108,7 @@ describe('regulatory-rules-seed — estrutura declarativa', () => {
 describe('regulatory-rules-seed — SQL gerado', () => {
   const statements = buildRegulatoryCatalogSeedStatements();
 
-  it('gera 15 fontes + 27 regras + 28 versões, todas insert com on conflict, nenhum delete', () => {
+  it('gera 15 fontes + 28 regras + 29 versões, todas insert com on conflict, nenhum delete', () => {
     const sources = statements.filter((statement) => statement.name.startsWith('source:'));
     const rules = statements.filter((statement) => statement.name.startsWith('rule:'));
     const versions = statements.filter((statement) => statement.name.startsWith('rule-version:'));
@@ -115,8 +116,8 @@ describe('regulatory-rules-seed — SQL gerado', () => {
     // 13 da baseline (PR-A1) + Res. ANTT 6.076/2026 + Res. ANTT 6.084/2026 (PR-B1, metodologia +
     // tabelas do piso mínimo efetivamente calculado).
     assert.equal(sources.length, 15);
-    assert.equal(rules.length, 27, '26 da baseline + TR-SEG-004 (PR-I2)');
-    assert.equal(versions.length, 28, '27 baselines + a segunda versão de TR-CIOT-001');
+    assert.equal(rules.length, 28, '26 da baseline + TR-SEG-004 (PR-I2) + TR-SEG-005 (PR-I3)');
+    assert.equal(versions.length, 29, '28 baselines + a segunda versão de TR-CIOT-001');
     assert.equal(statements.length, sources.length + rules.length + versions.length);
 
     for (const statement of statements) {

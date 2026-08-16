@@ -114,6 +114,13 @@ import {
   requestDfeIssuance
 } from '../services/transport-dfe-issuance-service.js';
 import {
+  averbarOperacaoService,
+  cancelarAverbacaoService,
+  listAverbacoesForOperationService,
+  listSegurosAverbacoesService,
+  retificarAverbacaoService
+} from '../services/transport-averbacao-service.js';
+import {
   applyRegulatoryWatchItemService,
   getRegulatoryWatchItemService,
   listRegulatoryWatchItemsService,
@@ -728,6 +735,62 @@ export function registerTransporteRoutes(router: express.Router): void {
   // Alertas de vencimento para o Centro Operacional/frontend — rota fixa, não sob /transportadores.
   router.get('/v1/transporte/seguros/vencimentos', sicatAuthMiddleware, asyncHandler(async (req, res) => {
     const response = await listInsuranceExpirationAlertsService((req.query || {}) as LooseRecord);
+    res.json(response);
+  }));
+
+  // ===========================================================================================
+  // Averbação eletrônica por viagem (PR-I3, REQ-SICAT-0034, DL-102) — gateway abstraído
+  // (AVERBACAO_GATEWAY_MODE off|sandbox; off recusa com 501 AVERBACAO_GATEWAY_DISABLED).
+  // ===========================================================================================
+
+  // ASSÍNCRONO (202) — cria UMA declaração por apólice vigente aplicável (marcador DL-102 já
+  // gravado, prêmio calculado NO ATO) + enfileira transporte.averbacao.declare por declaração.
+  router.post('/v1/transporte/operacoes/:operationId/averbacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await averbarOperacaoService(
+      String(req.params.operationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Declarações da operação (histórico completo, cada uma com sua trilha de eventos append-only).
+  router.get('/v1/transporte/operacoes/:operationId/averbacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listAverbacoesForOperationService(
+      String(req.params.operationId || ''),
+      (req.query || {}) as LooseRecord
+    );
+    res.json(response);
+  }));
+
+  // ASSÍNCRONO (202) — re-congela o valor da carga ATUAL com a MESMA taxa e enfileira
+  // transporte.averbacao.rectify. Rota FIXA sob /averbacoes (molde /v1/transporte/emissoes/{id}/cancelar).
+  router.post('/v1/transporte/averbacoes/:declarationId/retificar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await retificarAverbacaoService(
+      String(req.params.declarationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // ASSÍNCRONO (202) — anula a averbação na seguradora (transporte.averbacao.cancel). Cancelar a
+  // averbação NÃO cancela a operação de transporte — ciclos distintos (mesmo racional do CIOT).
+  router.post('/v1/transporte/averbacoes/:declarationId/cancelar', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await cancelarAverbacaoService(
+      String(req.params.declarationId || ''),
+      (req.body || {}) as LooseRecord,
+      toHeaderMap(req.headers || {}),
+      getOperationCommandContext(req)
+    );
+    res.status(202).json(response);
+  }));
+
+  // Extrato por conta/período — insumo da apuração mensal (PR-I4) e da tela de Averbações.
+  router.get('/v1/transporte/seguros/averbacoes', sicatAuthMiddleware, asyncHandler(async (req, res) => {
+    const response = await listSegurosAverbacoesService((req.query || {}) as LooseRecord);
     res.json(response);
   }));
 

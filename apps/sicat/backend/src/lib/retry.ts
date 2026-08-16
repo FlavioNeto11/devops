@@ -116,7 +116,16 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
   // Verificação de seguros (PR-F2): hoje só é lançado em contexto HTTP síncrono (sem job type),
   // mas registrado DEFENSIVAMENTE na mesma classe dos demais *_NOT_CONFIGURED — se um dia entrar
   // numa fila, retentar não resolve configuração ausente ([EXTERNAL DEPENDENCY] P8).
-  'INSURANCE_PROVIDER_NOT_CONFIGURED'
+  'INSURANCE_PROVIDER_NOT_CONFIGURED',
+  // Averbação eletrônica (PR-I3): `AVERBACAO_GATEWAY_MODE=off` — o gateway recusa criar a
+  // instância; retentar não resolve, é decisão do operador ligar o sandbox (mesma classe de
+  // `DFE_ISSUANCE_DISABLED`). O side-effect terminal lê este código para marcar `rejected` um
+  // declare que NUNCA dispatchou (nada a reconciliar).
+  'AVERBACAO_GATEWAY_DISABLED',
+  // Mesma classe de `TRANSPORTE_CIOT_ALREADY_TERMINAL`, para os job types da averbação: a linha já
+  // não está no status esperado para a transição — resultado provavelmente já aplicado por uma
+  // tentativa anterior que não chegou a `finishJob`.
+  'TRANSPORTE_AVERBACAO_ALREADY_TERMINAL'
 ]);
 
 // Exceção DOCUMENTADA à precedência de `NON_RETRYABLE_ERROR_CODES` sobre o status HTTP
@@ -166,6 +175,10 @@ type RetryableOperation =
   | 'transporte.dfe.issue'
   | 'transporte.dfe.issue.cancel'
   | 'transporte.dfe.issue.reconcile'
+  | 'transporte.averbacao.declare'
+  | 'transporte.averbacao.rectify'
+  | 'transporte.averbacao.cancel'
+  | 'transporte.averbacao.reconcile'
   | 'transporte.regulatory.watch_check';
 
 type JobLike = {
@@ -455,6 +468,14 @@ export function calculateJobPriority(operation: string): number {
     'transporte.dfe.issue': 4,
     'transporte.dfe.issue.cancel': 4,
     'transporte.dfe.issue.reconcile': 3,
+    // Averbação eletrônica via gateway abstraído (PR-I3, sandbox — sem averbadora contratada).
+    // Mesmo nível do CIOT/VPO/DF-e (4): acima de housekeeping, abaixo das operações CETESB
+    // críticas — outro "provedor", não disputa fila com o MTR. `reconcile` ABAIXO das mutações
+    // (rede de segurança, não o caminho do usuário esperando — mesmo racional do CIOT).
+    'transporte.averbacao.declare': 4,
+    'transporte.averbacao.rectify': 4,
+    'transporte.averbacao.cancel': 4,
+    'transporte.averbacao.reconcile': 3,
     // Varredura do Regulatory Watch (PR-H1) — housekeeping de fundo, mesmo nível de `catalog.sync`
     // (3): nenhum operador está esperando na tela por este job (a leitura humana só acontece depois,
     // em `human_review`), e nenhuma operação CETESB/CIOT/VPO/DF-e pode ser preemptada por ele.
@@ -716,6 +737,38 @@ export function getRetryConfig(operation: string): RetryConfig {
     // 5 tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
     // INFRAESTRUTURA em torno desse polling, mesmo racional de `transporte.ciot.reconcile`.
     'transporte.dfe.issue.reconcile': {
+      maxAttempts: 3,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 60000
+    },
+    // Ciclo da averbação eletrônica via gateway abstraído (PR-I3, sandbox — sem averbadora
+    // contratada). Mesmo orçamento do CIOT/VPO/DF-e: 4 tentativas, exponencial 5s→120s. A recusa
+    // da seguradora NÃO passa por aqui (é OUTCOME do gateway, aplicado no próprio job) — só a
+    // resposta PERDIDA (`AVERBACAO_LOST_RESPONSE_TEST`, 504) percorre este backoff antes de o
+    // terminal declarar `*_unconfirmed`.
+    'transporte.averbacao.declare': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.averbacao.rectify': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    'transporte.averbacao.cancel': {
+      maxAttempts: 4,
+      strategy: 'exponential',
+      baseDelayMs: 5000,
+      maxDelayMs: 120000
+    },
+    // Reconciliador (DL-102): já faz polling PRÓPRIO contra o provedor (`averbacao-reconciler.ts`,
+    // 5 tentativas com sleep entre elas) — o orçamento de RETRY DA FILA aqui cobre só falha de
+    // INFRAESTRUTURA em torno desse polling, mesmo racional de `transporte.ciot.reconcile`.
+    'transporte.averbacao.reconcile': {
       maxAttempts: 3,
       strategy: 'exponential',
       baseDelayMs: 5000,

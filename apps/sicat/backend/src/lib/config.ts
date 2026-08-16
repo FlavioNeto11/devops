@@ -124,6 +124,7 @@ type ConfigKey =
   | 'vpoProviderMode'
   | 'insuranceProviderMode'
   | 'dfeIssuanceMode'
+  | 'averbacaoGatewayMode'
   | 'regulatoryWatchMode'
   | 'regulatoryWatchGatewayTimeoutMs'
   | 'regulatoryWatchUserAgent';
@@ -250,6 +251,25 @@ function resolveDfeIssuanceMode(): DfeIssuanceMode {
   const raw = String(process.env.DFE_ISSUANCE_MODE || 'off').trim().toLowerCase();
   if (raw === 'off' || raw === 'sandbox') return raw;
   throw new Error(`DFE_ISSUANCE_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
+}
+
+export type AverbacaoGatewayMode = 'off' | 'sandbox';
+
+/**
+ * Modo do gateway de averbação eletrônica (PR-I3, REQ-SICAT-0034). `off` (DEFAULT — nunca omitir em
+ * produção) recusa TODA chamada com `AVERBACAO_GATEWAY_DISABLED` (501) e o próprio
+ * `averbarOperacaoService` nem chega a criar `insurance_shipment_declarations` — não existe
+ * seguradora/averbadora integrada ([EXTERNAL DEPENDENCY], mesmo racional da pendência P8 dos
+ * seguros). `sandbox` liga o gateway determinístico e stateful em memória
+ * (`gateways/averbacao-gateway.ts`, molde `ciot-provider-gateway.ts`) — suficiente para o ciclo
+ * completo declarar→retificar→cancelar→reconciliar sem provedor real. Nenhum valor `real` é aceito
+ * aqui: integração real fica para quando o operador contratar a averbadora — pedir isso no boot
+ * lança, mesmo molde de `resolveDfeIssuanceMode`.
+ */
+function resolveAverbacaoGatewayMode(): AverbacaoGatewayMode {
+  const raw = String(process.env.AVERBACAO_GATEWAY_MODE || 'off').trim().toLowerCase();
+  if (raw === 'off' || raw === 'sandbox') return raw;
+  throw new Error(`AVERBACAO_GATEWAY_MODE inválido: ${raw}. Valores aceitos: off, sandbox.`);
 }
 
 export type RegulatoryWatchMode = 'off' | 'live';
@@ -560,6 +580,13 @@ export const config = {
    * `gateways/dfe-issuance-gateway.ts`. */
   get dfeIssuanceMode(): DfeIssuanceMode {
     return getConfigValue<DfeIssuanceMode>('dfeIssuanceMode', resolveDfeIssuanceMode());
+  },
+
+  /* ── Gateway de averbação eletrônica (PR-I3) ──────────────────────────────────────────────────
+   * `off` é o ÚNICO default seguro (mesma postura de `dfeIssuanceMode`) — nenhuma seguradora/
+   * averbadora integrada. Ver `gateways/averbacao-gateway.ts`. */
+  get averbacaoGatewayMode(): AverbacaoGatewayMode {
+    return getConfigValue<AverbacaoGatewayMode>('averbacaoGatewayMode', resolveAverbacaoGatewayMode());
   },
 
   /* ── Regulatory Watch (PR-H1) ─────────────────────────────────────────────────────────────────

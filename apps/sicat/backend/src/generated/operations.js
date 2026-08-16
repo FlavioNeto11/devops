@@ -1566,6 +1566,51 @@ export const operations = [
     "successStatus": 200
   },
   {
+    "key": "get_v1_transporte_seguros_averbacoes",
+    "method": "get",
+    "specPath": "/v1/transporte/seguros/averbacoes",
+    "expressPath": "/v1/transporte/seguros/averbacoes",
+    "summary": "Averbações da conta por período (extrato)",
+    "tag": "Transporte - Averbacoes",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_operacoes_operationId_averbacoes",
+    "method": "post",
+    "specPath": "/v1/transporte/operacoes/{operationId}/averbacoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/averbacoes",
+    "summary": "Averbar a operação nas apólices vigentes aplicáveis (assíncrono)",
+    "tag": "Transporte - Averbacoes",
+    "successStatus": 202
+  },
+  {
+    "key": "get_v1_transporte_operacoes_operationId_averbacoes",
+    "method": "get",
+    "specPath": "/v1/transporte/operacoes/{operationId}/averbacoes",
+    "expressPath": "/v1/transporte/operacoes/:operationId/averbacoes",
+    "summary": "Averbações da operação (histórico + eventos)",
+    "tag": "Transporte - Averbacoes",
+    "successStatus": 200
+  },
+  {
+    "key": "post_v1_transporte_averbacoes_declarationId_retificar",
+    "method": "post",
+    "specPath": "/v1/transporte/averbacoes/{declarationId}/retificar",
+    "expressPath": "/v1/transporte/averbacoes/:declarationId/retificar",
+    "summary": "Retificar a averbação (assíncrono)",
+    "tag": "Transporte - Averbacoes",
+    "successStatus": 202
+  },
+  {
+    "key": "post_v1_transporte_averbacoes_declarationId_cancelar",
+    "method": "post",
+    "specPath": "/v1/transporte/averbacoes/{declarationId}/cancelar",
+    "expressPath": "/v1/transporte/averbacoes/:declarationId/cancelar",
+    "summary": "Cancelar a averbação (assíncrono)",
+    "tag": "Transporte - Averbacoes",
+    "successStatus": 202
+  },
+  {
     "key": "post_v1_transporte_operacoes_operationId_emissoes",
     "method": "post",
     "specPath": "/v1/transporte/operacoes/{operationId}/emissoes",

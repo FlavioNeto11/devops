@@ -93,6 +93,9 @@ spec:
             # RNTRC por dados abertos da ANTT (portal publico; job sob demanda, nao periodico).
             - name: RNTRC_GATEWAY_MODE
               value: "open_data"
+            # Averbacao eletronica em sandbox deterministico (PR-I3; autocontido, sem averbadora real).
+            - name: AVERBACAO_GATEWAY_MODE
+              value: "sandbox"
             # Reconcilia drift que vivia SO no cluster (selfHeal podia reverter a qualquer rollout).
             - name: OPENAI_REASONING_EFFORT_ROUTING
               value: "low"
@@ -298,6 +301,9 @@ spec:
               value: "live"
             - name: RNTRC_GATEWAY_MODE
               value: "open_data"
+            # Averbacao eletronica (PR-I3) — o worker roda os jobs transporte.averbacao.*.
+            - name: AVERBACAO_GATEWAY_MODE
+              value: "sandbox"
             # ── Canal WhatsApp (cadeia whatsapp-channel-sicat) ────────────────
             # Credenciais vêm do Secret `sicat-whatsapp`, criado FORA do git
             # (mesmo padrão do sicat-langfuse abaixo). `optional: true`: sem o
@@ -469,6 +475,9 @@ spec:
               value: "live"
             - name: RNTRC_GATEWAY_MODE
               value: "open_data"
+            # Averbacao eletronica (PR-I3) — paridade; a raia channel nao roda transporte.*.
+            - name: AVERBACAO_GATEWAY_MODE
+              value: "sandbox"
             - name: WHATSAPP_PROVIDER
               value: "twilio"
             - name: WHATSAPP_ACTIONS_ENABLED
