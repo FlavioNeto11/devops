@@ -545,6 +545,35 @@ const DRIVER_CNH_LABELS = Object.freeze({
   unknown: 'Sem validade informada'
 });
 
+// Pesquisa cadastral de GR (onda F9, REQ-SICAT-0036/0037). O contrato tem DUAS
+// dimensões — `status` (o ciclo do despacho: requesting → completed, com
+// `request_unconfirmed` no padrão DL-102 e `failed`) e `outcome` (o VEREDITO:
+// approved/rejected/inconclusive, só existente quando concluída). O que o
+// operador precisa ler numa linha é UM estado, então o helper puro
+// `resolveGrScreeningBadge` (transporteUiHelpers.js) achata os dois: veredito
+// quando há, ciclo quando ainda não há. Por isso o domínio mistura as chaves.
+// `completed` sem veredito é estado real (provedor respondeu sem conclusão) e
+// entra explicitamente para não cair no humanizado em inglês.
+const GR_SCREENING_TONES = Object.freeze({
+  approved: 'success',
+  rejected: 'error',
+  inconclusive: 'warning',
+  requesting: 'running',
+  request_unconfirmed: 'running',
+  completed: 'neutral',
+  failed: 'error'
+});
+
+const GR_SCREENING_LABELS = Object.freeze({
+  approved: 'Aprovado',
+  rejected: 'Reprovado',
+  inconclusive: 'Inconclusivo',
+  requesting: 'Pesquisando',
+  request_unconfirmed: 'Pesquisa sem confirmação',
+  completed: 'Concluída',
+  failed: 'Falhou'
+});
+
 // TransporteWatchItemResource.status — trilha do Regulatory Watch
 // (DETECTED → ... → ACTIVE_APPLIED), PR-H1/PR-H2.
 const WATCH_ITEM_TONES = Object.freeze({
@@ -628,6 +657,7 @@ const DOMAIN_TONES = Object.freeze({
   'piso-tabela-review': PISO_TABELA_REVIEW_TONES,
   'dfe-issuance': DFE_ISSUANCE_TONES,
   'driver-cnh': DRIVER_CNH_TONES,
+  'gr-screening': GR_SCREENING_TONES,
   'watch-item': WATCH_ITEM_TONES
 });
 
@@ -652,6 +682,7 @@ const DOMAIN_LABELS = Object.freeze({
   'piso-tabela-review': PISO_TABELA_REVIEW_LABELS,
   'dfe-issuance': DFE_ISSUANCE_LABELS,
   'driver-cnh': DRIVER_CNH_LABELS,
+  'gr-screening': GR_SCREENING_LABELS,
   'watch-item': WATCH_ITEM_LABELS
 });
 
@@ -770,6 +801,8 @@ export {
   DFE_ISSUANCE_LABELS,
   DRIVER_CNH_TONES,
   DRIVER_CNH_LABELS,
+  GR_SCREENING_TONES,
+  GR_SCREENING_LABELS,
   WATCH_ITEM_TONES,
   WATCH_ITEM_LABELS
 };

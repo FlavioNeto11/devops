@@ -30,6 +30,8 @@ const TRANSPORTE_ROUTE_NAMES = [
   'TransporteSegurosApolices',
   'TransporteSegurosAverbacoes',
   'TransporteSegurosApuracao',
+  'TransporteGr',
+  'TransporteHabilitacao',
   'TransporteRegras',
   'TransporteWatchList',
   'TransporteWatchDetalhe',

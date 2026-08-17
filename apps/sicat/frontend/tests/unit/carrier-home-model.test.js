@@ -99,6 +99,19 @@ test('o alerta de apólice aponta para a visão consolidada de Seguros (onda F7)
   assert.equal(items[0].to, '/transporte/seguros/apolices');
 });
 
+test('a onda F9 re-aponta habilitação e RNTRC desatualizado para /transporte/habilitacao', () => {
+  // A tela de habilitação passou a existir: é ela que diz o que falta para
+  // operar E oferece o "Verificar agora". A LISTA de transportadores só mostra
+  // o problema — mandar o operador para lá deixava o aviso sem ação.
+  const [habilitacao] = buildCarrierChecklist({});
+  assert.equal(habilitacao.key, 'habilitacao');
+  assert.equal(habilitacao.to, '/transporte/habilitacao');
+
+  const { items } = buildCarrierAttention({ rntrc: { staleCarriers: 2 } });
+  assert.equal(items[0].key, 'rntrc-stale');
+  assert.equal(items[0].to, '/transporte/habilitacao');
+});
+
 test('contagens de operações somam o mapa por status e separam abertas de terminais', () => {
   const overview = { operationsByStatus: { draft: 2, in_transit: 1, completed: 5, cancelled: 1 } };
   assert.equal(countOperations(overview), 9);

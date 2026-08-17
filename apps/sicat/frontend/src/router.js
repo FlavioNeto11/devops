@@ -55,6 +55,8 @@ import TransporteMotoristaDetailView from './views/transporte/TransporteMotorist
 import TransporteSegurosApolicesView from './views/transporte/TransporteSegurosApolicesView.vue';
 import TransporteSegurosAverbacoesView from './views/transporte/TransporteSegurosAverbacoesView.vue';
 import TransporteSegurosApuracaoView from './views/transporte/TransporteSegurosApuracaoView.vue';
+import TransporteGrView from './views/transporte/TransporteGrView.vue';
+import TransporteHabilitacaoView from './views/transporte/TransporteHabilitacaoView.vue';
 import TransporteWatchListView from './views/transporte/TransporteWatchListView.vue';
 import TransporteWatchDetailView from './views/transporte/TransporteWatchDetailView.vue';
 import TransportePisoTabelasView from './views/transporte/TransportePisoTabelasView.vue';
@@ -618,6 +620,41 @@ const routes = [
       featureFlag: 'transporte',
       personas: ['carrier'],
       breadcrumb: ['Transporte', 'Apuração mensal']
+    }
+  },
+  {
+    // GR (onda F9, REQ-SICAT-0036/0037): mora sob `/transporte/seguros/*`
+    // porque a exigência de pesquisa cadastral NASCE da apólice de roubo, não
+    // da frota — o operador procura por "seguros" quando a seguradora cobra.
+    // O rastreamento (a outra metade do GR) é por VIAGEM e fica no detalhe da
+    // operação, então não tem rota própria.
+    path: '/transporte/seguros/gr',
+    name: 'TransporteGr',
+    component: TransporteGrView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Gerenciamento de risco']
+    }
+  },
+  {
+    // "Minha habilitação" (onda F9, REQ-SICAT-0037) — tela de LEITURA
+    // consolidada do transportador da conta (RNTRC, tipologia derivada e o que
+    // falta para operar). Não duplica o CRUD do cadastro, que segue em
+    // `/transporte/transportadores/:partyId`.
+    path: '/transporte/habilitacao',
+    name: 'TransporteHabilitacao',
+    component: TransporteHabilitacaoView,
+    meta: {
+      requiresSicatAuth: true,
+      requiresActiveCetesbAccount: true,
+      audience: 'operator',
+      featureFlag: 'transporte',
+      personas: ['carrier'],
+      breadcrumb: ['Transporte', 'Minha habilitação']
     }
   },
   {

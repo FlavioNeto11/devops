@@ -239,6 +239,15 @@ export const NAVIGATION_GROUPS = [
         label: 'Apuração mensal',
         icon: 'mdi-calendar-month-outline',
         description: 'A conta do mês: soma dos prêmios contra o custo mínimo'
+      },
+      {
+        // Onda F9 (REQ-SICAT-0036/0037): entra em SEGUROS, não em Frota — a
+        // pesquisa cadastral é exigência da apólice de roubo, e é lá que o
+        // operador vai procurar quando a seguradora cobrar.
+        to: '/transporte/seguros/gr',
+        label: 'Gerenciamento de risco',
+        icon: 'mdi-shield-search-outline',
+        description: 'Pesquisa cadastral de motoristas e veículos exigida pela apólice'
       }
     ]
   },
@@ -252,6 +261,15 @@ export const NAVIGATION_GROUPS = [
     personas: ['carrier'],
     glossaryKey: 'rntrc',
     items: [
+      {
+        // PRIMEIRO item do grupo (onda F9): é a tela que responde "posso rodar
+        // hoje?" — as demais são consulta de catálogo/normas, olhadas de vez em
+        // quando. Habilitação é o que o transportador abre quando trava.
+        to: '/transporte/habilitacao',
+        label: 'Minha habilitação',
+        icon: 'mdi-shield-account-outline',
+        description: 'RNTRC, tipologia da frota e o que falta para operar'
+      },
       {
         to: '/transporte/regras',
         label: 'Regras regulatórias',

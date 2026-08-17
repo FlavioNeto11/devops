@@ -108,6 +108,13 @@ export {
   closeTransportInsuranceBillingPeriod,
   reopenTransportInsuranceBillingPeriod,
 
+  // GR: pesquisa cadastral + rastreamento (I5, REQ-SICAT-0036 — onda F9).
+  createTransportGrScreening,
+  listTransportGrScreenings,
+  getTransportGrScreeningById,
+  confirmTransportOperationTracking,
+  getTransportOperationTracking,
+
   // Emissão de DF-e sandbox-ready (PR-H2).
   requestTransportOperationDfeIssuance,
   listTransportOperationDfeIssuances,

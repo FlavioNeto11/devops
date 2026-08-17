@@ -20,8 +20,10 @@ export function countOperations(overview) {
  * Checklist "Deixe sua transportadora pronta" — passos DERIVADOS DE DADOS, não
  * de localStorage (o armazenamento local só colapsa o card depois de completo).
  * A onda F7 acrescentou SEGUROS (a visão consolidada de apólices nasceu com
- * ela); o passo de HABILITAÇÃO aponta para a tela própria na F9 — regra do
- * produto: checklist nunca aponta para tela inexistente.
+ * ela); na F9 o passo de HABILITAÇÃO passou a apontar para `/transporte/
+ * habilitacao` — a tela que agora existe e diz o que falta para operar (ela
+ * mesma leva ao cadastro quando não há transportador). Regra do produto:
+ * checklist nunca aponta para tela inexistente.
  *
  * A ordem é a do circuito real do TRC, e seguros vem ANTES de operar de
  * propósito: registrar a viagem sem apólice vigente produz uma operação que
@@ -39,7 +41,7 @@ export function buildCarrierChecklist({
       label: 'Cadastre sua transportadora',
       description: 'Transportador com RNTRC no cadastro — a base da habilitação.',
       done: Number(carriersCount) > 0,
-      to: '/transporte/transportadores'
+      to: '/transporte/habilitacao'
     },
     {
       key: 'frota',
@@ -75,8 +77,10 @@ const ATTENTION_TONE_ORDER = { error: 0, warning: 1, info: 2 };
  * "O que precisa da sua atenção" — mesma semântica do card do dashboard MTR:
  * cada item é ACIONÁVEL (deep-link) e ordenado por severidade, com teto de
  * exibição (o rodapé aponta para a tela de Pendências, que é a visão completa).
- * Os destinos apontam para telas EXISTENTES nesta onda; a F9 re-aponta
- * habilitação para a tela própria quando ela nascer.
+ * Os destinos apontam para telas EXISTENTES nesta onda; na F9 o item de RNTRC
+ * desatualizado passou a levar a `/transporte/habilitacao`, onde o botão
+ * "Verificar agora" resolve o aviso em um clique — antes ele parava na LISTA de
+ * transportadores, que só mostra o problema sem oferecer a ação.
  *
  * `pendingDeclarationsCount` vem de FORA do overview: o Centro Operacional não
  * agrega averbações (o endpoint nasceu na I3, depois do overview), então quem
@@ -168,7 +172,7 @@ export function buildCarrierAttention(overview, { cap = 4, pendingDeclarationsCo
       title: `${rntrcStale} ${rntrcStale === 1 ? 'RNTRC desatualizado' : 'RNTRCs desatualizados'}`,
       description: 'Verificação antiga — confirme se o registro segue regular.',
       actionLabel: 'Verificar',
-      to: '/transporte/transportadores'
+      to: '/transporte/habilitacao'
     });
   }
 

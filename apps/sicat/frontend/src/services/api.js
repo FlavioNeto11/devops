@@ -2058,6 +2058,49 @@ export function reopenTransportInsuranceBillingPeriod(periodId, payload, { idemp
   });
 }
 
+// ---- GR: pesquisa cadastral + rastreamento (I5, REQ-SICAT-0036) --------------
+// A pesquisa cadastral é exigência da APÓLICE DE ROUBO (RC-DC), não da CETESB:
+// sem screening válido de motorista/veículo a seguradora recusa a cobertura
+// (TR-GR-001). O provedor é abstraído por `RISK_SCREENING_MODE` — em `off` a
+// rota recusa com 501 `RISK_SCREENING_DISABLED` (a UI traduz isso em recado, não
+// em erro cru). Por LGPD o resource guarda só VEREDITO e validade, nunca
+// antecedentes — nenhuma tela pode pedir mais do que isso.
+
+export function createTransportGrScreening(payload, { idempotencyKey } = {}) {
+  return request('/v1/transporte/gr/screenings', {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listTransportGrScreenings(params = {}) {
+  return request(`/v1/transporte/gr/screenings${toQueryString(params)}`, { retry: 1, timeoutMs: 20000 });
+}
+
+export function getTransportGrScreeningById(screeningId, params = {}) {
+  return request(
+    `/v1/transporte/gr/screenings/${encodeURIComponent(screeningId)}${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
+/** Confirmar de novo é NO-OP idempotente (uma confirmação ativa por operação). */
+export function confirmTransportOperationTracking(operationId, payload, { idempotencyKey } = {}) {
+  return request(`/v1/transporte/operacoes/${encodeURIComponent(operationId)}/gr/rastreamento`, {
+    method: 'POST',
+    headers: buildTransporteCommandHeaders(idempotencyKey),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getTransportOperationTracking(operationId, params = {}) {
+  return request(
+    `/v1/transporte/operacoes/${encodeURIComponent(operationId)}/gr/rastreamento${toQueryString(params)}`,
+    { retry: 1, timeoutMs: 15000 }
+  );
+}
+
 // ---- Emissão de DF-e (sandbox-ready) -----------------------------------------
 
 export function requestTransportOperationDfeIssuance(operationId, payload, { idempotencyKey } = {}) {
