@@ -656,6 +656,43 @@ const SHELL_SCREEN_CATALOG = {
       { label: 'Apólices', to: '/transporte/seguros/apolices', description: 'Onde o custo mínimo mensal é cadastrado.' }
     ]
   },
+  TransporteGr: {
+    title: 'Gerenciamento de risco',
+    description: 'As pesquisas cadastrais de motorista e veículo exigidas pela apólice de roubo, com veredito e validade.',
+    purpose: 'Manter motoristas e veículos com pesquisa vigente antes do embarque.',
+    fieldHints: [
+      { label: 'Resultado', description: 'Aprovado/Reprovado/Inconclusivo é o VEREDITO do provedor; enquanto ele não chega, a linha mostra o ciclo (pesquisando, sem confirmação).' },
+      { label: 'Válida até', description: 'Pesquisa aprovada mas VENCIDA não cobre a viagem — a regra TR-GR-001 cobra pesquisa vigente na data do embarque.' },
+      { label: 'Rastreamento', description: 'A outra metade do GR é por viagem (TR-GR-002) e fica no detalhe da operação, não nesta tela.' }
+    ],
+    quickActions: [
+      { id: 'transp-gr-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-gr-mot', label: 'Motoristas', kind: 'navigate', to: '/transporte/motoristas', icon: 'mdi-card-account-details-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Apólices', to: '/transporte/seguros/apolices', description: 'A apólice de roubo (RC-DC) é quem faz esta exigência.' },
+      { label: 'Veículos', to: '/transporte/veiculos', description: 'O outro alvo da pesquisa cadastral.' }
+    ]
+  },
+  TransporteHabilitacao: {
+    title: 'Minha habilitação',
+    description: 'A leitura consolidada da sua transportadora: RNTRC (número, categoria, situação e última verificação), tipologia derivada da frota e o que falta para operar.',
+    purpose: 'Responder “posso rodar hoje?” e mostrar onde resolver o que falta.',
+    fieldHints: [
+      { label: 'Verificar agora', description: 'Consulta o Portal de Dados Abertos da ANTT — cache informativo com data de referência própria, nunca certidão de regularidade. A verificação manual (evidência declarada) fica no detalhe do transportador.' },
+      { label: 'Tipologia derivada', description: 'Sai da frota ativa: PF sem frota · TAC até 3 veículos · ETC 4 ou mais (emite CIOT e contrata o seguro). Divergir da categoria declarada gera aviso, não bloqueio.' },
+      { label: 'O que falta para operar', description: 'RNTRC verificado e regular, um veículo, um motorista e apólice vigente — enquanto faltar algum, a viagem trava no pré-embarque.' }
+    ],
+    quickActions: [
+      { id: 'transp-hab-overview', label: 'Explique esta tela', kind: 'local', intent: 'screen_overview', icon: 'mdi-compass-outline' },
+      { id: 'transp-hab-carr', label: 'Transportadores', kind: 'navigate', to: '/transporte/transportadores', icon: 'mdi-account-hard-hat-outline' }
+    ],
+    relatedRoutes: [
+      { label: 'Veículos', to: '/transporte/veiculos', description: 'A frota que define a tipologia TAC × ETC.' },
+      { label: 'Apólices', to: '/transporte/seguros/apolices', description: 'A cobertura que o pré-embarque exige.' },
+      { label: 'Registrar viagem', to: '/transporte/operacoes/nova', description: 'Com a habilitação em dia, o próximo passo é operar.' }
+    ]
+  },
   TransporteRegras: {
     title: 'Regras regulatórias',
     description: 'O catálogo TR-* que o motor de conformidade avalia, com vigências e domínios.',

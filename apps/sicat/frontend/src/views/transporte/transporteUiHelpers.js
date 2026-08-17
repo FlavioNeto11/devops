@@ -944,6 +944,65 @@ export function resolveDriverCnhStatus(cnhValidUntil, referenceDate, warningWind
 }
 
 // ---------------------------------------------------------------------------
+// GR — pesquisa cadastral (onda F9, REQ-SICAT-0036/0037).
+// ---------------------------------------------------------------------------
+
+export const GR_SUBJECT_TYPE_OPTIONS = Object.freeze([
+  { value: 'driver', label: 'Motorista' },
+  { value: 'vehicle', label: 'Veículo' }
+]);
+
+export function grSubjectTypeLabel(subjectType) {
+  const key = String(subjectType || '').trim();
+  return GR_SUBJECT_TYPE_OPTIONS.find((option) => option.value === key)?.label || key || '-';
+}
+
+/**
+ * Achata as DUAS dimensões da pesquisa cadastral num estado só, para o badge do
+ * domínio `gr-screening`: o VEREDITO (`outcome`) manda quando existe — é o que
+ * decide se a seguradora cobre —, e o ciclo (`status`) só aparece enquanto o
+ * veredito não chegou. Ler `status: completed` sem dizer o veredito seria a
+ * pior das leituras: "concluída" numa pesquisa REPROVADA.
+ *
+ * PURO: recebe o resource, devolve `{status, label}` (o label sai do próprio
+ * status-map, fonte única do vocabulário).
+ */
+export function resolveGrScreeningBadge(screening) {
+  const outcome = String(screening?.outcome || '').trim();
+  const status = String(screening?.status || '').trim();
+  const key = outcome || status;
+  return { status: key, label: resolveStatusLabel('gr-screening', key) };
+}
+
+/**
+ * A pesquisa VALE até `validUntil` (a seguradora exige pesquisa VIGENTE, não
+ * "alguma pesquisa já feita" — TR-GR-001). Só conta como válida a aprovada e
+ * dentro do prazo; sem `validUntil` o contrato não promete vigência alguma.
+ *
+ * @param {object} screening resource do contrato
+ * @param {string} [referenceDate] `YYYY-MM-DD` (default: hoje) — PURO nos testes
+ */
+export function isGrScreeningValid(screening, referenceDate) {
+  if (String(screening?.outcome || '').trim() !== 'approved') return false;
+  const target = parseIsoDateOnlyUtc(screening?.validUntil);
+  if (target === null) return false;
+
+  let reference = parseIsoDateOnlyUtc(referenceDate);
+  if (reference === null) {
+    const now = new Date();
+    reference = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  return target >= reference;
+}
+
+/** 501 do contrato quando `RISK_SCREENING_MODE=off` — recado, não erro cru. */
+export const RISK_SCREENING_DISABLED_CODE = 'RISK_SCREENING_DISABLED';
+
+export const RISK_SCREENING_DISABLED_MESSAGE =
+  'A pesquisa cadastral está desligada neste ambiente (nenhum provedor de GR configurado). '
+  + 'As pesquisas já registradas continuam visíveis.';
+
+// ---------------------------------------------------------------------------
 // Regulatory Watch — status/eventos/decisão de revisão.
 // ---------------------------------------------------------------------------
 

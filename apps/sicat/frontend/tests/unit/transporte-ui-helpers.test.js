@@ -32,7 +32,11 @@ import {
   fiscalDocumentTypeLabel,
   fiscalIssueTone,
   fiscalValidationStatusLabel,
+  grSubjectTypeLabel,
+  GR_SUBJECT_TYPE_OPTIONS,
   isDfeIssuanceTerminal,
+  isGrScreeningValid,
+  resolveGrScreeningBadge,
   partyRoleLabel,
   pgrStatusLabel,
   pisoComplianceBadge,
@@ -267,6 +271,43 @@ test('resolveInsuranceExpiryState: vigência DERIVADA (independente do status ad
   // Janela customizada (windowDays da API, default 30) — 30 é o limite INCLUSIVO.
   assert.equal(resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 30 }, 30).state, 'expiring');
   assert.equal(resolveInsuranceExpiryState({ status: 'active', daysToExpiry: 31 }, 30).state, 'valid');
+});
+
+test('GR: o badge achata veredito × ciclo, e o veredito sempre manda', () => {
+  assert.deepEqual(GR_SUBJECT_TYPE_OPTIONS.map((option) => option.value), ['driver', 'vehicle']);
+  assert.equal(grSubjectTypeLabel('vehicle'), 'Veículo');
+  assert.equal(grSubjectTypeLabel(''), '-');
+
+  // O caso que motiva o helper: `status: completed` com veredito REPROVADO —
+  // mostrar "Concluída" aqui esconderia exatamente o que impede a viagem.
+  assert.deepEqual(
+    resolveGrScreeningBadge({ status: 'completed', outcome: 'rejected' }),
+    { status: 'rejected', label: 'Reprovado' }
+  );
+  assert.deepEqual(
+    resolveGrScreeningBadge({ status: 'completed', outcome: 'approved' }),
+    { status: 'approved', label: 'Aprovado' }
+  );
+  // Sem veredito ainda, o ciclo é a informação honesta.
+  assert.deepEqual(
+    resolveGrScreeningBadge({ status: 'request_unconfirmed', outcome: null }),
+    { status: 'request_unconfirmed', label: 'Pesquisa sem confirmação' }
+  );
+  assert.equal(resolveGrScreeningBadge({ status: 'requesting' }).label, 'Pesquisando');
+  assert.equal(resolveGrScreeningBadge({ status: 'failed' }).label, 'Falhou');
+  assert.equal(resolveGrScreeningBadge({ status: 'completed' }).label, 'Concluída');
+});
+
+test('GR: pesquisa vale só se APROVADA e dentro da validade (TR-GR-001)', () => {
+  const referenceDate = '2026-08-16';
+  assert.equal(isGrScreeningValid({ outcome: 'approved', validUntil: '2026-09-30' }, referenceDate), true);
+  // Limite INCLUSIVO: vence hoje, ainda cobre a viagem de hoje.
+  assert.equal(isGrScreeningValid({ outcome: 'approved', validUntil: referenceDate }, referenceDate), true);
+  assert.equal(isGrScreeningValid({ outcome: 'approved', validUntil: '2026-08-15' }, referenceDate), false);
+  // Aprovada sem validade não promete vigência nenhuma — não pode passar por válida.
+  assert.equal(isGrScreeningValid({ outcome: 'approved', validUntil: null }, referenceDate), false);
+  assert.equal(isGrScreeningValid({ outcome: 'inconclusive', validUntil: '2026-12-31' }, referenceDate), false);
+  assert.equal(isGrScreeningValid(null, referenceDate), false);
 });
 
 test('Regulatory Watch: status/evento e as guardas de ação por estado', () => {
