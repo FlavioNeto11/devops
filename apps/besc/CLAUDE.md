@@ -70,7 +70,7 @@ fica só como histórico (cabeçalhos de status em cada doc).
 | Aspecto | Decisão |
 |---|---|
 | Frontend | React 18 + Vite 5 + react-router-dom, nginx (`besc-frontend`), base path `/besc/`, sem strip, priority 10 |
-| API | Node 20 + Express (`besc-api`), rotas na raiz (Traefik faz strip de `/besc/api`), priority 40 |
+| API | Node 20.20.2 fixado (Dockerfile, `.nvmrc`, `engines`) + Express (`besc-api`), rotas na raiz (Traefik faz strip de `/besc/api`), priority 40 |
 | Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** p/ portal + levantamento (cases, library, jurisprudence, glossary) — **+ Postgres `besc-postgres`** (pgvector/pg16, `k8s/postgres.yaml`) p/ identidade/RBAC/auditoria, credenciais no secret **`besc-db` selado**. **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
 | Auth | login local (bootstrap/fallback) + **SSO Keycloak realm dedicado `besc`** (client público `besc-spa`, PKCE S256); sessão própria do app via `@flavioneto11/oidc-kit`; **RBAC 100% em dados** (nunca derivado de claims do token) — ver `docs/evolution/01-rbac-permissoes.md` |
 | Deploy | `apps/besc/k8s` (Argo CD auto-sync) · imagens `:local` no laboratório |
@@ -93,9 +93,20 @@ relatórios §9) vive em `api/src/domain.js` + `api/src/reports.js`. Frontend em
   `reference/content-overlay.js` + `seed/jurisprudence-reassessment.json` (gerado por
   `tools/gen-jurisprudence-assessment.mjs`) + `seed/content-classification.json`.
 - **Testes**: `npm --prefix apps/besc/api test`. Os testes com Postgres usam contêiner Docker
-  descartável (`test-support/pg-docker.mjs`) e pulam sem Docker. **Nunca** rode migrations contra
-  `besc-postgres` do cluster para testar.
+  descartável (`test-support/pg-docker.mjs`, ou `TEST_PG_ADMIN_URL` = um banco novo por arquivo) e
+  pulam sem Docker — **exceto** a suíte anti-Excalibur (`npm --prefix apps/besc/api run test:regression`),
+  que FALHA sem banco. **Nunca** rode migrations nem testes contra `besc-postgres` do cluster.
+- **Paridade de runtime**: `sh apps/besc/tools/test-in-production-runtime.sh` roda a suíte DENTRO da
+  imagem de produção da API (Node 20.20.2) contra `pgvector/pgvector:pg16`.
+- **Papéis do banco**: migrations/seed de RBAC com o usuário do `DATABASE_URL` (MIGRATION_ROLE); a API
+  atende como `besc_app` (`sql/0008`, privilégio mínimo). Variáveis: `BESC_DB_APP_PASSWORD` (senha
+  própria do `besc_app`, no SealedSecret `besc-db`), `BESC_DB_REQUIRE_APP_ROLE=true` (produção: sem a
+  senha a fundação não liga), `BESC_MIGRATE_SEEDED_CASES=migrate` (decisão do operador de migrar os
+  casos do carregador seed-cases; padrão é pular). Não conceda escrita nova ao `besc_app` sem
+  atualizar `RUNTIME_WRITES` em `test/db-privileges.pg.test.mjs`.
+- **Conteúdo**: UNKNOWN ≠ PUBLIC. Só `PUBLIC_SAFE` (via `PUT /…/:id/curation`) aparece sem login.
 - **Auditoria de congelamento**: `node apps/besc/tools/product-freeze-audit.mjs --label <x>` (`docs/pivot/`).
+- **Deploy**: `docs/pivot/02-deployment-runbook.md` (backup, migração, validação, rollback).
 
 ### Marketplace (fases 0–4) — CONGELADO (ADR-010)
 
@@ -103,8 +114,9 @@ Código e tabelas preservados para leitura histórica e rastreabilidade: `market
 emissão, receita, gate, portais), `ledger/` (LedgerPort, simulado, Besu), `sql/0003`–`0005`, telas
 `/gestao/{titulos,financeiro,alugueis,gate}`, `/investidor/*`, `/auditoria/*`, `/marketplace`
 (arquivos com cabeçalho DEPRECATED, **não roteados**; caminhos antigos → `/desativado`). Escritas
-respondem 410; o boot recusa o adaptador Besu. `k8s/besu.yaml` e variáveis `LEDGER_*` ainda estão no
-path do Argo: retirar exige aprovação do operador. Não reative nada disso sem um ADR novo.
+respondem 410; o boot nunca importa o adaptador Besu e ignora `LEDGER_*`/`BESU_*`. O nó Besu saiu do
+deployment ativo (`k8s/deprecated/besu.yaml.archived`, fora do kustomization). Eventos `title.*`,
+`token.*`, `market.*`, `rental.*` não podem mais ser emitidos. Não reative nada disso sem um ADR novo.
 
 ## Rodar / publicar
 

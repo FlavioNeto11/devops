@@ -111,12 +111,12 @@ Revisão pendente: ver §10.
 | máquina jurídica de 7 estados do título | REPURPOSE | Padrão reaproveitado em `entity_transition`; litígio vira `Claim.LITIGATION`. |
 | `go_live_enabled` / gate | REPURPOSE | Capacidades congeladas + `governance_gate` com aprovação quatro-olhos. |
 | `LedgerPort` / `SimulatedLedgerAdapter` | KEEP_INTERNAL | Porta opcional de "system of proof"; nunca fonte da verdade. |
-| `BesuAdapter`, `TitleRegistry.sol`, `k8s/besu.yaml` | DEPRECATE | Recusado no boot; manifesto intocado nesta rodada (Argo exige aprovação). |
+| `BesuAdapter`, `TitleRegistry.sol`, `k8s/besu.yaml` | DEPRECATE | Nenhum módulo de runtime importa o adaptador; `besu.yaml` saiu do kustomization e foi arquivado em `k8s/deprecated/besu.yaml.archived`; `LEDGER_*`/`BESU_*` removidas do deployment e ignoradas no boot (§11). |
 | caso de levantamento (`cases`, store JSON) | MIGRATE | `Claimant` + `Claim` (mesmo id) + `LegacyEvidence` por anexo; demo seed não migra. |
 | `pericia` do caso | MIGRATE | `expert_estimate` com `SOURCE_CLAIM`. |
 | `estimated_value` do caso | MIGRATE | `claimed_value` com `SOURCE_CLAIM`. |
 | RBAC, identidade, `audit_event` | KEEP | Mantidos; auditoria estendida (v2); 13 permissões do marketplace rotuladas "desativado". |
-| papel `investor` | DEPRECATE | Rótulo "desativado"; ainda é o papel dado no primeiro login SSO (auto-provisionamento, pendente de aprovação; ver §10). |
+| papel `investor` | DEPRECATE / NO_CAPABILITIES | Sem permissões (`sql/0009`), ignorado pelo resolver, não pode ser concedido nem convidado; o primeiro login SSO não concede papel algum (§11). |
 
 ### 7.2 Conceitos novos
 
@@ -150,8 +150,27 @@ biblioteca pública, mas continuam armazenados.
 
 ## 10. Revisão pendente
 
-- Trocar o papel `investor` do auto-provisionamento SSO por um papel neutro (decisão de produto do operador).
-- Retirar `k8s/besu.yaml` e variáveis `LEDGER_*` do Argo (exige aprovação do operador).
+- Deploy conforme `docs/pivot/02-deployment-runbook.md` (backup, chave `BESC_DB_APP_PASSWORD` no SealedSecret `besc-db`, decisão sobre casos semeados, prune do Besu).
 - F3 (cadeia de titularidade) e F4 (validação externa) dependem de canais reais com escriturador e depositário.
 - Pesquisa com fonte primária antes de abrir qualquer outra origem (`multi_issuer_research_gate`).
 - Confirmação da autenticidade do documento `lib_0390897258c1` e autorização de terceiros para material restrito (ADR-009).
+
+## 11. Hardening pré-PR (26/09/2026)
+
+| Tema | Decisão implementada | Prova automática |
+|---|---|---|
+| Blockchain fora do produto | `besu.yaml` fora do kustomization (arquivado com extensão não aplicável); nenhuma `LEDGER_*`/`BESU_*` no deployment nem lida no boot; script de deploy do contrato recusa execução. | `infra-no-ledger`; anti-Excalibur 05 e 06 |
+| Runtime do banco | MIGRATION_ROLE (usuário do `DATABASE_URL`, superusuário na imagem oficial) ≠ APPLICATION_ROLE `besc_app` (`sql/0008`): sem TRUNCATE/TRIGGER/REFERENCES, sem DDL, sem dono de tabela, sem escrita em governança, confirmação, direito, ativo ou marketplace. Transição de estado por funções SECURITY DEFINER. Produção exige credencial própria (`BESC_DB_REQUIRE_APP_ROLE=true` + `BESC_DB_APP_PASSWORD`). | `db-privileges.pg`; anti-Excalibur 12 e 13 |
+| Gap conhecido do modo SET ROLE | Sem senha própria, o runtime assume `besc_app` por parâmetro de sessão; a sessão pertence ao papel de migração e um SQL injection poderia fazer `RESET ROLE`. Por isso produção recusa esse modo. | `db-privileges.pg` (modo SET ROLE) |
+| Onboarding | Primeiro login SSO = identidade pendente, sem papel nem capacidade. `investor` = DEPRECATED / NO_CAPABILITIES. | `sso-onboarding.pg`; anti-Excalibur 09 |
+| UNKNOWN ≠ PUBLIC | Conteúdo sem natureza classificada é restrito; só PUBLIC_SAFE é público e nunca com natureza UNKNOWN; publicar material de terceiro, petição ou laudo exige referência de autorização. | `content-publication.pg`; anti-Excalibur 10 |
+| Rótulos de valor | Rótulo jurídico e fonte amarrados ao tipo (`sql/0011`): alegação nunca aparece como "confirmado externamente", "mercado" ou "fato histórico". Nenhuma evidência é "decisão definitiva" em F1/F2. | anti-Excalibur 02, 03, 17, 18 |
+| Fase de validação no banco | `claim → VALIDATION_REQUESTED/INCONCLUSIVE` exige ClaimValidation registrada (`sql/0010`). | `recovery-db.pg` |
+| Eventos legados | `title.*`, `token.*`, `market.*`, `rental.*` só para ler a trilha antiga; emitir é recusado. | `legacy-events` |
+| **NO GOVERNANCE MUTATION API IN F1/F2** | Nenhuma rota altera gate ou capacidade; `besc_app` só lê `governance_gate`; nenhuma migration abre gate. | anti-Excalibur 16 |
+| Casos do carregador seed-cases | Não migram por padrão (`SKIPPED_SEEDED_CASE`, contagem no log); `BESC_MIGRATE_SEEDED_CASES=migrate` é decisão explícita do operador. | `migration-dry-run.pg` |
+| Runtime Node | Node 20.20.2 fixado (Dockerfiles, `.nvmrc`, `engines`); suíte executada dentro da imagem de produção. | `infra-no-ledger` (pin); `tools/test-in-production-runtime.sh` |
+
+A suíte `asset-recovery-regression` (anti-Excalibur, `npm run test:regression`) falha — não pula —
+sem Postgres, salvo `BESC_TEST_ALLOW_NO_PG=1` explícito.
+

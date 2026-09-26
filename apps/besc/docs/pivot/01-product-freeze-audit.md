@@ -95,39 +95,39 @@ Classificações:
 
 O estado "depois" é gerado pelo mesmo script com `--label after` ao fim da rodada.
 
-## Resultado "depois" (ADR-010, commit final da branch)
+## Resultado "depois"
 
-As regras ganharam contexto no commit de conteúdo: comentário de código não é servido; o bloco `THIRD_PARTY_CLAIMS` é citação rotulada; definição com norma citada não afirma mecanismo; tela com cabeçalho DEPRECATED fora do roteamento é produto legado congelado; negações explícitas ("não oferece", "desativado", "provisória") são avisos; em CLAUDE.md, a seção de regras de domínio e a seção do marketplace congelado têm regra própria. Para a comparação ser justa, o estado "antes" foi **refeito com as mesmas regras** sobre o commit-base `61b8cd6` (`product-freeze-audit.before-v2.*`). O arquivo `before` original, com as regras iniciais, é mantido.
+As regras ganharam contexto em duas etapas: no commit de conteúdo (comentário de código não é servido; bloco `THIRD_PARTY_CLAIMS` é citação rotulada; definição com norma citada em conteúdo público é neutra; tela DEPRECATED fora do roteamento é produto legado; negações explícitas são avisos; regiões próprias em CLAUDE.md) e no hardening (definição educacional com norma citada também em UI pública; `content-overlay.js` é lógica de validação, não copy). Para a comparação ser justa, o "antes" foi **refeito com as regras finais** sobre o commit-base `61b8cd6` (`product-freeze-audit.before-v2.*`). O arquivo `before` original, com as regras iniciais, é mantido. A coluna "rodada 1" é o resultado registrado no commit `17e03c84`, com as regras daquele momento.
 
-| Classe | Antes (before-v2) | Depois (after) |
-|---|---:|---:|
-| `DANGEROUS` | 66 | 0 |
-| `MISLEADING` | 76 | 2 |
-| `LEGACY_PRODUCT` | 1310 | 1460 |
-| `LEGAL_CLAIM_REQUIRING_CONTEXT` | 36 | 36 |
-| `HISTORICAL_QUOTE` | 766 | 799 |
-| `SAFE_INFORMATIONAL` | 318 | 513 |
-| **Total** | 2572 | 2810 |
+| Classe | Antes (before-v2) | Depois, rodada 1 | Depois, hardening |
+|---|---:|---:|---:|
+| `DANGEROUS` | 66 | 0 | 0 |
+| `MISLEADING` | 76 | 2 | 0 |
+| `LEGACY_PRODUCT` | 1310 | 1460 | 1507 |
+| `LEGAL_CLAIM_REQUIRING_CONTEXT` | 36 | 36 | 36 |
+| `HISTORICAL_QUOTE` | 766 | 799 | 799 |
+| `SAFE_INFORMATIONAL` | 318 | 513 | 530 |
+| **Total** | 2572 | 2810 | 2872 |
 
 Superfícies públicas e de contexto de agente:
 
-| Superfície · classe | Antes | Depois |
-|---|---:|---:|
-| docs_agent_context · LEGACY_PRODUCT | 0 | 7 |
-| docs_agent_context · MISLEADING | 22 | 0 |
-| docs_agent_context · SAFE_INFORMATIONAL | 1 | 7 |
-| frozen_ui · LEGACY_PRODUCT | 0 | 120 |
-| frozen_ui · SAFE_INFORMATIONAL | 0 | 37 |
-| public_content · DANGEROUS | 12 | 0 |
-| public_content · HISTORICAL_QUOTE | 0 | 33 |
-| public_content · MISLEADING | 23 | 0 |
-| public_content · SAFE_INFORMATIONAL | 11 | 42 |
-| public_ui_offer · DANGEROUS | 48 | 0 |
-| public_ui_offer · SAFE_INFORMATIONAL | 2 | 3 |
-| public_ui · DANGEROUS | 6 | 0 |
-| public_ui · MISLEADING | 31 | 2 |
-| public_ui · SAFE_INFORMATIONAL | 27 | 38 |
+| Superfície · classe | Antes | Depois, rodada 1 | Depois, hardening |
+|---|---:|---:|---:|
+| docs_agent_context · LEGACY_PRODUCT | 0 | 7 | 8 |
+| docs_agent_context · MISLEADING | 22 | 0 | 0 |
+| docs_agent_context · SAFE_INFORMATIONAL | 1 | 7 | 7 |
+| frozen_ui · LEGACY_PRODUCT | 0 | 120 | 120 |
+| frozen_ui · SAFE_INFORMATIONAL | 0 | 37 | 37 |
+| public_content · DANGEROUS | 12 | 0 | 0 |
+| public_content · HISTORICAL_QUOTE | 0 | 33 | 33 |
+| public_content · MISLEADING | 23 | 0 | 0 |
+| public_content · SAFE_INFORMATIONAL | 11 | 42 | 42 |
+| public_ui_offer · DANGEROUS | 48 | 0 | 0 |
+| public_ui_offer · SAFE_INFORMATIONAL | 2 | 3 | 4 |
+| public_ui · DANGEROUS | 6 | 0 | 0 |
+| public_ui · MISLEADING | 31 | 2 | 0 |
+| public_ui · SAFE_INFORMATIONAL | 27 | 38 | 40 |
 
-O total cresce porque o pivô acrescentou código e documentação que citam os termos para proibi-los ou rotulá-los (ADR-010, testes, regras de domínio, avisos). O que importa é a coluna de risco: **nenhuma ocorrência DANGEROUS** e só **2 MISLEADING** residuais, ambas definições neutras no glossário da Ajuda ("Valor mobiliário: título de investimento sujeito à regulação da CVM" e "FIDC: Fundo de Investimento em Direitos Creditórios"), mantidas por serem corretas.
+O total cresce porque o pivô acrescentou código, testes e documentação que citam os termos para proibi-los ou rotulá-los. A coluna de risco é a que importa: **DANGEROUS 0 e MISLEADING 0**. Os dois MISLEADING residuais da rodada 1 eram definições educacionais no glossário da Ajuda ("valor mobiliário" e FIDC). Não foram escondidos por palavra-chave: as definições passaram a citar a norma (Lei 6.385/1976, art. 2º; Resolução CVM 175/2022) e a regra de "definição com base normativa" passou a valer também para UI pública, como já valia para conteúdo público.
 
-Os testes `api/test/content-reclassification.test.mjs` e `api/test/public-copy.test.mjs` travam o resultado: falham se uma frase perigosa voltar ao conteúdo da plataforma ou às páginas roteadas, ou se uma tela congelada voltar a ser importada.
+Os testes `api/test/content-reclassification.test.mjs`, `api/test/public-copy.test.mjs` e `api/test/reports-language.test.mjs` travam o resultado: falham se uma frase perigosa voltar ao conteúdo da plataforma, às páginas roteadas ou aos relatórios, ou se uma tela congelada voltar a ser importada.

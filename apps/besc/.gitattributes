@@ -1,0 +1,6 @@
+# ADR-010: artefatos gerados, versionados como evidência (docs/pivot/03-generated-artifacts.md).
+# linguist-generated só recolhe o arquivo na revisão do GitHub; o conteúdo continua no git e no
+# `git diff` local (não usamos -diff, para não esconder mudança real).
+docs/pivot/product-freeze-audit.*.csv linguist-generated=true
+docs/pivot/product-freeze-audit.*.summary.json linguist-generated=true
+api/seed/jurisprudence-reassessment.json linguist-generated=true
