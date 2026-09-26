@@ -24,9 +24,20 @@ export const EVENT_TYPES = new Set([
   'token.transfer.requested', 'token.transfer.confirmed', 'token.transfer.failed',
   'token.freeze.confirmed', 'token.unfreeze.confirmed',
   'token.substitution.requested', 'token.substitution.confirmed', 'token.substitution.failed',
-  // receita + aluguel (Fase 4)
+  // receita + aluguel (Fase 4) — DEPRECATED (ADR-010): rotas congeladas, mantidos p/ ler a trilha antiga
   'market.fee.charged', 'rental.contract.created', 'rental.payment.recorded',
   'rental.contract.suspended', 'rental.contract.reactivated', 'rental.contract.terminated',
+  // Legacy Asset Recovery (ADR-010) — gravados por appendAuditTx, na MESMA transação da mudança
+  'recovery.claimant.created',
+  'recovery.evidence.received', 'recovery.evidence.classified', 'recovery.evidence.classification.corrected',
+  'recovery.claim.created', 'recovery.claim.evidence_linked',
+  'recovery.transition.recorded',
+  'recovery.confirmation.requested', 'recovery.confirmation.evidence_attached',
+  'recovery.valuation.recorded',
+  'recovery.approval.requested', 'recovery.approval.reviewed', 'recovery.approval.decided',
+  'recovery.gate.changed',
+  'recovery.legacy_case.migrated',
+  'recovery.event.corrected',
 ]);
 
 export async function appendAudit({ actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId, payload = {}, occurredAt = null }) {
@@ -86,6 +97,35 @@ export function legacyAuditMiddleware() {
   };
 }
 
+// Auditoria v2 (sql/0006_audit_v2.sql) DENTRO da transação do domínio: se a trilha falhar, a
+// mudança inteira faz ROLLBACK. Nunca engole erro (diferente do appendAudit best-effort legado).
+// entity_id e payload NUNCA carregam PII (e-mail, CPF, nome): só UUIDs e códigos.
+export async function appendAuditTx(client, {
+  actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId,
+  payload = {}, source, reason = null, evidenceRef = null, correctsEventUid = null, occurredAt = null,
+}) {
+  if (!EVENT_TYPES.has(eventType)) throw new Error(`[audit] event_type fora da taxonomia: ${eventType}`);
+  if (!source) throw new Error('[audit] v2 exige source');
+  const { rows } = await client.query(
+    'SELECT * FROM append_audit_event_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+    [occurredAt, actorUserId, actorRole, hashIp(ip), eventType, entityType, String(entityId), JSON.stringify(payload),
+      source, reason, evidenceRef, correctsEventUid],
+  );
+  return { id: Number(rows[0].event_id), uid: rows[0].event_uid, hash: rows[0].event_hash };
+}
+
+// Verificação da cadeia inteira no banco (precisão de microssegundo, v1 e v2).
+export async function verifyAuditChain(queryFn = query, { fromId = null } = {}) {
+  const { rows } = await queryFn('SELECT * FROM audit_chain_verify($1)', [fromId]);
+  const r = rows[0];
+  return {
+    checked: Number(r.checked),
+    ok: r.first_broken_id === null,
+    firstBrokenId: r.first_broken_id === null ? null : Number(r.first_broken_id),
+    problem: r.problem,
+  };
+}
+
 export async function listAuditEvents({ entityType, entityId, eventType, limit = 100, before = null }) {
   const cond = [];
   const params = [];
@@ -96,7 +136,8 @@ export async function listAuditEvents({ entityType, entityId, eventType, limit =
   if (before) add('id < ?', before);
   params.push(Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500));
   const sql = `SELECT id, event_uid, occurred_at, recorded_at, actor_user_id, actor_role, event_type,
-                      entity_type, entity_id, payload, prev_hash, event_hash
+                      entity_type, entity_id, payload, schema_version, source, reason, evidence_ref, corrects_event_uid,
+                      prev_hash, event_hash
                FROM audit_event ${cond.length ? 'WHERE ' + cond.join(' AND ') : ''}
                ORDER BY id DESC LIMIT $${params.length}`;
   const { rows } = await query(sql, params);
