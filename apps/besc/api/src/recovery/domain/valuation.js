@@ -21,6 +21,22 @@ export const SOURCES = Object.freeze([
   'CORPORATE_DOCUMENT', 'HISTORICAL_QUOTE', 'EXTERNAL_CONFIRMATION', 'MARKET_DATA', 'EXECUTION',
 ]);
 
+// Rótulo jurídico e fonte AMARRADOS ao tipo (hardening ADR-010): um número de alegação não pode
+// carregar o rótulo "confirmado externamente", "observado no mercado" ou "fato histórico" por escolha
+// de quem registra. Espelhado por CHECK em sql/0011_valuation_label_binding.sql.
+export const LEGAL_STATUS_BY_TYPE = Object.freeze({
+  claimed_value: 'SOURCE_CLAIM', expert_estimate: 'SOURCE_CLAIM', historical_value: 'HISTORICAL_FACT',
+  recognized_value: 'EXTERNALLY_CONFIRMED', market_value: 'MARKET_OBSERVED', collateral_value: 'MARKET_OBSERVED',
+  liquidation_value: 'EXECUTED',
+});
+export const SOURCES_BY_TYPE = Object.freeze({
+  claimed_value: ['CLAIMANT', 'PETITION', 'COMMERCIAL_MATERIAL'],
+  expert_estimate: ['PRIVATE_APPRAISAL', 'COURT_EXPERT'],
+  historical_value: ['CORPORATE_DOCUMENT', 'HISTORICAL_QUOTE'],
+  recognized_value: ['EXTERNAL_CONFIRMATION'],
+  market_value: ['MARKET_DATA'], collateral_value: ['MARKET_DATA'], liquidation_value: ['EXECUTION'],
+});
+
 const REQUIRED = ['valueType', 'subjectType', 'subjectId', 'amount', 'currency', 'source', 'methodology', 'author', 'effectiveAt', 'confidence', 'legalStatus'];
 
 // Tipos que só podem existir sobre um RegisteredAsset e com fonte de mercado/execução.
@@ -50,6 +66,13 @@ export function validateValuation(v) {
     if (v.subjectType !== 'registered_asset') fail('VALUE_REQUIRES_REGISTERED_ASSET', `${v.valueType} só existe sobre RegisteredAsset`);
     const okSource = v.valueType === 'liquidation_value' ? 'EXECUTION' : 'MARKET_DATA';
     if (v.source !== okSource) fail('VALUE_SOURCE', `${v.valueType} exige fonte ${okSource}`);
+  }
+  // por último: amarração geral rótulo/fonte (as regras específicas acima explicam melhor o erro)
+  if (v.legalStatus !== LEGAL_STATUS_BY_TYPE[v.valueType]) {
+    fail('VALUATION_LABEL_MISMATCH', `${v.valueType} só pode ter legal_status ${LEGAL_STATUS_BY_TYPE[v.valueType]} (recebido ${v.legalStatus})`);
+  }
+  if (!SOURCES_BY_TYPE[v.valueType].includes(v.source)) {
+    fail('VALUATION_SOURCE_MISMATCH', `${v.valueType} exige fonte em ${SOURCES_BY_TYPE[v.valueType].join('/')} (recebido ${v.source})`);
   }
   return true;
 }

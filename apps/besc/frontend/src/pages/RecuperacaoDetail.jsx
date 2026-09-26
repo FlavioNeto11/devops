@@ -127,10 +127,21 @@ function UploadForm({ claim, onDone }) {
   );
 }
 
+// fonte válida por tipo (espelho de recovery/domain/valuation.js SOURCES_BY_TYPE; a API valida de novo)
+const SOURCES_BY_TYPE = {
+  claimed_value: ['CLAIMANT', 'PETITION', 'COMMERCIAL_MATERIAL'],
+  historical_value: ['CORPORATE_DOCUMENT', 'HISTORICAL_QUOTE'],
+  expert_estimate: ['PRIVATE_APPRAISAL', 'COURT_EXPERT'],
+};
+
 function ValuationForm({ claim, evidence, onDone }) {
   const [f, setF] = useState({ valueType: 'claimed_value', amount: '', source: 'CLAIMANT', methodology: '', confidence: '0.1', evidenceId: '' });
   const [err, setErr] = useState('');
-  const set = (k) => (e) => setF((o) => ({ ...o, [k]: e.target.value }));
+  const set = (k) => (e) => setF((o) => {
+    const next = { ...o, [k]: e.target.value };
+    if (k === 'valueType') next.source = SOURCES_BY_TYPE[next.valueType][0];
+    return next;
+  });
   const submit = async (e) => {
     e.preventDefault(); setErr('');
     try {
@@ -151,7 +162,7 @@ function ValuationForm({ claim, evidence, onDone }) {
         <Field label="Valor (R$)"><input value={f.amount} onChange={set('amount')} required /></Field>
         <Field label="Fonte">
           <select value={f.source} onChange={set('source')}>
-            {['CLAIMANT', 'PRIVATE_APPRAISAL', 'COURT_EXPERT', 'PETITION', 'CORPORATE_DOCUMENT', 'HISTORICAL_QUOTE'].map((k) => <option key={k} value={k}>{k}</option>)}
+            {SOURCES_BY_TYPE[f.valueType].map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
         </Field>
         <Field label="Evidência de origem">

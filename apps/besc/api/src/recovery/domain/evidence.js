@@ -30,6 +30,11 @@ export function validateClassification(input) {
   if (!DOCUMENT_KINDS.includes(input.documentKind)) fail('DOCUMENT_KIND', `tipo de documento desconhecido: ${input.documentKind}`);
   if (!SOURCE_NATURES[input.sourceNature]) fail('SOURCE_NATURE', `natureza de fonte desconhecida: ${input.sourceNature}`);
   // Laudo privado nunca é "documento primário"; decisão sem trânsito verificado nunca é "definitiva".
+  // Trânsito em julgado só se verifica com certidão/consulta oficial (fase F4): em F1/F2 nenhuma
+  // evidência é classificada como decisão definitiva (natureza que poderia virar fato da plataforma).
+  if (input.sourceNature === 'FINAL_COURT_DECISION') {
+    fail('FINALITY_NOT_VERIFIED', 'decisão definitiva exige verificação de trânsito em julgado (fase F4); classifique como NON_FINAL_COURT_DECISION');
+  }
   if (input.documentKind === 'PRIVATE_APPRAISAL' && input.sourceNature !== 'PRIVATE_APPRAISAL') {
     fail('APPRAISAL_NATURE', 'laudo privado tem natureza PRIVATE_APPRAISAL (alegação), não fonte primária');
   }

@@ -272,3 +272,33 @@ test('16 · NO GOVERNANCE MUTATION API IN F1/F2: gates e capacidades só leem, e
   const other = await call('POST', '/recovery/claims', { who: 'a', body: { claimantId: cl.json.id, assetOriginId: 'NOSSA_CAIXA' } });
   assert.equal(other.status, 409, 'gate multi-emissor fechado recusa outra origem');
 });
+
+test('17 · rótulo e fonte do valor amarrados ao tipo: alegação nunca vira "confirmado", "mercado" ou "fato"', { skip }, async () => {
+  const base = { amount: '75000000', currency: 'BRL', methodology: 'tentativa de rotular alegação', confidence: '1' };
+  for (const body of [
+    { valueType: 'historical_value', source: 'CORPORATE_DOCUMENT', legalStatus: 'EXTERNALLY_CONFIRMED', evidenceId: CERT_ID },
+    { valueType: 'historical_value', source: 'HISTORICAL_QUOTE', legalStatus: 'MARKET_OBSERVED', evidenceId: CERT_ID },
+    { valueType: 'claimed_value', source: 'MARKET_DATA', legalStatus: 'SOURCE_CLAIM' },
+    { valueType: 'claimed_value', source: 'EXTERNAL_CONFIRMATION', legalStatus: 'SOURCE_CLAIM' },
+    { valueType: 'expert_estimate', source: 'EXECUTION', legalStatus: 'SOURCE_CLAIM', evidenceId: CERT_ID },
+  ]) {
+    const r = await call('POST', `/recovery/claims/${LEGACY_ID}/valuations`, { who: 'a', body: { ...base, ...body } });
+    assert.ok(r.status >= 400 && r.status < 500, `${JSON.stringify(body)} → ${r.status}`);
+  }
+  await assert.rejects(() => admin.query(`INSERT INTO valuation (value_type, subject_type, subject_id, amount, source, methodology, author, confidence, legal_status, effective_at, evidence_id)
+    VALUES ('historical_value','claim',$1,1,'CORPORATE_DOCUMENT','x','x',1,'EXTERNALLY_CONFIRMED',now(),$2)`, [LEGACY_ID, CERT_ID]), /valuation_label_by_type/);
+  await assert.rejects(() => admin.query(`INSERT INTO valuation (value_type, subject_type, subject_id, amount, source, methodology, author, confidence, legal_status, effective_at)
+    VALUES ('claimed_value','claim',$1,1,'MARKET_DATA','x','x',1,'SOURCE_CLAIM',now())`, [LEGACY_ID]), /valuation_source_by_type/);
+});
+
+test('18 · nenhuma evidência é "decisão definitiva" em F1/F2 (trânsito só se verifica na F4)', { skip }, async () => {
+  const r = await call('POST', `/recovery/evidence/${CERT_ID}/classifications`, { who: 'a', body: { documentKind: 'COURT_DECISION', sourceNature: 'FINAL_COURT_DECISION', originCandidate: 'BESC', reason: 'tentar marcar como transitado' } });
+  assert.ok(r.status >= 400 && r.status < 500, `→ ${r.status}`);
+  await assert.rejects(() => admin.query(`INSERT INTO evidence_classification (evidence_id, document_kind, source_nature) VALUES ($1,'COURT_DECISION','FINAL_COURT_DECISION')`, [CERT_ID]),
+    /classification_no_final_decision_in_f2/);
+  const { SOURCE_NATURES } = await import('../src/recovery/domain/source-claims.js');
+  const { statement } = await import('../src/recovery/domain/source-claims.js');
+  // sem referência de fonte verificável, nem "decisão definitiva" vira fato da plataforma
+  assert.equal(statement({ id: 'x', text: 'y', nature: 'FINAL_COURT_DECISION' }).verification, 'SOURCE_CLAIM');
+  assert.equal(SOURCE_NATURES.NON_FINAL_COURT_DECISION.canBeFact, false);
+});

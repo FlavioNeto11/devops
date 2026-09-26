@@ -189,7 +189,7 @@ test('testes 3/4 (banco): opinião não vira fato; market_value só sobre ativo 
   const claimId = await newClaim(await newClaimant());
   const ev = await newEvidence('LEGACY_EVIDENCE', 'CLAIMANT_UPLOAD');
   await assert.rejects(() => q(`INSERT INTO valuation (value_type, subject_type, subject_id, amount, source, methodology, evidence_id, author, confidence, legal_status, effective_at)
-                                 VALUES ('expert_estimate','claim',$1,793.36,'PRIVATE_APPRAISAL','laudo',$2,'perito',0.9,'EXTERNALLY_CONFIRMED',now())`, [claimId, ev]), /valuation_opinion_is_claim/);
+                                 VALUES ('expert_estimate','claim',$1,793.36,'PRIVATE_APPRAISAL','laudo',$2,'perito',0.9,'EXTERNALLY_CONFIRMED',now())`, [claimId, ev]), /valuation_opinion_is_claim|valuation_label_by_type/);
   const est = (await one(`INSERT INTO valuation (value_type, subject_type, subject_id, amount, source, methodology, evidence_id, author, confidence, legal_status, effective_at)
                           VALUES ('expert_estimate','claim',$1,793.36,'PRIVATE_APPRAISAL','laudo',$2,'perito',0,'SOURCE_CLAIM',now()) RETURNING id`, [claimId, ev])).id;
   await assert.rejects(() => q(`INSERT INTO valuation (value_type, subject_type, subject_id, amount, source, methodology, evidence_id, author, confidence, legal_status, effective_at)
