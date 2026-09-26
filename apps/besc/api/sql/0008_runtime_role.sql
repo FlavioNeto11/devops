@@ -20,9 +20,11 @@
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'besc_app') THEN
+  -- papel é do cluster: bancos migrando em paralelo no mesmo servidor não podem colidir
+  BEGIN
     CREATE ROLE besc_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-  END IF;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
   -- o papel de migração precisa poder assumir besc_app (modo SET ROLE) — superusuário já pode.
   IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
     EXECUTE format('GRANT besc_app TO %I', current_user);
