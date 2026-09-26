@@ -1,3 +1,6 @@
+# DEPRECATED (ADR-010, 26/09/2026): o no Besu saiu do deployment ativo do BESC e a tokenizacao
+# esta desativada. Este script recusa execucao; mantido so para rastreabilidade.
+throw "besu-deploy-contract.ps1 desativado (ADR-010): blockchain fora do produto BESC"
 # Deploy do contrato TitleRegistry no no Besu do BESC (Fase 3) e armacao do BesuAdapter.
 # So rodar APOS o gate regulatorio (docs/evolution/10). Ate la, o besc-api opera em
 # LEDGER_ADAPTER=simulated (off-chain e a fonte da verdade). Idempotente na parte de deploy

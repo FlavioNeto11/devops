@@ -73,12 +73,17 @@ test('gate de go-live legado não liga nada', async () => {
   assert.equal(await portals.goLiveEnabled(), false);
 });
 
-test('boot recusa o BesuAdapter enquanto TOKENIZATION_REAL = false', async () => {
-  const { config } = await import('../src/config.js');
-  Object.assign(config, { ledgerAdapter: 'besu', besuRpcUrl: 'http://127.0.0.1:1', besuPrivateKey: '0x' + '1'.repeat(64), besuContractAddress: '0x' + '2'.repeat(40) });
-  const { bootMarketplace } = await import('../src/marketplace/index.js');
-  const { getLedger } = await import('../src/ledger/port.js');
-  const { SimulatedLedgerAdapter } = await import('../src/ledger/simulated.js');
-  await bootMarketplace();
-  assert.ok(getLedger() instanceof SimulatedLedgerAdapter);
+test('boot ignora LEDGER_*/BESU_* e nunca arma o BesuAdapter', async () => {
+  Object.assign(process.env, { LEDGER_ADAPTER: 'besu', BESU_RPC_URL: 'http://127.0.0.1:1', BESU_PRIVATE_KEY: '0x' + '1'.repeat(64), BESU_CONTRACT_ADDRESS: '0x' + '2'.repeat(40) });
+  try {
+    const { bootMarketplace } = await import('../src/marketplace/index.js');
+    const { getLedger } = await import('../src/ledger/port.js');
+    const { SimulatedLedgerAdapter } = await import('../src/ledger/simulated.js');
+    const out = await bootMarketplace();
+    assert.ok(getLedger() instanceof SimulatedLedgerAdapter);
+    assert.equal(out.adapter, 'simulated');
+    assert.deepEqual(out.ignoredEnv, ['BESU_CONTRACT_ADDRESS', 'BESU_PRIVATE_KEY', 'BESU_RPC_URL', 'LEDGER_ADAPTER']);
+  } finally {
+    for (const k of ['LEDGER_ADAPTER', 'BESU_RPC_URL', 'BESU_PRIVATE_KEY', 'BESU_CONTRACT_ADDRESS']) delete process.env[k];
+  }
 });

@@ -18,13 +18,13 @@ export const config = {
     .split(',').map((s) => s.trim()).filter(Boolean),
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL_SECONDS || '3600', 10),
   refreshTokenTtlDays: parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '30', 10),
-  // ledger (Fase 3): 'simulated' (default) | 'besu'. besu exige BESU_* (chave via Sealed Secret)
-  ledgerAdapter: process.env.LEDGER_ADAPTER || 'simulated',
-  besuRpcUrl: process.env.BESU_RPC_URL || '',
-  besuPrivateKey: process.env.BESU_PRIVATE_KEY || '',
-  besuContractAddress: process.env.BESU_CONTRACT_ADDRESS || '',
-  besuChainId: process.env.BESU_CHAIN_ID || 'besu:dev',
 };
+
+// ADR-010: o boot nao le nenhuma variavel de ledger/blockchain. Se alguma estiver definida no
+// ambiente, ela e IGNORADA e apenas reportada (sinal de manifesto antigo).
+export function legacyLedgerEnv(env = process.env) {
+  return Object.keys(env).filter((k) => /^(LEDGER_|BESU_)/.test(k)).sort();
+}
 
 export function foundationEnabled() {
   return !!(config.databaseUrl && config.sessionSecret);

@@ -1,3 +1,6 @@
+# ARQUIVADO (ADR-010, 26/09/2026): NAO APLICAR. O no Besu saiu do deployment ativo do BESC.
+# Blockchain e opcional e a tokenizacao esta desativada; este manifesto fica so para
+# rastreabilidade. A extensao .archived impede o kustomize/Argo de aplica-lo.
 # Hyperledger Besu — no permissionado de TESTE (Fase 3, docs/evolution/05).
 # DESLIGADO por padrao no besc-api (LEDGER_ADAPTER=simulated): o off-chain e a fonte
 # da verdade; a chain so entra em uso apos o gate regulatorio. Este no roda dev-mode

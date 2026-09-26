@@ -4,8 +4,7 @@ import { query } from '../db.js';
 import { authorize } from '../foundation/rbac.js';
 import { setLedgerAdapter } from '../ledger/port.js';
 import { SimulatedLedgerAdapter } from '../ledger/simulated.js';
-import { config } from '../config.js';
-import { isCapabilityEnabled } from '../governance/capabilities.js';
+import { legacyLedgerEnv } from '../config.js';
 import { LEGAL_STATUSES, TRANSITIONS } from './states.js';
 import {
   createTitle, listTitles, getTitle, addValuation, createParameter, activateParameter,
@@ -17,23 +16,13 @@ import { markInvoicePaid, createLease, closeCompetence, addCost, trialBalance, r
 import { gateStatus, setGateItem, grantGoLive, revokeGoLive } from './gate.js';
 
 export async function bootMarketplace() {
-  // Toggle simulado<->besu (docs/evolution/05). Default simulado: o off-chain e a fonte
-  // da verdade e a chain so entra apos o gate regulatorio. besu exige BESU_* no ambiente.
-  // ADR-010: enquanto TOKENIZATION_REAL = false, o BesuAdapter é recusado mesmo com BESU_* configurado.
-  if (config.ledgerAdapter === 'besu' && !isCapabilityEnabled('TOKENIZATION_REAL')) {
-    console.warn('[ledger] LEDGER_ADAPTER=besu recusado: TOKENIZATION_REAL=false (ADR-010) — adaptador simulado, somente leitura histórica');
-  } else if (config.ledgerAdapter === 'besu' && config.besuRpcUrl && config.besuPrivateKey && config.besuContractAddress) {
-    try {
-      const { BesuAdapter } = await import('../ledger/besu.js');
-      const adapter = new BesuAdapter({ rpcUrl: config.besuRpcUrl, privateKey: config.besuPrivateKey, contractAddress: config.besuContractAddress, chainId: config.besuChainId });
-      const h = await adapter.health();
-      if (h.ok) { setLedgerAdapter(adapter); console.log(`[ledger] BesuAdapter ativo (${config.besuChainId}, bloco ${h.blockHeight})`); return; }
-      console.error('[ledger] Besu indisponível — caindo para o adaptador simulado:', h.error);
-    } catch (e) {
-      console.error('[ledger] falha ao iniciar BesuAdapter — usando simulado:', e.message);
-    }
-  }
+  // ADR-010: nenhum no blockchain e necessario nem aceito. O BesuAdapter nao e importado em
+  // runtime (ledger/besu.js ficou so para rastreabilidade); o adaptador simulado serve apenas a
+  // leitura historica das tabelas congeladas. Variaveis LEDGER_*/BESU_* sao ignoradas.
+  const ignored = legacyLedgerEnv();
+  if (ignored.length) console.warn(`[ledger] variaveis ignoradas (ADR-010, ledger fora do produto): ${ignored.join(', ')}`);
   setLedgerAdapter(new SimulatedLedgerAdapter((text, params) => query(text, params)));
+  return { adapter: 'simulated', ignoredEnv: ignored };
 }
 
 const actorOf = (req) => ({ userId: req.auth.user.id, role: req.auth.roles[0], ip: req.ip });
