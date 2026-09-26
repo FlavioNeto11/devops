@@ -6,6 +6,7 @@ import { query, tx } from '../db.js';
 import { appendAudit } from '../foundation/audit.js';
 import { getLedger } from '../ledger/port.js';
 import { chargeFirstTransferFee } from './revenue.js';
+import { capabilityRefusal } from '../governance/capabilities.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
 const docHash = (o) => createHash('sha256').update(JSON.stringify(o || {})).digest('hex');
@@ -40,6 +41,7 @@ async function treasuryAvailable(client, titleId) {
 // Emissao de lote — exige parametro ATIVO; respeita a invariante de supply
 // ---------------------------------------------------------------------------
 export async function issueBatch(titleId, { quantity }, actor) {
+  { const frozen = capabilityRefusal('TOKENIZATION_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const qty = parseInt(quantity, 10);
   if (!(qty > 0)) return { status: 400, body: { error: 'quantity deve ser > 0' } };
   const ledger = getLedger();
@@ -86,6 +88,7 @@ export async function issueBatch(titleId, { quantity }, actor) {
 // Contratacao (compra/caucao/lastro) — TRAVA o valor de face
 // ---------------------------------------------------------------------------
 export async function contractTokens(titleId, { quantity, purpose = 'purchase', holderUserId }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL', 'REAL_INVESTMENT'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const qty = parseInt(quantity, 10);
   if (!(qty > 0)) return { status: 400, body: { error: 'quantity deve ser > 0' } };
   const holder = holderUserId || actor.userId;
@@ -147,6 +150,7 @@ export async function contractTokens(titleId, { quantity, purpose = 'purchase', 
 // Resolucao de contrato quando o titulo cai (defeated): substituicao OU write-off
 // ---------------------------------------------------------------------------
 export async function substituteContract(oldContractId, { toTitleId }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const ledger = getLedger();
   const out = await tx(async (client) => {
     const oc = await client.query(`SELECT * FROM token_contract WHERE id = $1 FOR UPDATE`, [oldContractId]);
@@ -204,6 +208,7 @@ export async function substituteContract(oldContractId, { toTitleId }, actor) {
 }
 
 export async function writeOffContract(oldContractId, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const out = await tx(async (client) => {
     const oc = await client.query(`SELECT * FROM token_contract WHERE id = $1 FOR UPDATE`, [oldContractId]);
     if (!oc.rows.length) return { status: 404, body: { error: 'contrato não encontrado' } };

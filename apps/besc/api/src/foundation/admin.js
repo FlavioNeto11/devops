@@ -3,7 +3,7 @@
 // GET /meta/permissions) — tudo auditado, com guardas anti-lockout.
 import { query, tx } from '../db.js';
 import { appendAudit } from './audit.js';
-import { authorize, bumpRbacVersion, invalidateRbacCache, PERMISSION_CATALOG } from './rbac.js';
+import { authorize, bumpRbacVersion, invalidateRbacCache, PERMISSION_CATALOG, DEPRECATED_ROLES } from './rbac.js';
 
 const audit = (req, eventType, entityId, payload) => appendAudit({
   actorUserId: req.auth.user.id, actorRole: req.auth.roles[0], ip: req.ip,
@@ -99,6 +99,7 @@ export function installAdminRoutes(app) {
   app.post('/admin/users/:id/roles', authorize('rbac:manage'), async (req, res) => {
     const { roleKey } = req.body || {};
     if (!roleKey) return res.status(400).json({ error: 'roleKey é obrigatório' });
+    if (DEPRECATED_ROLES.has(roleKey)) return res.status(409).json({ error: 'papel depreciado (ADR-010): não pode ser concedido', code: 'ROLE_DEPRECATED' });
     // anti-auto-elevação: só admin concede papel a si mesmo
     if (req.params.id === req.auth.user.id && !req.auth.roles.includes('admin')) {
       return res.status(403).json({ error: 'conceder papel a si mesmo exige admin' });

@@ -8,6 +8,11 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || '',
   autoMigrate: (process.env.AUTO_MIGRATE || 'true') !== 'false',
+  // Papel de runtime (sql/0008): senha própria do besc_app; com REQUIRE, o boot recusa rodar sem ela.
+  dbAppPassword: process.env.BESC_DB_APP_PASSWORD || '',
+  // Casos criados pelo carregador seed-cases (marca "[caso-fonte:"): 'skip' (padrão) | 'migrate'.
+  migrateSeededCases: process.env.BESC_MIGRATE_SEEDED_CASES === 'migrate' ? 'migrate' : 'skip',
+  requireAppRole: (process.env.BESC_DB_REQUIRE_APP_ROLE || 'false') === 'true',
   bootstrapEmail: process.env.BESC_BOOTSTRAP_EMAIL || '',
   bootstrapPassword: process.env.BESC_BOOTSTRAP_PASSWORD || '',
   // Keycloak realm dedicado `besc` (client publico PKCE, sem secret — padrao SICAT)
@@ -18,13 +23,13 @@ export const config = {
     .split(',').map((s) => s.trim()).filter(Boolean),
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL_SECONDS || '3600', 10),
   refreshTokenTtlDays: parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '30', 10),
-  // ledger (Fase 3): 'simulated' (default) | 'besu'. besu exige BESU_* (chave via Sealed Secret)
-  ledgerAdapter: process.env.LEDGER_ADAPTER || 'simulated',
-  besuRpcUrl: process.env.BESU_RPC_URL || '',
-  besuPrivateKey: process.env.BESU_PRIVATE_KEY || '',
-  besuContractAddress: process.env.BESU_CONTRACT_ADDRESS || '',
-  besuChainId: process.env.BESU_CHAIN_ID || 'besu:dev',
 };
+
+// ADR-010: o boot nao le nenhuma variavel de ledger/blockchain. Se alguma estiver definida no
+// ambiente, ela e IGNORADA e apenas reportada (sinal de manifesto antigo).
+export function legacyLedgerEnv(env = process.env) {
+  return Object.keys(env).filter((k) => /^(LEDGER_|BESU_)/.test(k)).sort();
+}
 
 export function foundationEnabled() {
   return !!(config.databaseUrl && config.sessionSecret);

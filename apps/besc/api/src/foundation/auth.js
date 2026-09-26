@@ -1,7 +1,9 @@
 // Autenticacao (Fase 0): login local (bootstrap/fallback) + SSO Keycloak realm
 // dedicado `besc` (client publico PKCE; backend valida o access_token no /userinfo
 // e emite a sessao PROPRIA do app — padrao SICAT via @flavioneto11/oidc-kit).
-// Auto-provisionamento restrito: 1o login SSO desconhecido vira `investor` e NADA
+// Auto-provisionamento restrito (ADR-010): 1o login SSO desconhecido cria SÓ a identidade, pendente
+// de aprovação e SEM papel — nenhuma capacidade até o gestor aprovar e atribuir um papel. Nunca `investor`
+// (papel do marketplace congelado). Antes: 1o login SSO desconhecido virava `investor` e NADA
 // mais; papeis qualificados so por convite/concessao do Gestor (auditado).
 import { randomUUID, createHash } from 'node:crypto';
 import {
@@ -11,7 +13,7 @@ import {
 import { config } from '../config.js';
 import { query, tx, isDbReady } from '../db.js';
 import { appendAudit } from './audit.js';
-import { authorize, resolveUser, publicUser, invalidateRbacCache, bumpRbacVersion } from './rbac.js';
+import { authorize, resolveUser, publicUser, invalidateRbacCache, bumpRbacVersion, DEPRECATED_ROLES } from './rbac.js';
 
 const now = () => new Date();
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
@@ -150,19 +152,18 @@ export function installAuthRoutes(app) {
         if (!byEmail.rows[0].is_active) return res.status(403).json({ error: 'conta desativada' });
         await query('UPDATE users SET keycloak_sub = $2, updated_at = now() WHERE id = $1', [userId, claims.sub]);
       } else {
-        // auto-provisionamento RESTRITO: nasce investor pendente de aprovação, nada mais
+        // auto-provisionamento RESTRITO: identidade pendente de aprovação, sem papel nem capacidade
         const ins = await query(
           `INSERT INTO users (email, name, keycloak_sub, approval_status) VALUES ($1,$2,$3,'pending_approval') RETURNING id`,
           [profile.email, profile.name || profile.email, claims.sub],
         );
         userId = ins.rows[0].id;
-        await grantRole(userId, 'investor');
         created = true;
       }
     }
     const pair = await issuePair(userId, req.get('user-agent'));
     const entry = await resolveUser(userId);
-    await appendAudit({ actorUserId: userId, actorRole: entry.roles[0] || 'investor', ip: req.ip, eventType: 'auth.sso.succeeded', entityType: 'user', entityId: userId, payload: { created } });
+    await appendAudit({ actorUserId: userId, actorRole: entry.roles[0] || 'pending', ip: req.ip, eventType: 'auth.sso.succeeded', entityType: 'user', entityId: userId, payload: { created } });
     res.json({ ...pair, user: publicUser(entry) });
   });
 
@@ -211,6 +212,7 @@ export function installAuthRoutes(app) {
     const { email, roleKey } = req.body || {};
     if (!email || !roleKey) return res.status(400).json({ error: 'email e roleKey são obrigatórios' });
     if (roleKey === 'admin') return res.status(403).json({ error: 'convite para admin não é permitido' });
+    if (DEPRECATED_ROLES.has(roleKey)) return res.status(409).json({ error: 'papel depreciado (ADR-010): não pode ser convidado', code: 'ROLE_DEPRECATED' });
     const { rows: roleRows } = await query('SELECT id FROM roles WHERE key = $1', [roleKey]);
     if (!roleRows.length) return res.status(404).json({ error: 'papel não encontrado' });
     const token = randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '');

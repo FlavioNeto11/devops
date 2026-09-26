@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): SUPERSEDED** — fração de ação e perícia como preço não têm base (ação indivisível; laudo é alegação). Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 03 — Elasticidade da tokenização
 

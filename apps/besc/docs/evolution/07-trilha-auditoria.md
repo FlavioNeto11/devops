@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): PARTIALLY_CURRENT** — hash-chain válida; ampliada pela auditoria v2 (fonte, correção por evento, verificador SQL). Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 07 — Trilha de auditoria imutável e exportável
 

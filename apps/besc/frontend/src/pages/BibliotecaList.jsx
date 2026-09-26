@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../auth.jsx';
+import { PublicationBadge } from '../curation.jsx';
 import { useMeta, useLabel, useEnum, SkeletonList, Banner, formatBytes, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const KIND_ICON = { fundamento: 'shield', historia: 'clock', base_legal: 'scale', modelo: 'file', atualizacao_monetaria: 'report', laudo: 'report', video: 'video', outro: 'file' };
 
 export default function BibliotecaList() {
+  const { hasPerm } = useAuth();
+  const canCurate = hasPerm('content:write');
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
@@ -60,7 +64,13 @@ export default function BibliotecaList() {
         </div>
       )}
 
-      {items && filtered.length === 0 && <div className="card"><div className="empty"><h3>Nada encontrado</h3><p className="muted">Ajuste a busca ou o filtro de tipo.</p></div></div>}
+      {items && items.length === 0 && (
+        <div className="card"><div className="empty">
+          <h3>Nenhum documento público no momento</h3>
+          <p className="muted">Documentos de terceiros, petições, laudos e itens de natureza ainda não confirmada ficam restritos à curadoria até serem classificados como públicos. A linha do tempo com fontes está em <Link to="/referencia">Referência</Link>.</p>
+        </div></div>
+      )}
+      {items && items.length > 0 && filtered.length === 0 && <div className="card"><div className="empty"><h3>Nada encontrado</h3><p className="muted">Ajuste a busca ou o filtro de tipo.</p></div></div>}
 
       {Object.keys(kinds).filter((k) => grouped[k]).map((k) => (
         <div key={k} style={{ marginBottom: 22 }}>
@@ -71,6 +81,7 @@ export default function BibliotecaList() {
                 <div className="card-body">
                   <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
                     <span className="chip chip-accent"><Icon name={KIND_ICON[k] || 'file'} size={12} /> {label('library_kind', it.kind)}</span>
+                    {canCurate && <PublicationBadge publication={it.publication} />}
                     {it.fileRef && <span className="small muted">{it.fileRef.mime && it.fileRef.mime.startsWith('video') ? 'vídeo' : (it.fileRef.ext || '').replace('.', '').toUpperCase()} · {formatBytes(it.fileRef.sizeBytes)}</span>}
                   </div>
                   <div style={{ fontWeight: 650, color: 'var(--ink)', marginBottom: 4 }}>{it.title}</div>

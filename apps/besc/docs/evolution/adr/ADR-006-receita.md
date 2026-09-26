@@ -1,6 +1,6 @@
 # ADR-006 — Modelo de receita: fee de 1ª transferência + aluguel
 
-Status: DECISÃO — revisar
+Status: **substituída por [ADR-010](./ADR-010-asset-infrastructure-pivot.md)** (antes: DECISÃO — revisar)
 
 Contexto: o marketplace precisa de um modelo de receita com dois fluxos — a fee de primeira
 transferência cobre o custo operacional do site (margem baixa) e o aluguel de títulos é o lucro

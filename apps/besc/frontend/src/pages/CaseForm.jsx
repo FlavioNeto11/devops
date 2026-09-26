@@ -104,7 +104,7 @@ export default function CaseForm() {
             <Field label="Situação de liquidez" help="Quão fácil é converter em dinheiro hoje." example="Crédito discutido em juízo → “Litigioso” (baixa liquidez).">
               <EnumSelect enumName="liquidity_status" value={form.liquidity_status} onChange={setEnum('liquidity_status')} />
             </Field>
-            <Field label="Valor estimado (R$)" hint="Estimativa; o sistema não apura valor oficial" example="150000">
+            <Field label="Valor alegado (R$)" hint="Alegação do levantamento: não é valor reconhecido nem de mercado" example="150000">
               <input value={form.estimated_value} onChange={set('estimated_value')} placeholder="Ex.: 150000" />
             </Field>
           </div>

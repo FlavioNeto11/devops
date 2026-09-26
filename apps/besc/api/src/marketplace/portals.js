@@ -8,11 +8,14 @@ import { authorize } from '../foundation/rbac.js';
 import { appendAudit } from '../foundation/audit.js';
 import { contractTokens, listContracts } from './issuance.js';
 import { LEGAL_STATUSES } from './states.js';
+import { CAPABILITIES } from '../governance/capabilities.js';
 
 const actorOf = (req) => ({ userId: req.auth.user.id, role: req.auth.roles[0], ip: req.ip });
 const send = (res, out) => res.status(out.status).json(out.body);
 
 export async function goLiveEnabled() {
+  // ADR-010: sem as capacidades de código, nenhum registro no banco liga o go-live.
+  if (!(CAPABILITIES.MARKETPLACE_REAL && CAPABILITIES.REAL_INVESTMENT)) return false;
   const { rows } = await query(`SELECT value FROM system_parameters WHERE key = 'go_live_enabled'`);
   return rows[0]?.value === true;
 }
@@ -56,7 +59,7 @@ async function buildDossier(titleId, { forInvestor = false } = {}) {
 
 export function installPortals(app) {
   // ---- estado do modo demonstracao (publico) ----
-  app.get('/portal/mode', async (req, res) => res.json({ goLive: await goLiveEnabled() }));
+  app.get('/portal/mode', (req, res) => res.json({ goLive: false, frozen: true, capabilities: CAPABILITIES, adr: 'ADR-010' }));
 
   // ---- dossie publico (catalogo 2 niveis: teaser em /marketplace/catalog; dossie aqui) ----
   app.get('/marketplace/titles/:id/dossier', async (req, res) => {

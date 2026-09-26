@@ -1,34 +1,37 @@
+// Roadmap (ADR-010): fases da reconciliação (repo besc, docs/reconciliation/15-roadmap.md).
+// Sem números de mercado: o gate multi-emissor está fechado e o TAM não foi medido.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../icons.jsx';
 
 const STATUS = {
   pronto: { cls: 'b-green', label: 'Pronto' },
-  em_curso: { cls: 'b-amber', label: 'Em curso' },
   planejado: { cls: 'b-grey', label: 'Planejado' },
-  diferido: { cls: 'b-grey', label: 'Diferido' },
-  fora: { cls: 'b-grey', label: 'Fora do escopo atual' },
+  bloqueado: { cls: 'b-amber', label: 'Bloqueado por gate' },
+  fora: { cls: 'b-grey', label: 'Opcional / fora do escopo' },
 };
 
 const PHASES = [
-  { id: 'A', status: 'pronto', title: 'A — Conhecimento / portal', body: 'Base institucional (o que são as BESCs, histórico da incorporação, base legal, custos), biblioteca de documentos, jurisprudência pesquisável, glossário e página de referência. É o que transforma a ferramenta em um portal do processo.', links: [['/biblioteca', 'Biblioteca'], ['/jurisprudencia', 'Jurisprudência'], ['/referencia', 'Referência']] },
-  { id: 'B', status: 'pronto', title: 'B — Levantamento aprimorado (perícia, mecanismo, credor)', body: 'Cadastro de caso com mecanismo de liquidação (compensação, dação, caução…), credor-alvo e módulo de perícia / atualização monetária (autenticidade da cártula, valor atualizado, ágio). Registra o laudo — não calcula o valor oficial.', links: [['/casos', 'Casos']] },
-  { id: 'C', status: 'planejado', title: 'C — Custos (cartório / honorários)', body: 'As tabelas de custas transcritas foram retiradas do portal: variam por Estado e por ano, o que torna inviável mantê-las atualizadas como referência confiável. O estimador por caso (custas + honorários + êxito) permanece planejado, condicionado a uma fonte oficial de valores.' },
-  { id: 'D', status: 'planejado', title: 'D — Processo / timeline judicial', body: 'Linha do tempo estruturada do rito (inicial → caução/substituição → perícia judicial → sentença → recursos → trânsito → homologação), com data e status por marco. Dá visão de onde cada caso está.' },
-  { id: 'E', status: 'planejado', title: 'E — Tokenização (índice de prontidão)', body: 'O checklist de tokenização já existe por caso; falta um índice agregado de prontidão (documentação + pendências regulatórias + risco + perícia) e uma visão de portfólio de casos aptos. A estruturação real (FIDC, oferta) permanece fora de escopo.' },
-  { id: 'F', status: 'pronto', title: 'F — Governança (login / multiusuário / auditoria)', body: 'Entregue pela Fase 0 do plano de evolução: login com e-mail e senha + SSO via Keycloak (realm dedicado besc), controle de acesso por papéis e permissões (RBAC) extensível em dados — papéis novos sem novo deploy — e trilha de auditoria das ações. O conteúdo público (biblioteca, jurisprudência, referência) permanece aberto, sem login; a área de casos passa a ser restrita. A evolução completa está planejada em docs/evolution/.' },
-  { id: 'G', status: 'fora', title: 'G — Integrações futuras', body: 'Consulta automática a tribunais, feed de índices de correção (IGP-M/IPCA/SELIC) e trilho on-chain / smart contract. Explicitamente fora do escopo atual; o campo de índice monetário já deixa o gancho preparado.' },
+  { id: 'F0', status: 'pronto', title: 'F0 — Reconciliação do conhecimento', body: 'A pesquisa jurídica nova foi confrontada com a tese antiga. Resultado: ações BESC foram convertidas em ações do BB em 2009; cautela é evidência histórica; laudo privado é alegação; token não cria propriedade.', links: [['/referencia', 'Referência']] },
+  { id: 'F1', status: 'pronto', title: 'F1 — Correção do domínio', body: 'Marketplace, emissão de tokens, aluguel e investimento congelados no servidor. Novo domínio: evidência legada, reivindicação, direito reconhecido e ativo registrado, com invariantes no banco e aprovação em quatro olhos.' },
+  { id: 'F2', status: 'pronto', title: 'F2 — Ingestão de evidência legada', body: 'Upload com hash, classificação do documento e da natureza da fonte, reivindicações e migração dos casos de levantamento. Todo registro nasce como POSSÍVEL DIREITO.', links: [['/recuperacao', 'Reivindicações']] },
+  { id: 'F3', status: 'planejado', title: 'F3 — Cadeia de titularidade', body: 'Reconstrução de quem era titular, por herança, cessão ou partilha, com eventos societários da origem (grupamentos, conversão, frações).' },
+  { id: 'F4', status: 'planejado', title: 'F4 — Validação externa', body: 'Pedido formal ao escriturador, ao depositário ou ao tribunal. Só uma resposta real, com evidência externa, leva a DIREITO CONFIRMADO. Nada é simulado.' },
+  { id: 'F5', status: 'planejado', title: 'F5 — Ativo registrado', body: 'Posição confirmada e registrada no sistema oficial de registro. Só aqui passa a existir um ativo.' },
+  { id: 'F6', status: 'planejado', title: 'F6 — Motor de garantias', body: 'Garantia só é constituída quando registrada na infraestrutura oficial. Bloqueio digital não é garantia.' },
+  { id: 'F7', status: 'planejado', title: 'F7 — Integrações institucionais', body: 'Canais com escrituradores, depositários e registradoras. Nenhuma integração existe hoje.' },
+  { id: 'F8', status: 'bloqueado', title: 'F8 — Múltiplos emissores', body: 'Outras origens (bancos estaduais incorporados) permanecem em pesquisa. O gate multi-emissor está fechado e nenhuma escala foi comprovada.' },
+  { id: 'F9', status: 'fora', title: 'F9 — Representação regulada', body: 'Tokenização é opcional e só faria sentido sobre ativo registrado, dentro de estrutura regulada. Blockchain é opcional.' },
 ];
 
 export default function Roadmap() {
   return (
     <>
       <div className="help-hero">
-        <h1>Roadmap do processo BESC</h1>
+        <h1>Roadmap</h1>
         <p>
-          O caminho completo — do levantamento das ações e da apuração pericial, passando pela escolha
-          do mecanismo de liquidação e pela jurisprudência de apoio, até a futura tokenização. Abaixo,
-          o que já está no ar e o que ainda falta, de forma honesta.
+          Da evidência histórica à confirmação na fonte oficial. As fases F0 a F2 estão no ar; as demais
+          dependem de pesquisa, de integrações reais ou de decisões regulatórias ainda não tomadas.
         </p>
       </div>
 

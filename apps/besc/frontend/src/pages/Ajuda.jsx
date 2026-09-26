@@ -7,8 +7,7 @@ const SECTIONS = [
   ['telas', 'As telas do sistema'],
   ['doc', 'Checklist documental'],
   ['juridico', 'Checklist jurídico'],
-  ['tokenizacao', 'Tokenização e regulatório'],
-  ['caucao', 'Uso como caução'],
+  ['tokenizacao', 'Tokenização e caução (desativadas)'],
   ['pendencias', 'Pendências automáticas'],
   ['status', 'Status do caso'],
   ['risco', 'Matriz de risco'],
@@ -54,9 +53,10 @@ export default function Ajuda() {
       <div className="crumbs"><Link to="/">Início</Link> / Ajuda</div>
 
       <div className="help-hero">
-        <h1>Como usar a Plataforma de Levantamento BESC Tokenização</h1>
-        <p>Este é um sistema simples de <strong>levantamento e organização</strong>: você cadastra os casos ligados às ações do antigo <strong>BESC</strong> (banco incorporado pelo Banco do Brasil), organiza os documentos, responde checklists e o sistema aponta sozinho <strong>o que ainda falta</strong> para que advogados, consultores e tokenizadores possam depois avaliar a viabilidade de uma tokenização ou o uso desses direitos como garantia (caução) em processos.</p>
-        <p><strong>Ele não decide nada por você</strong> — ele organiza e mostra as pendências. Não tokeniza de verdade, não consulta tribunais e não é aconselhamento jurídico.</p>
+        <h1>Como usar a Plataforma de Pesquisa e Recuperação de Ativos Legados</h1>
+        <p>Este é um sistema simples de <strong>levantamento e organização</strong>: você cadastra os casos ligados às ações do antigo <strong>BESC</strong> (banco incorporado pelo Banco do Brasil), organiza os documentos, responde checklists e o sistema aponta sozinho <strong>o que ainda falta</strong> para que advogados possam avaliar se existe um direito e como confirmá-lo na fonte oficial (escriturador, depositário ou tribunal).</p>
+        <p><strong>Mudança de rumo (ADR-010):</strong> documento antigo é tratado como <strong>evidência legada</strong>, nunca como ativo. Cada caso de levantamento virou uma <Link to="/recuperacao">reivindicação</Link>, que só passa de POSSÍVEL DIREITO a DIREITO CONFIRMADO com confirmação externa. Marketplace, tokenização e caução foram desativados.</p>
+        <p><strong>Ele não decide nada por você</strong> — ele organiza e mostra as pendências. Não tokeniza, não oferece investimento, não consulta tribunais e não é aconselhamento jurídico.</p>
         <div className="row" style={{ marginTop: 10 }}>
           <Link className="btn primary" to="/cases/new">+ Cadastrar um caso</Link>
           <Link className="btn" to="/casos">Ver casos</Link>
@@ -83,7 +83,7 @@ export default function Ajuda() {
           <ul>
             <li>Não emite, cria nem negocia tokens (não há blockchain).</li>
             <li>Não consulta tribunais nem puxa andamentos automaticamente — tudo é digitado.</li>
-            <li>Não tem login, pagamento nem cálculo oficial de valores.</li>
+            <li>Não recebe pagamentos, não oferece investimento e não calcula valor oficial.</li>
             <li>Não dá parecer jurídico. As conclusões são sempre dos profissionais.</li>
           </ul>
         </Section>
@@ -105,23 +105,20 @@ export default function Ajuda() {
           <Step n="4" title="Responda o checklist jurídico">
             <p>Na aba <strong>Jurídico</strong>, responda o que já se sabe (o direito existe? pode ser cedido? há risco de prescrição?). O que ficar “Não avaliado” vira pendência.</p>
           </Step>
-          <Step n="5" title="Preencha a tokenização e o regulatório">
-            <p>Na aba <strong>Tokenização</strong>, descreva o que o token representaria e responda os itens regulatórios (é valor mobiliário? precisa de estrutura via FIDC?).</p>
+          <Step n="5" title="Acompanhe a reivindicação">
+            <p>Em <strong>Reivindicações</strong>, envie as evidências (cada arquivo recebe hash), classifique o tipo de documento e a natureza da fonte, e veja a jornada. As etapas de cadeia de titularidade, validação externa e registro ainda não existem nesta fase e aparecem como não disponíveis.</p>
           </Step>
-          <Step n="6" title="Avalie o uso como caução (se aplicável)">
-            <p>Na aba <strong>Caução</strong>, ative e preencha se pretende oferecer o direito como garantia em outro processo.</p>
-          </Step>
-          <Step n="7" title="Acompanhe pendências e status">
+          <Step n="6" title="Acompanhe pendências e status">
             <p>Na aba <strong>Resumo</strong> e <strong>Pendências</strong>, veja o que falta. Quando não houver pendências bloqueantes/altas, você pode marcar o caso como <strong>Apto para estruturação</strong>.</p>
           </Step>
-          <Step n="8" title="Gere os relatórios">
-            <p>Na aba <strong>Relatórios</strong>, gere o relatório completo ou os específicos (para advogado, para parceiro de tokenização, para análise de caução).</p>
+          <Step n="7" title="Gere os relatórios">
+            <p>Na aba <strong>Relatórios</strong>, gere o relatório completo ou os específicos (resumo, pendências, riscos, para advogado).</p>
           </Step>
         </Section>
 
         <Section id="telas" title="3. As telas do sistema">
           <h3>Painel principal (lista de casos)</h3>
-          <p>Mostra todos os casos com status, percentual de documentação, número de pendências, valor estimado e risco. Clique numa linha para abrir o caso; use a busca e o filtro por status.</p>
+          <p>Mostra todos os casos com status, percentual de documentação, número de pendências, valor alegado e risco. O valor alegado não é reconhecido nem de mercado. Clique numa linha para abrir o caso; use a busca e o filtro por status.</p>
           <h3>Detalhe do caso</h3>
           <p>O coração do sistema, dividido em abas:</p>
           <ul>
@@ -130,8 +127,7 @@ export default function Ajuda() {
             <li><strong>Processos</strong> — os processos judiciais.</li>
             <li><strong>Documentos</strong> — o checklist documental.</li>
             <li><strong>Jurídico</strong> — perguntas jurídicas de levantamento.</li>
-            <li><strong>Tokenização</strong> — o que tokenizar + regulatório.</li>
-            <li><strong>Caução</strong> — uso como garantia em processos de terceiros.</li>
+            <li><strong>Laudo (alegação)</strong> — registro histórico de laudo informado pela parte; não fixa valor.</li>
             <li><strong>Pendências</strong> — o que falta, calculado automaticamente.</li>
             <li><strong>Relatórios</strong> — geração dos relatórios.</li>
           </ul>
@@ -163,19 +159,12 @@ export default function Ajuda() {
           <Ex>“Pode ser cedido?” → se ainda não há confirmação jurídica, deixe <em>Não avaliado</em>; use o campo de observações para anotar “aguardando parecer do Dr. Fulano”.</Ex>
         </Section>
 
-        <Section id="tokenizacao" title="6. Checklist de tokenização e regulatório">
-          <p>Aqui você levanta <strong>o que</strong> seria tokenizado e o <strong>enquadramento</strong>, sem executar nada. Descreva: o que exatamente será tokenizado, qual o lastro, quem custodia os documentos, quem valida o lastro, valor estimado, e as escolhas técnicas (fracionamento, smart contract, blockchain, whitelist, KYC, etc.).</p>
-          <p>Os itens marcados <span className="pill legal">requer validação</span> são regulatórios (é valor mobiliário? precisa de registro/dispensa? estrutura via FIDC? enquadra no marco de ativos virtuais/BCB? PLD-FT? LGPD? tributação?) — todos dependem de assessoria jurídica/CVM.</p>
-          <Ex>Em “O que será tokenizado”, escreva no campo de definição: “direito creditório reconhecido na sentença do processo nº ... — parcela de X ações ON”.</Ex>
+        <Section id="tokenizacao" title="6. Tokenização e caução (desativadas)">
+          <p>As abas de tokenização e de caução foram retiradas (ADR-010). A pesquisa de reconciliação concluiu que uma cautela antiga não é ação atual, que um laudo privado não fixa valor e que um token ou bloqueio digital não cria propriedade nem garantia. Os dados já preenchidos continuam guardados no caso, para histórico.</p>
+          <p>Garantia sobre ação escritural só existe quando constituída e averbada na infraestrutura oficial (escriturador ou depositário). Isso depende de um ativo já confirmado, o que ainda não é possível nesta fase.</p>
         </Section>
 
-        <Section id="caucao" title="7. Uso como caução/garantia">
-          <p>Use esta aba se pretende oferecer o direito como <strong>garantia em um processo de terceiro</strong> (execução fiscal, trabalhista, cível, substituição de penhora, etc.). Ative a avaliação e preencha o tipo de processo, o valor da dívida, o valor de garantia necessário (a cobertura % é calculada), prazo, remuneração, risco de recusa e quem assume o risco.</p>
-          <p>Direitos ilíquidos/litigiosos costumam ser <strong>recusados</strong> como garantia — o laudo de avaliação, o trânsito em julgado e um parecer reduzem esse risco. A aceitação final é sempre decisão do juízo.</p>
-          <Ex>Execução fiscal de R$ 200.000 → “valor necessário de garantia” R$ 200.000; se você oferece um direito estimado em R$ 260.000, a cobertura mostra 130%.</Ex>
-        </Section>
-
-        <Section id="pendencias" title="8. Pendências automáticas">
+        <Section id="pendencias" title="7. Pendências automáticas">
           <p>O sistema gera a lista de pendências sozinho, e a recalcula a cada alteração. Cada pendência tem uma <strong>severidade</strong>:</p>
           <ul>
             <li><span className="badge b-red">Bloqueante</span> — impede declarar o caso “apto” (ex.: titularidade não comprovada).</li>
@@ -186,7 +175,7 @@ export default function Ajuda() {
           <p>Pendências marcadas <span className="pill legal">requer validação jurídica</span> dependem de um profissional. O botão <em>Resolver →</em> leva você direto à aba que resolve aquela pendência.</p>
         </Section>
 
-        <Section id="status" title="9. Status do caso">
+        <Section id="status" title="8. Status do caso">
           <p>O status caminha em grande parte <strong>sozinho</strong> conforme você preenche; as decisões (declarar apto, não apto, arquivar) exigem sua confirmação.</p>
           <table className="data">
             <thead><tr><th>Status</th><th>Significado</th></tr></thead>
@@ -202,25 +191,25 @@ export default function Ajuda() {
               <tr><td><strong>Arquivado</strong></td><td>Caso encerrado/suspenso.</td></tr>
             </tbody>
           </table>
-          <p className="muted small">“Apto para estruturação” significa apenas que o <em>levantamento documental</em> está completo — não que a tokenização/garantia é juridicamente viável.</p>
+          <p className="muted small">“Apto para estruturação” significa apenas que o <em>levantamento documental</em> está completo — não que exista direito confirmado.</p>
         </Section>
 
-        <Section id="risco" title="10. Matriz de risco">
+        <Section id="risco" title="9. Matriz de risco">
           <p>O sistema calcula um <strong>risco jurídico indicativo</strong> — Baixo, Médio, Alto ou <strong>Indeterminado</strong> — combinando fatores: titularidade comprovada, fase processual/trânsito em julgado, risco de prescrição, liquidez, possibilidade de cessão, jurisprudência e evidência documental.</p>
           <p>Se algum fator essencial estiver <strong>não verificado</strong> (titularidade, cessão, fase, liquidez), o risco fica <strong>Indeterminado</strong> — o sistema não “chuta” risco baixo sobre incerteza. É um indicador organizacional, <strong>não</strong> um parecer.</p>
         </Section>
 
-        <Section id="relatorios" title="11. Relatórios">
+        <Section id="relatorios" title="10. Relatórios">
           <p>Na aba <strong>Relatórios</strong> do caso, cada relatório abre em nova aba, pronto para imprimir ou salvar em PDF, sempre com o aviso legal:</p>
           <ul>
             <li><strong>Relatório completo do caso</strong> — tudo em um documento.</li>
             <li><strong>Checklist de pendências</strong> e <strong>Lista de documentos faltantes</strong>.</li>
             <li><strong>Resumo executivo</strong> e <strong>Matriz de riscos</strong>.</li>
-            <li><strong>Para advogado</strong>, <strong>para parceiro de tokenização</strong> e <strong>para análise de caução</strong>.</li>
+            <li><strong>Para advogado</strong>. Os relatórios de estratégia, de parceiro de tokenização e de análise de caução foram removidos (ADR-010).</li>
           </ul>
         </Section>
 
-        <Section id="glossario" title="12. Glossário">
+        <Section id="glossario" title="11. Glossário">
           <table className="data">
             <thead><tr><th>Termo</th><th>O que é</th></tr></thead>
             <tbody>
@@ -233,17 +222,17 @@ export default function Ajuda() {
               <tr><td>Direito creditório</td><td>Crédito a receber (ex.: indenização reconhecida).</td></tr>
               <tr><td>Lastro</td><td>O que dá respaldo real ao ativo/token.</td></tr>
               <tr><td>Caução</td><td>Garantia oferecida num processo para assegurar uma obrigação.</td></tr>
-              <tr><td>Tokenização</td><td>Representar um direito/ativo como token digital (aqui, apenas planejado).</td></tr>
-              <tr><td>Valor mobiliário</td><td>Título de investimento sujeito à regulação da CVM.</td></tr>
-              <tr><td>FIDC</td><td>Fundo de Investimento em Direitos Creditórios — estrutura comum para recebíveis.</td></tr>
+              <tr><td>Tokenização</td><td>Representar um ativo como token digital. Fora do escopo (ADR-010); token não cria propriedade.</td></tr>
+              <tr><td>Valor mobiliário</td><td>Título ou contrato de investimento coletivo sujeito à regulação da CVM (Lei 6.385/1976, art. 2º). A plataforma não oferta valores mobiliários.</td></tr>
+              <tr><td>FIDC</td><td>Fundo de Investimento em Direitos Creditórios, regulado pela CVM (Resolução CVM 175/2022, Anexo II). Fora do escopo da plataforma (ADR-010).</td></tr>
               <tr><td>KYC</td><td>“Conheça seu cliente” — identificação dos participantes.</td></tr>
               <tr><td>Whitelist</td><td>Lista de participantes autorizados.</td></tr>
             </tbody>
           </table>
         </Section>
 
-        <Section id="privacidade" title="13. Privacidade e aviso legal">
-          <p>O sistema guarda <strong>dados pessoais</strong> (CPF, documentos). Mesmo sem login, use-o em ambiente controlado e não exponha os dados sem necessidade. Você pode <strong>excluir</strong> um caso a qualquer momento pelo botão “Excluir caso” no detalhe.</p>
+        <Section id="privacidade" title="12. Privacidade e aviso legal">
+          <p>O sistema guarda <strong>dados pessoais</strong> (CPF, documentos). O acesso aos casos e às reivindicações exige login com permissão; ainda assim, não exponha os dados sem necessidade. Você pode <strong>excluir</strong> um caso a qualquer momento pelo botão “Excluir caso” no detalhe.</p>
           <p><strong>Aviso legal.</strong> Esta ferramenta é de organização e levantamento documental. <strong>Não</strong> constitui aconselhamento jurídico, parecer, oferta ou distribuição de valores mobiliários, nem recomendação de investimento. Toda conclusão jurídica, regulatória ou de valor é de responsabilidade dos profissionais habilitados que utilizarem o material.</p>
           <div className="row" style={{ marginTop: 10 }}><Link className="btn primary" to="/cases/new">+ Cadastrar um caso</Link></div>
         </Section>

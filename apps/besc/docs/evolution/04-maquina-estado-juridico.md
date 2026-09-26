@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): SUPERSEDED** — litígio deixou de ser estado de ativo contratável; o padrão de estados foi reaproveitado em entity_transition. Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 04 — Máquina de estado jurídico do título
 

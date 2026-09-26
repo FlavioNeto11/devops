@@ -3,6 +3,49 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLabel, Loading, Banner, Markdown, FileViewer, OutcomeBadge, formatBytes } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
+import { CurationPanel } from '../curation.jsx';
+
+// ADR-010: a reavaliação editorial vem da API (assessment) e é exibida antes da ementa.
+const FINALITY_LABEL = {
+  NOT_VERIFIED: 'Trânsito em julgado não verificado',
+  REPORTED_FINAL_UNVERIFIED: 'Trânsito noticiado, sem certidão verificada',
+  REVERSED_ON_APPEAL: 'Superada no recurso',
+};
+
+function Assessment({ it }) {
+  const a = it.assessment || {};
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-head"><h3>Reavaliação</h3></div>
+      <div className="card-body small" style={{ lineHeight: 1.6 }}>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <span className="badge b-amber">Alegação de fonte</span>
+          <span className="badge b-grey">{FINALITY_LABEL[a.finality] || a.finality}</span>
+          {a.provisional && <span className="badge b-amber">Decisão provisória</span>}
+          {a.guaranteeOnly && <span className="badge b-amber">Só garantia do juízo</span>}
+          {a.isDecision === false && <span className="badge b-grey">Não é decisão judicial</span>}
+          {a.objectKind && a.objectKind !== 'N/A' && <span className="badge b-blue">Objeto: {a.objectKind === 'CAUTELA' ? 'cautela' : 'ações convertidas'}</span>}
+        </div>
+        {!a.assessed && <p>Registro fora da reavaliação de 25/09/2026.</p>}
+        {a.instanceReal && <p><strong>Instância real:</strong> {a.instanceReal} · <strong>Tipo:</strong> {a.decisionType}</p>}
+        {a.questionDecided && <p><strong>O que decidiu:</strong> {a.questionDecided}</p>}
+        {a.notDecided && <p><strong>O que NÃO decidiu:</strong> {a.notDecided}</p>}
+        {a.alerts && <p><strong>Alertas:</strong> {a.alerts}</p>}
+        {a.finalityBasis && <p className="muted">Base da situação processual: {a.finalityBasis}</p>}
+        {(a.corrections || []).length > 0 && (
+          <div className="assess">
+            <strong>Correções do catálogo:</strong>
+            <ul style={{ margin: '4px 0 0 18px' }}>
+              {a.corrections.map((c, i) => <li key={i}>{c.field}{c.to != null ? ` → ${c.to}` : ' (remover)'} — {c.source}</li>)}
+            </ul>
+          </div>
+        )}
+        <p className="muted" style={{ marginTop: 6 }}>{it.disclaimer}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function JurisprudenciaDetail() {
   const { id } = useParams();
@@ -10,6 +53,7 @@ export default function JurisprudenciaDetail() {
   const [error, setError] = useState(null);
   const [related, setRelated] = useState([]);
   const label = useLabel();
+  const { hasPerm } = useAuth();
 
   useEffect(() => {
     setIt(null); setError(null);
@@ -34,7 +78,7 @@ export default function JurisprudenciaDetail() {
                   <h1>{it.title}</h1>
                   <div className="cs-sub">{[it.clientCase, it.comarca, it.uf].filter(Boolean).join(' · ') || label('creditor_category', it.creditorCategory)}</div>
                 </div>
-                <div className="cs-actions"><OutcomeBadge value={it.outcome} /></div>
+                <div className="cs-actions"><OutcomeBadge value={it.outcomeAssessed || it.outcome} />{it.outcomeAssessed && it.outcomeAssessed !== it.outcome && <span className="small muted" style={{ marginLeft: 6 }}>no catálogo: {it.outcome}</span>}</div>
               </div>
               <div className="chip-row" style={{ marginTop: 12 }}>
                 {it.tribunal && it.tribunal !== 'outro' && <span className="chip chip-blue">{label('tribunal', it.tribunal)}</span>}
@@ -48,6 +92,8 @@ export default function JurisprudenciaDetail() {
                 <div className="cs-metric"><span className="m-k">Nº do processo</span><span className="m-v" style={{ fontSize: 13 }}>{it.processNumber || '—'}</span></div>
               </div>
             </div>
+
+            <Assessment it={it} />
 
             {(it.ementa || it.summary) && (
               <div className="card" style={{ marginBottom: 16 }}>
@@ -65,9 +111,11 @@ export default function JurisprudenciaDetail() {
               <Banner kind="warn">O PDF desta decisão ainda não foi carregado no portal.</Banner>
             )}
 
+            {hasPerm('content:write') && <CurationPanel item={it} kind="jurisprudence" onSaved={() => api.jurisprudenceGet(id).then(setIt)} />}
+
             <div className="help-callout" style={{ marginTop: 16 }}>
               <div className="hc-icon" aria-hidden="true">⚖️</div>
-              <div><div className="hc-body">Resumo organizacional a partir do inteiro teor. <strong>Requer validação jurídica</strong> — não constitui parecer nem recomendação.</div></div>
+              <div><div className="hc-body">Resumo do catálogo, feito a partir do inteiro teor. É alegação de fonte, <strong>não</strong> parecer nem recomendação.</div></div>
             </div>
           </div>
 

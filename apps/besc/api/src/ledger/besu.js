@@ -1,3 +1,5 @@
+// DEPRECATED (ADR-010): nenhum modulo de runtime importa este adaptador. Blockchain e opcional e a
+// tokenizacao esta desativada; mantido so para rastreabilidade e para o teste besu-parity (pulado).
 // BesuAdapter — implementa o MESMO LedgerPort do SimulatedLedgerAdapter, agora contra
 // uma rede Hyperledger Besu permissionada (QBFT) via ethers v6 (docs/evolution/05, Fase 3).
 // A troca simulado<->besu e por config (LEDGER_ADAPTER); o dominio NAO muda.

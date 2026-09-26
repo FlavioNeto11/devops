@@ -1,20 +1,85 @@
-// Pool Postgres da fundacao. Fail-soft: se o banco cair, o portal publico segue;
-// rotas que dependem de identidade respondem 503 (fail-closed) ate ele voltar.
+// Postgres da fundação com separação de papéis (ADR-010, hardening P0).
+//
+// admin pool   = DATABASE_URL (MIGRATION_ROLE; no cluster é o POSTGRES_USER, superusuário).
+//                Usado SÓ no boot: migrations, seed de RBAC, usuário bootstrap, preparo do papel.
+// runtime pool = besc_app (APPLICATION_ROLE, sql/0008_runtime_role.sql). Atende as requisições.
+//   modo 'login'    : BESC_DB_APP_PASSWORD definido → o boot faz ALTER ROLE besc_app LOGIN PASSWORD
+//                     e o pool conecta como besc_app. Separação real de credenciais.
+//   modo 'set_role' : sem senha → conecta com a credencial de migração e assume besc_app no início
+//                     de cada sessão (parâmetro role). Os privilégios efetivos são os de besc_app, mas um SQL injection
+//                     poderia fazer RESET ROLE. Por isso BESC_DB_REQUIRE_APP_ROLE=true recusa esse modo.
+// Fail-soft: se o banco cair, o portal público segue; rotas gated respondem 503.
 import pg from 'pg';
 import { config } from './config.js';
 
-let pool = null;
+export const APP_ROLE = 'besc_app';
+
+let adminPool = null;
+let runtimePool = null;
+let runtimeMode = null;
 let ready = false;
 
-export function getPool() {
-  if (!pool && config.databaseUrl) {
-    pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10, ssl: false });
-    pool.on('error', (e) => { console.error('[db] pool error:', e.message); ready = false; });
+export function getAdminPool() {
+  if (!adminPool && config.databaseUrl) {
+    adminPool = new pg.Pool({ connectionString: config.databaseUrl, max: 3, ssl: false });
+    adminPool.on('error', (e) => { console.error('[db] admin pool error:', e.message); });
   }
-  return pool;
+  return adminPool;
 }
 
-export function isDbReady() { return ready; }
+function runtimeConnectionString() {
+  const u = new URL(config.databaseUrl);
+  u.username = APP_ROLE;
+  u.password = encodeURIComponent(config.dbAppPassword);
+  return u.toString();
+}
+
+// Prepara o papel de runtime (no boot, depois das migrations) e cria o pool de runtime.
+export async function prepareRuntimeRole() {
+  const admin = getAdminPool();
+  if (!admin) return null;
+  if (config.dbAppPassword) {
+    // Só altera o papel se a credencial ainda não funciona. O papel é do cluster: ALTER ROLE
+    // concorrente (vários bancos no mesmo servidor, réplicas subindo juntas) dá "tuple
+    // concurrently updated" — repete com espera curta.
+    const canLogin = async () => {
+      const probe = new pg.Client({ connectionString: runtimeConnectionString(), ssl: false });
+      try { await probe.connect(); return true; } catch { return false; } finally { await probe.end().catch(() => {}); }
+    };
+    for (let attempt = 0; !(await canLogin()); attempt++) {
+      const c = await admin.connect();
+      try {
+        await c.query(`ALTER ROLE ${APP_ROLE} LOGIN PASSWORD ${c.escapeLiteral(config.dbAppPassword)}`);
+      } catch (e) {
+        if (!/concurrently updated/i.test(e.message) || attempt >= 8) throw e;
+        await new Promise((r) => setTimeout(r, 50 + Math.floor(Math.random() * 200)));
+      } finally { c.release(); }
+      if (attempt >= 8) throw new Error('não foi possível habilitar o login do papel besc_app');
+    }
+    runtimeMode = 'login';
+    runtimePool = new pg.Pool({ connectionString: runtimeConnectionString(), max: 10, ssl: false });
+  } else {
+    if (config.requireAppRole) {
+      throw new Error('BESC_DB_REQUIRE_APP_ROLE=true exige BESC_DB_APP_PASSWORD (credencial própria do papel besc_app)');
+    }
+    runtimeMode = 'set_role';
+    // papel como parâmetro de inicialização da sessão: se não puder assumir besc_app, a conexão falha
+    runtimePool = new pg.Pool({ connectionString: config.databaseUrl, max: 10, ssl: false, options: `-c role=${APP_ROLE}` });
+    console.warn('[db] runtime em modo SET ROLE besc_app (sem credencial própria) — defina BESC_DB_APP_PASSWORD para separação completa');
+  }
+  runtimePool.on('error', (e) => { console.error('[db] pool error:', e.message); ready = false; });
+  const who = await runtimePool.query('SELECT current_user AS u, (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS su');
+  const { u, su } = who.rows[0];
+  if (u !== APP_ROLE || su) throw new Error(`runtime conectou como ${u} (superuser=${su}); esperado ${APP_ROLE} sem superusuário`);
+  return { mode: runtimeMode, currentUser: u };
+}
+
+export function runtimeRoleInfo() { return { mode: runtimeMode, role: runtimeMode ? APP_ROLE : null }; }
+
+// Pool das requisições. Nunca devolve a credencial de migração: sem runtime preparado, não há pool.
+export function getPool() { return runtimePool; }
+
+export function isDbReady() { return ready && !!runtimePool; }
 
 export async function query(text, params) {
   const p = getPool();
@@ -40,9 +105,9 @@ export async function tx(fn) {
   }
 }
 
-// Espera o banco ficar pronto (boot) e mantem a flag `ready` atualizada.
+// Espera o banco ficar pronto (boot) pelo pool de migração.
 export async function waitDbReady({ attempts = 30, delayMs = 2000 } = {}) {
-  const p = getPool();
+  const p = getAdminPool();
   if (!p) return false;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -57,12 +122,18 @@ export async function waitDbReady({ attempts = 30, delayMs = 2000 } = {}) {
   return false;
 }
 
-// Vigia continuo: reavalia a saude do banco (religa `ready` quando ele volta).
+// Vigia continuo: reavalia a saude do banco pelo pool de runtime.
 export function startDbWatch({ intervalMs = 15000 } = {}) {
-  const p = getPool();
-  if (!p) return;
   setInterval(async () => {
+    const p = runtimePool || getAdminPool();
+    if (!p) return;
     try { await p.query('SELECT 1'); ready = true; }
     catch { ready = false; }
   }, intervalMs).unref();
+}
+
+// Encerra os dois pools (testes e desligamento).
+export async function closePools() {
+  await Promise.all([runtimePool?.end().catch(() => {}), adminPool?.end().catch(() => {})]);
+  runtimePool = null; adminPool = null; runtimeMode = null; ready = false;
 }

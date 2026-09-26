@@ -28,7 +28,7 @@ export default function Glossario() {
     <>
       <div className="help-hero">
         <h1>Glossário</h1>
-        <p>Termos do processo BESC — da incorporação e da perícia aos mecanismos de liquidação e à tokenização — explicados de forma objetiva.</p>
+        <p>Termos societários e jurídicos do caso BESC e da recuperação de ativos legados, explicados de forma objetiva. Definições revistas em 26/09/2026 (ADR-010).</p>
       </div>
 
       <Banner kind="err">{error}</Banner>

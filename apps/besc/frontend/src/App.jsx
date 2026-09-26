@@ -15,21 +15,20 @@ import JurisprudenciaDetail from './pages/JurisprudenciaDetail.jsx';
 import Glossario from './pages/Glossario.jsx';
 import Roadmap from './pages/Roadmap.jsx';
 import Referencia from './pages/Referencia.jsx';
-import GestaoTitulos from './pages/GestaoTitulos.jsx';
-import GestaoTituloDetail from './pages/GestaoTituloDetail.jsx';
-import Auditoria from './pages/Auditoria.jsx';
-import AuditoriaTitulo from './pages/AuditoriaTitulo.jsx';
 import GestaoUsuarios from './pages/GestaoUsuarios.jsx';
 import GestaoPapeis from './pages/GestaoPapeis.jsx';
-import GestaoFinanceiro from './pages/GestaoFinanceiro.jsx';
-import GestaoAlugueis from './pages/GestaoAlugueis.jsx';
-import GateRegulatorio from './pages/GateRegulatorio.jsx';
-import Marketplace from './pages/Marketplace.jsx';
-import TituloDossie from './pages/TituloDossie.jsx';
-import InvestidorCarteira from './pages/InvestidorCarteira.jsx';
+import RecuperacaoList from './pages/RecuperacaoList.jsx';
+import RecuperacaoNova from './pages/RecuperacaoNova.jsx';
+import RecuperacaoDetail from './pages/RecuperacaoDetail.jsx';
+import Desativado from './pages/Desativado.jsx';
+// ADR-010: as telas da tese de marketplace/tokenização (Marketplace, TituloDossie,
+// InvestidorCarteira, GestaoTitulos, GestaoTituloDetail, GestaoFinanceiro, GestaoAlugueis,
+// GateRegulatorio, Auditoria, AuditoriaTitulo) continuam no repositório, marcadas DEPRECATED,
+// mas não são mais roteadas. Os caminhos antigos levam a /desativado.
+const FROZEN_PATHS = ['/marketplace', '/marketplace/*', '/investidor/*', '/gestao/titulos', '/gestao/titulos/*', '/gestao/financeiro', '/gestao/alugueis', '/gestao/gate', '/auditoria', '/auditoria/*'];
 import Entrar, { EntrarCallback, Cadastro, AceitarConvite } from './pages/Entrar.jsx';
 
-const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
+const ROLE_LABELS = { public: 'Público', investor: 'Investidor (desativado)', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
 
 // Título do documento por rota (prefix-match; específicos primeiro). Sufixo "· BESC".
 const ROUTE_TITLES = [
@@ -38,8 +37,8 @@ const ROUTE_TITLES = [
   ['/glossario', 'Glossário'],
   ['/roadmap', 'Roadmap'],
   ['/referencia', 'Referência'],
-  ['/marketplace', 'Investir em títulos'],
-  ['/investidor', 'Minha carteira'],
+  ['/recuperacao', 'Reivindicações'],
+  ['/desativado', 'Funcionalidade desativada'],
   ['/entrar', 'Entrar'],
   ['/cadastro', 'Criar conta'],
   ['/convite', 'Aceitar convite'],
@@ -47,12 +46,7 @@ const ROUTE_TITLES = [
   ['/cases', 'Casos'],
   ['/gestao/usuarios', 'Gestão de usuários'],
   ['/gestao/papeis', 'Gestão de papéis'],
-  ['/gestao/financeiro', 'Financeiro'],
-  ['/gestao/alugueis', 'Aluguéis'],
-  ['/gestao/gate', 'Gate regulatório'],
-  ['/gestao/titulos', 'Gestão de títulos'],
   ['/gestao', 'Gestão'],
-  ['/auditoria', 'Auditoria'],
   ['/ajuda', 'Ajuda'],
 ];
 
@@ -60,7 +54,7 @@ function useDocumentTitle() {
   const { pathname } = useLocation();
   useEffect(() => {
     const hit = ROUTE_TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
-    document.title = hit ? `${hit[1]} · BESC` : 'Portal BESC — base de conhecimento e levantamento';
+    document.title = hit ? `${hit[1]} · Ativos Legados` : 'Plataforma de Pesquisa e Recuperação de Ativos Legados';
   }, [pathname]);
 }
 
@@ -130,7 +124,7 @@ function PendingGate() {
       <p>
         Sua conta foi criada e está aguardando o gestor da plataforma conceder o perfil adequado —
         assim que ele conceder, o acesso é liberado automaticamente. Enquanto isso, o conteúdo
-        público (biblioteca, jurisprudência, marketplace e referência) continua navegável.
+        público (biblioteca, jurisprudência, glossário e referência) continua navegável.
       </p>
       <p className="row" style={{ justifyContent: 'center' }}>
         <button type="button" className="btn sm primary" onClick={check} disabled={busy}>
@@ -218,17 +212,10 @@ export default function App() {
   useMenuAutoClose(topnavRef);
   useDocumentTitle();
   const canSeeCases = hasPerm('cases:read');
-  // Área de GESTÃO de títulos = capacidade de ESCRITA (titles:create), não de leitura. Advogado/juiz
-  // têm apenas titles:read (escopo linked) para auditoria: eles NÃO devem ver o item "Títulos" nem
-  // abrir /gestao/titulos (só cairiam num 403 ao tentar "Novo título"/transição). Sua superfície é o
-  // Portal de auditoria (read-only, gated abaixo por legal_status:read). Ver UX-BESC-002.
-  const canManageTitles = hasPerm('titles:create');
-  const canSeeWallet = hasPerm('contracts:read');
-  const canAudit = hasPerm('legal_status:read');
+  const canSeeRecovery = hasPerm('recovery:read');
   const canManageUsers = hasPerm('users:manage');
   const canManageRoles = hasPerm('rbac:manage');
-  const canSeeFinance = hasPerm('fees:read');
-  const canAdmin = canManageUsers || canManageRoles || canSeeFinance;
+  const canAdmin = canManageUsers || canManageRoles;
   // Fade de overflow da nav só quando HÁ itens fora da tela à direita — a mask estática
   // esmaecia o último item mesmo com a nav rolada até o fim (falsa indicação de "tem mais").
   useEffect(() => {
@@ -244,7 +231,7 @@ export default function App() {
       nav.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
-  }, [canSeeWallet, canSeeCases, canManageTitles, canAudit]);
+  }, [canSeeCases, canSeeRecovery]);
   return (
     <>
       <a className="skip-link" href="#conteudo" onClick={skipToContent}>Pular para o conteúdo</a>
@@ -255,21 +242,18 @@ export default function App() {
             <Link to="/">
               <span className="brand-mark"><BrandMark /></span>
               <span className="brand-text">
-                <b>Portal BESC</b>
-                <small>Base de conhecimento e levantamento</small>
+                <b>Ativos Legados</b>
+                <small>Pesquisa e recuperação · origem BESC</small>
               </span>
             </Link>
           </div>
           <nav className="topnav" ref={topnavRef}>
             <div className="nav-scroll">
               <NavLink to="/" end><Icon name="landmark" /> Início</NavLink>
-              <NavLink to="/marketplace"><Icon name="coins" /> Investir</NavLink>
+              {canSeeRecovery && <NavLink to="/recuperacao"><Icon name="folder" /> Reivindicações</NavLink>}
+              {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Levantamento</NavLink>}
               <NavLink to="/biblioteca"><Icon name="library" /> Biblioteca</NavLink>
               <NavLink to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência</NavLink>
-              {canSeeWallet && <NavLink to="/investidor/carteira"><Icon name="briefcase" /> Carteira</NavLink>}
-              {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Casos</NavLink>}
-              {canManageTitles && <NavLink to="/gestao/titulos"><Icon name="coins" /> Títulos</NavLink>}
-              {canAudit && <NavLink to="/auditoria"><Icon name="gavel" /> Auditoria</NavLink>}
             </div>
             {/* dropdowns FORA de .nav-scroll: o overflow do scroller clipava o popup
                 (mesmo padrão do .user-menu — o .topnav não clipa). */}
@@ -279,9 +263,6 @@ export default function App() {
                 <div className="nav-dd-pop">
                   {canManageUsers && <NavLink to="/gestao/usuarios" className="nav-dd-link"><Icon name="user" size={14} /> Usuários</NavLink>}
                   {canManageRoles && <NavLink to="/gestao/papeis" className="nav-dd-link"><Icon name="shield" size={14} /> Papéis</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/financeiro" className="nav-dd-link"><Icon name="coins" size={14} /> Financeiro</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/alugueis" className="nav-dd-link"><Icon name="briefcase" size={14} /> Aluguéis</NavLink>}
-                  {canSeeFinance && <NavLink to="/gestao/gate" className="nav-dd-link"><Icon name="scale" size={14} /> Gate regulatório</NavLink>}
                 </div>
               </details>
             )}
@@ -299,7 +280,7 @@ export default function App() {
         </div>
       </header>
       <div className="legal-strip">
-        Base de conhecimento e organização documental sobre as ações do antigo BESC — <strong>não</strong> executa tokenização nem presta aconselhamento jurídico.
+        Pesquisa e organização de evidências de direitos societários antigos. <strong>Não</strong> é oferta de investimento, <strong>não</strong> executa tokenização e <strong>não</strong> presta aconselhamento jurídico. Documento antigo não é ativo.
       </div>
       <main className="container" id="conteudo" tabIndex={-1}>
         {error && <div className="banner err">Falha ao carregar metadados da API: {error}</div>}
@@ -312,23 +293,18 @@ export default function App() {
           <Route path="/glossario" element={<Glossario />} />
           <Route path="/roadmap" element={<Roadmap />} />
           <Route path="/referencia" element={<Referencia />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/marketplace/titulos/:id" element={<TituloDossie />} />
-          <Route path="/investidor/carteira" element={<RequireRole perm="contracts:read"><InvestidorCarteira /></RequireRole>} />
+          <Route path="/recuperacao" element={<RequireRole perm="recovery:read"><RecuperacaoList /></RequireRole>} />
+          <Route path="/recuperacao/nova" element={<RequireRole perm="recovery:write"><RecuperacaoNova /></RequireRole>} />
+          <Route path="/recuperacao/:id" element={<RequireRole perm="recovery:read"><RecuperacaoDetail /></RequireRole>} />
+          <Route path="/desativado" element={<Desativado />} />
+          {FROZEN_PATHS.map((p) => <Route key={p} path={p} element={<Navigate to="/desativado" replace />} />)}
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/entrar/callback" element={<EntrarCallback />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/convite/:token" element={<AceitarConvite />} />
           <Route path="/casos" element={<RequireRole perm="cases:read"><Dashboard /></RequireRole>} />
-          <Route path="/gestao/titulos" element={<RequireRole perm="titles:create"><GestaoTitulos /></RequireRole>} />
-          <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:create"><GestaoTituloDetail /></RequireRole>} />
-          <Route path="/auditoria" element={<RequireRole perm="titles:read"><Auditoria /></RequireRole>} />
-          <Route path="/auditoria/titulos/:id" element={<RequireRole perm="legal_status:read"><AuditoriaTitulo /></RequireRole>} />
           <Route path="/gestao/usuarios" element={<RequireRole perm="users:manage"><GestaoUsuarios /></RequireRole>} />
           <Route path="/gestao/papeis" element={<RequireRole perm="rbac:manage"><GestaoPapeis /></RequireRole>} />
-          <Route path="/gestao/financeiro" element={<RequireRole perm="fees:read"><GestaoFinanceiro /></RequireRole>} />
-          <Route path="/gestao/alugueis" element={<RequireRole perm="fees:read"><GestaoAlugueis /></RequireRole>} />
-          <Route path="/gestao/gate" element={<RequireRole perm="fees:read"><GateRegulatorio /></RequireRole>} />
           <Route path="/ajuda" element={<Ajuda />} />
           <Route path="/cases/new" element={<RequireRole perm="cases:read"><CaseForm /></RequireRole>} />
           <Route path="/cases/:id" element={<RequireRole perm="cases:read"><CaseDetail /></RequireRole>} />
@@ -338,12 +314,12 @@ export default function App() {
       </main>
       <footer className="app-footer">
         <div className="foot-inner">
-          <span><strong>Portal BESC</strong> — base de conhecimento, jurisprudência, levantamento documental e futura tokenização.</span>
+          <span><strong>Plataforma de Pesquisa e Recuperação de Ativos Legados</strong> — evidência, reivindicação e o caminho até a confirmação na fonte oficial.</span>
           <span className="spacer" />
           <Link to="/biblioteca">Biblioteca</Link>
           <Link to="/jurisprudencia">Jurisprudência</Link>
           <Link to="/glossario">Glossário</Link>
-          <span className="muted">Não é aconselhamento jurídico · conteúdo público sem login</span>
+          <span className="muted">Não é oferta nem aconselhamento jurídico · ADR-010</span>
         </div>
       </footer>
     </>

@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import { query, tx } from '../db.js';
 import { appendAudit } from '../foundation/audit.js';
+import { assertCapability, capabilityRefusal } from '../governance/capabilities.js';
 
 const money = (n) => Number(n).toFixed(2);
 // arredondamento half-up 2 casas (evita vies do Number.toFixed em .xx5)
@@ -25,6 +26,7 @@ async function postLedger(client, { debit, credit, amount, sourceType, sourceId,
 // Roda DENTRO da transacao da contratacao (recebe o client).
 // ---------------------------------------------------------------------------
 export async function chargeFirstTransferFee(client, { contract, actor }) {
+  assertCapability('REAL_MONEY'); // ADR-010: tese antiga congelada no domínio
   const fs = await client.query(`SELECT * FROM fee_schedule WHERE status = 'active' LIMIT 1`);
   if (!fs.rows.length) return null; // sem tarifa ativa -> sem fee (nao bloqueia a contratacao)
   const sched = fs.rows[0];
@@ -58,6 +60,7 @@ export async function chargeFirstTransferFee(client, { contract, actor }) {
 // Marcar fatura paga (Gestor, com comprovante) -> D cash / C accounts_receivable
 // ---------------------------------------------------------------------------
 export async function markInvoicePaid(invoiceId, { evidenceRef }, actor) {
+  { const frozen = capabilityRefusal('REAL_MONEY'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const out = await tx(async (client) => {
     const { rows } = await client.query(`SELECT * FROM invoice WHERE id = $1 FOR UPDATE`, [invoiceId]);
     if (!rows.length) return { status: 404, body: { error: 'fatura não encontrada' } };
@@ -75,6 +78,7 @@ export async function markInvoicePaid(invoiceId, { evidenceRef }, actor) {
 // Aluguel: criar contrato de locacao + fechar competencia (accrual idempotente)
 // ---------------------------------------------------------------------------
 export async function createLease(titleContractId, { lesseeUserId, baseAmount, monthlyRatePct, adjustmentIndex, periodStart, periodEnd, billingDay }, actor) {
+  { const frozen = capabilityRefusal('REAL_MONEY'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const base = Number(baseAmount);
   if (!(base > 0)) return { status: 400, body: { error: 'baseAmount deve ser > 0' } };
   const code = 'LSE-' + new Date().getFullYear() + '-' + randomUUID().slice(0, 8);
@@ -93,6 +97,7 @@ function daysInMonth(period) {
 }
 
 export async function closeCompetence(leaseId, { competence, suspendedFromDay }, actor) {
+  { const frozen = capabilityRefusal('REAL_MONEY'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   if (!/^\d{4}-\d{2}$/.test(competence || '')) return { status: 400, body: { error: 'competence deve ser YYYY-MM' } };
   const out = await tx(async (client) => {
     const l = await client.query(`SELECT * FROM lease WHERE id = $1 FOR UPDATE`, [leaseId]);
@@ -134,6 +139,7 @@ export async function closeCompetence(leaseId, { competence, suspendedFromDay },
 // Custos + relatorios
 // ---------------------------------------------------------------------------
 export async function addCost({ category, description, amount, competence, evidenceRef }, actor) {
+  { const frozen = capabilityRefusal('REAL_MONEY'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const val = Number(amount);
   if (!(val > 0)) return { status: 400, body: { error: 'amount deve ser > 0' } };
   const out = await tx(async (client) => {

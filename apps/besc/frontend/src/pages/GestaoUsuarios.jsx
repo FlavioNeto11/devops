@@ -5,7 +5,7 @@ import { Banner, SkeletonList, HelpCallout, Field, ConfirmButton } from '../ui.j
 import { Icon } from '../icons.jsx';
 import { useAuth } from '../auth.jsx';
 
-const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
+const ROLE_LABELS = { public: 'Público', investor: 'Investidor (desativado)', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
 const APPROVAL = {
   pending_approval: { l: 'Pendente de aprovação', c: 'b-amber' },
   active: { l: 'Aprovado', c: 'b-green' },

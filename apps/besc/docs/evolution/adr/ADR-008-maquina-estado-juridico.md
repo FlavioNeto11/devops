@@ -1,6 +1,6 @@
 # ADR-008 — Máquina de estado jurídico do título (7 estados, transição exclusiva do Gestor)
 
-Status: DECISÃO — revisar
+Status: **substituída por [ADR-010](./ADR-010-asset-infrastructure-pivot.md)** (antes: DECISÃO — revisar)
 
 Contexto: o marketplace precisa que a disponibilidade de cada título para contratação seja
 governada pela situação **jurídica** do direito subjacente — algo que a máquina de status atual

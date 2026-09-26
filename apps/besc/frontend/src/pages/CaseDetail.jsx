@@ -18,7 +18,8 @@ function BlurInput({ value, onSave, textarea, ...rest }) {
   return <El {...rest} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} />;
 }
 
-const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'tokenizacao', collateral: 'caucao', pericia: 'pericia' };
+// ADR-010: abas de Tokenização e Caução retiradas (tese congelada); pendências dessas áreas caem no Resumo.
+const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'resumo', collateral: 'resumo', pericia: 'pericia' };
 const SEV = { blocker: { c: 'b-red', l: 'Bloqueante' }, high: { c: 'b-amber', l: 'Alta' }, medium: { c: 'b-blue', l: 'Média' }, info: { c: 'b-grey', l: 'Informativa' } };
 // tipo de credor-alvo do caso -> categoria da jurisprudencia (p/ deep-link cruzado)
 const CREDITOR_TO_CATEGORY = {
@@ -52,9 +53,7 @@ export default function CaseDetail() {
     { k: 'processos', label: 'Processos', icon: 'briefcase', count: (c.lawsuits || []).length },
     { k: 'documentos', label: 'Documentos', icon: 'file', count: `${d.docPct}%` },
     { k: 'juridico', label: 'Jurídico', icon: 'landmark' },
-    { k: 'pericia', label: 'Perícia', icon: 'scale' },
-    { k: 'tokenizacao', label: 'Tokenização', icon: 'coins' },
-    { k: 'caucao', label: 'Caução', icon: 'shield' },
+    { k: 'pericia', label: 'Laudo (alegação)', icon: 'scale' },
     { k: 'pendencias', label: 'Pendências', icon: 'alert', count: d.pendencyCount, warn: d.blockerCount > 0 },
     { k: 'relatorios', label: 'Relatórios', icon: 'report' },
   ];
@@ -89,11 +88,11 @@ export default function CaseDetail() {
           <div className="cs-metric"><span className="m-k">Documentação</span><span className="m-v"><Progress pct={d.docPct} /></span></div>
           <div className="cs-metric"><span className="m-k">Mecanismo</span><span className="m-v" style={{ fontSize: 14 }}>{label('mechanism', c.mechanism)}</span></div>
           <div className="cs-metric"><span className="m-k">Pendências</span><span className="m-v">{d.pendencyCount}{d.blockerCount ? ` · ${d.blockerCount} bloq.` : ''}</span></div>
-          <div className="cs-metric"><span className="m-k">Valor estimado</span><span className="m-v">{formatMoney(d.estimatedValue)}</span></div>
+          <div className="cs-metric"><span className="m-k">Valor alegado</span><span className="m-v">{formatMoney(d.estimatedValue)}</span></div>
         </div>
       </div>
 
-      <MarketplaceBridge caseId={id} c={c} />
+      <RecoveryBridge caseId={id} />
 
       <Banner kind="err">{error}</Banner>
 
@@ -114,8 +113,6 @@ export default function CaseDetail() {
           {tab === 'documentos' && <DocumentosTab c={c} id={id} patch={patch} />}
           {tab === 'juridico' && <JuridicoTab c={c} id={id} patch={patch} />}
           {tab === 'pericia' && <PericiaTab c={c} id={id} patch={patch} />}
-          {tab === 'tokenizacao' && <TokenizacaoTab c={c} id={id} patch={patch} />}
-          {tab === 'caucao' && <CaucaoTab c={c} id={id} patch={patch} />}
           {tab === 'pendencias' && <PendenciasTab c={c} goResolve={goResolve} />}
           {tab === 'relatorios' && <RelatoriosTab c={c} id={id} />}
         </div>
@@ -128,6 +125,22 @@ export default function CaseDetail() {
 // título quanto "Abrir título →" levam à área de GESTÃO (gated por titles:create); auditor com
 // titles:read só de leitura não deve ver esta ponte (cairia em "Acesso restrito"). Ver UX-BESC-002.
 // Se o caso já originou um título, linka para o detalhe; se é elegível, permite criar; senão, explica.
+// ADR-010: o caso de levantamento foi migrado para uma reivindicação com o MESMO id
+// (recovery/service.js migrateLegacyCase). O vínculo leva à jornada nova.
+function RecoveryBridge({ caseId }) {
+  const { hasPerm } = useAuth();
+  if (!hasPerm('recovery:read')) return null;
+  return (
+    <div className="assess" style={{ marginBottom: 16 }}>
+      Este levantamento é histórico. A reivindicação correspondente, com a jornada POSSÍVEL DIREITO → DIREITO CONFIRMADO →
+      ATIVO REGISTRADO, está em <Link to={`/recuperacao/${caseId}`}>Reivindicações</Link>. Casos de demonstração não são migrados.
+    </div>
+  );
+}
+
+// DEPRECATED (ADR-010): ponte para o marketplace de títulos. Não é mais renderizada; as rotas
+// de criação de título respondem 410 LEGACY_THESIS_FROZEN.
+// eslint-disable-next-line no-unused-vars
 function MarketplaceBridge({ caseId, c }) {
   const { hasPerm } = useAuth();
   const navigate = useNavigate();
@@ -206,7 +219,7 @@ function ResumoTab({ c, patch, id, goResolve }) {
       <div className="grid2">
         <div className="card"><div className="card-body stat"><span className="k">Documentação concluída</span><span className="v">{d.docPct}%</span><Progress pct={d.docPct} /></div></div>
         <div className="card"><div className="card-body stat"><span className="k">Pendências abertas</span><span className="v" style={{ color: d.blockerCount ? 'var(--red)' : undefined }}>{d.pendencyCount}</span><span className="small muted">{d.blockerCount} bloqueante(s)</span></div></div>
-        <div className="card"><div className="card-body stat"><span className="k">Valor estimado</span><span className="v">{formatMoney(d.estimatedValue)}</span></div></div>
+        <div className="card"><div className="card-body stat"><span className="k">Valor alegado</span><span className="v">{formatMoney(d.estimatedValue)}</span></div></div>
         <div className="card"><div className="card-body stat"><span className="k">Risco jurídico</span><span className="v" style={{ fontSize: 16 }}><RiskBadge level={d.risk.level} /></span><span className="small muted">indicativo — requer validação</span></div></div>
       </div>
 
@@ -261,7 +274,7 @@ function DadosTab({ c }) {
         <F k="Banco/escriturador" v={c.registrar} />
         <F k="Tipo de direito" v={label('right_type', c.right_type)} />
         <F k="Situação de liquidez" v={label('liquidity_status', c.liquidity_status)} />
-        <F k="Valor estimado" v={formatMoney(c.estimated_value)} />
+        <F k="Valor alegado (não reconhecido)" v={formatMoney(c.estimated_value)} />
         <F k="Resumo do caso" v={c.summary} />
         <F k="Observações" v={c.notes} />
       </dl>
@@ -310,7 +323,7 @@ function ProcessosTab({ c, id, patch }) {
             <Field label="Partes envolvidas"><input value={form.parties} onChange={set('parties')} /></Field>
             <Field label="Fase atual"><EnumSelect enumName="procedural_phase" value={form.phase} onChange={set('phase')} /></Field>
             <Field label="Valor pedido"><input value={form.claimed_value} onChange={set('claimed_value')} /></Field>
-            <Field label="Valor estimado atualizado"><input value={form.updated_value} onChange={set('updated_value')} /></Field>
+            <Field label="Valor da causa atualizado (informado)"><input value={form.updated_value} onChange={set('updated_value')} /></Field>
             <Field label="Risco jurídico"><EnumSelect enumName="legal_risk" value={form.risk} onChange={set('risk')} /></Field>
             <Field label="Trânsito em julgado"><label className="row" style={{ gap: 6 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.transited} onChange={set('transited')} /> Houve trânsito em julgado</label></Field>
             <div className="full"><Field label="Próximos passos"><textarea value={form.next_steps} onChange={set('next_steps')} rows={2} /></Field></div>
@@ -331,7 +344,7 @@ function ProcessosTab({ c, id, patch }) {
             <dt>Tribunal / Vara / Comarca</dt><dd>{[l.court, l.chamber, l.comarca].filter(Boolean).join(' · ') || '—'}</dd>
             <dt>Tipo de ação</dt><dd>{l.type || '—'}</dd>
             <dt>Advogado</dt><dd>{l.lawyer || '—'}</dd>
-            <dt>Valor atualizado</dt><dd>{formatMoney(l.updated_value)}</dd>
+            <dt>Valor da causa atualizado</dt><dd>{formatMoney(l.updated_value)}</dd>
             <dt>Risco</dt><dd>{label('legal_risk', l.risk)}</dd>
             {l.next_steps && <><dt>Próximos passos</dt><dd>{l.next_steps}</dd></>}
           </dl>
@@ -532,30 +545,24 @@ function PericiaTab({ c, id, patch }) {
   useEffect(() => { setForm(c.pericia || {}); }, [c]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const save = async () => { if (busy) return; setBusy(true); try { await patch(api.updatePericia(id, form)); } finally { setBusy(false); } };
-  const agio = (() => {
-    const a = parseFloat(String(form.acquisition_price || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
-    const u = parseFloat(String(form.updated_value_pericial || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
-    if (Number.isNaN(a) || Number.isNaN(u)) return null;
-    return u - a;
-  })();
   return (
     <div className="card"><div className="card-body">
-      <HelpCallout title="Perícia e atualização monetária (registro do laudo)">
-        A perícia confirma a <strong>autenticidade da cártula</strong> e apura a <strong>atualização monetária</strong>
-        do valor pago na aquisição até hoje — que gera o <strong>ágio</strong>. O sistema <strong>registra</strong> o
-        laudo informado; não calcula o valor oficial. A atualização baseia-se na data e no preço de aquisição, não no
-        valor de conversão da AGE do Banco do Brasil.
+      <div className="assess"><strong>NÃO É VALOR RECONHECIDO · NÃO É VALOR DE MERCADO · NÃO CONFIRMA TITULARIDADE</strong></div>
+      <HelpCallout title="Laudo informado pela parte (registro histórico)">
+        Um laudo privado é <strong>alegação de parte</strong>: pode atestar a autenticidade do papel, mas não prova
+        titularidade atual nem fixa valor. O número registrado aqui migra para a reivindicação como
+        <strong> estimativa de especialista</strong> (alegação de fonte) e nunca vira valor reconhecido ou de mercado.
       </HelpCallout>
-      <label className="row" style={{ gap: 8, marginBottom: 14 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.active} onChange={set('active')} /> <strong>Ativar módulo de perícia para este caso</strong></label>
+      <label className="row" style={{ gap: 8, marginBottom: 14 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.active} onChange={set('active')} /> <strong>Registrar laudo informado pela parte</strong></label>
       <div className="form-grid">
-        <Field label="Preço de aquisição (R$)" help="Valor pago na época da aquisição — base da atualização." example="Comprou por R$ 5.000 em 1998."><input value={form.acquisition_price || ''} onChange={set('acquisition_price')} /></Field>
+        <Field label="Preço de aquisição declarado (R$)" help="Preço declarado pela parte ou pelo laudo." example="Comprou por R$ 5.000 em 1998."><input value={form.acquisition_price || ''} onChange={set('acquisition_price')} /></Field>
         <Field label="Data-base de aquisição" example="1998 ou 03/1998"><input value={form.acquisition_date || ''} onChange={set('acquisition_date')} /></Field>
-        <Field label="Índice de atualização"><EnumSelect enumName="monetary_index" value={form.monetary_index} onChange={set('monetary_index')} allowEmpty /></Field>
-        <Field label="Valor atualizado no laudo (R$)" hint="Informado pelo laudo pericial"><input value={form.updated_value_pericial || ''} onChange={set('updated_value_pericial')} /></Field>
-        <Field label="Ágio (R$)" hint={agio != null ? `sugerido: ${formatMoney(agio)}` : 'valor - aquisição'}><input value={form.agio || ''} onChange={set('agio')} /></Field>
+        <Field label="Índice usado no laudo"><EnumSelect enumName="monetary_index" value={form.monetary_index} onChange={set('monetary_index')} allowEmpty /></Field>
+        <Field label="Estimativa de especialista declarada (R$)" hint="Número do laudo. Alegação de fonte: não é valor reconhecido nem de mercado."><input value={form.updated_value_pericial || ''} onChange={set('updated_value_pericial')} /></Field>
+        <Field label="Diferencial alegado pelo laudo (R$)" hint="Só se o próprio laudo informar. A plataforma não calcula ágio."><input value={form.agio || ''} onChange={set('agio')} /></Field>
         <Field label="Perito / entidade"><input value={form.perito || ''} onChange={set('perito')} /></Field>
         <Field label="Status do laudo"><EnumSelect enumName="laudo_status" value={form.laudo_status} onChange={set('laudo_status')} /></Field>
-        <Field label="Autenticidade da cártula"><EnumSelect enumName="authenticity_status" value={form.authenticity_status} onChange={set('authenticity_status')} /></Field>
+        <Field label="Autenticidade do papel (segundo o laudo)"><EnumSelect enumName="authenticity_status" value={form.authenticity_status} onChange={set('authenticity_status')} /></Field>
         <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
       </div>
       <div className="row"><button className="btn primary" onClick={save} disabled={busy}>{busy ? <span className="spinner" /> : null} Salvar perícia</button></div>

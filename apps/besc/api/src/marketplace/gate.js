@@ -1,18 +1,23 @@
+// DEPRECATED (ADR-010): emissores de 'title.updated' inalcançáveis (rotas 410 + capacidades 403); o
+// appendAudit recusa eventos title.* (LEGACY_EVENT_PREFIXES). Nenhum consumidor lê title.updated.
 // Gate regulatorio (Fase 4 — docs/evolution/10 + ADR-007). Os 7 itens requiresLegal
 // viram bloqueantes formais; go_live_enabled e DERIVADO (nunca coluna editavel):
 // todos os itens em {satisfied, not_applicable} E o ultimo ato = 'granted'.
 import { query, tx } from '../db.js';
 import { appendAudit } from '../foundation/audit.js';
+import { capabilityRefusal, CAPABILITIES } from '../governance/capabilities.js';
 
 export async function gateStatus() {
   const items = (await query(`SELECT * FROM regulatory_gate_item ORDER BY key`)).rows;
   const lastAct = (await query(`SELECT kind, occurred_at FROM regulatory_gate_approval ORDER BY id DESC LIMIT 1`)).rows[0] || null;
   const allOk = items.length === 7 && items.every((i) => ['satisfied', 'not_applicable'].includes(i.status));
-  const goLive = allOk && lastAct?.kind === 'granted';
-  return { items, allItemsResolved: allOk, lastApproval: lastAct, goLive };
+  // ADR-010: o ato no banco não liga nada — go-live exige também as capacidades de código.
+  const goLive = allOk && lastAct?.kind === 'granted' && CAPABILITIES.MARKETPLACE_REAL && CAPABILITIES.REAL_INVESTMENT;
+  return { items, allItemsResolved: allOk, lastApproval: lastAct, goLive, capabilities: CAPABILITIES, deprecated: 'ADR-010' };
 }
 
 export async function setGateItem(key, { status, opinionDocumentRef, professionalName, professionalRegistration, notes }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   if (!['pending', 'satisfied', 'not_applicable', 'reopened'].includes(status)) return { status: 400, body: { error: 'status inválido' } };
   if (['satisfied', 'not_applicable'].includes(status) && !professionalName) {
     return { status: 400, body: { error: 'parecer exige o nome do profissional habilitado' } };
@@ -29,6 +34,7 @@ export async function setGateItem(key, { status, opinionDocumentRef, professiona
 
 // Concede o go-live (ato append-only). Recusa se algum item nao esta resolvido.
 export async function grantGoLive(actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const out = await tx(async (client) => {
     const items = (await client.query(`SELECT key, status FROM regulatory_gate_item`)).rows;
     const allOk = items.length === 7 && items.every((i) => ['satisfied', 'not_applicable'].includes(i.status));
@@ -45,6 +51,7 @@ export async function grantGoLive(actor) {
 }
 
 export async function revokeGoLive(actor, reason) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   await tx(async (client) => {
     const items = (await client.query(`SELECT key, status FROM regulatory_gate_item`)).rows;
     await client.query(`INSERT INTO regulatory_gate_approval (kind, item_snapshot, approved_by) VALUES ('revoked', $1, $2)`, [JSON.stringify({ items, reason }), actor.userId]);

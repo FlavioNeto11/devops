@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLabel, Loading, Banner, Markdown, FileViewer, formatBytes } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
+import { CurationPanel } from '../curation.jsx';
 
 export default function BibliotecaDetail() {
   const { id } = useParams();
@@ -10,6 +12,7 @@ export default function BibliotecaDetail() {
   const [error, setError] = useState(null);
   const [related, setRelated] = useState([]);
   const label = useLabel();
+  const { hasPerm } = useAuth();
 
   useEffect(() => {
     setItem(null); setError(null);
@@ -34,6 +37,13 @@ export default function BibliotecaDetail() {
               {(item.tags || []).map((t) => <span key={t} className="chip">{t}</span>)}
             </div>
 
+            <div className="assess">
+              <strong>Natureza da fonte:</strong> {item.sourceNature || 'UNKNOWN'} · alegação de fonte, não afirmação da plataforma.
+              {item.publication !== 'PUBLIC_SAFE' && <> · <strong>Restrito à curadoria</strong> (não publicado).</>}
+              {item.warning && <div style={{ marginTop: 4 }}>{item.warning}</div>}
+              {item.labelCorrection && <div style={{ marginTop: 4 }}><strong>Correção do rótulo:</strong> {item.labelCorrection}</div>}
+            </div>
+
             {item.summary && <div className="card" style={{ marginBottom: 16 }}><div className="card-body"><Markdown text={item.summary} /></div></div>}
             {item.body && <div className="card" style={{ marginBottom: 16 }}><div className="card-body"><Markdown text={item.body} /></div></div>}
 
@@ -45,6 +55,7 @@ export default function BibliotecaDetail() {
                 </div>
               </div>
             )}
+            {hasPerm('content:write') && <CurationPanel item={item} kind="library" onSaved={() => api.libraryGet(id).then(setItem)} />}
             {item.fileRef && !item.fileRef.stored && (
               <Banner kind="warn">O arquivo deste item ainda não foi carregado no portal.</Banner>
             )}

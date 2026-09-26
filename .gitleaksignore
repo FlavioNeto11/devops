@@ -17,3 +17,12 @@ e97d278a952ff4ce7b286ebab890580f76904048:scripts/besu-deploy-contract.ps1:generi
 # o texto é uma frase em português, não um segredo).
 7cc5b974c005ebaecde20c82357f4a7d02a3bb43:apps/besc/api/sql/0003_marketplace.sql:generic-api-key:163
 b5b384bf8d9d405c49f3aec4bd8662f67c7da059:apps/besc/api/sql/0003_marketplace.sql:generic-api-key:163
+
+# Triagem 2026-09-26 (PR #374, BESC ADR-010) — falso positivo generic-api-key em CSV GERADO da
+# auditoria de congelamento (apps/besc/tools/product-freeze-audit.mjs). O trecho citado é a
+# mensagem de erro de imutabilidade do contrato de tokens em apps/besc/api/sql/0003_marketplace.sql
+# (linha 163), que a regra confunde com par chave/valor. Não há segredo. Exceção só destes
+# três achados (commits imutáveis); se o CSV for regenerado, o achado novo precisa de nova triagem.
+0fda8860a0b871517347d12c0e53c0efd049d9be:apps/besc/docs/pivot/product-freeze-audit.before.csv:generic-api-key:1495
+17e03c8431bb7f07a5f8fe57885e872cd12ecab6:apps/besc/docs/pivot/product-freeze-audit.before-v2.csv:generic-api-key:1495
+17e03c8431bb7f07a5f8fe57885e872cd12ecab6:apps/besc/docs/pivot/product-freeze-audit.after.csv:generic-api-key:1691

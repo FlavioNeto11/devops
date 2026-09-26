@@ -1,11 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: apps
+# ADR-010: o no Besu saiu do deployment ativo (blockchain e opcional; tokenizacao desativada).
+# Manifesto historico em deprecated/besu.yaml.archived (extensao nao-.yaml: nada o aplica).
 resources:
   - besc.yaml
   - besc-frontend.yaml
   - postgres.yaml
-  - besu.yaml
   # SealedSecrets gerados pelo operador (kubeseal) — exemplo em secret.example.yaml.tmpl
   - sealed-besc-db.yaml
   - sealed-besc-config.yaml

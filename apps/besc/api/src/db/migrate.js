@@ -4,13 +4,13 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getPool } from '../db.js';
+import { getAdminPool } from '../db.js';
 
 const SQL_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'sql');
 const MIGRATE_LOCK = 77223301; // constante arbitraria do app besc
 
 export async function runMigrations() {
-  const pool = getPool();
+  const pool = getAdminPool(); // MIGRATION_ROLE: nunca o papel de runtime
   if (!pool) return { applied: [] };
   const client = await pool.connect();
   const applied = [];
