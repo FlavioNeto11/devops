@@ -39,10 +39,23 @@ export async function prepareRuntimeRole() {
   const admin = getAdminPool();
   if (!admin) return null;
   if (config.dbAppPassword) {
-    const c = await admin.connect();
-    try {
-      await c.query(`ALTER ROLE ${APP_ROLE} LOGIN PASSWORD ${c.escapeLiteral(config.dbAppPassword)}`);
-    } finally { c.release(); }
+    // Só altera o papel se a credencial ainda não funciona. O papel é do cluster: ALTER ROLE
+    // concorrente (vários bancos no mesmo servidor, réplicas subindo juntas) dá "tuple
+    // concurrently updated" — repete com espera curta.
+    const canLogin = async () => {
+      const probe = new pg.Client({ connectionString: runtimeConnectionString(), ssl: false });
+      try { await probe.connect(); return true; } catch { return false; } finally { await probe.end().catch(() => {}); }
+    };
+    for (let attempt = 0; !(await canLogin()); attempt++) {
+      const c = await admin.connect();
+      try {
+        await c.query(`ALTER ROLE ${APP_ROLE} LOGIN PASSWORD ${c.escapeLiteral(config.dbAppPassword)}`);
+      } catch (e) {
+        if (!/concurrently updated/i.test(e.message) || attempt >= 8) throw e;
+        await new Promise((r) => setTimeout(r, 50 + Math.floor(Math.random() * 200)));
+      } finally { c.release(); }
+      if (attempt >= 8) throw new Error('não foi possível habilitar o login do papel besc_app');
+    }
     runtimeMode = 'login';
     runtimePool = new pg.Pool({ connectionString: runtimeConnectionString(), max: 10, ssl: false });
   } else {

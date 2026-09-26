@@ -1,5 +1,5 @@
 # BESC API (Express + JSON store p/ portal/levantamento + Postgres p/ identidade/RBAC/auditoria).
-FROM node:20-alpine
+FROM node:20.20.2-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./

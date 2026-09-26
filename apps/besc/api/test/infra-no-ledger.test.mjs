@@ -57,3 +57,15 @@ test('script de deploy do contrato recusa execução', () => {
   const ps = read(new URL('scripts/besu-deploy-contract.ps1', REPO));
   assert.match(ps.split('\n').slice(0, 4).join('\n'), /^throw /m);
 });
+
+test('runtime fixado: Dockerfiles (API e build do frontend) = .nvmrc = engines', () => {
+  for (const part of ['api', 'frontend']) {
+    const nvmrc = read(new URL(`${part}/.nvmrc`, APP)).trim();
+    assert.match(nvmrc, /^20\.\d+\.\d+$/, `${part}/.nvmrc`);
+    const from = /^FROM node:(\S+?)-alpine/m.exec(read(new URL(`${part}/Dockerfile`, APP)));
+    assert.ok(from, `${part}/Dockerfile sem FROM node:*-alpine`);
+    assert.equal(from[1], nvmrc, `${part}: imagem ${from[1]} ≠ .nvmrc ${nvmrc}`);
+    const pkg = JSON.parse(read(new URL(`${part}/package.json`, APP)));
+    assert.equal(pkg.engines.node, `>=${nvmrc} <21`);
+  }
+});
