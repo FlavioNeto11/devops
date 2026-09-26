@@ -30,6 +30,7 @@ import {
 } from './domain.js';
 import { CONTENT_ENUMS, CONTENT_CATEGORY_LABELS } from './domain-content.js';
 import { REFERENCE, GLOSSARY } from './reference/index.js';
+import { withJurisAssessment, jurisAssessment, assessedOutcome, withLibraryClassification, libraryVisibleTo, REASSESSMENT_META } from './reference/content-overlay.js';
 import { buildReport, renderReportHtml, REPORT_TYPES } from './reports.js';
 
 export function createApp() {
@@ -402,7 +403,9 @@ export function createApp() {
   // resolver de precedentes: id de jurisprudencia -> item (link soft; o dominio nao acopla)
   const precedentResolver = (id) => {
     const j = store.getJurisprudence(id);
-    return j ? { id: j.id, title: j.title, tribunal: j.tribunal, year: j.year } : null;
+    if (!j) return null;
+    const a = jurisAssessment(j.id);
+    return { id: j.id, title: j.title, tribunal: j.tribunal, year: j.year, finality: a.finality, provisional: a.provisional, verification: a.verification };
   };
 
   app.get('/cases/:id/report', authorize('cases:read'), (req, res) => {
@@ -442,26 +445,28 @@ export function createApp() {
       updatedAt: it.updatedAt,
     };
   }
+  // ADR-010: natureza/visibilidade anexadas na leitura; itens de pesquisa só para content:write.
+  const libOut = (it) => withLibraryClassification(it);
 
   app.get('/library', (req, res) => {
     const q = req.query || {};
-    let list = store.listLibrary();
+    let list = store.listLibrary().filter((it) => libraryVisibleTo(req, it));
     if (q.kind) list = list.filter((it) => it.kind === q.kind);
     if (q.tag) list = list.filter((it) => (it.tags || []).includes(q.tag));
     if (q.q) list = list.filter((it) => matchesText(it, q.q));
     list.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR'));
-    res.json(list.map(summaryLibrary));
+    res.json(list.map((it) => libOut(summaryLibrary(it))));
   });
 
   app.get('/library/:id', (req, res) => {
     const it = store.getLibrary(req.params.id);
-    if (!it) return res.status(404).json({ error: 'item não encontrado' });
-    res.json(it);
+    if (!it || !libraryVisibleTo(req, it)) return res.status(404).json({ error: 'item não encontrado' });
+    res.json(libOut(it));
   });
 
   app.get('/library/:id/file', (req, res) => {
     const it = store.getLibrary(req.params.id);
-    if (!it || !it.fileRef) return res.status(404).json({ error: 'arquivo não encontrado' });
+    if (!it || !it.fileRef || !libraryVisibleTo(req, it)) return res.status(404).json({ error: 'arquivo não encontrado' });
     const fp = store.libraryFilePath(it.id, it.fileRef.ext);
     res.setHeader('Content-Type', it.fileRef.mime || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(it.sourceFilename || it.slug || it.id)}`);
@@ -515,6 +520,9 @@ export function createApp() {
       updatedAt: it.updatedAt,
     };
   }
+  // ADR-010: a reavaliação editorial (finalidade, provisoriedade, o que NÃO foi decidido) é anexada
+  // em toda leitura; o `outcome` original do seed fica intacto ao lado de `outcomeAssessed`.
+  const jurOut = (it) => withJurisAssessment(it);
 
   app.get('/jurisprudence', (req, res) => {
     const q = req.query || {};
@@ -523,18 +531,20 @@ export function createApp() {
     if (q.creditorCategory) list = list.filter((it) => it.creditorCategory === firstOf(q.creditorCategory));
     if (q.mechanism) list = list.filter((it) => (it.mechanism || []).includes(firstOf(q.mechanism)));
     if (q.outcome) list = list.filter((it) => it.outcome === firstOf(q.outcome));
+    if (q.outcomeAssessed) list = list.filter((it) => assessedOutcome(it) === firstOf(q.outcomeAssessed));
+    if (q.provisional) list = list.filter((it) => String(jurisAssessment(it.id).provisional) === String(firstOf(q.provisional)));
     if (q.instancia) list = list.filter((it) => it.instancia === firstOf(q.instancia));
     if (q.uf) list = list.filter((it) => it.uf === firstOf(q.uf));
     if (q.year) list = list.filter((it) => String(it.year) === String(firstOf(q.year)));
     if (q.q) list = list.filter((it) => matchesText(it, q.q));
     list.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.title || '').localeCompare(b.title || '', 'pt-BR'));
-    res.json(list.map(summaryJuris));
+    res.json(list.map((it) => jurOut(summaryJuris(it))));
   });
 
   app.get('/jurisprudence/:id', (req, res) => {
     const it = store.getJurisprudence(req.params.id);
     if (!it) return res.status(404).json({ error: 'decisão não encontrada' });
-    res.json(it);
+    res.json(jurOut(it));
   });
 
   app.get('/jurisprudence/:id/file', (req, res) => {
@@ -599,7 +609,7 @@ export function createApp() {
     return out;
   }
   app.get('/stats', (req, res) => {
-    const lib = store.listLibrary();
+    const lib = store.listLibrary().filter((it) => libraryVisibleTo(req, it));
     const jur = store.listJurisprudence();
     res.json({
       cases: { total: store.listCases().length },
@@ -610,6 +620,12 @@ export function createApp() {
         byCreditorCategory: tally(jur, (it) => it.creditorCategory),
         byMechanism: tally(jur, (it) => it.mechanism || []),
         byOutcome: tally(jur, (it) => it.outcome),
+        byOutcomeAssessed: tally(jur, (it) => assessedOutcome(it)),
+        byFinality: tally(jur, (it) => jurisAssessment(it.id).finality),
+        provisional: jur.filter((it) => jurisAssessment(it.id).provisional === true).length,
+        nonDecision: jur.filter((it) => jurisAssessment(it.id).isDecision === false).length,
+        reassessment: REASSESSMENT_META,
+        caveat: 'Contagens de catálogo. Nenhuma decisão do acervo teve trânsito em julgado verificado por certidão; a maioria é provisória. Contagem de "favoráveis" não mede força da tese.',
         byInstancia: tally(jur, (it) => it.instancia),
         byYear: tally(jur, (it) => (it.year ? String(it.year) : null)),
         withFile: jur.filter((it) => it.fileRef && it.fileRef.stored).length,

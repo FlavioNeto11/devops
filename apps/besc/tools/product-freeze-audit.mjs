@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const argOf = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
-const OUT = path.join(APP, argOf('--out', 'docs/pivot'));
+const OUT = path.resolve(APP, argOf('--out', 'docs/pivot'));
 const LABEL = argOf('--label', 'current');
 const SCAN = ['frontend/src', 'api/src', 'api/seed', 'api/test', 'api/sql', 'seed', 'docs', 'k8s', 'CLAUDE.md', 'ESCOPO-FUNCIONAL.md', 'devops.yaml'];
 const EXT = /\.(js|jsx|mjs|json|sql|md|yaml|ps1|sol)$/;
@@ -29,7 +29,7 @@ export const TERMS = [
   ['preservacao_valor', /preserva[çc][ãa]o (autom[áa]tica )?(de )?valor|preserved_face_value|preserva o (montante|valor)/i],
   ['substituicao_token', /substitui[çc][ãa]o (de|do) (token|contrato|t[íi]tulo)|substituteContract|contract_substitution/i],
   ['pericia_valuation', /per[íi]cia|pericial|updated_value_pericial|laudo/i],
-  ['agio', /[áa]gio\b/i],
+  ['agio', /(^|[^a-zà-úA-ZÀ-Ú])[áa]gio\b/i],
   ['divida_publica', /d[íi]vida p[úu]blica/i],
   ['equiparacao_dinheiro', /equiparad[oa]s? a dinheiro|dinheiro em esp[ée]cie/i],
   ['liquidez_garantida', /not[óo]ria liquidez|liquidez (garantida|imediata|compar[áa]vel)|2º grau/i],
@@ -45,7 +45,7 @@ export const TERMS = [
   ['unit_face_value', /unit_face_value|valor de face|valor unit[áa]rio/i],
 ];
 
-const SAFE = /n[ãa]o (executa |faz |realiza )?tokeniza|sem blockchain|n[ãa]o tokeniza|fora de escopo|requer valida[çc][ãa]o|n[ãa]o presta aconselhamento|n[ãa]o constitui oferta|ADR-010|DEPRECATED|superad|n[ãa]o [ée] (oferta|aconselhamento)|source_claim|SOURCE_CLAIM|alega[çc][ãa]o de terceiro/i;
+const SAFE = /n[ãa]o (executa |faz |realiza )?tokeniza|sem blockchain|n[ãa]o tokeniza|fora d[eo] escopo|n[ãa]o prova|n[ãa]o atesta|tese de parte|n[ãa]o [ée] reconhecid|n[ãa]o (gera|cria) (valor|direito)|requer valida[çc][ãa]o|n[ãa]o presta aconselhamento|n[ãa]o constitui oferta|ADR-010|DEPRECATED|superad|n[ãa]o [ée] (oferta|aconselhamento)|source_claim|SOURCE_CLAIM|alega[çc][ãa]o de terceiro/i;
 
 function surfaceOf(rel) {
   const r = rel.replace(/\\/g, '/');
@@ -83,12 +83,25 @@ const OVERRIDES = [
   [/library\.json$/, /d[íi]vida p[úu]blica|dinheiro em esp[ée]cie|not[óo]ria liquidez|70%|CND/i, 'LEGAL_CLAIM_REQUIRING_CONTEXT', 'petição/material comercial servido como biblioteca'],
 ];
 
-function classify(surface, term, line, rel) {
+// Regras de contexto (acrescentadas no commit de conteúdo do ADR-010; o "before" é refeito com elas
+// sobre o commit-base para a comparação ser justa):
+//   - comentário de código não é servido ao usuário;
+//   - dentro do bloco THIRD_PARTY_CLAIMS, a frase é alegação de terceiro preservada, rotulada e com contraponto;
+//   - em conteúdo público, definição que cita a norma de base não afirma mecanismo nem valor.
+const COMMENT = /^\s*(\/\/|\/\*|\*|--)/;
+const REGIONS = [[/portal-content\.js$/, /THIRD_PARTY_CLAIMS — preservado/, 'HISTORICAL_QUOTE', 'alegação de terceiro preservada em THIRD_PARTY_CLAIMS, com aviso e contraponto']];
+const STATUTE_CITED = /C[óo]digo Civil|\bCPC\b|\bCTN\b|\bCC art|Lei (n[ºo.] ?)?\d|Decreto \d|arts?\. \d/i;
+
+function classify(surface, term, line, rel, region) {
+  if (/\.(js|jsx|mjs|sql)$/.test(rel) && COMMENT.test(line)) return ['SAFE_INFORMATIONAL', 'comentário de código (não servido)'];
+  if (region) return region;
+  if (surface === 'public_content' && SAFE.test(line)) return ['SAFE_INFORMATIONAL', 'linha declara restrição/aviso'];
   for (const [fre, lre, cls, why] of OVERRIDES) if (fre.test(rel) && lre.test(line)) return [cls, why];
   if (SAFE.test(line)) return ['SAFE_INFORMATIONAL', 'linha declara restrição/aviso'];
   switch (surface) {
     case 'public_ui_offer': return ['DANGEROUS', 'tela pública de oferta/investimento'];
     case 'public_content':
+      if (STATUTE_CITED.test(line)) return ['SAFE_INFORMATIONAL', 'definição com base normativa citada'];
       if (['compensacao', 'garantia_caucao', 'dacao', 'liquidez_garantida', 'pericia_valuation', 'agio', 'divida_publica', 'equiparacao_dinheiro'].includes(term)) return ['MISLEADING', 'conteúdo público afirma mecanismo/valor sem base'];
       return ['SAFE_INFORMATIONAL', 'conteúdo público neutro'];
     case 'public_ui':
@@ -132,10 +145,13 @@ for (const rel of SCAN.flatMap(walk)) {
   if (SKIP.some((re) => re.test(rel))) continue;
   const surface = surfaceOf(rel);
   const lines = fs.readFileSync(path.join(APP, rel), 'utf8').split(/\r?\n/);
+  const regionRule = REGIONS.find(([fre]) => fre.test(rel));
+  let region = null;
   lines.forEach((line, i) => {
+    if (regionRule && regionRule[1].test(line)) region = [regionRule[2], regionRule[3]];
     for (const [term, re] of TERMS) {
       if (!re.test(line)) continue;
-      const [cls, why] = classify(surface, term, line, rel);
+      const [cls, why] = classify(surface, term, line, rel, region);
       const excerpt = line.trim().replace(/\s+/g, ' ').slice(0, 160);
       rows.push({ file: rel.replace(/\\/g, '/'), line: i + 1, surface, term, classification: cls, rule: why, excerpt });
     }

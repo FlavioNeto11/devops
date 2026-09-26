@@ -1,17 +1,16 @@
-// Agrega os dados de referencia estaticos servidos em /meta.reference e /glossary.
-// Tabela de custas de cartorio removida na curadoria 2026-07-10 (varia por Estado/ano,
-// inviavel manter atualizada — docs/evolution/11-curadoria-conteudo.md).
+// Agrega os dados de referência estáticos servidos em /meta.reference e /glossary (ADR-010).
+// Fatos da plataforma no topo; afirmações de terceiros só sob `thirdPartyClaims`, com aviso.
+// Tabela de custas de cartório removida na curadoria 2026-07-10 (docs/evolution/11-curadoria-conteudo.md).
 import { GLOSSARY } from './glossary.js';
-import { VALUE_PROPOSITION, HISTORY_TIMELINE, MECHANISMS, LEGAL_BASIS, JURISPRUDENCE_PATTERN, SHARE_CONVERSION } from './portal-content.js';
+import { POSITIONING, PLATFORM_FACTS, THIRD_PARTY_CLAIMS } from './portal-content.js';
 
-export const REFERENCE = {
+export const REFERENCE = Object.freeze({
+  positioning: POSITIONING,
   glossary: GLOSSARY,
-  valueProposition: VALUE_PROPOSITION,
-  historyTimeline: HISTORY_TIMELINE,
-  mechanisms: MECHANISMS,
-  legalBasis: LEGAL_BASIS,
-  shareConversion: SHARE_CONVERSION,
-  jurisprudencePattern: JURISPRUDENCE_PATTERN,
-};
+  historyTimeline: PLATFORM_FACTS.historyTimeline,
+  shareConversion: PLATFORM_FACTS.shareConversion,
+  legalBasis: PLATFORM_FACTS.legalBasis,
+  thirdPartyClaims: THIRD_PARTY_CLAIMS,
+});
 
 export { GLOSSARY };
