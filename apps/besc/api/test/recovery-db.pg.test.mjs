@@ -4,7 +4,7 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { startDisposablePg } from './helpers/pg-docker.mjs';
+import { startDisposablePg } from '../test-support/pg-docker.mjs';
 import { TRANSITIONS } from '../src/recovery/domain/model.js';
 import { evaluateAssetGate } from '../src/recovery/domain/external-confirmation.js';
 

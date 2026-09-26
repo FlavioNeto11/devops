@@ -17,21 +17,25 @@ export const PERMISSION_CATALOG = [
   { key: 'audit:read', label: 'Consultar a trilha de auditoria', category: 'auditoria', sensitive: false },
   { key: 'audit:export', label: 'Exportar a trilha de auditoria', category: 'auditoria', sensitive: false },
   // marketplace (Fase 1)
-  { key: 'titles:read', label: 'Ver títulos e contratos do marketplace', category: 'marketplace', sensitive: false },
-  { key: 'titles:create', label: 'Cadastrar/publicar títulos', category: 'marketplace', sensitive: true },
-  { key: 'valuations:write', label: 'Registrar valor de mercado', category: 'marketplace', sensitive: false },
-  { key: 'params:write', label: 'Parametrizar tokenização (fator e valor)', category: 'marketplace', sensitive: true },
-  { key: 'tokens:issue', label: 'Emitir tokens e registrar contratos', category: 'marketplace', sensitive: true },
-  { key: 'legal_status:transition', label: 'Transicionar o estado jurídico do título', category: 'marketplace', sensitive: true },
-  { key: 'legal_status:read', label: 'Ler o histórico jurídico do título', category: 'marketplace', sensitive: false },
+  { key: 'titles:read', deprecated: true, label: 'Ver títulos e contratos do marketplace (desativado — ADR-010)', category: 'marketplace', sensitive: false },
+  { key: 'titles:create', deprecated: true, label: 'Cadastrar/publicar títulos (desativado — ADR-010)', category: 'marketplace', sensitive: true },
+  { key: 'valuations:write', deprecated: true, label: 'Registrar valor de mercado (desativado — ADR-010)', category: 'marketplace', sensitive: false },
+  { key: 'params:write', deprecated: true, label: 'Parametrizar tokenização (fator e valor) (desativado — ADR-010)', category: 'marketplace', sensitive: true },
+  { key: 'tokens:issue', deprecated: true, label: 'Emitir tokens e registrar contratos (desativado — ADR-010)', category: 'marketplace', sensitive: true },
+  { key: 'legal_status:transition', deprecated: true, label: 'Transicionar o estado jurídico do título (desativado — ADR-010)', category: 'marketplace', sensitive: true },
+  { key: 'legal_status:read', deprecated: true, label: 'Ler o histórico jurídico do título (desativado — ADR-010)', category: 'marketplace', sensitive: false },
   // investidor (Fase 2)
-  { key: 'contracts:read', label: 'Ver a própria carteira e contratos', category: 'investidor', sensitive: false },
-  { key: 'contracts:contract', label: 'Contratar tokens', category: 'investidor', sensitive: false },
-  { key: 'leases:lease', label: 'Alugar títulos', category: 'investidor', sensitive: false },
+  { key: 'contracts:read', deprecated: true, label: 'Ver a própria carteira e contratos (desativado — ADR-010)', category: 'investidor', sensitive: false },
+  { key: 'contracts:contract', deprecated: true, label: 'Contratar tokens (desativado — ADR-010)', category: 'investidor', sensitive: false },
+  { key: 'leases:lease', deprecated: true, label: 'Alugar títulos (desativado — ADR-010)', category: 'investidor', sensitive: false },
   // receita + gate (Fase 4)
-  { key: 'fees:read', label: 'Ver faturas e relatórios financeiros', category: 'financeiro', sensitive: false },
-  { key: 'fees:write', label: 'Gerir tarifas, aluguéis, custos e baixas', category: 'financeiro', sensitive: true },
-  { key: 'gate:manage', label: 'Gerir o gate regulatório (go-live)', category: 'financeiro', sensitive: true },
+  { key: 'fees:read', deprecated: true, label: 'Ver faturas e relatórios financeiros (desativado — ADR-010)', category: 'financeiro', sensitive: false },
+  { key: 'fees:write', deprecated: true, label: 'Gerir tarifas, aluguéis, custos e baixas (desativado — ADR-010)', category: 'financeiro', sensitive: true },
+  // Legacy Asset Recovery (ADR-010)
+  { key: 'recovery:read', label: 'Ver reivindicações, evidências e aprovações', category: 'recuperacao', sensitive: true },
+  { key: 'recovery:write', label: 'Cadastrar reclamantes, evidências e reivindicações', category: 'recuperacao', sensitive: true },
+  { key: 'recovery:approve', label: 'Revisar e decidir atos sensíveis (quatro-olhos)', category: 'recuperacao', sensitive: true },
+  { key: 'gate:manage', deprecated: true, label: 'Gerir o gate regulatório (go-live) (desativado — ADR-010)', category: 'financeiro', sensitive: true },
 ];
 
 // Seeds dos papeis minimos (linhas; insert-if-missing — o admin pode recombinar depois).
@@ -48,6 +52,7 @@ const ROLE_SEEDS = [
       ['titles:read', 'all'], ['titles:create', 'all'], ['valuations:write', 'all'], ['params:write', 'all'],
       ['tokens:issue', 'all'], ['legal_status:transition', 'all'], ['legal_status:read', 'all'],
       ['fees:read', 'all'], ['fees:write', 'all'], ['gate:manage', 'all'],
+      ['recovery:read', 'all'], ['recovery:write', 'all'], ['recovery:approve', 'all'],
     ],
   },
   { key: 'admin', label: 'Administrador da plataforma', perms: [['*', 'all']] },

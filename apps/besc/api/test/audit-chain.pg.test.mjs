@@ -2,7 +2,7 @@
 // Roda as migrations 0001–0007 num Postgres descartável e prova a trilha v2 no banco.
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startDisposablePg } from './helpers/pg-docker.mjs';
+import { startDisposablePg } from '../test-support/pg-docker.mjs';
 
 const pgInst = await startDisposablePg();
 const skip = pgInst ? false : 'Docker indisponível — teste de banco pulado';

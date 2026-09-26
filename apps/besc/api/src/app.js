@@ -12,6 +12,7 @@ import { config } from './config.js';
 import { installFoundation, authorize } from './foundation/index.js';
 import { installMarketplace } from './marketplace/index.js';
 import { installLegacyFreeze } from './governance/legacy-freeze.js';
+import { installRecovery } from './recovery/index.js';
 import {
   ENUMS,
   DOC_CATEGORY_LABELS,
@@ -50,7 +51,8 @@ export function createApp() {
   // ADR-010: rotas da tese antiga respondem 410 ANTES de identidade/autorização/marketplace.
   installLegacyFreeze(app);
   installFoundation(app);
-  installMarketplace(app);
+  installMarketplace(app); // DEPRECATED (ADR-010): só leituras históricas sob RBAC
+  installRecovery(app);    // Legacy Asset Recovery (F1/F2)
 
   const now = () => new Date().toISOString();
 

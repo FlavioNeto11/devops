@@ -82,6 +82,18 @@ test('/portal/mode declara as capacidades desligadas e nunca goLive', async () =
   for (const v of Object.values(r.json.capabilities)) assert.equal(v, false);
 });
 
+test('domínio de recuperação sem fundação: vocabulário público, dados gated', async () => {
+  const meta = await call('get', '/recovery/meta');
+  assert.equal(meta.status, 200);
+  assert.equal(meta.json.multi_issuer_research_gate, 'CLOSED');
+  for (const v of Object.values(meta.json.capabilities)) assert.equal(v, false);
+  const origins = await call('get', '/recovery/origins');
+  assert.equal(origins.json.find((o) => o.id === 'BESC').status, 'ACTIVE');
+  for (const route of ['/recovery/claims', '/recovery/approvals', '/recovery/evidence/x']) {
+    assert.equal((await call('get', route)).status, 503, route);
+  }
+});
+
 test('/meta não oferece mais os relatórios removidos', async () => {
   const r = await call('get', '/meta');
   for (const type of REMOVED_REPORT_TYPES) assert.ok(!(type in r.json.reportTypes), type);

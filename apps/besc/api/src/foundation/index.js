@@ -7,7 +7,7 @@ import { runMigrations } from '../db/migrate.js';
 import { seedRbac, attachIdentity } from './rbac.js';
 import { ensureBootstrapUser, installAuthRoutes } from './auth.js';
 import { installAdminRoutes } from './admin.js';
-import { legacyAuditMiddleware, listAuditEvents } from './audit.js';
+import { legacyAuditMiddleware, listAuditEvents, verifyAuditChain } from './audit.js';
 import { authorize } from './rbac.js';
 
 export { authorize } from './rbac.js';
@@ -49,5 +49,11 @@ export function installFoundation(app) {
       eventType: req.query.eventType, limit: req.query.limit, before: req.query.before,
     });
     res.json(rows);
+  });
+
+  // Verificação da cadeia inteira (hash-chain v1+v2) no banco: a trilha que qualquer gestor confere.
+  app.get('/audit/verify', authorize('audit:read'), async (req, res) => {
+    if (!isDbReady()) return res.status(503).json({ error: 'trilha indisponível no momento' });
+    res.json(await verifyAuditChain());
   });
 }
