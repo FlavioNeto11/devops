@@ -8,6 +8,7 @@ import { enrichCase } from '../domain.js';
 import { appendAudit } from '../foundation/audit.js';
 import { getLedger } from '../ledger/port.js';
 import { AVAILABLE_STATES, TRANSITIONS, LEGAL_STATUSES, canTransition, cascadeFor } from './states.js';
+import { capabilityRefusal } from '../governance/capabilities.js';
 
 const ELIGIBLE_CASE_STATUS = new Set(['ready_for_structuring', 'ready_with_caveats']);
 
@@ -19,6 +20,7 @@ function evidenceHash(ev) {
 // Cadastro de titulo a partir de um case elegivel
 // ---------------------------------------------------------------------------
 export async function createTitle({ caseId, label, override = false }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const c = store.getCase(caseId);
   if (!c) return { status: 404, body: { error: 'caso não encontrado' } };
   const enriched = enrichCase(c).case;
@@ -97,6 +99,7 @@ export async function getTitle(id, { includeHistory = true } = {}) {
 // Valuation (serie temporal append-only)
 // ---------------------------------------------------------------------------
 export async function addValuation(titleId, { valuePerShare, valuationDate, source, evidenceRef, notes }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const v = Number(valuePerShare);
   if (!(v > 0)) return { status: 400, body: { error: 'valuePerShare deve ser > 0' } };
   const { rows } = await query(
@@ -113,6 +116,7 @@ export async function addValuation(titleId, { valuePerShare, valuationDate, sour
 // Criar sempre em draft; activate promove e supersede o anterior.
 // ---------------------------------------------------------------------------
 export async function createParameter(titleId, { tokensPerShare, unitFaceValue, basedOnValuationId }, actor) {
+  { const frozen = capabilityRefusal('TOKENIZATION_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const tps = parseInt(tokensPerShare, 10);
   const ufv = Number(unitFaceValue);
   if (!(tps > 0)) return { status: 400, body: { error: 'tokensPerShare deve ser > 0' } };
@@ -142,6 +146,7 @@ export async function createParameter(titleId, { tokensPerShare, unitFaceValue, 
 }
 
 export async function activateParameter(paramId, actor) {
+  { const frozen = capabilityRefusal('TOKENIZATION_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   const out = await tx(async (client) => {
     const { rows } = await client.query('SELECT * FROM tokenization_parameter WHERE id = $1 FOR UPDATE', [paramId]);
     if (!rows.length) return { status: 404, body: { error: 'parâmetro não encontrado' } };
@@ -164,6 +169,7 @@ export async function activateParameter(paramId, actor) {
 // Listing (publicar/despublicar no catalogo)
 // ---------------------------------------------------------------------------
 export async function setListing(titleId, listingStatus, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   if (!['draft', 'listed', 'delisted'].includes(listingStatus)) return { status: 400, body: { error: 'listing_status inválido' } };
   const { rows } = await query('UPDATE security_title SET listing_status = $2, updated_at = now() WHERE id = $1 RETURNING *', [titleId, listingStatus]);
   if (!rows.length) return { status: 404, body: { error: 'título não encontrado' } };
@@ -175,6 +181,7 @@ export async function setListing(titleId, listingStatus, actor) {
 // Maquina de estado juridico + cascatas
 // ---------------------------------------------------------------------------
 export async function transitionLegalStatus(titleId, { toStatus, reason, evidenceRef }, actor) {
+  { const frozen = capabilityRefusal('MARKETPLACE_REAL'); if (frozen) return frozen; } // ADR-010: recusa antes de tocar o banco
   if (!LEGAL_STATUSES[toStatus]) return { status: 400, body: { error: 'estado jurídico inválido' } };
   if (!reason || String(reason).trim().length < 3) return { status: 400, body: { error: 'reason (justificativa) é obrigatório' } };
   const ledger = getLedger();

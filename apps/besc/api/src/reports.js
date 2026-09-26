@@ -25,9 +25,10 @@ export const REPORT_TYPES = {
   risk_matrix: 'Matriz de riscos',
   missing_documents_list: 'Lista de documentos faltantes',
   lawyer_report: 'Relatório para advogado',
-  tokenization_partner_report: 'Relatório para parceiro de tokenização',
-  collateral_analysis_report: 'Relatório para análise de uso como caução',
-  strategy_report: 'Relatório de estratégia (mecanismo + jurisprudência de apoio)',
+  // ADR-010: removidos tokenization_partner_report, collateral_analysis_report e
+  // strategy_report (afirmavam perícia como valor, cobertura de garantia e estratégia de
+  // liquidação sem confirmação externa). As rotas respondem 410 (governance/legacy-freeze.js);
+  // os construtores abaixo ficam inalcançáveis até a remoção definitiva.
 };
 
 // --- blocos reutilizaveis ---

@@ -5,6 +5,7 @@ import { authorize } from '../foundation/rbac.js';
 import { setLedgerAdapter } from '../ledger/port.js';
 import { SimulatedLedgerAdapter } from '../ledger/simulated.js';
 import { config } from '../config.js';
+import { isCapabilityEnabled } from '../governance/capabilities.js';
 import { LEGAL_STATUSES, TRANSITIONS } from './states.js';
 import {
   createTitle, listTitles, getTitle, addValuation, createParameter, activateParameter,
@@ -18,7 +19,10 @@ import { gateStatus, setGateItem, grantGoLive, revokeGoLive } from './gate.js';
 export async function bootMarketplace() {
   // Toggle simulado<->besu (docs/evolution/05). Default simulado: o off-chain e a fonte
   // da verdade e a chain so entra apos o gate regulatorio. besu exige BESU_* no ambiente.
-  if (config.ledgerAdapter === 'besu' && config.besuRpcUrl && config.besuPrivateKey && config.besuContractAddress) {
+  // ADR-010: enquanto TOKENIZATION_REAL = false, o BesuAdapter é recusado mesmo com BESU_* configurado.
+  if (config.ledgerAdapter === 'besu' && !isCapabilityEnabled('TOKENIZATION_REAL')) {
+    console.warn('[ledger] LEDGER_ADAPTER=besu recusado: TOKENIZATION_REAL=false (ADR-010) — adaptador simulado, somente leitura histórica');
+  } else if (config.ledgerAdapter === 'besu' && config.besuRpcUrl && config.besuPrivateKey && config.besuContractAddress) {
     try {
       const { BesuAdapter } = await import('../ledger/besu.js');
       const adapter = new BesuAdapter({ rpcUrl: config.besuRpcUrl, privateKey: config.besuPrivateKey, contractAddress: config.besuContractAddress, chainId: config.besuChainId });

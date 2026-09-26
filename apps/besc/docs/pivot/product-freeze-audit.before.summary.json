@@ -1,0 +1,1457 @@
+{
+  "label": "before",
+  "total": 2588,
+  "byClassification": {
+    "LEGACY_PRODUCT": 1452,
+    "SAFE_INFORMATIONAL": 163,
+    "MISLEADING": 82,
+    "DANGEROUS": 69,
+    "HISTORICAL_QUOTE": 786,
+    "LEGAL_CLAIM_REQUIRING_CONTEXT": 36
+  },
+  "bySurface": {
+    "internal_ui": 75,
+    "public_ui": 64,
+    "internal_ui_marketplace": 93,
+    "public_ui_offer": 50,
+    "api_core": 96,
+    "marketplace_code": 165,
+    "public_content": 46,
+    "reports": 33,
+    "seed_other": 8,
+    "seed_jurisprudence": 448,
+    "seed_library": 32,
+    "seed_overrides": 338,
+    "tests": 15,
+    "sql_marketplace": 44,
+    "sql_core": 2,
+    "fixtures": 4,
+    "docs_evolution": 859,
+    "infra": 6,
+    "infra_besu": 11,
+    "docs_agent_context": 23,
+    "docs_escopo_v1": 176
+  },
+  "byTerm": {
+    "tokenizacao": 366,
+    "pericia_valuation": 210,
+    "investimento": 164,
+    "marketplace": 160,
+    "substituicao_token": 32,
+    "aluguel": 222,
+    "cta_investimento": 7,
+    "garantia_caucao": 382,
+    "unit_face_value": 138,
+    "agio": 31,
+    "cautela_ativo": 71,
+    "compensacao": 335,
+    "tokens_por_acao": 36,
+    "treasury": 109,
+    "erc3643_besu": 165,
+    "dacao": 75,
+    "preservacao_valor": 17,
+    "liquidez_garantida": 18,
+    "converter_ou_vender": 2,
+    "comprar_vender_acoes": 12,
+    "divida_publica": 20,
+    "equiparacao_dinheiro": 6,
+    "valorizacao": 9,
+    "rentabilidade": 1
+  },
+  "bySurfaceAndClassification": {
+    "internal_ui|LEGACY_PRODUCT": 64,
+    "internal_ui|SAFE_INFORMATIONAL": 11,
+    "public_ui|MISLEADING": 35,
+    "public_ui|DANGEROUS": 6,
+    "public_ui|SAFE_INFORMATIONAL": 23,
+    "internal_ui_marketplace|LEGACY_PRODUCT": 93,
+    "public_ui_offer|DANGEROUS": 50,
+    "api_core|SAFE_INFORMATIONAL": 29,
+    "api_core|LEGACY_PRODUCT": 67,
+    "marketplace_code|LEGACY_PRODUCT": 165,
+    "public_content|MISLEADING": 25,
+    "public_content|SAFE_INFORMATIONAL": 8,
+    "public_content|DANGEROUS": 13,
+    "reports|LEGACY_PRODUCT": 30,
+    "reports|SAFE_INFORMATIONAL": 3,
+    "seed_other|SAFE_INFORMATIONAL": 8,
+    "seed_jurisprudence|HISTORICAL_QUOTE": 448,
+    "seed_library|LEGAL_CLAIM_REQUIRING_CONTEXT": 32,
+    "seed_overrides|HISTORICAL_QUOTE": 338,
+    "tests|LEGACY_PRODUCT": 15,
+    "sql_marketplace|LEGACY_PRODUCT": 44,
+    "sql_core|SAFE_INFORMATIONAL": 2,
+    "fixtures|LEGAL_CLAIM_REQUIRING_CONTEXT": 4,
+    "docs_evolution|LEGACY_PRODUCT": 850,
+    "docs_evolution|SAFE_INFORMATIONAL": 9,
+    "infra|SAFE_INFORMATIONAL": 6,
+    "infra_besu|LEGACY_PRODUCT": 11,
+    "docs_agent_context|MISLEADING": 22,
+    "docs_agent_context|SAFE_INFORMATIONAL": 1,
+    "docs_escopo_v1|LEGACY_PRODUCT": 113,
+    "docs_escopo_v1|SAFE_INFORMATIONAL": 63
+  },
+  "dangerous": [
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 41,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "['/marketplace', 'Investir em títulos'],"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 41,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "['/marketplace', 'Investir em títulos'],"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 41,
+      "surface": "public_ui",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "['/marketplace', 'Investir em títulos'],"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 266,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "<NavLink to=\"/marketplace\"><Icon name=\"coins\" /> Investir</NavLink>"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 266,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "<NavLink to=\"/marketplace\"><Icon name=\"coins\" /> Investir</NavLink>"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 266,
+      "surface": "public_ui",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: navegação pública para oferta",
+      "excerpt": "<NavLink to=\"/marketplace\"><Icon name=\"coins\" /> Investir</NavLink>"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 46,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "Seus contratos de tokens. Cada contrato guarda o <strong>valor de face travado</strong> no momento da"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 51,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "O <strong>valor travado</strong> é o valor de face por token registrado quando você contratou — ele não muda"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 65,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn primary sm\" to=\"/marketplace\"><Icon name=\"coins\" size={13} /> Ver títulos disponíveis</Link>"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 65,
+      "surface": "public_ui_offer",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn primary sm\" to=\"/marketplace\"><Icon name=\"coins\" size={13} /> Ver títulos disponíveis</Link>"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 80,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"cs-metric\"><span className=\"m-k\">Valor de face travado</span><span className=\"m-v\">{formatBRL(totals.face)}</span></div>"
+    },
+    {
+      "file": "frontend/src/pages/InvestidorCarteira.jsx",
+      "line": 109,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<td>{formatBRL(c.unit_face_value_frozen)}</td>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 13,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "// disponibilidade e valor unitário. O dossiê completo e a contratação ficam além do login."
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 14,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "export default function Marketplace() {"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 31,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"pgtitle\"><h1><Icon name=\"coins\" size={22} /> Investir em títulos</h1></div>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 31,
+      "surface": "public_ui_offer",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"pgtitle\"><h1><Icon name=\"coins\" size={22} /> Investir em títulos</h1></div>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 34,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "classe da ação, o estado jurídico atual e o valor unitário de referência. Abra o dossiê para ver"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 35,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "os detalhes e, se você for um investidor aprovado, contratar tokens."
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 40,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<strong> disponíveis</strong> podem ser contratados. O <strong>valor unitário</strong> é o valor de face de"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 69,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<span className=\"m-k\">Valor unitário</span>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 79,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn primary sm\" to={`/marketplace/titulos/${t.id}`}>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 84,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn sm\" to={`/marketplace/titulos/${t.id}`}>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 87,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn primary sm\" to={`/entrar?next=${encodeURIComponent(`/marketplace/titulos/${t.id}`)}`}>"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 88,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Icon name=\"login\" size={13} /> Entrar para investir"
+    },
+    {
+      "file": "frontend/src/pages/Marketplace.jsx",
+      "line": 106,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "recomendação de investimento nem parecer jurídico."
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 25,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "{ to: '/marketplace', ic: 'coins', title: 'Investir em títulos', desc: 'Títulos lastreados em ações BESC publicados no marketplace, com valores e disponibilidad"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 25,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "{ to: '/marketplace', ic: 'coins', title: 'Investir em títulos', desc: 'Títulos lastreados em ações BESC publicados no marketplace, com valores e disponibilidad"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 25,
+      "surface": "public_ui_offer",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "{ to: '/marketplace', ic: 'coins', title: 'Investir em títulos', desc: 'Títulos lastreados em ações BESC publicados no marketplace, com valores e disponibilidad"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 30,
+      "surface": "public_ui_offer",
+      "term": "tokenizacao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "{ to: '/roadmap', ic: 'roadmap', title: 'Roadmap do processo', desc: 'O que já existe e o que ainda falta para o fluxo completo até a tokenização.' },"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 41,
+      "surface": "public_ui_offer",
+      "term": "compensacao",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "quitar e compensar passivos tributários, bancários e junto a empresas privadas. Este portal"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 43,
+      "surface": "public_ui_offer",
+      "term": "tokenizacao",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "fundamento para uma futura tokenização."
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 46,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "<Link className=\"btn primary\" to=\"/marketplace\"><Icon name=\"coins\" /> Investir em títulos</Link>"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 46,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "<Link className=\"btn primary\" to=\"/marketplace\"><Icon name=\"coins\" /> Investir em títulos</Link>"
+    },
+    {
+      "file": "frontend/src/pages/PortalHome.jsx",
+      "line": 46,
+      "surface": "public_ui_offer",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: CTA/promessa na home pública",
+      "excerpt": "<Link className=\"btn primary\" to=\"/marketplace\"><Icon name=\"coins\" /> Investir em títulos</Link>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 50,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"crumbs\"><Link to=\"/marketplace\">Investir</Link> › {d ? d.label : '…'}</div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 50,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"crumbs\"><Link to=\"/marketplace\">Investir</Link> › {d ? d.label : '…'}</div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 50,
+      "surface": "public_ui_offer",
+      "term": "cta_investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"crumbs\"><Link to=\"/marketplace\">Investir</Link> › {d ? d.label : '…'}</div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 71,
+      "surface": "public_ui_offer",
+      "term": "tokens_por_acao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "{param && <div className=\"cs-metric\"><span className=\"m-k\">Fator (tokens por ação)</span><span className=\"m-v\">{param.tokens_per_share != null ? Number(param.to"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 72,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "{param && <div className=\"cs-metric\"><span className=\"m-k\">Valor unitário (face)</span><span className=\"m-v\">{formatBRL(param.unit_face_value)}</span></div>}"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 77,
+      "surface": "public_ui_offer",
+      "term": "tokenizacao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "{/* Parâmetro ativo de tokenização */}"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 80,
+      "surface": "public_ui_offer",
+      "term": "tokenizacao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"card-head\"><h3><Icon name=\"layers\" size={15} /> Parâmetro de tokenização</h3></div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 83,
+      "surface": "public_ui_offer",
+      "term": "tokens_por_acao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"cs-metric\"><span className=\"m-k\">Tokens por ação</span><span className=\"m-v\">{Number(param.tokens_per_share).toLocaleString('pt-BR')}</span></di"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 84,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"cs-metric\"><span className=\"m-k\">Valor unitário de face</span><span className=\"m-v\">{formatBRL(param.unit_face_value)}</span></div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 90,
+      "surface": "public_ui_offer",
+      "term": "tokenizacao",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Banner kind=\"info\">Este título ainda não tem parâmetro de tokenização ativo.</Banner>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 145,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "oferta, recomendação de investimento nem parecer."
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 151,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "{/* Painel de contratação: só para investidor logado E título disponível */}"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 153,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<ContractPanel titleId={d.id} unitFaceValue={param && param.unit_face_value} demo={demo} />"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 164,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<p className=\"small muted\" style={{ marginBottom: 12 }}>Entre com sua conta de investidor para contratar tokens deste título.</p>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 165,
+      "surface": "public_ui_offer",
+      "term": "marketplace",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn primary sm\" to={`/entrar?next=${encodeURIComponent(`/marketplace/titulos/${d.id}`)}`}>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 183,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "// Painel \"Contratar tokens\": quantidade → total = qty × valor de face (travado na contratação)."
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 249,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "O valor de face ficou <strong>travado</strong> nesta contratação."
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 252,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Link className=\"btn sm\" to=\"/investidor/carteira\" style={{ marginTop: 8 }}>Ver na minha carteira <Icon name=\"chevronRight\" size={13} /></Link>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 269,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<div className=\"cs-metric\"><span className=\"m-k\">Valor unitário (face)</span><span className=\"m-v\">{formatBRL(unitFaceValue)}</span></div>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 274,
+      "surface": "public_ui_offer",
+      "term": "unit_face_value",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Icon name=\"lock\" size={12} /> O <strong>valor de face fica travado</strong> no momento da contratação:"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 288,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<Banner kind=\"info\">Para concluir, leia e aceite os termos do investidor{terms.version ? ` (versão ${terms.version})` : ''}.</Banner>"
+    },
+    {
+      "file": "frontend/src/pages/TituloDossie.jsx",
+      "line": 297,
+      "surface": "public_ui_offer",
+      "term": "investimento",
+      "classification": "DANGEROUS",
+      "rule": "tela pública de oferta/investimento",
+      "excerpt": "<span className=\"small\">Li e aceito os termos do investidor.</span>"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 6,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "// Proposta de valor (fonte: \"PORQUE UTILIZAR AS BESCS PARA QUITACAO DE PASSIVOS\")."
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 17,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "summary: 'Reconhecidas por tribunais como idôneas; 2º grau na hierarquia de penhora do CPC.',"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 18,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "body: 'Muitos tribunais reconhecem as ações do BESC como idôneas, ocupando o 2º grau na hierarquia de penhoras do Código de Processo Civil. A responsabilidade s"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 24,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "body: 'As ações do BESC podem ser utilizadas na quitação de passivos TRIBUTÁRIOS, BANCÁRIOS e junto a EMPRESAS PRIVADAS, pela responsabilidade compartilhada ent"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 29,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "summary: 'Negativa em 1ª instância; consolida-se favoravelmente do 2º grau ao STJ/STF.',"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 40,
+      "surface": "public_content",
+      "term": "converter_ou_vender",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: \"30 dias para converter ou vender\" (a conversão foi automática em 11/02/2009)",
+      "excerpt": "{ date: '2008–2009', title: 'Prazo de conversão/venda', text: 'Acionistas tiveram 30 dias para converter em ações do BB (1/12,133) ou vender por R$ 2,4468/ação."
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 51,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "{ key: 'substituicao_penhora', title: 'Substituição de penhora', when: 'Trocar o bem penhorado pelas ações BESC (2º grau na hierarquia do CPC), invocando a meno"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 59,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "{ key: 'hierarquia_penhora', title: 'Hierarquia de penhora (CPC)', text: 'As ações do BESC são reconhecidas por tribunais como idôneas e situam-se no 2º grau da"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 60,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "{ key: 'pericia', title: 'Perícia e atualização monetária', text: 'A atualização é feita pela data e preço de aquisição da cártula, não pelo valor de conversão "
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 60,
+      "surface": "public_content",
+      "term": "agio",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "{ key: 'pericia', title: 'Perícia e atualização monetária', text: 'A atualização é feita pela data e preço de aquisição da cártula, não pelo valor de conversão "
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 60,
+      "surface": "public_content",
+      "term": "cautela_ativo",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "{ key: 'pericia', title: 'Perícia e atualização monetária', text: 'A atualização é feita pela data e preço de aquisição da cártula, não pelo valor de conversão "
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 69,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "disclaimer: 'Valores da incorporação. A perícia atualiza pela data e preço de aquisição da cártula (não pelo valor da AGE do BB). Conferir sempre no laudo/proce"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 69,
+      "surface": "public_content",
+      "term": "cautela_ativo",
+      "classification": "DANGEROUS",
+      "rule": "exhibit 3: proposta de valor/mecanismos servidos como fato",
+      "excerpt": "disclaimer: 'Valores da incorporação. A perícia atualiza pela data e preço de aquisição da cártula (não pelo valor da AGE do BB). Conferir sempre no laudo/proce"
+    }
+  ],
+  "misleading": [
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 27,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "import Marketplace from './pages/Marketplace.jsx';"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 32,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 42,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "['/investidor', 'Minha carteira'],"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 51,
+      "surface": "public_ui",
+      "term": "aluguel",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "['/gestao/alugueis', 'Aluguéis'],"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 133,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "público (biblioteca, jurisprudência, marketplace e referência) continua navegável."
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 269,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "{canSeeWallet && <NavLink to=\"/investidor/carteira\"><Icon name=\"briefcase\" /> Carteira</NavLink>}"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 283,
+      "surface": "public_ui",
+      "term": "aluguel",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "{canSeeFinance && <NavLink to=\"/gestao/alugueis\" className=\"nav-dd-link\"><Icon name=\"briefcase\" size={14} /> Aluguéis</NavLink>}"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 302,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "Base de conhecimento e organização documental sobre as ações do antigo BESC — <strong>não</strong> executa tokenização nem presta aconselhamento jurídico."
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 315,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Route path=\"/marketplace\" element={<Marketplace />} />"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 316,
+      "surface": "public_ui",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Route path=\"/marketplace/titulos/:id\" element={<TituloDossie />} />"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 317,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Route path=\"/investidor/carteira\" element={<RequireRole perm=\"contracts:read\"><InvestidorCarteira /></RequireRole>} />"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 330,
+      "surface": "public_ui",
+      "term": "aluguel",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Route path=\"/gestao/alugueis\" element={<RequireRole perm=\"fees:read\"><GestaoAlugueis /></RequireRole>} />"
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "line": 341,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<span><strong>Portal BESC</strong> — base de conhecimento, jurisprudência, levantamento documental e futura tokenização.</span>"
+    },
+    {
+      "file": "frontend/src/investor.jsx",
+      "line": 6,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "// Enquanto go_live for false, TODA a área do investidor exibe um aviso/watermark persistente."
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 10,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "['tokenizacao', 'Tokenização e regulatório'],"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 57,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<h1>Como usar a Plataforma de Levantamento BESC Tokenização</h1>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 58,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p>Este é um sistema simples de <strong>levantamento e organização</strong>: você cadastra os casos ligados às ações do antigo <strong>BESC</strong> (banco inco"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 108,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Step n=\"5\" title=\"Preencha a tokenização e o regulatório\">"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 109,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p>Na aba <strong>Tokenização</strong>, descreva o que o token representaria e responda os itens regulatórios (é valor mobiliário? precisa de estrutura via FIDC"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 118,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p>Na aba <strong>Relatórios</strong>, gere o relatório completo ou os específicos (para advogado, para parceiro de tokenização, para análise de caução).</p>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 133,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<li><strong>Tokenização</strong> — o que tokenizar + regulatório.</li>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 166,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Section id=\"tokenizacao\" title=\"6. Checklist de tokenização e regulatório\">"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 167,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p>Aqui você levanta <strong>o que</strong> seria tokenizado e o <strong>enquadramento</strong>, sem executar nada. Descreva: o que exatamente será tokenizado, "
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 169,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<Ex>Em “O que será tokenizado”, escreva no campo de definição: “direito creditório reconhecido na sentença do processo nº ... — parcela de X ações ON”.</Ex>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 205,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p className=\"muted small\">“Apto para estruturação” significa apenas que o <em>levantamento documental</em> está completo — não que a tokenização/garantia é jur"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 219,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<li><strong>Para advogado</strong>, <strong>para parceiro de tokenização</strong> e <strong>para análise de caução</strong>.</li>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 236,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<tr><td>Tokenização</td><td>Representar um direito/ativo como token digital (aqui, apenas planejado).</td></tr>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 237,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<tr><td>Valor mobiliário</td><td>Título de investimento sujeito à regulação da CVM.</td></tr>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 238,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<tr><td>FIDC</td><td>Fundo de Investimento em Direitos Creditórios — estrutura comum para recebíveis.</td></tr>"
+    },
+    {
+      "file": "frontend/src/pages/Ajuda.jsx",
+      "line": 247,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p><strong>Aviso legal.</strong> Esta ferramenta é de organização e levantamento documental. <strong>Não</strong> constitui aconselhamento jurídico, parecer, of"
+    },
+    {
+      "file": "frontend/src/pages/Entrar.jsx",
+      "line": 14,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "// (api/src/foundation/rbac.js): gestor/admin (cases:read) → /casos; investidor"
+    },
+    {
+      "file": "frontend/src/pages/Entrar.jsx",
+      "line": 21,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "if (has('contracts:read')) return '/investidor/carteira';"
+    },
+    {
+      "file": "frontend/src/pages/Entrar.jsx",
+      "line": 241,
+      "surface": "public_ui",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "const INVITE_ROLE_LABELS = { lawyer: 'Advogado (auditoria)', judge: 'Juiz (auditoria)', manager: 'Gestor', investor: 'Investidor' };"
+    },
+    {
+      "file": "frontend/src/pages/Glossario.jsx",
+      "line": 31,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "<p>Termos do processo BESC — da incorporação e da perícia aos mecanismos de liquidação e à tokenização — explicados de forma objetiva.</p>"
+    },
+    {
+      "file": "frontend/src/pages/Roadmap.jsx",
+      "line": 30,
+      "surface": "public_ui",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "UI pública apresenta a tese antiga",
+      "excerpt": "do mecanismo de liquidação e pela jurisprudência de apoio, até a futura tokenização. Abaixo,"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 9,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_dacao_pagamento', term: 'Dação em pagamento', definition: 'Extinção de uma dívida entregando ao credor bem ou direito diferente de dinheiro (aqui, as "
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 9,
+      "surface": "public_content",
+      "term": "dacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_dacao_pagamento', term: 'Dação em pagamento', definition: 'Extinção de uma dívida entregando ao credor bem ou direito diferente de dinheiro (aqui, as "
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 10,
+      "surface": "public_content",
+      "term": "garantia_caucao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_caucao', term: 'Caução', definition: 'Garantia (bem ou direito) vinculada a um juízo para assegurar uma obrigação; direitos ilíquidos tendem a ser rec"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 11,
+      "surface": "public_content",
+      "term": "liquidez_garantida",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_substituicao_penhora', term: 'Substituição de penhora', definition: 'Troca do bem penhorado por outro oferecido pelo devedor; as ações BESC ocupam o 2"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 11,
+      "surface": "public_content",
+      "term": "garantia_caucao",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_substituicao_penhora', term: 'Substituição de penhora', definition: 'Troca do bem penhorado por outro oferecido pelo devedor; as ações BESC ocupam o 2"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 12,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_compensacao', term: 'Compensação', definition: 'Encontro de contas: extinção recíproca de dívida e crédito até o valor coincidente, quando credor e de"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 13,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_quitacao', term: 'Quitação', definition: 'Reconhecimento formal de que uma obrigação foi satisfeita/extinta.', seeAlso: ['compensacao', 'homologacao']"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 14,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_conversao', term: 'Conversão (em numerário)', definition: 'Transformar o direito/ação em valor monetário equivalente para liquidar a obrigação.', seeA"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 15,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_cartula', term: 'Cártula', definition: 'O certificado/título físico da ação; objeto da perícia de autenticidade.', seeAlso: ['escriturador', 'pericia'"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 17,
+      "surface": "public_content",
+      "term": "agio",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_age', term: 'AGE (Assembleia Geral Extraordinária)', definition: 'Assembleia societária que deliberou a conversão/incorporação; o valor de conversão f"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 20,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_pericia', term: 'Perícia', definition: 'Exame técnico da autenticidade da cártula e da atualização do valor desde a aquisição; produz o laudo pericial"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 21,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_atualizacao_monetaria', term: 'Atualização monetária', definition: 'Correção do valor pago na aquisição até o presente, com base na data e no preço de"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 21,
+      "surface": "public_content",
+      "term": "agio",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_atualizacao_monetaria', term: 'Atualização monetária', definition: 'Correção do valor pago na aquisição até o presente, com base na data e no preço de"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 22,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_agio', term: 'Ágio', definition: 'Diferença (expressiva, no caso BESC) entre o valor atualizado apurado na perícia e o valor originalmente pago/reconh"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 22,
+      "surface": "public_content",
+      "term": "agio",
+      "classification": "MISLEADING",
+      "rule": "glossário transcreve material comercial",
+      "excerpt": "{ id: 'gl_agio', term: 'Ágio', definition: 'Diferença (expressiva, no caso BESC) entre o valor atualizado apurado na perícia e o valor originalmente pago/reconh"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 23,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_homologacao', term: 'Homologação', definition: 'Chancela judicial que dá eficácia a um acordo/quitação/compensação, encerrando a etapa judicial.', see"
+    },
+    {
+      "file": "api/src/reference/glossary.js",
+      "line": 24,
+      "surface": "public_content",
+      "term": "garantia_caucao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ id: 'gl_menor_onerosidade', term: 'Menor onerosidade (CPC art. 805)', definition: 'Princípio de que a execução se faça pelo modo menos gravoso ao devedor; bas"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 11,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "summary: 'Uso exclusivamente judicial, com perícia de autenticidade e atualização monetária.',"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 12,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "body: 'As ações do BESC são utilizadas apenas na esfera JUDICIAL, pois não são mais comercializadas em mercado desde que o BACEN autorizou a incorporação do BES"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 48,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ key: 'compensacao', title: 'Compensação / Quitação', when: 'Quando o credor é (ou sucede) o próprio BESC — típico contra o Banco do Brasil, sub-rogado. Encont"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 50,
+      "surface": "public_content",
+      "term": "dacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ key: 'dacao_pagamento', title: 'Dação em pagamento', when: 'Entregar as ações/direitos ao credor em lugar de dinheiro, com aceite e homologação — usado contra"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 52,
+      "surface": "public_content",
+      "term": "garantia_caucao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ key: 'caucao', title: 'Caução / garantia', when: 'Oferecer as ações como garantia em execução ou recurso; sujeita à aceitação do juízo (direitos ilíquidos pod"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 66,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "// Relacoes de substituicao/conversao fixadas na incorporacao (fonte: peticoes/laudos do material)."
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 68,
+      "surface": "public_content",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "summary: 'Relações de substituição fixadas na incorporação — base para conversão e para a atualização pericial.',"
+    },
+    {
+      "file": "api/src/reference/portal-content.js",
+      "line": 88,
+      "surface": "public_content",
+      "term": "compensacao",
+      "classification": "MISLEADING",
+      "rule": "conteúdo público afirma mecanismo/valor sem base",
+      "excerpt": "{ instance: '3ª instância (STJ/STF)', note: 'Consolidação favorável em temas de compensação, substituição de penhora e quitação.' },"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 2,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "title: \"BESC — Plataforma de Levantamento BESC Tokenização\""
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 9,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "# BESC — Plataforma de Levantamento BESC Tokenização"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 17,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "do Brasil), que serve de fundamento para uma **futura** tokenização. Duas frentes:"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 25,
+      "surface": "docs_agent_context",
+      "term": "pericia_valuation",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "2. **Levantamento por caso** (`/casos`) — cadastrar casos/processos, organizar documentos, **perícia /"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 26,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "atualização monetária**, **mecanismo + credor-alvo**, pendências, risco, checklist de tokenização e"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 33,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "**Plano de evolução p/ MARKETPLACE tokenizado** (proposta, não implementado): [`docs/evolution/00-visao-geral.md`](./docs/evolution/00-visao-geral.md)."
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 33,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "**Plano de evolução p/ MARKETPLACE tokenizado** (proposta, não implementado): [`docs/evolution/00-visao-geral.md`](./docs/evolution/00-visao-geral.md)."
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 60,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "### Evolução MARKETPLACE (Fases 0–4 IMPLEMENTADAS e no ar; plano em `docs/evolution/`)"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 62,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "O portal evoluiu para um **marketplace de ações BESC tokenizadas** (as fases 0–4 do"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 62,
+      "surface": "docs_agent_context",
+      "term": "tokenizacao",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "O portal evoluiu para um **marketplace de ações BESC tokenizadas** (as fases 0–4 do"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 67,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "- **`marketplace/`** — `titles.js` (título↔caso, valuation, parâmetros versionados, **máquina"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 68,
+      "surface": "docs_agent_context",
+      "term": "unit_face_value",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "jurídica de 7 estados** com cascatas), `issuance.js` (emissão, **trava de valor de face**,"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 69,
+      "surface": "docs_agent_context",
+      "term": "treasury",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "substituição), `revenue.js` (**first-transfer fee = saída da treasury**, aluguel + accrual,"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 69,
+      "surface": "docs_agent_context",
+      "term": "aluguel",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "substituição), `revenue.js` (**first-transfer fee = saída da treasury**, aluguel + accrual,"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 72,
+      "surface": "docs_agent_context",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "do auditor, área do investidor), `states.js`."
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 74,
+      "surface": "docs_agent_context",
+      "term": "erc3643_besu",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "`besu.js` (BesuAdapter ethers v6, Fase 3), `contracts/TitleRegistry.sol` (+`.json` compilado)."
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 77,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "DDL do marketplace em `api/sql/0003_marketplace.sql`..`0005_receita_gate.sql`. Frontend: telas"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 78,
+      "surface": "docs_agent_context",
+      "term": "investimento",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "`/gestao/*` (títulos, usuários, papéis, financeiro, aluguéis, gate), `/investidor/*`, `/auditoria/*`,"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 78,
+      "surface": "docs_agent_context",
+      "term": "aluguel",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "`/gestao/*` (títulos, usuários, papéis, financeiro, aluguéis, gate), `/investidor/*`, `/auditoria/*`,"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 79,
+      "surface": "docs_agent_context",
+      "term": "marketplace",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "`/marketplace`. **Modo demonstração** (watermark) até o gate liberar `go_live` — nenhuma operação"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 82,
+      "surface": "docs_agent_context",
+      "term": "erc3643_besu",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "**Ledger**: `LEDGER_ADAPTER=simulated` por padrão (off-chain é a fonte da verdade). O nó Besu"
+    },
+    {
+      "file": "CLAUDE.md",
+      "line": 83,
+      "surface": "docs_agent_context",
+      "term": "erc3643_besu",
+      "classification": "MISLEADING",
+      "rule": "contexto de agente descreve marketplace como vigente",
+      "excerpt": "(`k8s/besu.yaml`) roda como espelho; armar = `scripts/besu-deploy-contract.ps1` + `LEDGER_ADAPTER=besu`"
+    }
+  ]
+}
