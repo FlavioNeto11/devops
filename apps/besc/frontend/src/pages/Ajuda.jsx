@@ -118,7 +118,7 @@ export default function Ajuda() {
 
         <Section id="telas" title="3. As telas do sistema">
           <h3>Painel principal (lista de casos)</h3>
-          <p>Mostra todos os casos com status, percentual de documentação, número de pendências, valor estimado e risco. Clique numa linha para abrir o caso; use a busca e o filtro por status.</p>
+          <p>Mostra todos os casos com status, percentual de documentação, número de pendências, valor alegado e risco. O valor alegado não é reconhecido nem de mercado. Clique numa linha para abrir o caso; use a busca e o filtro por status.</p>
           <h3>Detalhe do caso</h3>
           <p>O coração do sistema, dividido em abas:</p>
           <ul>
@@ -223,8 +223,8 @@ export default function Ajuda() {
               <tr><td>Lastro</td><td>O que dá respaldo real ao ativo/token.</td></tr>
               <tr><td>Caução</td><td>Garantia oferecida num processo para assegurar uma obrigação.</td></tr>
               <tr><td>Tokenização</td><td>Representar um ativo como token digital. Fora do escopo (ADR-010); token não cria propriedade.</td></tr>
-              <tr><td>Valor mobiliário</td><td>Título de investimento sujeito à regulação da CVM.</td></tr>
-              <tr><td>FIDC</td><td>Fundo de Investimento em Direitos Creditórios — estrutura comum para recebíveis.</td></tr>
+              <tr><td>Valor mobiliário</td><td>Título ou contrato de investimento coletivo sujeito à regulação da CVM (Lei 6.385/1976, art. 2º). A plataforma não oferta valores mobiliários.</td></tr>
+              <tr><td>FIDC</td><td>Fundo de Investimento em Direitos Creditórios, regulado pela CVM (Resolução CVM 175/2022, Anexo II). Fora do escopo da plataforma (ADR-010).</td></tr>
               <tr><td>KYC</td><td>“Conheça seu cliente” — identificação dos participantes.</td></tr>
               <tr><td>Whitelist</td><td>Lista de participantes autorizados.</td></tr>
             </tbody>

@@ -87,7 +87,7 @@ export default function Dashboard() {
           <table className="data">
             <thead>
               <tr>
-                <th>Titular</th><th>Status</th><th>Documentação</th><th>Pendências</th><th>Valor estimado</th><th>Risco</th><th></th>
+                <th>Titular</th><th>Status</th><th>Documentação</th><th>Pendências</th><th>Valor alegado</th><th>Risco</th><th></th>
               </tr>
             </thead>
             <tbody>

@@ -55,6 +55,8 @@ function surfaceOf(rel, text = '') {
   if (/^frontend\/src\/(App|investor)\.jsx$/.test(r) || /^frontend\/src\/pages\/(Ajuda|Roadmap|Referencia|Glossario|Entrar)\.jsx$/.test(r)) return 'public_ui';
   if (/^frontend\/src\/pages\/(Gestao(Titulos|TituloDetail|Alugueis|Financeiro)|GateRegulatorio|AuditoriaTitulo|Auditoria)\.jsx$/.test(r)) return 'internal_ui_marketplace';
   if (/^frontend\/src\//.test(r)) return 'internal_ui';
+  // content-overlay.js é lógica de classificação/validação (mensagens só para a curadoria), não copy pública
+  if (/^api\/src\/reference\/content-overlay\.js$/.test(r)) return 'api_core';
   if (/^api\/src\/reference\//.test(r)) return 'public_content';
   if (/^api\/src\/(marketplace|ledger)\//.test(r)) return 'marketplace_code';
   if (/^api\/src\/reports\.js$/.test(r)) return 'reports';
@@ -97,7 +99,7 @@ const REGIONS = [
   [/^CLAUDE\.md$/, /^## NON-NEGOTIABLE DOMAIN RULES/, /^## (?!NON-NEGOTIABLE)/, 'SAFE_INFORMATIONAL', 'regra de domínio proibitiva (ADR-010)'],
   [/^CLAUDE\.md$/, /^### Marketplace .*CONGELADO/, /^##/, 'LEGACY_PRODUCT', 'seção que documenta o marketplace congelado'],
 ];
-const STATUTE_CITED = /C[óo]digo Civil|\bCPC\b|\bCTN\b|\bCC art|Lei (n[ºo.] ?)?\d|Decreto \d|arts?\. \d/i;
+const STATUTE_CITED = /C[óo]digo Civil|\bCPC\b|\bCTN\b|\bCC art|Lei (n[ºo.] ?)?\d|Decreto \d|arts?\. \d|Resolu[çc][ãa]o CVM \d/i;
 
 function classify(surface, term, line, rel, region) {
   if (/\.(js|jsx|mjs|sql)$/.test(rel) && COMMENT.test(line)) return ['SAFE_INFORMATIONAL', 'comentário de código (não servido)'];
@@ -112,6 +114,8 @@ function classify(surface, term, line, rel, region) {
       if (['compensacao', 'garantia_caucao', 'dacao', 'liquidez_garantida', 'pericia_valuation', 'agio', 'divida_publica', 'equiparacao_dinheiro'].includes(term)) return ['MISLEADING', 'conteúdo público afirma mecanismo/valor sem base'];
       return ['SAFE_INFORMATIONAL', 'conteúdo público neutro'];
     case 'public_ui':
+      // definição educacional que cita a norma de base não é afirmação comercial (mesma regra de public_content)
+      if (STATUTE_CITED.test(line)) return ['SAFE_INFORMATIONAL', 'definição com base normativa citada'];
       if (['investimento', 'marketplace', 'tokenizacao', 'aluguel', 'cta_investimento'].includes(term)) return ['MISLEADING', 'UI pública apresenta a tese antiga'];
       return ['SAFE_INFORMATIONAL', 'UI pública neutra'];
     case 'marketplace_code': case 'sql_marketplace': case 'internal_ui_marketplace': case 'infra_besu': case 'frozen_ui':

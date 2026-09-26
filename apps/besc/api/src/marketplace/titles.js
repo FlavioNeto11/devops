@@ -1,3 +1,5 @@
+// DEPRECATED (ADR-010): emissores de 'title.updated' inalcançáveis (rotas 410 + capacidades 403); o
+// appendAudit recusa eventos title.* (LEGACY_EVENT_PREFIXES). Nenhum consumidor lê title.updated.
 // Servico de titulos: cadastro (gate de elegibilidade a partir do case do store JSON),
 // valuation (serie temporal), parametros (versionados, 1 active, fator congelado pos-emissao),
 // listing e maquina de estado juridico com cascatas. docs/evolution/02,03,04.

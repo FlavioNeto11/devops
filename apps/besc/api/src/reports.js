@@ -55,23 +55,27 @@ function blockCase(c) {
   };
 }
 
-// Bloco de pericia / atualizacao monetaria (só aparece com dados; casos legados -> vazio).
+// Bloco do laudo informado pela parte (ADR-010). Registro histórico de ALEGAÇÃO: não é valor reconhecido,
+// não é valor de mercado e não confirma titularidade. A plataforma não calcula ágio nem "valor atualizado".
+export const VALUATION_NOTICE = 'NÃO É VALOR RECONHECIDO · NÃO É VALOR DE MERCADO · NÃO CONFIRMA TITULARIDADE';
 function blockPericia(c) {
   const p = c.pericia || {};
-  if (!p.active) return { heading: 'Perícia / atualização monetária', empty: 'Módulo de perícia não iniciado.' };
-  return {
-    heading: 'Perícia / atualização monetária',
-    kv: [
-      { k: 'Preço de aquisição', v: money(p.acquisition_price) },
-      { k: 'Data-base de aquisição', v: val(p.acquisition_date) },
-      { k: 'Índice de atualização', v: label('monetary_index', p.monetary_index) },
-      { k: 'Valor atualizado (laudo)', v: money(p.updated_value_pericial) },
-      { k: 'Ágio', v: money(p.agio) },
-      { k: 'Perito', v: val(p.perito) },
-      { k: 'Status do laudo', v: label('laudo_status', p.laudo_status) },
-      { k: 'Autenticidade da cártula', v: label('authenticity_status', p.authenticity_status) },
-    ],
-  };
+  const heading = 'Laudo informado pela parte (alegação de fonte)';
+  if (!p.active) return { heading, empty: 'Nenhum laudo informado.' };
+  const kv = [
+    { k: 'Preço de aquisição declarado', v: money(p.acquisition_price) },
+    { k: 'Data-base declarada', v: val(p.acquisition_date) },
+    { k: 'Índice usado no laudo', v: label('monetary_index', p.monetary_index) },
+    { k: 'Estimativa de especialista declarada', v: money(p.updated_value_pericial) },
+  ];
+  // diferencial só quando o próprio laudo o informou, e rotulado como alegação
+  if (p.agio != null && p.agio !== '' && p.perito) kv.push({ k: 'Diferencial alegado pelo laudo (informado)', v: money(p.agio) });
+  kv.push(
+    { k: 'Autor do laudo', v: val(p.perito) },
+    { k: 'Status do laudo', v: label('laudo_status', p.laudo_status) },
+    { k: 'Autenticidade do papel (segundo o laudo)', v: label('authenticity_status', p.authenticity_status) },
+  );
+  return { heading, notice: VALUATION_NOTICE, kv };
 }
 
 // Precedentes de apoio: resolve os ids de jurisprudencia vinculados ao caso.
@@ -120,34 +124,7 @@ function blockLegal(c) {
   return { heading: 'Checklist jurídico', table: { columns: ['Pergunta', 'Resposta', 'Observações'], rows } };
 }
 
-function blockTokenization(c, onlyReg) {
-  const items = (c.tokenization || []).filter((q) => (onlyReg ? q.requiresLegal : !q.requiresLegal));
-  const rows = items.map((q) => [q.label, ENUMS.checklist_answer[q.answer], val(q.value || q.notes)]);
-  return {
-    heading: onlyReg ? 'Checklist regulatório (requer validação)' : 'Checklist de tokenização',
-    table: { columns: ['Item', 'Resposta', 'Definição/observação'], rows },
-  };
-}
 
-function blockCollateral(c) {
-  const col = c.collateral || {};
-  if (!col.active) return { heading: 'Uso como caução/garantia', empty: 'Avaliação de caução não iniciada.' };
-  return {
-    heading: 'Uso como caução/garantia',
-    kv: [
-      { k: 'Tipo de processo de destino', v: label('collateral_process_type', col.process_type) },
-      { k: 'Valor da dívida', v: money(col.debt_value) },
-      { k: 'Valor necessário de garantia', v: money(col.required_guarantee_value) },
-      { k: 'Cobertura', v: coverage(col) },
-      { k: 'Prazo de uso', v: val(col.usage_term) },
-      { k: 'Remuneração pelo uso', v: val(col.remuneration) },
-      { k: 'Risco de recusa judicial', v: label('refusal_risk', col.refusal_risk) },
-      { k: 'Quem assume o risco', v: val(col.risk_bearer) },
-      { k: 'Contrato necessário', v: col.contract_needed ? 'Sim' : 'Não' },
-      { k: 'Documentos p/ apresentar ao juiz', v: val(col.docs_for_judge) },
-    ],
-  };
-}
 
 function coverage(col) {
   const debt = parseFloat(String(col.debt_value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
@@ -193,8 +170,9 @@ function blockStatus(c) {
 
 const DISCLAIMER =
   'Este relatório é um instrumento de organização e levantamento documental. Não constitui aconselhamento jurídico, ' +
-  'parecer, oferta ou distribuição de valores mobiliários, nem recomendação de investimento. Itens marcados como ' +
-  '"requer validação jurídica" dependem de análise por profissional habilitado.';
+  'parecer, oferta ou distribuição de valores mobiliários, nem recomendação de investimento. Valores de laudo ou de ' +
+  'levantamento são alegações de fonte: não são valor reconhecido nem de mercado e não confirmam titularidade (ADR-010). ' +
+  'Documento antigo não é ativo. Itens marcados como "requer validação jurídica" dependem de análise por profissional habilitado.';
 
 export function buildReport(c, type, resolver) {
   const t = REPORT_TYPES[type] ? type : 'full_case_report';
@@ -213,9 +191,8 @@ export function buildReport(c, type, resolver) {
           { k: 'Documentação', v: `${c.derived.docPct}%` },
           { k: 'Pendências', v: String(c.derived.pendencyCount) },
           { k: 'Risco jurídico', v: label('legal_risk', c.derived.risk.level) },
-          { k: 'Ágio (informado)', v: money(c.pericia && c.pericia.agio) },
-          { k: 'Valor estimado', v: money(c.derived.estimatedValue) },
-        ] },
+          { k: 'Valor alegado no levantamento', v: money(c.derived.estimatedValue) },
+        ], notice: VALUATION_NOTICE },
         blockStatus(c),
       ];
       break;
@@ -228,41 +205,6 @@ export function buildReport(c, type, resolver) {
     case 'lawyer_report':
       sections = [blockCase(c), blockProcesses(c), blockPericia(c), blockLegal(c), blockPrecedents(c, resolver), blockPendencies(c), blockRisk(c), blockStatus(c)];
       break;
-    case 'tokenization_partner_report':
-      sections = [
-        { heading: 'Resumo', kv: [
-          { k: 'Titular', v: val(c.holder_name) },
-          { k: 'Tipo de direito', v: label('right_type', c.right_type) },
-          { k: 'Mecanismo', v: label('mechanism', c.mechanism) },
-          { k: 'Liquidez', v: label('liquidity_status', c.liquidity_status) },
-          { k: 'Valor pericial atualizado', v: money(c.pericia && c.pericia.updated_value_pericial) },
-          { k: 'Ágio (informado)', v: money(c.pericia && c.pericia.agio) },
-          { k: 'Valor estimado', v: money(c.derived.estimatedValue) },
-          { k: 'Risco jurídico', v: label('legal_risk', c.derived.risk.level) },
-        ] },
-        blockTokenization(c, false),
-        blockTokenization(c, true),
-        blockMissingDocs(c),
-        blockPendencies(c),
-      ];
-      break;
-    case 'collateral_analysis_report':
-      sections = [blockCase(c), blockCollateral(c), blockPericia(c), blockLegal(c), blockRisk(c), blockPendencies(c)];
-      break;
-    case 'strategy_report':
-      sections = [
-        blockCase(c),
-        { heading: 'Estratégia de liquidação', kv: [
-          { k: 'Mecanismo pretendido', v: label('mechanism', c.mechanism) },
-          { k: 'Credor-alvo', v: c.target_creditor_type ? `${label('target_creditor_type', c.target_creditor_type)}${c.target_creditor_name ? ' — ' + c.target_creditor_name : ''}` : '—' },
-          { k: 'Base legal invocada', v: val(c.legal_basis_notes) },
-        ] },
-        blockPericia(c),
-        blockPrecedents(c, resolver),
-        blockRisk(c),
-        blockStatus(c),
-      ];
-      break;
     case 'full_case_report':
     default:
       sections = [
@@ -272,9 +214,6 @@ export function buildReport(c, type, resolver) {
         blockDocuments(c),
         blockLegal(c),
         blockPrecedents(c, resolver),
-        blockTokenization(c, true),
-        blockTokenization(c, false),
-        blockCollateral(c),
         blockPendencies(c),
         blockRisk(c),
         blockStatus(c),
@@ -291,6 +230,7 @@ function esc(s) {
 
 function renderSection(s) {
   let inner = '';
+  if (s.notice) inner += `<p class="notice">${esc(s.notice)}</p>`;
   if (s.empty) inner += `<p class="empty">${esc(s.empty)}</p>`;
   if (s.kv) inner += '<table class="kv"><tbody>' + s.kv.map((r) => `<tr><th>${esc(r.k)}</th><td>${esc(r.v)}</td></tr>`).join('') + '</tbody></table>';
   if (s.table && s.table.rows.length) {
@@ -324,6 +264,7 @@ export function renderReportHtml(report) {
   table.grid td{padding:6px 8px;border:1px solid var(--line);vertical-align:top}
   ul{margin:6px 0;padding-left:20px} li{margin:3px 0;font-size:13px}
   .empty{color:var(--muted);font-style:italic;font-size:13px}
+  .notice{margin:4px 0 8px;padding:6px 10px;border-left:3px solid #b7791f;background:#fbf7ec;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:#6a5a2f}
   .disclaimer{margin-top:30px;padding:12px 14px;background:#fbf7ec;border:1px solid #e6d9b8;border-radius:6px;font-size:12px;color:#6a5a2f}
   .print-btn{position:fixed;top:16px;right:16px;background:var(--accent);color:#fff;border:0;padding:9px 16px;border-radius:6px;font-size:13px;cursor:pointer}
   @media print{.print-btn{display:none}body{background:#fff}.page{padding:0}}
@@ -332,7 +273,7 @@ export function renderReportHtml(report) {
   <button class="print-btn" onclick="window.print()">Imprimir / PDF</button>
   <div class="page">
     <header>
-      <div class="kicker">Plataforma de Levantamento BESC Tokenização</div>
+      <div class="kicker">Plataforma de Pesquisa e Recuperação de Ativos Legados · levantamento histórico</div>
       <h1>${esc(report.title)}</h1>
       <div class="meta">${esc(report.caseName)} · gerado em ${esc(dt)}</div>
     </header>

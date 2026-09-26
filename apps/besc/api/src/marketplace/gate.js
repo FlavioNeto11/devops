@@ -1,3 +1,5 @@
+// DEPRECATED (ADR-010): emissores de 'title.updated' inalcançáveis (rotas 410 + capacidades 403); o
+// appendAudit recusa eventos title.* (LEGACY_EVENT_PREFIXES). Nenhum consumidor lê title.updated.
 // Gate regulatorio (Fase 4 — docs/evolution/10 + ADR-007). Os 7 itens requiresLegal
 // viram bloqueantes formais; go_live_enabled e DERIVADO (nunca coluna editavel):
 // todos os itens em {satisfied, not_applicable} E o ultimo ato = 'granted'.

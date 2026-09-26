@@ -40,7 +40,19 @@ export const EVENT_TYPES = new Set([
   'recovery.event.corrected',
 ]);
 
+// ADR-010: famílias de evento da tese antiga. Continuam na taxonomia só para LER a trilha histórica;
+// EMITIR qualquer uma delas é recusado. `title` nunca representa Claim, RecognizedRight nem
+// RegisteredAsset: o domínio de recuperação usa exclusivamente `recovery.*`.
+export const LEGACY_EVENT_PREFIXES = Object.freeze(['title.', 'token.', 'market.', 'rental.']);
+export function isLegacyEventType(eventType) {
+  return LEGACY_EVENT_PREFIXES.some((p) => String(eventType).startsWith(p));
+}
+export class LegacyEventRefused extends Error {
+  constructor(eventType) { super(`[audit] evento legado recusado (ADR-010): ${eventType}`); this.code = 'LEGACY_EVENT_REFUSED'; }
+}
+
 export async function appendAudit({ actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId, payload = {}, occurredAt = null }) {
+  if (isLegacyEventType(eventType)) throw new LegacyEventRefused(eventType);
   if (!EVENT_TYPES.has(eventType)) {
     console.error(`[audit] event_type fora da taxonomia: ${eventType}`);
     return null;
@@ -104,6 +116,7 @@ export async function appendAuditTx(client, {
   actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId,
   payload = {}, source, reason = null, evidenceRef = null, correctsEventUid = null, occurredAt = null,
 }) {
+  if (isLegacyEventType(eventType)) throw new LegacyEventRefused(eventType);
   if (!EVENT_TYPES.has(eventType)) throw new Error(`[audit] event_type fora da taxonomia: ${eventType}`);
   if (!source) throw new Error('[audit] v2 exige source');
   const { rows } = await client.query(
