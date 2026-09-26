@@ -23,7 +23,7 @@ BEGIN
   -- papel é do cluster: bancos migrando em paralelo no mesmo servidor não podem colidir
   BEGIN
     CREATE ROLE besc_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-  EXCEPTION WHEN duplicate_object THEN NULL;
+  EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
   END;
   -- o papel de migração precisa poder assumir besc_app (modo SET ROLE) — superusuário já pode.
   IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN

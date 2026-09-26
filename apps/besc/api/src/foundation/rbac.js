@@ -38,10 +38,15 @@ export const PERMISSION_CATALOG = [
   { key: 'gate:manage', deprecated: true, label: 'Gerir o gate regulatório (go-live) (desativado — ADR-010)', category: 'financeiro', sensitive: true },
 ];
 
+// Papéis depreciados: mantidos por compatibilidade (linhas existentes em user_roles), mas o resolver
+// IGNORA qualquer permissão vinda deles — mesmo que alguém a regrave no banco.
+export const DEPRECATED_ROLES = new Set(['investor']);
+
 // Seeds dos papeis minimos (linhas; insert-if-missing — o admin pode recombinar depois).
 const ROLE_SEEDS = [
   { key: 'public', label: 'Público (anônimo)', perms: [['content:read', 'all']] },
-  { key: 'investor', label: 'Investidor', perms: [['content:read', 'all'], ['contracts:read', 'own'], ['contracts:contract', 'own'], ['leases:lease', 'own']] },
+  // DEPRECATED (ADR-010): papel do marketplace congelado, sem nenhuma capacidade.
+  { key: 'investor', label: 'Investidor (DEPRECATED — sem capacidades, ADR-010)', perms: [] },
   { key: 'lawyer', label: 'Advogado (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
   { key: 'judge', label: 'Juiz (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
   {
@@ -129,7 +134,7 @@ export async function resolveUser(userId) {
   const roles = [...new Set(rows.map((r) => r.role_key).filter(Boolean))];
   const perms = new Map();
   for (const r of rows) {
-    if (!r.permission_key) continue;
+    if (!r.permission_key || DEPRECATED_ROLES.has(r.role_key)) continue;
     // escopo mais amplo vence quando o mesmo perm vem de papeis diferentes
     const rank = { own: 0, linked: 1, all: 2 };
     const prev = perms.get(r.permission_key);
