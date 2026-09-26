@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLabel, Loading, Banner, Markdown, FileViewer, OutcomeBadge, formatBytes } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
+import { CurationPanel } from '../curation.jsx';
 
 // ADR-010: a reavaliação editorial vem da API (assessment) e é exibida antes da ementa.
 const FINALITY_LABEL = {
@@ -51,6 +53,7 @@ export default function JurisprudenciaDetail() {
   const [error, setError] = useState(null);
   const [related, setRelated] = useState([]);
   const label = useLabel();
+  const { hasPerm } = useAuth();
 
   useEffect(() => {
     setIt(null); setError(null);
@@ -107,6 +110,8 @@ export default function JurisprudenciaDetail() {
             ) : (
               <Banner kind="warn">O PDF desta decisão ainda não foi carregado no portal.</Banner>
             )}
+
+            {hasPerm('content:write') && <CurationPanel item={it} kind="jurisprudence" onSaved={() => api.jurisprudenceGet(id).then(setIt)} />}
 
             <div className="help-callout" style={{ marginTop: 16 }}>
               <div className="hc-icon" aria-hidden="true">⚖️</div>

@@ -114,6 +114,7 @@ export default function JurisprudenciaList() {
         {it.assessment && it.assessment.provisional && <span className="badge b-amber">provisória</span>}
         {it.assessment && it.assessment.isDecision === false && <span className="badge b-grey">não é decisão</span>}
         {it.assessment && it.assessment.finality === 'REVERSED_ON_APPEAL' && <span className="badge b-red">superada</span>}
+        {it.publication !== 'PUBLIC_SAFE' && <span className="badge b-amber">restrito à curadoria</span>}
       </div>
       {it.summary && <div className="rc-summary">{it.summary.slice(0, 220)}{it.summary.length > 220 ? '…' : ''}</div>}
       <div className="rc-meta">

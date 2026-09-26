@@ -78,7 +78,7 @@ export default function PortalHome() {
           <h3 style={{ fontSize: 15, marginBottom: 6 }}>Sobre o acervo de jurisprudência</h3>
           <p className="small muted" style={{ lineHeight: 1.6 }}>{jur.caveat}</p>
           <p className="small" style={{ marginTop: 6 }}>
-            {jur.provisional} registros são decisões provisórias ou sobre garantia do juízo; {jur.nonDecision} não são decisões judiciais.
+            {jur.provisional} das decisões públicas são provisórias ou tratam só de garantia do juízo. {jur.restricted} registros do acervo ficam restritos à curadoria: petições, laudos, documentos não judiciais e itens sem classificação.
           </p>
         </div></div>
       )}

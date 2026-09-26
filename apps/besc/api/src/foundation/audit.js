@@ -16,7 +16,7 @@ export const EVENT_TYPES = new Set([
   'rbac.role.created', 'rbac.role.deleted', 'rbac.permissions.changed',
   'rbac.role.granted', 'rbac.role.revoked', 'rbac.user.updated',
   'case.created', 'case.updated', 'case.deleted', 'case.status.changed',
-  'content.created', 'content.updated', 'content.deleted',
+  'content.created', 'content.updated', 'content.deleted', 'content.curated',
   'audit.access.viewed',
   // marketplace (Fase 1) — docs/evolution/07 §4
   'title.registered', 'title.updated', 'title.legal_status.changed',

@@ -7,6 +7,7 @@
     "jur_0340d98dee37": {
       "seq": 1,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -32,6 +33,7 @@
     "jur_03d68c6f9940": {
       "seq": 2,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -57,6 +59,7 @@
     "jur_03efc172cc3b": {
       "seq": 3,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PETITION",
       "finality": "NOT_VERIFIED",
@@ -82,6 +85,7 @@
     "jur_04906b129e8d": {
       "seq": 4,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "REPORTED_FINAL_UNVERIFIED",
@@ -107,6 +111,7 @@
     "jur_099ff311587b": {
       "seq": 5,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -132,6 +137,7 @@
     "jur_0cd2cbd1cb8f": {
       "seq": 6,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -157,6 +163,7 @@
     "jur_115912369f39": {
       "seq": 7,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -182,6 +189,7 @@
     "jur_1159bbf988dc": {
       "seq": 8,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -207,6 +215,7 @@
     "jur_15526ff5832e": {
       "seq": 9,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PETITION",
       "finality": "NOT_VERIFIED",
@@ -238,6 +247,7 @@
     "jur_18c328bd5a2b": {
       "seq": 10,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -270,6 +280,7 @@
     "jur_1ca79a637127": {
       "seq": 11,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -295,6 +306,7 @@
     "jur_1f7a2df0a2b0": {
       "seq": 12,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -320,6 +332,7 @@
     "jur_213943d92df3": {
       "seq": 13,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -345,6 +358,7 @@
     "jur_25c8367600c7": {
       "seq": 14,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -370,6 +384,7 @@
     "jur_2b9f3064b864": {
       "seq": 15,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -407,6 +422,7 @@
     "jur_30fb8a57ed4d": {
       "seq": 16,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -432,6 +448,7 @@
     "jur_311ff278bc60": {
       "seq": 17,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -457,6 +474,7 @@
     "jur_312ec6df9b52": {
       "seq": 18,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -482,6 +500,7 @@
     "jur_314a2096d549": {
       "seq": 19,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -507,6 +526,7 @@
     "jur_36cd25cb11bc": {
       "seq": 20,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -539,6 +559,7 @@
     "jur_36eacab60f7f": {
       "seq": 21,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -571,6 +592,7 @@
     "jur_3c10e0052cb6": {
       "seq": 22,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -596,6 +618,7 @@
     "jur_3c816d285fb5": {
       "seq": 23,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -621,6 +644,7 @@
     "jur_3e9d6ac710b6": {
       "seq": 24,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -652,6 +676,7 @@
     "jur_45ef5eefa2ff": {
       "seq": 25,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -677,6 +702,7 @@
     "jur_465c5648eec7": {
       "seq": 26,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -702,6 +728,7 @@
     "jur_48134e8e16cf": {
       "seq": 27,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -734,6 +761,7 @@
     "jur_4be379ddef8f": {
       "seq": 28,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -759,6 +787,7 @@
     "jur_4e07f0cc1cd3": {
       "seq": 29,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -791,6 +820,7 @@
     "jur_50903055f3ab": {
       "seq": 30,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -822,6 +852,7 @@
     "jur_55ff59af4cc6": {
       "seq": 31,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -847,6 +878,7 @@
     "jur_5b0cd6034e66": {
       "seq": 32,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -872,6 +904,7 @@
     "jur_5b6286e02974": {
       "seq": 33,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -897,6 +930,7 @@
     "jur_5eb708c86f3d": {
       "seq": 34,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PRIVATE_APPRAISAL",
       "finality": "NOT_VERIFIED",
@@ -922,6 +956,7 @@
     "jur_5f5ddaf0860c": {
       "seq": 35,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PETITION",
       "finality": "NOT_VERIFIED",
@@ -947,6 +982,7 @@
     "jur_61be3f8de9cf": {
       "seq": 36,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -972,6 +1008,7 @@
     "jur_62f6fd81dc55": {
       "seq": 37,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1003,6 +1040,7 @@
     "jur_63c6f7eb346d": {
       "seq": 38,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "REPORTED_FINAL_UNVERIFIED",
@@ -1028,6 +1066,7 @@
     "jur_66c90598aaae": {
       "seq": 39,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -1053,6 +1092,7 @@
     "jur_67223c049e62": {
       "seq": 40,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1078,6 +1118,7 @@
     "jur_6c6c90ce91aa": {
       "seq": 41,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1103,6 +1144,7 @@
     "jur_74fe75da90b1": {
       "seq": 42,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1128,6 +1170,7 @@
     "jur_7b293a26b847": {
       "seq": 43,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1153,6 +1196,7 @@
     "jur_7db6e8a44215": {
       "seq": 44,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "REVERSED_ON_APPEAL",
@@ -1185,6 +1229,7 @@
     "jur_870ff05b03e7": {
       "seq": 45,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1210,6 +1255,7 @@
     "jur_87ce8e525c4f": {
       "seq": 46,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1235,6 +1281,7 @@
     "jur_8ac61da51b59": {
       "seq": 47,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1260,6 +1307,7 @@
     "jur_90bbb75f3228": {
       "seq": 48,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1285,6 +1333,7 @@
     "jur_90be094ca042": {
       "seq": 49,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1310,6 +1359,7 @@
     "jur_92c0d32653a3": {
       "seq": 50,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1335,6 +1385,7 @@
     "jur_94edc7d8e8b4": {
       "seq": 51,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1360,6 +1411,7 @@
     "jur_95e5237b98ee": {
       "seq": 52,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PETITION",
       "finality": "NOT_VERIFIED",
@@ -1385,6 +1437,7 @@
     "jur_972358fdf094": {
       "seq": 53,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1410,6 +1463,7 @@
     "jur_98417c14a4e1": {
       "seq": 54,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1442,6 +1496,7 @@
     "jur_9910c13d6bf4": {
       "seq": 55,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1467,6 +1522,7 @@
     "jur_99661e54dd58": {
       "seq": 56,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1492,6 +1548,7 @@
     "jur_9eeb91830fcf": {
       "seq": 57,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1517,6 +1574,7 @@
     "jur_a3781aa5cdd2": {
       "seq": 58,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1542,6 +1600,7 @@
     "jur_a5171e7c8129": {
       "seq": 59,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1567,6 +1626,7 @@
     "jur_a612752c73d5": {
       "seq": 60,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PRIVATE_APPRAISAL",
       "finality": "NOT_VERIFIED",
@@ -1592,6 +1652,7 @@
     "jur_a78d5973da22": {
       "seq": 61,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1617,6 +1678,7 @@
     "jur_aaea57f4ec63": {
       "seq": 62,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1642,6 +1704,7 @@
     "jur_ac6301b6d12c": {
       "seq": 63,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1667,6 +1730,7 @@
     "jur_b370a743cfce": {
       "seq": 64,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1692,6 +1756,7 @@
     "jur_b51c0ff9644b": {
       "seq": 65,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1717,6 +1782,7 @@
     "jur_b71fc53fa691": {
       "seq": 66,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1742,6 +1808,7 @@
     "jur_b9e7cfb8030f": {
       "seq": 67,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "REPORTED_FINAL_UNVERIFIED",
@@ -1767,6 +1834,7 @@
     "jur_bacac27534e1": {
       "seq": 68,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1792,6 +1860,7 @@
     "jur_bf4ba6053c33": {
       "seq": 69,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1817,6 +1886,7 @@
     "jur_c01fbc1fef15": {
       "seq": 70,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -1842,6 +1912,7 @@
     "jur_c04d93f90993": {
       "seq": 71,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1867,6 +1938,7 @@
     "jur_c557325b7ff7": {
       "seq": 72,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1892,6 +1964,7 @@
     "jur_c5d2745c09eb": {
       "seq": 73,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -1917,6 +1990,7 @@
     "jur_c6edce80d859": {
       "seq": 74,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -1948,6 +2022,7 @@
     "jur_c8fe90b9cee6": {
       "seq": 75,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "PETITION",
       "finality": "NOT_VERIFIED",
@@ -1973,6 +2048,7 @@
     "jur_c9f92062d4b6": {
       "seq": 76,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -2005,6 +2081,7 @@
     "jur_cb28967a7022": {
       "seq": 77,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2030,6 +2107,7 @@
     "jur_cc2c50b7a648": {
       "seq": 78,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2055,6 +2133,7 @@
     "jur_cc5e30d11967": {
       "seq": 79,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2080,6 +2159,7 @@
     "jur_d2cacc9565a6": {
       "seq": 80,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2105,6 +2185,7 @@
     "jur_d2ffe0e07aae": {
       "seq": 81,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2136,6 +2217,7 @@
     "jur_d3f5c9f2257c": {
       "seq": 82,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2161,6 +2243,7 @@
     "jur_d6d9c154a953": {
       "seq": 83,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2192,6 +2275,7 @@
     "jur_d718a63177e0": {
       "seq": 84,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -2217,6 +2301,7 @@
     "jur_db262c5a39f7": {
       "seq": 85,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -2242,6 +2327,7 @@
     "jur_dfd8219b6db4": {
       "seq": 86,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2267,6 +2353,7 @@
     "jur_dff72937d705": {
       "seq": 87,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2292,6 +2379,7 @@
     "jur_e33e58fc4d48": {
       "seq": 88,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2317,6 +2405,7 @@
     "jur_e407eb68c79e": {
       "seq": 89,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2342,6 +2431,7 @@
     "jur_e7bc62128956": {
       "seq": 90,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2367,6 +2457,7 @@
     "jur_eafa0d92917f": {
       "seq": 91,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "REPORTED_FINAL_UNVERIFIED",
@@ -2398,6 +2489,7 @@
     "jur_f00375332373": {
       "seq": 92,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",
@@ -2423,6 +2515,7 @@
     "jur_f316c4912f82": {
       "seq": 93,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2448,6 +2541,7 @@
     "jur_f3a01499fda9": {
       "seq": 94,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2480,6 +2574,7 @@
     "jur_f558bbe73ef9": {
       "seq": 95,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2511,6 +2606,7 @@
     "jur_f7370c5bdad3": {
       "seq": 96,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2536,6 +2632,7 @@
     "jur_f7c8e40c59d7": {
       "seq": 97,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2561,6 +2658,7 @@
     "jur_fa1d4ed81b4b": {
       "seq": 98,
       "verification": "SOURCE_CLAIM",
+      "publication": "PUBLIC_SAFE",
       "isDecision": true,
       "sourceNature": "NON_FINAL_COURT_DECISION",
       "finality": "NOT_VERIFIED",
@@ -2586,6 +2684,7 @@
     "jur_ffe9d3f8949e": {
       "seq": 99,
       "verification": "SOURCE_CLAIM",
+      "publication": "RESTRICTED",
       "isDecision": false,
       "sourceNature": "UNKNOWN",
       "finality": "NOT_VERIFIED",

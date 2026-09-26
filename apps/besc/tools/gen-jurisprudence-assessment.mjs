@@ -91,6 +91,9 @@ for (const line of rows) {
   out[id] = {
     seq: n,
     verification: 'SOURCE_CLAIM',
+    // UNKNOWN ≠ PUBLIC: só decisão judicial com dispositivo é pública; petição, laudo, documento não
+    // judicial, capa/certidão e OCR sem dispositivo ficam restritos à curadoria.
+    publication: isDecision && sourceNature === 'NON_FINAL_COURT_DECISION' ? 'PUBLIC_SAFE' : 'RESTRICTED',
     isDecision,
     sourceNature,
     finality,

@@ -30,7 +30,8 @@ import {
 } from './domain.js';
 import { CONTENT_ENUMS, CONTENT_CATEGORY_LABELS } from './domain-content.js';
 import { REFERENCE, GLOSSARY } from './reference/index.js';
-import { withJurisAssessment, jurisAssessment, assessedOutcome, withLibraryClassification, libraryVisibleTo, REASSESSMENT_META } from './reference/content-overlay.js';
+import { withJurisAssessment, jurisAssessment, assessedOutcome, withLibraryClassification, libraryVisibleTo, jurisVisibleTo, validateCuration, REASSESSMENT_META } from './reference/content-overlay.js';
+import { appendAudit } from './foundation/audit.js';
 import { runtimeRoleInfo } from './db.js';
 import { buildReport, renderReportHtml, REPORT_TYPES } from './reports.js';
 
@@ -446,8 +447,22 @@ export function createApp() {
       updatedAt: it.updatedAt,
     };
   }
-  // ADR-010: natureza/visibilidade anexadas na leitura; itens de pesquisa só para content:write.
-  const libOut = (it) => withLibraryClassification(it);
+  // ADR-010: natureza/publicação anexadas na leitura; UNKNOWN ≠ PUBLIC (restrito só p/ content:write).
+  const libOut = (it, view = it) => withLibraryClassification(it, view);
+
+  // Curadoria editorial (natureza + publicação), com motivo e trilha. Única forma de publicar.
+  const curate = (getItem, putItem, entityType) => async (req, res) => {
+    const it = getItem(req.params.id);
+    if (!it) return res.status(404).json({ error: 'item não encontrado' });
+    const errors = validateCuration(req.body || {});
+    if (errors.length) return res.status(422).json({ error: errors.join('; '), code: 'CURATION_INVALID', errors });
+    const { sourceNature, publication, reason, authorizationRef = null } = req.body;
+    it.curation = { sourceNature, publication, reason: String(reason).trim(), authorizationRef, curatedBy: req.auth.user.id, curatedAt: now() };
+    it.editedAt = now(); it.updatedAt = now();
+    const saved = await putItem(it);
+    await appendAudit({ actorUserId: req.auth.user.id, actorRole: req.auth.roles[0], ip: req.ip, eventType: 'content.curated', entityType, entityId: it.id, payload: { sourceNature, publication, authorizationRef: !!authorizationRef } });
+    res.json(saved);
+  };
 
   app.get('/library', (req, res) => {
     const q = req.query || {};
@@ -456,7 +471,7 @@ export function createApp() {
     if (q.tag) list = list.filter((it) => (it.tags || []).includes(q.tag));
     if (q.q) list = list.filter((it) => matchesText(it, q.q));
     list.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR'));
-    res.json(list.map((it) => libOut(summaryLibrary(it))));
+    res.json(list.map((it) => libOut(it, summaryLibrary(it))));
   });
 
   app.get('/library/:id', (req, res) => {
@@ -481,6 +496,8 @@ export function createApp() {
     if (!it.slug) it.slug = it.id;
     res.status(201).json(await store.putLibrary(it));
   });
+
+  app.put('/library/:id/curation', authorize('content:write'), curate((id) => store.getLibrary(id), (it) => store.putLibrary(it), 'library_item'));
 
   app.put('/library/:id', authorize('content:write'), async (req, res) => {
     const it = store.getLibrary(req.params.id);
@@ -523,11 +540,11 @@ export function createApp() {
   }
   // ADR-010: a reavaliação editorial (finalidade, provisoriedade, o que NÃO foi decidido) é anexada
   // em toda leitura; o `outcome` original do seed fica intacto ao lado de `outcomeAssessed`.
-  const jurOut = (it) => withJurisAssessment(it);
+  const jurOut = (it, view = it) => withJurisAssessment(it, view);
 
   app.get('/jurisprudence', (req, res) => {
     const q = req.query || {};
-    let list = store.listJurisprudence();
+    let list = store.listJurisprudence().filter((it) => jurisVisibleTo(req, it));
     if (q.tribunal) list = list.filter((it) => it.tribunal === firstOf(q.tribunal));
     if (q.creditorCategory) list = list.filter((it) => it.creditorCategory === firstOf(q.creditorCategory));
     if (q.mechanism) list = list.filter((it) => (it.mechanism || []).includes(firstOf(q.mechanism)));
@@ -539,18 +556,18 @@ export function createApp() {
     if (q.year) list = list.filter((it) => String(it.year) === String(firstOf(q.year)));
     if (q.q) list = list.filter((it) => matchesText(it, q.q));
     list.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.title || '').localeCompare(b.title || '', 'pt-BR'));
-    res.json(list.map((it) => jurOut(summaryJuris(it))));
+    res.json(list.map((it) => jurOut(it, summaryJuris(it))));
   });
 
   app.get('/jurisprudence/:id', (req, res) => {
     const it = store.getJurisprudence(req.params.id);
-    if (!it) return res.status(404).json({ error: 'decisão não encontrada' });
+    if (!it || !jurisVisibleTo(req, it)) return res.status(404).json({ error: 'decisão não encontrada' });
     res.json(jurOut(it));
   });
 
   app.get('/jurisprudence/:id/file', (req, res) => {
     const it = store.getJurisprudence(req.params.id);
-    if (!it || !it.fileRef) return res.status(404).json({ error: 'arquivo não encontrado' });
+    if (!it || !it.fileRef || !jurisVisibleTo(req, it)) return res.status(404).json({ error: 'arquivo não encontrado' });
     const fp = store.jurisFilePath(it.id, it.fileRef.ext);
     res.setHeader('Content-Type', it.fileRef.mime || 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(it.title || it.slug || it.id)}.pdf`);
@@ -564,6 +581,8 @@ export function createApp() {
     if (!Array.isArray(it.mechanism)) it.mechanism = it.mechanism ? [it.mechanism] : [];
     res.status(201).json(await store.putJurisprudence(it));
   });
+
+  app.put('/jurisprudence/:id/curation', authorize('content:write'), curate((id) => store.getJurisprudence(id), (it) => store.putJurisprudence(it), 'jurisprudence_item'));
 
   app.put('/jurisprudence/:id', authorize('content:write'), async (req, res) => {
     const it = store.getJurisprudence(req.params.id);
@@ -611,12 +630,16 @@ export function createApp() {
   }
   app.get('/stats', (req, res) => {
     const lib = store.listLibrary().filter((it) => libraryVisibleTo(req, it));
-    const jur = store.listJurisprudence();
+    // Estatística só sobre o que o chamador pode ver; o restante aparece apenas como contagem.
+    const allJur = store.listJurisprudence();
+    const jur = allJur.filter((it) => jurisVisibleTo(req, it));
+    const allLib = store.listLibrary();
     res.json({
       cases: { total: store.listCases().length },
-      library: { total: lib.length, byKind: tally(lib, (it) => it.kind), withFile: lib.filter((it) => it.fileRef && it.fileRef.stored).length },
+      library: { total: lib.length, restricted: allLib.length - lib.length, byKind: tally(lib, (it) => it.kind), withFile: lib.filter((it) => it.fileRef && it.fileRef.stored).length },
       jurisprudence: {
         total: jur.length,
+        restricted: allJur.length - jur.length,
         byTribunal: tally(jur, (it) => it.tribunal),
         byCreditorCategory: tally(jur, (it) => it.creditorCategory),
         byMechanism: tally(jur, (it) => it.mechanism || []),

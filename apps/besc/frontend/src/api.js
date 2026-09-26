@@ -156,10 +156,13 @@ export const api = {
   glossary: () => req('GET', '/glossary'),
   library: (params) => req('GET', '/library' + qs(params)),
   libraryGet: (id) => req('GET', `/library/${id}`),
+  // curadoria (content:write): natureza + publicação; UNKNOWN nunca é pública (ADR-010)
+  libraryCurate: (id, b) => req('PUT', `/library/${id}/curation`, b),
+  jurisprudenceCurate: (id, b) => req('PUT', `/jurisprudence/${id}/curation`, b),
   libraryFileUrl: (id) => `${BASE}/library/${id}/file${getAccessToken() ? `?access_token=${encodeURIComponent(getAccessToken())}` : ''}`,
   jurisprudence: (params) => req('GET', '/jurisprudence' + qs(params)),
   jurisprudenceGet: (id) => req('GET', `/jurisprudence/${id}`),
-  jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file`,
+  jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file${getAccessToken() ? `?access_token=${encodeURIComponent(getAccessToken())}` : ''}`,
 
   // --- Recuperação de ativos legados (F2, ADR-010): reclamantes, reivindicações, evidência legada.
   //     A API é a autoridade: F3–F5 respondem NOT_AVAILABLE_IN_PHASE e nenhuma confirmação é simulada.

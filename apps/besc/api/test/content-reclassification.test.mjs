@@ -97,7 +97,8 @@ test('biblioteca: todo item do seed classificado; material de terceiros fora do 
     assert.ok(c, `${it.id} sem classificação`);
     assert.notEqual(c.sourceNature, 'FINAL_COURT_DECISION');
   }
-  assert.equal(classification.library.lib_50ddd5611b1c.visibility, 'research');
+  // UNKNOWN ≠ PUBLIC: nenhum item do seed é PUBLIC_SAFE (nenhum tem natureza + autorização confirmadas)
+  for (const it of lib) assert.equal(classification.library[it.id].publication, 'RESTRICTED', it.id);
   assert.equal(classification.library.lib_50ddd5611b1c.sourceNature, 'COMMERCIAL_MATERIAL');
   assert.ok(classification.library.lib_0390897258c1.labelCorrection);
 });
@@ -128,18 +129,22 @@ test('HTTP: /jurisprudence e /stats servem a reavaliação ao lado do outcome or
   const js = stats.json.jurisprudence;
   assert.ok(js.byOutcomeAssessed && js.byFinality && js.caveat);
   assert.equal(js.byFinality.FINAL, undefined);
-  assert.equal(js.nonDecision, 20);
+  // anônimo: as 20 não-decisões (petições, laudos, documentos não judiciais) ficam restritas
+  assert.equal(js.restricted, 20);
+  assert.equal(js.total, 79);
+  assert.equal(js.nonDecision, 0);
 });
 
-test('HTTP: público não vê itens de pesquisa da biblioteca (lista, detalhe, arquivo)', async () => {
+test('HTTP: público não vê conteúdo restrito (biblioteca e não-decisões da jurisprudência)', async () => {
   const list = await get('/library');
-  assert.ok(list.json.every((it) => it.visibility !== 'research' && it.verification === 'SOURCE_CLAIM'));
-  assert.ok(!list.json.some((it) => it.id === 'lib_50ddd5611b1c'));
-  assert.equal((await get('/library/lib_50ddd5611b1c')).status, 404);
-  assert.equal((await get('/library/lib_50ddd5611b1c/file')).status, 404);
-  const pub = await get('/library/lib_0390897258c1');
-  assert.equal(pub.status, 200);
-  assert.ok(pub.json.labelCorrection);
+  assert.deepEqual(list.json, [], 'nenhum item do seed é PUBLIC_SAFE');
+  for (const id of Object.keys(classification.library)) {
+    assert.equal((await get(`/library/${id}`)).status, 404, id);
+    assert.equal((await get(`/library/${id}/file`)).status, 404, id);
+  }
+  const petition = Object.entries(overlay.entries).find(([, e]) => e.sourceNature === 'PETITION')[0];
+  assert.equal((await get(`/jurisprudence/${petition}`)).status, 404, 'petição do acervo não é pública');
+  assert.equal((await get(`/jurisprudence/${petition}/file`)).status, 404);
   const meta = await get('/meta');
   assert.ok(meta.json.reference.thirdPartyClaims.warning);
   assert.ok(!('valueProposition' in meta.json.reference));

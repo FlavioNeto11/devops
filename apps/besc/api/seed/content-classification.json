@@ -1,39 +1,39 @@
 {
-  "version": 1,
+  "version": 2,
   "classifiedAt": "2026-09-26",
   "basis": "repo besc: docs/reconciliation/01-conflict-matrix.md (itens 7 e 8), 03-invalidated-assumptions.md (P-12, library.json RESEARCH_SOURCE); docs/evolution/adr/ADR-009 (material de terceiros sem autorização)",
-  "note": "Camada aplicada na leitura. Nada é apagado: itens 'research' continuam armazenados e visíveis a quem tem content:write. Nenhum item recebe natureza de fato definitivo.",
+  "note": "Camada aplicada na leitura. UNKNOWN ≠ PUBLIC: só PUBLIC_SAFE aparece sem autenticação, e PUBLIC_SAFE nunca vale para natureza UNKNOWN. Itens RESTRICTED continuam armazenados e visíveis a quem tem content:write. Nenhum item recebe natureza de fato definitivo.",
   "library": {
     "lib_0390897258c1": {
       "sourceNature": "UNKNOWN",
-      "visibility": "public",
       "labelCorrection": "O documento é o Contrato 012/98/STN/COAFI de refinanciamento de dívidas entre União e Estado de Santa Catarina (Lei 9.496/1997), não a aquisição societária do BESC. A transferência do controle ocorreu no PROES (contrato de 30/09/1999).",
-      "warning": "Documento aparentemente oficial; autenticidade não confirmada pelo operador. Rótulo original incorreto."
+      "warning": "Documento aparentemente oficial, mas natureza e autenticidade não confirmadas pelo operador: restrito até a curadoria. Rótulo original incorreto.",
+      "publication": "RESTRICTED"
     },
     "lib_3164299ba869": {
       "sourceNature": "UNKNOWN",
-      "visibility": "research",
-      "warning": "Tabela consolidada de autoria não identificada; a nota interna admite que algumas entradas podem ser ilustrativas. Pode ser material de consultoria. Use a reavaliação da jurisprudência."
+      "warning": "Tabela consolidada de autoria não identificada; a nota interna admite que algumas entradas podem ser ilustrativas. Pode ser material de consultoria. Use a reavaliação da jurisprudência.",
+      "publication": "RESTRICTED"
     },
     "lib_50ddd5611b1c": {
       "sourceNature": "COMMERCIAL_MATERIAL",
-      "visibility": "research",
-      "warning": "Material de consultoria de terceiro, sem autorização de publicação (ADR-009). Contém a tese de 'título de dívida pública equiparado a dinheiro', refutada na reconciliação."
+      "warning": "Material de consultoria de terceiro, sem autorização de publicação (ADR-009). Contém a tese de 'título de dívida pública equiparado a dinheiro', refutada na reconciliação.",
+      "publication": "RESTRICTED"
     },
     "lib_9a88b86a132c": {
       "sourceNature": "COMMERCIAL_MATERIAL",
-      "visibility": "research",
-      "warning": "Material comercial que originou a antiga 'proposta de valor' do portal. Suas afirmações estão em thirdPartyClaims, com contraponto."
+      "warning": "Material comercial que originou a antiga 'proposta de valor' do portal. Suas afirmações estão em thirdPartyClaims, com contraponto.",
+      "publication": "RESTRICTED"
     },
     "lib_b3a134a8ef9e": {
       "sourceNature": "PRIVATE_APPRAISAL",
-      "visibility": "research",
-      "warning": "Laudo privado de atualização monetária de uma pessoa identificada. Alegação de parte: não prova titularidade nem fixa valor. Contém dados de terceiro."
+      "warning": "Laudo privado de atualização monetária de uma pessoa identificada. Alegação de parte: não prova titularidade nem fixa valor. Contém dados de terceiro.",
+      "publication": "RESTRICTED"
     },
     "lib_cb3e8c6fe5dc": {
       "sourceNature": "PETITION",
-      "visibility": "research",
-      "warning": "Trecho de petição inicial (alegação de parte), possivelmente incompleto. Contém teses refutadas na reconciliação."
+      "warning": "Trecho de petição inicial (alegação de parte), possivelmente incompleto. Contém teses refutadas na reconciliação.",
+      "publication": "RESTRICTED"
     }
   }
 }
