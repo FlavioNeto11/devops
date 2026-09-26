@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): PARTIALLY_CURRENT** — o princípio fail-closed vale; o gate de go-live foi substituído por capacidades congeladas e gates de governança. Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 10 — Gate regulatório bloqueante
 

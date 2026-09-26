@@ -45,10 +45,12 @@ export const TERMS = [
   ['unit_face_value', /unit_face_value|valor de face|valor unit[áa]rio/i],
 ];
 
-const SAFE = /n[ãa]o (executa |faz |realiza )?tokeniza|sem blockchain|n[ãa]o tokeniza|fora d[eo] escopo|n[ãa]o prova|n[ãa]o atesta|tese de parte|n[ãa]o [ée] reconhecid|n[ãa]o (gera|cria) (valor|direito)|requer valida[çc][ãa]o|n[ãa]o presta aconselhamento|n[ãa]o constitui oferta|ADR-010|DEPRECATED|superad|n[ãa]o [ée] (oferta|aconselhamento)|source_claim|SOURCE_CLAIM|alega[çc][ãa]o de terceiro/i;
+const SAFE = /n[ãa]o (executa |faz |realiza )?tokeniza|sem blockchain|n[ãa]o tokeniza|fora d[eo] escopo|n[ãa]o prova|n[ãa]o atesta|tese de parte|n[ãa]o [ée] reconhecid|n[ãa]o (gera|cria) (valor|direito)|desativad|congelad|CONGELADO|SUPERSEDED|\bopcional\b|\boptional\b|FROZEN_PATHS|n[ãa]o oferece|<strong>N[ãa]o<\/strong>|provis[óo]ri|n[ãa]o trate|n[ãa]o religue|requer valida[çc][ãa]o|n[ãa]o presta aconselhamento|n[ãa]o constitui oferta|ADR-010|DEPRECATED|superad|n[ãa]o [ée] (oferta|aconselhamento)|source_claim|SOURCE_CLAIM|alega[çc][ãa]o de terceiro/i;
 
-function surfaceOf(rel) {
+function surfaceOf(rel, text = '') {
   const r = rel.replace(/\\/g, '/');
+  // Tela preservada com cabeçalho DEPRECATED (ADR-010) e fora do roteamento: produto legado congelado.
+  if (/^frontend\/src\//.test(r) && /DEPRECATED \(ADR-010\)/.test(text.split('\n').slice(0, 5).join('\n'))) return 'frozen_ui';
   if (/^frontend\/src\/pages\/(PortalHome|Marketplace|TituloDossie|InvestidorCarteira)\.jsx$/.test(r)) return 'public_ui_offer';
   if (/^frontend\/src\/(App|investor)\.jsx$/.test(r) || /^frontend\/src\/pages\/(Ajuda|Roadmap|Referencia|Glossario|Entrar)\.jsx$/.test(r)) return 'public_ui';
   if (/^frontend\/src\/pages\/(Gestao(Titulos|TituloDetail|Alugueis|Financeiro)|GateRegulatorio|AuditoriaTitulo|Auditoria)\.jsx$/.test(r)) return 'internal_ui_marketplace';
@@ -89,7 +91,12 @@ const OVERRIDES = [
 //   - dentro do bloco THIRD_PARTY_CLAIMS, a frase é alegação de terceiro preservada, rotulada e com contraponto;
 //   - em conteúdo público, definição que cita a norma de base não afirma mecanismo nem valor.
 const COMMENT = /^\s*(\/\/|\/\*|\*|--)/;
-const REGIONS = [[/portal-content\.js$/, /THIRD_PARTY_CLAIMS — preservado/, 'HISTORICAL_QUOTE', 'alegação de terceiro preservada em THIRD_PARTY_CLAIMS, com aviso e contraponto']];
+// [arquivo, início, fim (ou null = até o fim do arquivo), classificação, regra]
+const REGIONS = [
+  [/portal-content\.js$/, /THIRD_PARTY_CLAIMS — preservado/, null, 'HISTORICAL_QUOTE', 'alegação de terceiro preservada em THIRD_PARTY_CLAIMS, com aviso e contraponto'],
+  [/^CLAUDE\.md$/, /^## NON-NEGOTIABLE DOMAIN RULES/, /^## (?!NON-NEGOTIABLE)/, 'SAFE_INFORMATIONAL', 'regra de domínio proibitiva (ADR-010)'],
+  [/^CLAUDE\.md$/, /^### Marketplace .*CONGELADO/, /^##/, 'LEGACY_PRODUCT', 'seção que documenta o marketplace congelado'],
+];
 const STATUTE_CITED = /C[óo]digo Civil|\bCPC\b|\bCTN\b|\bCC art|Lei (n[ºo.] ?)?\d|Decreto \d|arts?\. \d/i;
 
 function classify(surface, term, line, rel, region) {
@@ -107,7 +114,7 @@ function classify(surface, term, line, rel, region) {
     case 'public_ui':
       if (['investimento', 'marketplace', 'tokenizacao', 'aluguel', 'cta_investimento'].includes(term)) return ['MISLEADING', 'UI pública apresenta a tese antiga'];
       return ['SAFE_INFORMATIONAL', 'UI pública neutra'];
-    case 'marketplace_code': case 'sql_marketplace': case 'internal_ui_marketplace': case 'infra_besu':
+    case 'marketplace_code': case 'sql_marketplace': case 'internal_ui_marketplace': case 'infra_besu': case 'frozen_ui':
       return ['LEGACY_PRODUCT', 'implementação da tese antiga'];
     case 'reports':
       if (['tokenizacao', 'pericia_valuation', 'agio', 'garantia_caucao', 'compensacao'].includes(term)) return ['LEGACY_PRODUCT', 'relatório afirma valor/estratégia'];
@@ -143,12 +150,17 @@ const walk = (p) => {
 const rows = [];
 for (const rel of SCAN.flatMap(walk)) {
   if (SKIP.some((re) => re.test(rel))) continue;
-  const surface = surfaceOf(rel);
-  const lines = fs.readFileSync(path.join(APP, rel), 'utf8').split(/\r?\n/);
-  const regionRule = REGIONS.find(([fre]) => fre.test(rel));
+  const text = fs.readFileSync(path.join(APP, rel), 'utf8');
+  const surface = surfaceOf(rel, text);
+  const lines = text.split(/\r?\n/);
+  const regionRules = REGIONS.filter(([fre]) => fre.test(rel.replace(/\\/g, '/')));
   let region = null;
+  let regionEnd = null;
   lines.forEach((line, i) => {
-    if (regionRule && regionRule[1].test(line)) region = [regionRule[2], regionRule[3]];
+    if (region && regionEnd && regionEnd.test(line)) { region = null; regionEnd = null; }
+    for (const [, start, end, cls, why] of regionRules) {
+      if (start.test(line)) { region = [cls, why]; regionEnd = end; }
+    }
     for (const [term, re] of TERMS) {
       if (!re.test(line)) continue;
       const [cls, why] = classify(surface, term, line, rel, region);

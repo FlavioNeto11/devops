@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): SUPERSEDED** — mantido como registro histórico de exemplos que tratavam perícia como valor de ativo. Ver [ADR-010](../adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # Apêndice D — Exemplos numéricos (normativo)
 

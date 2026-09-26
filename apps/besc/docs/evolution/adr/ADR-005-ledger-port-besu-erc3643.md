@@ -1,6 +1,6 @@
 # ADR-005 — LedgerPort com adaptador simulado primeiro, Besu QBFT na Fase 3, token ERC-3643 lite e aluguel off-chain
 
-Status: **DECISÃO — revisar**
+Status: **substituída por [ADR-010](./ADR-010-asset-infrastructure-pivot.md)** (antes: DECISÃO — revisar)
 
 Contexto: a evolução do BESC para marketplace exige registrar emissão, transferência,
 freeze/substituição e ancoragem de auditoria num ledger — mas o app atual não tem sequer

@@ -1,6 +1,6 @@
 # ADR-007 — Gate regulatório bloqueante em código
 
-Status: DECISÃO — revisar
+Status: **substituída por [ADR-010](./ADR-010-asset-infrastructure-pivot.md)** (antes: DECISÃO — revisar); o princípio fail-closed é mantido
 
 Contexto: o checklist de tokenização instanciado por caso contém 7 itens regulatórios marcados
 `requiresLegal: true` (`api/src/domain.js:188-194` — `is_security`, `offer_registration`,

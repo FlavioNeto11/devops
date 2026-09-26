@@ -1,7 +1,7 @@
 ---
-title: "Índice das ADRs — evolução BESC marketplace"
+title: "Índice das ADRs — BESC (marketplace congelado; recuperação de ativos legados, ADR-010)"
 status: proposta
-updated: 2026-07-10
+updated: 2026-09-26
 language: pt-BR
 ---
 
@@ -43,15 +43,16 @@ Revisão pendente: <o que confirmar e por quem>
 
 | ADR | Título | Resumo (1 linha) | Status |
 |---|---|---|---|
-| [ADR-001](./ADR-001-revogacao-principios-v1.md) | Revogação dos princípios P2–P5 do v1 | Revoga deliberadamente "sem login / sem pagamento / sem blockchain / não tokeniza" do ESCOPO-FUNCIONAL v1; o v1 permanece como especificação do módulo de levantamento. | proposta |
+| [ADR-001](./ADR-001-revogacao-principios-v1.md) | Revogação dos princípios P2–P5 do v1 | Revoga deliberadamente "sem login / sem pagamento / sem blockchain / não tokeniza" do ESCOPO-FUNCIONAL v1; o v1 permanece como especificação do módulo de levantamento. | parcialmente revertida por ADR-010 |
 | [ADR-002](./ADR-002-postgres-e-convivencia-json.md) | Postgres e convivência com o store JSON | `besc-postgres` novo só para identidade/RBAC/marketplace/auditoria; cases + biblioteca/jurisprudência/glossário ficam no store JSON (motor de pendências intocado); migração de cases é fase opcional tardia. | DECISÃO — revisar |
 | [ADR-003](./ADR-003-spa-unica-areas-gated.md) | SPA única com áreas gated | Uma SPA (`/besc`) com áreas por papel em vez de SPAs separadas; catálogo em 2 níveis (lista pública + dossiê gated); dossiê público = projeção allowlist sem PII. | DECISÃO — revisar |
 | [ADR-004](./ADR-004-identidade-realm-besc-oidc-kit.md) | Identidade: realm `besc` + oidc-kit | Realm Keycloak dedicado `besc` + padrão SICAT/oidc-kit (sessão própria do app), auth no app e não ForwardAuth de borda; auto-registro cria só `investor`. | DECISÃO — revisar |
-| [ADR-005](./ADR-005-ledger-port-besu-erc3643.md) | LedgerPort, Besu QBFT e ERC-3643 | Ledger abstraído em 2 estágios pela mesma interface (simulado → Besu permissionado QBFT); token ERC-3643 perfil reduzido, 1 contrato por título; aluguel off-chain com hash ancorado. | DECISÃO — revisar |
-| [ADR-006](./ADR-006-receita.md) | Modelo de receita | Fee de 1ª transferência = % do valor de face do contrato + piso, cobrada só na saída da treasury (secundárias/substituições isentas com registro); aluguel % a.m. sobre base congelada + índice; percentuais placeholder. | DECISÃO — revisar |
-| [ADR-007](./ADR-007-gate-regulatorio-bloqueante.md) | Gate regulatório bloqueante | Os 7 itens `requiresLegal` do checklist viram bloqueantes formais de plataforma com parecer externo; `go_live_enabled=false` recusa operação real em código. | DECISÃO — revisar |
-| [ADR-008](./ADR-008-maquina-estado-juridico.md) | Máquina de estado jurídico | 7 estados do título; só o Gestor transiciona, com razão + evidência; integração futura com tribunal apenas propõe; cascatas de suspensão/substituição/write-off. | DECISÃO — revisar |
+| [ADR-005](./ADR-005-ledger-port-besu-erc3643.md) | LedgerPort, Besu QBFT e ERC-3643 | Ledger abstraído em 2 estágios pela mesma interface (simulado → Besu permissionado QBFT); token ERC-3643 perfil reduzido, 1 contrato por título; aluguel off-chain com hash ancorado. | substituída por ADR-010 |
+| [ADR-006](./ADR-006-receita.md) | Modelo de receita | Fee de 1ª transferência = % do valor de face do contrato + piso, cobrada só na saída da treasury (secundárias/substituições isentas com registro); aluguel % a.m. sobre base congelada + índice; percentuais placeholder. | substituída por ADR-010 |
+| [ADR-007](./ADR-007-gate-regulatorio-bloqueante.md) | Gate regulatório bloqueante | Os 7 itens `requiresLegal` do checklist viram bloqueantes formais de plataforma com parecer externo; `go_live_enabled=false` recusa operação real em código. | substituída por ADR-010 |
+| [ADR-008](./ADR-008-maquina-estado-juridico.md) | Máquina de estado jurídico | 7 estados do título; só o Gestor transiciona, com razão + evidência; integração futura com tribunal apenas propõe; cascatas de suspensão/substituição/write-off. | substituída por ADR-010 |
 | [ADR-009](./ADR-009-curadoria-conteudo.md) | Curadoria de conteúdo | Remoção/ajuste de itens do acervo público atual (docs de terceiros, custos desatualizados, vídeos informais) por risco jurídico — urgente e independente do marketplace; 3 confirmações pendentes do usuário. | DECISÃO — revisar |
+| [ADR-010](./ADR-010-asset-infrastructure-pivot.md) | Pivô para infraestrutura de recuperação de ativos legados | Congela marketplace/tokenização em três camadas; documento antigo vira evidência legada; sem confirmação externa não há ativo registrado; implementa só F1 e F2. | aceita |
 
 ## Relação com os documentos
 
@@ -66,3 +67,4 @@ Revisão pendente: <o que confirmar e por quem>
 | ADR-007 | [10-gate-regulatorio](../10-gate-regulatorio.md), [09-roadmap](../09-roadmap.md) |
 | ADR-008 | [04-maquina-estado-juridico](../04-maquina-estado-juridico.md), [03-elasticidade-tokenizacao](../03-elasticidade-tokenizacao.md) |
 | ADR-009 | [11-curadoria-conteudo](../11-curadoria-conteudo.md) |
+| ADR-010 | [00](../00-visao-geral.md)–[12](../12-blueprint-custos-go-live.md) (cabeçalhos de status), [CLAUDE.md](../../../CLAUDE.md), [docs/pivot](../../pivot/01-product-freeze-audit.md) |

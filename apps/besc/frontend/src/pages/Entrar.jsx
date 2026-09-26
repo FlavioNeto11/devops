@@ -237,7 +237,7 @@ export function Cadastro() {
 // auto-cadastro: o gestor gera o convite (token de uso único) e repassa o link; aqui o convidado
 // define a senha, o papel concedido é ativado e ele entra. Consome POST /auth/invitations/:token/accept
 // (o backend deriva o e-mail do próprio convite). Resolve UX-BESC-001 (fluxo de convite sem tela de resgate). ----
-const INVITE_ROLE_LABELS = { lawyer: 'Advogado (auditoria)', judge: 'Juiz (auditoria)', manager: 'Gestor', investor: 'Investidor' };
+const INVITE_ROLE_LABELS = { lawyer: 'Advogado (auditoria)', judge: 'Juiz (auditoria)', manager: 'Gestor', investor: 'Investidor (desativado)' };
 
 export function AceitarConvite() {
   const { login } = useAuth();

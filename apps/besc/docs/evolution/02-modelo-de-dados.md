@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): SUPERSEDED** — o encadeamento caso → título → token foi substituído por evidência → reivindicação → direito reconhecido → ativo registrado. Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 02 — Modelo de dados
 

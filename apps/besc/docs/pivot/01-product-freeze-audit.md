@@ -94,3 +94,40 @@ Classificações:
 - **Testes**: `api/test/legacy-freeze.http.test.mjs` e `api/test/capabilities.test.mjs`.
 
 O estado "depois" é gerado pelo mesmo script com `--label after` ao fim da rodada.
+
+## Resultado "depois" (ADR-010, commit final da branch)
+
+As regras ganharam contexto no commit de conteúdo: comentário de código não é servido; o bloco `THIRD_PARTY_CLAIMS` é citação rotulada; definição com norma citada não afirma mecanismo; tela com cabeçalho DEPRECATED fora do roteamento é produto legado congelado; negações explícitas ("não oferece", "desativado", "provisória") são avisos; em CLAUDE.md, a seção de regras de domínio e a seção do marketplace congelado têm regra própria. Para a comparação ser justa, o estado "antes" foi **refeito com as mesmas regras** sobre o commit-base `61b8cd6` (`product-freeze-audit.before-v2.*`). O arquivo `before` original, com as regras iniciais, é mantido.
+
+| Classe | Antes (before-v2) | Depois (after) |
+|---|---:|---:|
+| `DANGEROUS` | 66 | 0 |
+| `MISLEADING` | 76 | 2 |
+| `LEGACY_PRODUCT` | 1310 | 1460 |
+| `LEGAL_CLAIM_REQUIRING_CONTEXT` | 36 | 36 |
+| `HISTORICAL_QUOTE` | 766 | 799 |
+| `SAFE_INFORMATIONAL` | 318 | 513 |
+| **Total** | 2572 | 2810 |
+
+Superfícies públicas e de contexto de agente:
+
+| Superfície · classe | Antes | Depois |
+|---|---:|---:|
+| docs_agent_context · LEGACY_PRODUCT | 0 | 7 |
+| docs_agent_context · MISLEADING | 22 | 0 |
+| docs_agent_context · SAFE_INFORMATIONAL | 1 | 7 |
+| frozen_ui · LEGACY_PRODUCT | 0 | 120 |
+| frozen_ui · SAFE_INFORMATIONAL | 0 | 37 |
+| public_content · DANGEROUS | 12 | 0 |
+| public_content · HISTORICAL_QUOTE | 0 | 33 |
+| public_content · MISLEADING | 23 | 0 |
+| public_content · SAFE_INFORMATIONAL | 11 | 42 |
+| public_ui_offer · DANGEROUS | 48 | 0 |
+| public_ui_offer · SAFE_INFORMATIONAL | 2 | 3 |
+| public_ui · DANGEROUS | 6 | 0 |
+| public_ui · MISLEADING | 31 | 2 |
+| public_ui · SAFE_INFORMATIONAL | 27 | 38 |
+
+O total cresce porque o pivô acrescentou código e documentação que citam os termos para proibi-los ou rotulá-los (ADR-010, testes, regras de domínio, avisos). O que importa é a coluna de risco: **nenhuma ocorrência DANGEROUS** e só **2 MISLEADING** residuais, ambas definições neutras no glossário da Ajuda ("Valor mobiliário: título de investimento sujeito à regulação da CVM" e "FIDC: Fundo de Investimento em Direitos Creditórios"), mantidas por serem corretas.
+
+Os testes `api/test/content-reclassification.test.mjs` e `api/test/public-copy.test.mjs` travam o resultado: falham se uma frase perigosa voltar ao conteúdo da plataforma ou às páginas roteadas, ou se uma tela congelada voltar a ser importada.

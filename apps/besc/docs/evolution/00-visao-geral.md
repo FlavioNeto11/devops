@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): SUPERSEDED** — descreve o marketplace de ações BESC tokenizadas; o produto atual é a recuperação de ativos legados. Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 00 — Visão geral
 

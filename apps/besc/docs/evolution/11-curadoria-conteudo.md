@@ -4,6 +4,8 @@ status: proposta
 updated: 2026-07-10
 language: pt-BR
 ---
+> **Status ADR-010 (26/09/2026): PARTIALLY_CURRENT** — curadoria concluída pela classificação da biblioteca (material de terceiros fora do público, não apagado). Ver [ADR-010](./adr/ADR-010-asset-infrastructure-pivot.md). O texto abaixo é preservado para rastreabilidade.
+
 
 # 11 — Curadoria de conteúdo do portal público
 

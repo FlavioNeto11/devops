@@ -1,6 +1,6 @@
 # ADR-001 — Revogação dos princípios P2–P5 do ESCOPO-FUNCIONAL v1
 
-Status: proposta
+Status: **parcialmente revertida por [ADR-010](./ADR-010-asset-infrastructure-pivot.md)** (antes: proposta). P2 (login) segue revogado; P3–P5 (sem pagamento, sem blockchain, não tokeniza) voltam a valer nesta fase.
 
 Contexto: o `ESCOPO-FUNCIONAL.md` v1 (baseline do produto, 1586 linhas) declara em §1.2 quatro
 princípios estruturais que definem o BESC como ferramenta de levantamento: **P2 — Sem login**,
