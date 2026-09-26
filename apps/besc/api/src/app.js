@@ -625,7 +625,7 @@ export function createApp() {
         provisional: jur.filter((it) => jurisAssessment(it.id).provisional === true).length,
         nonDecision: jur.filter((it) => jurisAssessment(it.id).isDecision === false).length,
         reassessment: REASSESSMENT_META,
-        caveat: 'Contagens de catálogo. Nenhuma decisão do acervo teve trânsito em julgado verificado por certidão; a maioria é provisória. Contagem de "favoráveis" não mede força da tese.',
+        caveat: 'Contagens de catálogo. Nenhuma decisão do acervo teve trânsito em julgado verificado por certidão; a maioria das decisões é provisória. Contagem de "favoráveis" não mede força da tese.',
         byInstancia: tally(jur, (it) => it.instancia),
         byYear: tally(jur, (it) => (it.year ? String(it.year) : null)),
         withFile: jur.filter((it) => it.fileRef && it.fileRef.stored).length,

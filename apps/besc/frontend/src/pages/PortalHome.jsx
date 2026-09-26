@@ -1,68 +1,62 @@
+// Home pública — Plataforma de Pesquisa e Recuperação de Ativos Legados (ADR-010, Passo 3/8).
+// Sem linguagem de investimento, retorno, liquidez ou tokenização como produto. Os princípios vêm
+// de /meta.reference.positioning (fonte única, testada no backend).
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useMeta, useLabel, CountBar } from '../ui.jsx';
+import { useMeta } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { useAuth } from '../auth.jsx';
-
-const VC_ICON = { seguranca: 'shield', liquidez: 'liquidity', versatilidade: 'layers', jurisprudencia: 'gavel' };
+import { StagesLegend } from '../recovery-ui.jsx';
 
 export default function PortalHome() {
   const { meta } = useMeta();
-  const label = useLabel();
   const { hasPerm } = useAuth();
-  const canSeeCases = hasPerm('cases:read');
+  const canSeeRecovery = hasPerm('recovery:read');
   const [stats, setStats] = useState(null);
   useEffect(() => { api.stats().then(setStats).catch(() => setStats(null)); }, []);
 
-  const ref = (meta && meta.reference) || {};
-  const vprop = ref.valueProposition || [];
+  const pos = (meta && meta.reference && meta.reference.positioning) || {};
+  const principles = pos.principles || [];
   const jur = (stats && stats.jurisprudence) || {};
-  const byCat = jur.byCreditorCategory || {};
-  const maxCat = Math.max(1, ...Object.values(byCat));
 
   const entries = [
-    { to: '/marketplace', ic: 'coins', title: 'Investir em títulos', desc: 'Títulos lastreados em ações BESC publicados no marketplace, com valores e disponibilidade.' },
-    { to: '/biblioteca', ic: 'library', title: 'Biblioteca institucional', desc: 'Fundamentos, histórico da incorporação, comunicados, custos e vídeos.', count: stats && stats.library.total, unit: 'itens' },
-    { to: '/jurisprudencia', ic: 'gavel', title: 'Jurisprudência', desc: 'Acervo de decisões filtrável por tribunal, credor, mecanismo e resultado.', count: stats && stats.jurisprudence.total, unit: 'decisões' },
-    { to: '/casos', ic: 'cases', title: 'Casos / levantamento', desc: 'Cadastro de titulares e processos, checklists, pendências e relatórios.', count: canSeeCases && stats ? stats.cases.total : null, unit: 'casos', restricted: !canSeeCases },
-    { to: '/glossario', ic: 'glossary', title: 'Glossário', desc: 'Termos do processo BESC explicados de forma objetiva.', count: stats && stats.glossary.total, unit: 'termos' },
-    { to: '/roadmap', ic: 'roadmap', title: 'Roadmap do processo', desc: 'O que já existe e o que ainda falta para o fluxo completo até a tokenização.' },
+    { to: '/referencia', ic: 'scale', title: 'O que aconteceu com as ações BESC', desc: 'Linha do tempo da incorporação, relações de substituição e base legal, com fonte.' },
+    { to: '/jurisprudencia', ic: 'gavel', title: 'Jurisprudência reavaliada', desc: 'Cada decisão com o que efetivamente decidiu, o que não decidiu e se é provisória.', count: stats && jur.total, unit: 'registros' },
+    { to: '/biblioteca', ic: 'library', title: 'Biblioteca', desc: 'Documentos com a natureza da fonte indicada.', count: stats && stats.library.total, unit: 'itens públicos' },
+    { to: '/glossario', ic: 'glossary', title: 'Glossário', desc: 'Termos jurídicos e societários explicados de forma objetiva.', count: stats && stats.glossary.total, unit: 'termos' },
+    { to: '/recuperacao', ic: 'folder', title: 'Reivindicações', desc: 'Evidências, reivindicações e a jornada até a confirmação externa.', restricted: !canSeeRecovery },
+    { to: '/roadmap', ic: 'roadmap', title: 'Roadmap', desc: 'Fases da plataforma e o que ainda não existe.' },
   ];
 
   return (
     <>
       <section className="portal-hero">
-        <div className="kicker">Portal BESC · Base de conhecimento</div>
-        <h1>O que são as ações do BESC e como usá-las</h1>
+        <div className="kicker">{pos.name || 'Plataforma de Pesquisa e Recuperação de Ativos Legados'}</div>
+        <h1>Documento antigo não é ativo. É o começo de uma pergunta.</h1>
         <p>
-          O BESC (Banco do Estado de Santa Catarina) foi incorporado pelo Banco do Brasil. Suas ações
-          deixaram de ser negociadas em mercado e passaram a ser utilizadas, na esfera judicial, para
-          quitar e compensar passivos tributários, bancários e junto a empresas privadas. Este portal
-          reúne a base institucional, a jurisprudência e o levantamento de casos que servirão de
-          fundamento para uma futura tokenização.
+          {pos.tagline || 'Organizamos a evidência de direitos societários antigos e o caminho para confirmá-los na fonte oficial.'}
+          {' '}O primeiro caso estudado é o do BESC, incorporado ao Banco do Brasil em 2008/2009. Aqui se pergunta, antes de
+          qualquer outra coisa: que evidência é esta, que direito ela poderia representar, se esse direito ainda existe,
+          quem o reconhece e onde ele está registrado.
         </p>
         <div className="hero-actions">
-          <Link className="btn primary" to="/marketplace"><Icon name="coins" /> Investir em títulos</Link>
-          <Link className="btn" to="/jurisprudencia"><Icon name="gavel" /> Explorar jurisprudência</Link>
-          <Link className="btn" to="/biblioteca"><Icon name="library" /> Biblioteca</Link>
-          {canSeeCases && <Link className="btn" to="/casos"><Icon name="cases" /> Casos</Link>}
+          <Link className="btn primary" to="/referencia"><Icon name="scale" /> Entender o caso BESC</Link>
+          <Link className="btn" to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência reavaliada</Link>
+          {canSeeRecovery && <Link className="btn" to="/recuperacao"><Icon name="folder" /> Reivindicações</Link>}
         </div>
       </section>
 
-      {vprop.length > 0 && (
-        <>
-          <div className="section-title">Por que utilizar as ações do BESC</div>
-          <div className="grid2" style={{ marginBottom: 24 }}>
-            {vprop.map((v) => (
-              <div key={v.key} className="card"><div className="card-body value-card">
-                <div className="vc-ic"><Icon name={VC_ICON[v.key] || 'info'} size={20} /></div>
-                <h3>{v.title}</h3>
-                <p>{v.summary}</p>
-              </div></div>
-            ))}
-          </div>
-        </>
+      <div className="section-title">Como a plataforma trata um documento antigo</div>
+      <StagesLegend />
+
+      {principles.length > 0 && (
+        <div className="card" style={{ marginBottom: 24 }}><div className="card-body">
+          <h3 style={{ fontSize: 15, marginBottom: 8 }}>Princípios</h3>
+          <ol style={{ lineHeight: 1.7, paddingLeft: 20 }}>
+            {principles.map((p, i) => <li key={i}>{p}</li>)}
+          </ol>
+        </div></div>
       )}
 
       <div className="grid2" style={{ marginBottom: 24 }}>
@@ -80,16 +74,13 @@ export default function PortalHome() {
       </div>
 
       {stats && jur.total > 0 && (
-        <div className="card" style={{ marginBottom: 18 }}>
-          <div className="card-head"><h3>Acervo de jurisprudência por natureza do credor</h3><div className="spacer" style={{ flex: 1 }} /><Link className="btn sm ghost" to="/jurisprudencia">Ver tudo <Icon name="chevronRight" size={13} /></Link></div>
-          <div className="card-body">
-            {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-              <Link key={k} to={`/jurisprudencia?creditorCategory=${k}`} style={{ display: 'block' }}>
-                <CountBar label={label('creditor_category', k)} count={v} max={maxCat} />
-              </Link>
-            ))}
-          </div>
-        </div>
+        <div className="card" style={{ marginBottom: 18 }}><div className="card-body">
+          <h3 style={{ fontSize: 15, marginBottom: 6 }}>Sobre o acervo de jurisprudência</h3>
+          <p className="small muted" style={{ lineHeight: 1.6 }}>{jur.caveat}</p>
+          <p className="small" style={{ marginTop: 6 }}>
+            {jur.provisional} registros são decisões provisórias ou sobre garantia do juízo; {jur.nonDecision} não são decisões judiciais.
+          </p>
+        </div></div>
       )}
     </>
   );

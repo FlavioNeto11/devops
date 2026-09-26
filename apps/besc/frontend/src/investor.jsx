@@ -1,3 +1,4 @@
+// DEPRECATED (ADR-010): modo investidor/marca d'água do marketplace congelado; só usado por telas não roteadas.
 import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { Icon } from './icons.jsx';

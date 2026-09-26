@@ -34,6 +34,13 @@ export default function BibliotecaDetail() {
               {(item.tags || []).map((t) => <span key={t} className="chip">{t}</span>)}
             </div>
 
+            <div className="assess">
+              <strong>Natureza da fonte:</strong> {item.sourceNature || 'UNKNOWN'} · alegação de fonte, não afirmação da plataforma.
+              {item.visibility === 'research' && <> · <strong>Uso interno de pesquisa</strong> (não publicado).</>}
+              {item.warning && <div style={{ marginTop: 4 }}>{item.warning}</div>}
+              {item.labelCorrection && <div style={{ marginTop: 4 }}><strong>Correção do rótulo:</strong> {item.labelCorrection}</div>}
+            </div>
+
             {item.summary && <div className="card" style={{ marginBottom: 16 }}><div className="card-body"><Markdown text={item.summary} /></div></div>}
             {item.body && <div className="card" style={{ marginBottom: 16 }}><div className="card-body"><Markdown text={item.body} /></div></div>}
 

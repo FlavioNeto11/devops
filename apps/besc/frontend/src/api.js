@@ -156,11 +156,44 @@ export const api = {
   glossary: () => req('GET', '/glossary'),
   library: (params) => req('GET', '/library' + qs(params)),
   libraryGet: (id) => req('GET', `/library/${id}`),
-  libraryFileUrl: (id) => `${BASE}/library/${id}/file`,
+  libraryFileUrl: (id) => `${BASE}/library/${id}/file${getAccessToken() ? `?access_token=${encodeURIComponent(getAccessToken())}` : ''}`,
   jurisprudence: (params) => req('GET', '/jurisprudence' + qs(params)),
   jurisprudenceGet: (id) => req('GET', `/jurisprudence/${id}`),
   jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file`,
 
+  // --- Recuperação de ativos legados (F2, ADR-010): reclamantes, reivindicações, evidência legada.
+  //     A API é a autoridade: F3–F5 respondem NOT_AVAILABLE_IN_PHASE e nenhuma confirmação é simulada.
+  recovery: {
+    meta: () => req('GET', '/recovery/meta'),
+    origins: () => req('GET', '/recovery/origins'),
+    claims: () => req('GET', '/recovery/claims'),
+    claim: (id) => req('GET', `/recovery/claims/${id}`),
+    createClaimant: (b) => req('POST', '/recovery/claimants', b),       // {personType, displayName, taxId?, contact?}
+    createClaim: (b) => req('POST', '/recovery/claims', b),             // {claimantId, claimKind, assetOriginId?, claimedSecurityClass?, claimedQuantityWritten?}
+    transitionClaim: (id, toState, reason) => req('POST', `/recovery/claims/${id}/transitions`, { toState, reason }),
+    linkEvidence: (id, evidenceId, role) => req('POST', `/recovery/claims/${id}/evidence`, { evidenceId, role }),
+    recordValuation: (id, b) => req('POST', `/recovery/claims/${id}/valuations`, b),
+    uploadEvidence: async ({ file, claimId, claimantId, notes }) => {
+      const fd = new FormData();
+      if (claimId) fd.append('claimId', claimId);
+      if (claimantId) fd.append('claimantId', claimantId);
+      if (notes) fd.append('notes', notes);
+      fd.append('file', file);
+      const res = await authFetch(`${BASE}/recovery/evidence`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data && data.error) || `Erro ${res.status}`);
+      return data;                                                       // {evidence, duplicateOf, originCandidates}
+    },
+    evidence: (id) => req('GET', `/recovery/evidence/${id}`),
+    evidenceFileUrl: (id) => `${BASE}/recovery/evidence/${id}/file${getAccessToken() ? `?access_token=${encodeURIComponent(getAccessToken())}` : ''}`,
+    classify: (id, b) => req('POST', `/recovery/evidence/${id}/classifications`, b),
+    transitionEvidence: (id, toState, reason) => req('POST', `/recovery/evidence/${id}/transitions`, { toState, reason }),
+    approvals: () => req('GET', '/recovery/approvals'),
+  },
+
+  // --- DEPRECATED (ADR-010): investor, mkt e finance pertencem à tese de marketplace congelada.
+  //     As rotas de escrita respondem 410 LEGACY_THESIS_FROZEN; as telas não estão mais roteadas.
+  //     Mantidos para leitura histórica e para não quebrar páginas preservadas no repositório. ---
   // --- portal do investidor (Fase 2): catalogo publico, dossie, carteira, termos e
   //     contratacao de tokens (docs/evolution/08-portais-perfis) ---
   investor: {

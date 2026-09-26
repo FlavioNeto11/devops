@@ -1,3 +1,6 @@
+// DEPRECATED (ADR-010): tela da tese de marketplace/tokenização, congelada. Não está roteada
+// (App.jsx leva o caminho antigo a /desativado) e as escritas no backend respondem 410.
+// Mantida no repositório para rastreabilidade; não reativar sem novo ADR.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';

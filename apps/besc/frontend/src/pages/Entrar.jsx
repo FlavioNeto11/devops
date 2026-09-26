@@ -11,15 +11,14 @@ function safeNext(raw) {
 }
 
 // Destino pós-login pelo perfil, sem ?next= explícito. Permissões REAIS do catálogo
-// (api/src/foundation/rbac.js): gestor/admin (cases:read) → /casos; investidor
-// (contracts:read) → carteira; advogado/juiz (titles:read + legal_status:read, sem
-// casos) → /auditoria; conta pendente (sem permissões efetivas) → home pública.
+// (api/src/foundation/rbac.js): recovery:read → /recuperacao; cases:read → /casos;
+// demais perfis e conta pendente → home pública (carteira e auditoria de títulos: ADR-010).
 function homeFor(user) {
   const perms = (user && Array.isArray(user.permissions)) ? user.permissions : [];
   const has = (k) => perms.some((p) => p && (p.key === k || p.key === '*'));
+  // ADR-010: carteira de investidor e portal de auditoria de títulos foram desativados.
+  if (has('recovery:read')) return '/recuperacao';
   if (has('cases:read')) return '/casos';
-  if (has('contracts:read')) return '/investidor/carteira';
-  if (has('titles:read') && has('legal_status:read')) return '/auditoria';
   return '/';
 }
 

@@ -4,11 +4,18 @@ import { api } from '../api.js';
 import { useLabel, SkeletonList, Banner, OutcomeBadge, CountBar, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
+// ADR-010: resultado exibido é o reavaliado (outcomeAssessed); o do catálogo segue no detalhe.
+const FINALITY_LABEL = {
+  NOT_VERIFIED: 'Trânsito em julgado não verificado',
+  REPORTED_FINAL_UNVERIFIED: 'Trânsito noticiado, sem certidão verificada',
+  REVERSED_ON_APPEAL: 'Superada no recurso',
+};
+
 const FACETS = [
   { key: 'tribunal', enumName: 'tribunal', title: 'Tribunal', get: (it) => (it.tribunal ? [it.tribunal] : []) },
   { key: 'creditorCategory', enumName: 'creditor_category', title: 'Natureza do credor', get: (it) => (it.creditorCategory ? [it.creditorCategory] : []) },
   { key: 'mechanism', enumName: 'mechanism', title: 'Mecanismo', get: (it) => it.mechanism || [] },
-  { key: 'outcome', enumName: 'outcome', title: 'Resultado', get: (it) => (it.outcome ? [it.outcome] : []) },
+  { key: 'outcome', enumName: 'outcome', title: 'Resultado (reavaliado)', get: (it) => ((it.outcomeAssessed || it.outcome) ? [it.outcomeAssessed || it.outcome] : []) },
   { key: 'instancia', enumName: 'instancia', title: 'Instância', get: (it) => (it.instancia ? [it.instancia] : []) },
 ];
 
@@ -103,7 +110,10 @@ export default function JurisprudenciaList() {
         {it.tribunal && it.tribunal !== 'outro' && <span className="chip chip-blue">{label('tribunal', it.tribunal)}</span>}
         <span className="chip chip-accent">{label('creditor_category', it.creditorCategory)}</span>
         {(it.mechanism || []).map((m) => <span key={m} className="chip">{label('mechanism', m)}</span>)}
-        <OutcomeBadge value={it.outcome} />
+        <OutcomeBadge value={it.outcomeAssessed || it.outcome} />
+        {it.assessment && it.assessment.provisional && <span className="badge b-amber">provisória</span>}
+        {it.assessment && it.assessment.isDecision === false && <span className="badge b-grey">não é decisão</span>}
+        {it.assessment && it.assessment.finality === 'REVERSED_ON_APPEAL' && <span className="badge b-red">superada</span>}
       </div>
       {it.summary && <div className="rc-summary">{it.summary.slice(0, 220)}{it.summary.length > 220 ? '…' : ''}</div>}
       <div className="rc-meta">
@@ -116,7 +126,12 @@ export default function JurisprudenciaList() {
     <>
       <div className="pgtitle between">
         <h1>Jurisprudência</h1>
-        {items && <span className="small muted">{filtered.length} de {items.length} decisões</span>}
+        {items && <span className="small muted">{filtered.length} de {items.length} registros</span>}
+      </div>
+      <div className="assess">
+        Acervo reavaliado em 25/09/2026. Nenhuma decisão tem trânsito em julgado verificado por certidão, a maioria é
+        provisória ou trata só de garantia do juízo, e nenhuma prova que ações BESC existem hoje, têm valor ou liquidez.
+        Um número alto de “favoráveis” não mede a força da tese. {FINALITY_LABEL.NOT_VERIFIED}, salvo indicação.
       </div>
 
       <Banner kind="err">{error}</Banner>
