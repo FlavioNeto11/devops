@@ -7,13 +7,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startDisposablePg } from '../test-support/pg-docker.mjs';
+import { startDisposablePg, usePgEnv } from '../test-support/pg-docker.mjs';
 
 const pgInst = await startDisposablePg();
 const skip = pgInst ? false : 'Docker indisponível — teste HTTP com banco pulado';
 if (pgInst) {
-  process.env.DATABASE_URL = pgInst.url;
-  process.env.SESSION_SECRET = 'e2e-secret';
+  usePgEnv(pgInst);
   process.env.DATA_DIR = mkdtempSync(path.join(tmpdir(), 'besc-e2e-'));
 }
 
@@ -37,7 +36,7 @@ before(async () => {
 after(async () => {
   if (!pgInst) return;
   server?.close();
-  await db?.getPool()?.end().catch(() => {});
+  await db?.closePools();
   pgInst.stop();
 });
 

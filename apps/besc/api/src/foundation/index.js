@@ -2,7 +2,7 @@
 // Fail-soft: sem DATABASE_URL/SESSION_SECRET (ou com o banco fora) o portal publico
 // continua no ar; rotas gated respondem 503 e NUNCA abrem por falha de infra.
 import { config, foundationEnabled } from '../config.js';
-import { waitDbReady, startDbWatch, isDbReady } from '../db.js';
+import { waitDbReady, startDbWatch, isDbReady, prepareRuntimeRole, getAdminPool } from '../db.js';
 import { runMigrations } from '../db/migrate.js';
 import { seedRbac, attachIdentity } from './rbac.js';
 import { ensureBootstrapUser, installAuthRoutes } from './auth.js';
@@ -27,7 +27,17 @@ export async function bootFoundation() {
     const { applied } = await runMigrations();
     if (applied.length) console.log(`[foundation] migrations aplicadas: ${applied.join(', ')}`);
   }
-  await seedRbac();
+  // RBAC é semeado com o papel de migração (o runtime não escreve no catálogo de permissões).
+  const admin = getAdminPool();
+  await seedRbac((text, params) => admin.query(text, params));
+  let runtime;
+  try {
+    runtime = await prepareRuntimeRole();
+  } catch (e) {
+    console.error('[foundation] papel de runtime indisponível — fundação DESLIGADA (fail-closed):', e.message);
+    return false;
+  }
+  console.log(`[foundation] runtime como ${runtime.currentUser} (modo ${runtime.mode})`);
   await ensureBootstrapUser();
   startDbWatch();
   console.log('[foundation] identidade/RBAC/auditoria prontos');

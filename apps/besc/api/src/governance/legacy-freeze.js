@@ -35,6 +35,9 @@ export const FROZEN_ROUTES = Object.freeze([
   ['get', '/marketplace/titles/:id/dossier', 'MARKETPLACE_REAL'],
   ['post', '/marketplace/titles/:id/contract', 'REAL_INVESTMENT'],
   ['post', '/terms/:id/accept', 'REAL_INVESTMENT'],
+  // concessão de auditoria sobre título do marketplace (escreve em title_access_grants, sem grant p/ o runtime)
+  ['post', '/titles/:id/grants', 'MARKETPLACE_REAL'],
+  ['delete', '/titles/:id/grants/:userId', 'MARKETPLACE_REAL'],
   // levantamento: checklist de tokenização e "caução" deixam de ser editáveis
   ['put', '/cases/:id/tokenization/:key', 'TOKENIZATION_REAL'],
   ['put', '/cases/:id/collateral', 'MARKETPLACE_REAL'],

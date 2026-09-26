@@ -58,25 +58,25 @@ const ROLE_SEEDS = [
   { key: 'admin', label: 'Administrador da plataforma', perms: [['*', 'all']] },
 ];
 
-export async function seedRbac() {
+export async function seedRbac(q = query) {
   for (const p of PERMISSION_CATALOG) {
-    await query(
+    await q(
       `INSERT INTO permissions (key, label, category, is_sensitive) VALUES ($1,$2,$3,$4)
        ON CONFLICT (key) DO UPDATE SET label = EXCLUDED.label, category = EXCLUDED.category, is_sensitive = EXCLUDED.is_sensitive`,
       [p.key, p.label, p.category, p.sensitive],
     );
   }
   // wildcard do admin como linha real do catalogo (resolver trata '*')
-  await query(`INSERT INTO permissions (key, label, category, is_sensitive)
+  await q(`INSERT INTO permissions (key, label, category, is_sensitive)
                VALUES ('*', 'Todas as permissões (wildcard)', 'administracao', true)
                ON CONFLICT (key) DO NOTHING`);
   for (const r of ROLE_SEEDS) {
-    await query(
+    await q(
       `INSERT INTO roles (key, label, is_system) VALUES ($1,$2,true) ON CONFLICT (key) DO NOTHING`,
       [r.key, r.label],
     );
     for (const [perm, scope] of r.perms) {
-      await query(
+      await q(
         `INSERT INTO role_permissions (role_id, permission_key, scope)
          SELECT id, $2, $3 FROM roles WHERE key = $1
          ON CONFLICT (role_id, permission_key) DO NOTHING`,

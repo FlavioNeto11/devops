@@ -8,6 +8,9 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || '',
   autoMigrate: (process.env.AUTO_MIGRATE || 'true') !== 'false',
+  // Papel de runtime (sql/0008): senha própria do besc_app; com REQUIRE, o boot recusa rodar sem ela.
+  dbAppPassword: process.env.BESC_DB_APP_PASSWORD || '',
+  requireAppRole: (process.env.BESC_DB_REQUIRE_APP_ROLE || 'false') === 'true',
   bootstrapEmail: process.env.BESC_BOOTSTRAP_EMAIL || '',
   bootstrapPassword: process.env.BESC_BOOTSTRAP_PASSWORD || '',
   // Keycloak realm dedicado `besc` (client publico PKCE, sem secret — padrao SICAT)

@@ -4,30 +4,28 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { startDisposablePg } from '../test-support/pg-docker.mjs';
+import { startDisposablePg, usePgEnv, migrateAndPrepare } from '../test-support/pg-docker.mjs';
 import { TRANSITIONS } from '../src/recovery/domain/model.js';
 import { evaluateAssetGate } from '../src/recovery/domain/external-confirmation.js';
 
 const pgInst = await startDisposablePg();
 const skip = pgInst ? false : 'Docker indisponível — teste de banco pulado';
-if (pgInst) {
-  process.env.DATABASE_URL = pgInst.url;
-  process.env.SESSION_SECRET = 'test-secret';
-}
+if (pgInst) usePgEnv(pgInst);
 let db;
 before(async () => {
   if (!pgInst) return;
-  db = await import('../src/db.js');
-  await (await import('../src/db/migrate.js')).runMigrations();
+  db = await migrateAndPrepare();
 });
 after(async () => {
   if (!pgInst) return;
-  await db.getPool()?.end().catch(() => {});
+  await db.closePools();
   pgInst.stop();
 });
 
 const U1 = randomUUID(); const U2 = randomUUID(); const U3 = randomUUID();
-const q = (sql, params) => db.query(sql, params);
+// SQL direto com o papel de MIGRAÇÃO: prova que os triggers seguram até o dono/superusuário.
+// (O papel de runtime nem tem os privilégios; ver db-privileges.pg.test.mjs.)
+const q = (sql, params) => db.getAdminPool().query(sql, params);
 const one = async (sql, params) => (await q(sql, params)).rows[0];
 const move = (entity, id, from, to, reason = 'transição de teste') => q(
   `INSERT INTO entity_transition (entity_type, entity_id, from_state, to_state, actor_user_id, source, reason) VALUES ($1,$2,$3,$4,$5,'test',$6)`,

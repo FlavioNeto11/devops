@@ -6,20 +6,20 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { startDisposablePg } from '../test-support/pg-docker.mjs';
+import { startDisposablePg, usePgEnv, migrateAndPrepare } from '../test-support/pg-docker.mjs';
 import { createMemoryRecoveryRepo } from '../src/recovery/repo/memory.js';
 import { createRecoveryService, parseBRL } from '../src/recovery/service.js';
 
 const pgInst = await startDisposablePg();
-if (pgInst) { process.env.DATABASE_URL = pgInst.url; process.env.SESSION_SECRET = 'test-secret'; }
+if (pgInst) usePgEnv(pgInst);
 let pgRepo = null;
 if (pgInst) {
-  await (await import('../src/db/migrate.js')).runMigrations();
+  await migrateAndPrepare();
   pgRepo = (await import('../src/recovery/repo/pg.js')).createPgRecoveryRepo();
 }
 after(async () => {
   if (!pgInst) return;
-  await (await import('../src/db.js')).getPool()?.end().catch(() => {});
+  await (await import('../src/db.js')).closePools();
   pgInst.stop();
 });
 

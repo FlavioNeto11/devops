@@ -2,18 +2,14 @@
 // Roda as migrations 0001–0007 num Postgres descartável e prova a trilha v2 no banco.
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startDisposablePg } from '../test-support/pg-docker.mjs';
+import { startDisposablePg, usePgEnv } from '../test-support/pg-docker.mjs';
 
 const pgInst = await startDisposablePg();
 const skip = pgInst ? false : 'Docker indisponível — teste de banco pulado';
-if (pgInst) {
-  process.env.DATABASE_URL = pgInst.url;
-  process.env.SESSION_SECRET = 'test-secret';
-}
+if (pgInst) usePgEnv(pgInst);
 after(async () => {
   if (!pgInst) return;
-  const { getPool } = await import('../src/db.js');
-  await getPool()?.end().catch(() => {});
+  await (await import('../src/db.js')).closePools();
   pgInst.stop();
 });
 
@@ -26,6 +22,7 @@ const load = async () => ({
 test('migrations 0001–0007 aplicam do zero (regressão do schema legado incluída)', { skip }, async () => {
   const { migrate } = await load();
   const { applied } = await migrate.runMigrations();
+  await (await import('../src/db.js')).prepareRuntimeRole();
   for (const f of ['0001_identity_rbac.sql', '0002_audit.sql', '0003_marketplace.sql', '0004_portals.sql', '0005_receita_gate.sql', '0006_audit_v2.sql', '0007_asset_recovery.sql']) {
     assert.ok(applied.includes(f), `${f} deveria ter sido aplicada`);
   }
@@ -46,9 +43,15 @@ test('cadeia v1 + v2 contínua e verificável no banco', { skip }, async () => {
 
 test('teste 10: histórico não pode ser apagado nem editado (UPDATE, DELETE, TRUNCATE)', { skip }, async () => {
   const { db } = await load();
-  await assert.rejects(() => db.query(`UPDATE audit_event SET reason = 'x' WHERE id = 1`), /append-only|imutável/);
-  await assert.rejects(() => db.query(`DELETE FROM audit_event WHERE id = 1`), /append-only|imutável/);
-  await assert.rejects(() => db.query(`TRUNCATE audit_event CASCADE`), /append-only|imutável/);
+  // camada 1 — privilégio: o papel de runtime não tem UPDATE/DELETE/TRUNCATE
+  await assert.rejects(() => db.query(`UPDATE audit_event SET reason = 'x' WHERE id = 1`), /permission denied/);
+  await assert.rejects(() => db.query(`DELETE FROM audit_event WHERE id = 1`), /permission denied/);
+  await assert.rejects(() => db.query(`TRUNCATE audit_event CASCADE`), /permission denied/);
+  // camada 2 — trigger: nem o papel de migração (dono/superusuário) apaga história
+  const admin = db.getAdminPool();
+  await assert.rejects(() => admin.query(`UPDATE audit_event SET reason = 'x' WHERE id = 1`), /append-only|imutável/);
+  await assert.rejects(() => admin.query(`DELETE FROM audit_event WHERE id = 1`), /append-only|imutável/);
+  await assert.rejects(() => admin.query(`TRUNCATE audit_event CASCADE`), /append-only|imutável/);
   const { rows } = await db.query('SELECT count(*)::int AS n FROM audit_event');
   assert.equal(rows[0].n, 3);
 });
@@ -80,9 +83,12 @@ test('teste 11: correção gera evento NOVO que aponta o original; o original fi
 test('adulteração (com trigger desligado por superusuário) é detectada pelo verificador', { skip }, async () => {
   const { db, audit } = await load();
   const target = (await db.query(`SELECT id FROM audit_event WHERE schema_version = 2 ORDER BY id LIMIT 1`)).rows[0].id;
-  await db.query('ALTER TABLE audit_event DISABLE TRIGGER audit_event_immutable');
-  await db.query(`UPDATE audit_event SET reason = NULL WHERE id = $1`, [target]);
-  await db.query('ALTER TABLE audit_event ENABLE TRIGGER audit_event_immutable');
+  // adulteração só é possível com o papel de migração (o runtime nem desabilita trigger)
+  await assert.rejects(() => db.query('ALTER TABLE audit_event DISABLE TRIGGER audit_event_immutable'), /must be owner|permission denied/);
+  const admin = db.getAdminPool();
+  await admin.query('ALTER TABLE audit_event DISABLE TRIGGER audit_event_immutable');
+  await admin.query(`UPDATE audit_event SET reason = NULL WHERE id = $1`, [target]);
+  await admin.query('ALTER TABLE audit_event ENABLE TRIGGER audit_event_immutable');
   const v = await audit.verifyAuditChain(db.query);
   assert.equal(v.ok, false);
   assert.equal(v.firstBrokenId, Number(target));

@@ -37,6 +37,9 @@ spec:
             - { name: KEYCLOAK_USERINFO_URL, value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/besc/protocol/openid-connect/userinfo" }
             - { name: KEYCLOAK_CLIENT_ID, value: besc-spa }
             - { name: AUTO_MIGRATE, value: "true" }
+            # ADR-010: runtime so com o papel besc_app de credencial propria (BESC_DB_APP_PASSWORD no
+            # SealedSecret besc-db). Sem ela, a fundacao nao liga (fail-closed): rotas gated = 503.
+            - { name: BESC_DB_REQUIRE_APP_ROLE, value: "true" }
             # ADR-010: nenhuma variavel LEDGER_*/BESU_* — o boot nao depende de ledger nem de no blockchain.
           resources:
             requests: { cpu: 50m, memory: 128Mi }

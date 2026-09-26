@@ -31,6 +31,7 @@ import {
 import { CONTENT_ENUMS, CONTENT_CATEGORY_LABELS } from './domain-content.js';
 import { REFERENCE, GLOSSARY } from './reference/index.js';
 import { withJurisAssessment, jurisAssessment, assessedOutcome, withLibraryClassification, libraryVisibleTo, REASSESSMENT_META } from './reference/content-overlay.js';
+import { runtimeRoleInfo } from './db.js';
 import { buildReport, renderReportHtml, REPORT_TYPES } from './reports.js';
 
 export function createApp() {
@@ -147,7 +148,7 @@ export function createApp() {
   }
 
   // --- health & meta ---
-  app.get('/health', (req, res) => res.json({ ok: true, service: 'besc-api', ...store.counts() }));
+  app.get('/health', (req, res) => res.json({ ok: true, service: 'besc-api', ...store.counts(), dbRuntime: runtimeRoleInfo() }));
 
   app.get('/meta', (req, res) => {
     res.json({
