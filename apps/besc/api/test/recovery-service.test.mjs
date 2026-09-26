@@ -156,7 +156,7 @@ for (const [label, makeRepo] of REPOS) {
     }
     // caso de demonstração semeado com nomes de partes públicas: não migra (LGPD)
     const demo = await svc.migrateLegacyCase({ id: randomUUID(), holder_name: 'Parte Pública (MT)', notes: '[caso-fonte:MT Valter Rossari]', documents: [] }, opts);
-    assert.equal(demo.status, 'SKIPPED_DEMO_SEED');
+    assert.equal(demo.status, 'SKIPPED_SEEDED_CASE');
   });
 }
 

@@ -6,7 +6,8 @@
   "description": "API da Plataforma BESC — portal de conhecimento + levantamento (store JSON) + fundacao do marketplace (identidade/RBAC/auditoria em Postgres).",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:regression": "node --test test/asset-recovery-regression.test.mjs"
   },
   "dependencies": {
     "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",

@@ -10,6 +10,8 @@ export const config = {
   autoMigrate: (process.env.AUTO_MIGRATE || 'true') !== 'false',
   // Papel de runtime (sql/0008): senha própria do besc_app; com REQUIRE, o boot recusa rodar sem ela.
   dbAppPassword: process.env.BESC_DB_APP_PASSWORD || '',
+  // Casos criados pelo carregador seed-cases (marca "[caso-fonte:"): 'skip' (padrão) | 'migrate'.
+  migrateSeededCases: process.env.BESC_MIGRATE_SEEDED_CASES === 'migrate' ? 'migrate' : 'skip',
   requireAppRole: (process.env.BESC_DB_REQUIRE_APP_ROLE || 'false') === 'true',
   bootstrapEmail: process.env.BESC_BOOTSTRAP_EMAIL || '',
   bootstrapPassword: process.env.BESC_BOOTSTRAP_PASSWORD || '',

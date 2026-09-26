@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import * as store from '../store.js';
 import { authorize } from '../foundation/rbac.js';
 import { isDbReady } from '../db.js';
+import { config } from '../config.js';
 import { createPgRecoveryRepo } from './repo/pg.js';
 import { createRecoveryService, F2_CLAIM_DESTINATIONS, F2_EVIDENCE_DESTINATIONS, F2_VALUATION_TYPES } from './service.js';
 import { ASSET_ORIGINS } from './domain/asset-origins.js';
@@ -32,10 +33,12 @@ export function setRecoveryService(s) { service = s; } // testes
 // preservados + legacy_case_id único); fail-soft por caso; nunca derruba o boot.
 export async function bootRecovery() {
   const svc = getRecoveryService();
-  const report = { MIGRATED: 0, UPDATED: 0, ALREADY_MIGRATED: 0, SKIPPED_DEMO_SEED: 0, FAILED: 0 };
+  const report = { MIGRATED: 0, UPDATED: 0, ALREADY_MIGRATED: 0, SKIPPED_SEEDED_CASE: 0, FAILED: 0 };
+  const seededCases = config.migrateSeededCases;
   for (const c of store.listCases()) {
     try {
       const r = await svc.migrateLegacyCase(c, {
+        seededCases,
         attachmentPath: store.attachmentPath,
         attachmentUri: (caseId, attId, ext) => `uploads/${caseId}/${attId}${ext || ''}`,
       });
@@ -45,7 +48,8 @@ export async function bootRecovery() {
       console.error(`[recovery] migração do caso legado ${c.id} falhou (seguindo):`, e.message);
     }
   }
-  console.log('[recovery] migração LegacyCase -> Claim:', JSON.stringify(report));
+  console.log(`[recovery] migração LegacyCase -> Claim (casos semeados: ${seededCases}):`, JSON.stringify(report));
+  if (report.SKIPPED_SEEDED_CASE) console.warn(`[recovery] ${report.SKIPPED_SEEDED_CASE} caso(s) semeado(s) NÃO migrado(s); decisão do operador: BESC_MIGRATE_SEEDED_CASES=migrate para incluí-los`);
   return report;
 }
 

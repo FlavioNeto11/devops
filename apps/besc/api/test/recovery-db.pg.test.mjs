@@ -49,6 +49,10 @@ async function newConfirmation({ purpose = 'RIGHT_RECOGNITION', subjectType = 'c
 async function claimToValidationRequested(claimId) {
   await move('claim', claimId, 'DRAFT', 'OPEN');
   await move('claim', claimId, 'OPEN', 'UNDER_ANALYSIS');
+  // 0010: sem ClaimValidation registrada, o banco recusa a fase de validação
+  await assert.rejects(() => move('claim', claimId, 'UNDER_ANALYSIS', 'VALIDATION_REQUESTED'), /ClaimValidation registrada/);
+  const pendingConf = await newConfirmation({ subjectId: claimId, confirm: false });
+  await one(`INSERT INTO claim_validation (claim_id, external_confirmation_id) VALUES ($1,$2) RETURNING id`, [claimId, pendingConf]);
   await move('claim', claimId, 'UNDER_ANALYSIS', 'VALIDATION_REQUESTED');
 }
 

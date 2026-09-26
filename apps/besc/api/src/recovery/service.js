@@ -322,9 +322,14 @@ export function createRecoveryService({ repo, hashFile = sha256OfFile }) {
     },
 
     // --- migração LegacyCase -> Claimant/Claim/LegacyEvidence (idempotente, preserva ids) ---
-    async migrateLegacyCase(legacyCase, { attachmentPath, attachmentUri }) {
+    // seededCases: 'skip' (padrão) | 'migrate'. Casos marcados "[caso-fonte:" foram criados pelo
+    // carregador do operador (seed/seed-cases.mjs) a partir de clientes citados no acervo. NÃO é
+    // demonstração embutida: a escolha de migrá-los é do operador (BESC_MIGRATE_SEEDED_CASES).
+    async migrateLegacyCase(legacyCase, { attachmentPath, attachmentUri, seededCases = 'skip' }) {
       const c = legacyCase;
-      if (/\[caso-fonte:/.test(c.notes || '')) return { caseId: c.id, status: 'SKIPPED_DEMO_SEED', note: 'caso de demonstração semeado com nomes de partes de processos públicos (LGPD): não migrado' };
+      if (/\[caso-fonte:/.test(c.notes || '') && seededCases !== 'migrate') {
+        return { caseId: c.id, status: 'SKIPPED_SEEDED_CASE', note: 'caso criado pelo carregador seed-cases (marca [caso-fonte:]); não migrado sem decisão explícita do operador (BESC_MIGRATE_SEEDED_CASES=migrate)' };
+      }
       const system = { userId: null, role: 'system', ip: null };
       return repo.withTx(async (r) => {
         const counts = { evidence: 0, duplicates: 0, filesMissing: 0, valuations: 0, valuationsUnparseable: 0, invalidIds: 0 };
