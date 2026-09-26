@@ -1,7 +1,7 @@
 // Lista de reivindicações (F2, ADR-010). Cada linha mostra o estágio real — hoje, sempre
 // POSSÍVEL DIREITO: confirmação externa (F4) e registro (F5) não existem nesta fase.
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { Banner, Loading, friendly } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
@@ -10,7 +10,6 @@ import { StageBadge, StagesLegend, CLAIM_STATE_LABEL, CLAIM_KIND_LABEL } from '.
 
 export default function RecuperacaoList() {
   const { hasPerm } = useAuth();
-  const navigate = useNavigate();
   const [claims, setClaims] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => { api.recovery.claims().then(setClaims).catch((e) => setErr(friendly(e.message))); }, []);
@@ -37,10 +36,10 @@ export default function RecuperacaoList() {
             <thead><tr><th>Estágio</th><th>Situação</th><th>Tipo</th><th>Origem</th><th>Evidências</th><th>Criada em</th></tr></thead>
             <tbody>
               {claims.map((c) => (
-                <tr key={c.id} className="clickable" onClick={() => navigate(`/recuperacao/${c.id}`)}>
+                <tr key={c.id}>
                   <td><StageBadge stage={c.stage} /></td>
                   <td>{CLAIM_STATE_LABEL[c.state] || c.state}{c.legacyCaseId && <span className="pill" style={{ marginLeft: 6 }}>migrada do levantamento</span>}</td>
-                  <td>{CLAIM_KIND_LABEL[c.claimKind] || c.claimKind}</td>
+                  <td><Link to={`/recuperacao/${c.id}`}>{CLAIM_KIND_LABEL[c.claimKind] || c.claimKind}</Link></td>
                   <td>{c.assetOriginId}</td>
                   <td>{c.evidenceCount}</td>
                   <td className="small muted">{new Date(c.createdAt).toLocaleDateString('pt-BR')}</td>
